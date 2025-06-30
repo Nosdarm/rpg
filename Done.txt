@@ -157,3 +157,33 @@ Key achievements for this task:
 - Resolved Alembic history issue (`down_revision` mismatch).
 - Manually constructed the Alembic migration file `16526fb0e6c7_create_remaining_core_models_task_2_1_.py` after encountering difficulties with offline autogeneration. The manual migration includes creation of all new tables and necessary PostgreSQL ENUM types.
 - Reviewed the defined models and the migration script for completeness and correctness.
+---
+Task 2.1 Finalize Definition of ALL DB Schemas (i18n, Guild ID)
+---
+🧠 2.2 AI Prompt Preparation Module. (1, 4, 7, 13, 14, 30, 36, 37, 38, 39, 40)
+Description: Collects world context for a specific guild and forms a request to the AI for generating new content.
+API: prepare_ai_prompt(guild_id: int, location_id: int, player_id: Optional[int] = None, party_id: Optional[int] = None) -> str. Accepts guild_id.
+Collects context (WS 36, relationships 30/31/32, quests 35/36, lore 4, party level 5) ALL DATA FOR THIS GUILD. Includes a "dictionary" of game terms (stats, skills, entities) FROM THE DB FOR THIS GUILD (14/13/30/36/37) as an API for the AI.
+Request: Generation of entities (NPCs, Quests, Items, Locations, Events) corresponding to the rules and context FOR THIS GUILD. Generate texts in the bot's MAIN LANGUAGE FOR THIS GUILD (1) AND in ENGLISH, in _i18n JSONB format.
+Result: An API function `prepare_ai_prompt` is implemented in `src/core/ai_prompt_builder.py`. It gathers context about the guild, location, player, party, nearby entities, active quests, relationships (basic), world state (placeholder), game rules, and entity schemas. It then constructs a detailed text prompt for an AI model, instructing it to generate new game content (NPCs, Quests, Items, Events) in JSON format with i18n support. The module is integrated into the core package. Many parts are initial implementations with placeholders for data from modules/models yet to be fully developed.
+
+Key achievements for this task:
+- Created `src/core/ai_prompt_builder.py`.
+- Implemented `prepare_ai_prompt(session, guild_id, location_id, player_id, party_id)` with `@transactional`.
+- Implemented helper functions to fetch context:
+    - `_get_guild_main_language`
+    - `_get_location_context` (name, desc, type, neighbors, etc.)
+    - `_get_player_context` (name, level, status)
+    - `_get_party_context` (name, members, avg level)
+    - `_get_nearby_entities_context` (NPCs in location)
+    - `_get_quests_context` (player's active quests)
+    - `_get_relationships_context` (basic player-NPC relations)
+    - `_get_world_state_context` (placeholder)
+- Implemented helper functions for game terms/schemas:
+    - `_get_game_rules_terms` (from RuleConfig)
+    - `_get_abilities_skills_terms` (placeholder)
+    - `_get_entity_schema_terms` (for NPC, Quest, Item, Event)
+- `prepare_ai_prompt` assembles these parts into a comprehensive textual prompt string.
+- Added logging and basic error handling.
+- Updated `src/core/__init__.py` to include `ai_prompt_builder`.
+---
