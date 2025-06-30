@@ -8,6 +8,7 @@ from .base import Base
 # Это важно для Alembic, чтобы он мог обнаружить модели для создания миграций,
 # а также для функций типа Base.metadata.create_all().
 from .guild import GuildConfig
+from .rule_config import RuleConfig
 # from .player import Player # Пример будущей модели
 # from .location import Location # Пример будущей модели
 # ... и так далее для всех остальных моделей
@@ -16,6 +17,7 @@ from .guild import GuildConfig
 # __all__ = [
 #     "Base",
 #     "GuildConfig",
+#     "RuleConfig",
 #     # "Player",
 #     # "Location",
 # ]
@@ -23,4 +25,4 @@ from .guild import GuildConfig
 # Логгер для информации о загрузке моделей (опционально)
 import logging
 logger = logging.getLogger(__name__)
-logger.info("Пакет моделей инициализирован. Загружены: Base, GuildConfig.")
+logger.info("Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig.")

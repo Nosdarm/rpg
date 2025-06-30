@@ -5,16 +5,7 @@ Decomposed Backend Development Task List (For AI Agent - Autonomous Tasks)
 
 Phase 0: Architecture and Initialization (Foundation MVP)
 
-🔧 0.3 Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware).
-Description: Implement low-level functions for working with the DB that always operate within the context of the specified guild.
-Implement utilities for managing ORM sessions (get_db_session). Implement decorators or context managers for managing ORM TRANSACTIONS (@transactional(guild_id)). These transactions MUST operate ONLY WITH DATA WITHIN THE SPECIFIED guild_id.
-Implement CRUD utilities (get_entity_by_id, create_entity, update_entity, delete_entity) for ALL models. These utilities MUST accept guild_id as the FIRST mandatory parameter and AUTOMATICALLY add the condition WHERE guild_id = :guild_id to queries.
-Implement the load_rules_config(guild_id: int) -> dict utility: Loads all RuleConfig records (0.2) for the specified guild and forms a rules dictionary. Caches this dictionary per-guild in the bot process memory.
-Implement the get_rule(guild_id: int, key: str) -> Any utility: Retrieves a rule parameter FROM THE CACHE for the specified guild by key. Handle errors.
-Implement the update_rule_config(guild_id: int, key: str, value: Any) utility: Updates the RuleConfig in the DB for the specified guild. After successful saving, updates the cache for this guild (load_rules_config).
-Result: A set of utilities for reliable, secure (guild-isolated) DB data access and configurable rules.
-
-
+(Task 0.3 moved to Done.txt)
 
 🌍 Phase 1: Game World (Static & Generated)
 🌍 1.1 Location Model (i18n, Guild-Scoped). (0.2)
