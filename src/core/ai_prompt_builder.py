@@ -205,7 +205,7 @@ async def _get_relationships_context(session: AsyncSession, guild_id: int, lang:
             # Relationship from player to NPC
             rel_p_npc = await relationship_crud.get_relationship(session, guild_id=guild_id,
                                                                 entity1_id=player_id, entity1_type="player",
-                                                                entity2_id npc_id, entity2_type="npc") # Assuming "npc" type string
+                                                                entity2_id=npc_id, entity2_type="npc") # Assuming "npc" type string
             if rel_p_npc:
                 # Need NPC name
                 npc = await generated_npc_crud.get(session, id=npc_id, guild_id=guild_id)
