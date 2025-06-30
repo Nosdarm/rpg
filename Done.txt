@@ -55,3 +55,20 @@ Key achievements for this task:
     - `update_rule_config`: Updates/creates a rule in DB and refreshes the guild's cache.
     - `get_all_rules_for_guild`: Retrieves all rules for a guild from cache.
 - Updated `src/models/__init__.py` and `src/core/__init__.py` to include new modules and models.
+
+---
+
+🌍 1.1 Location Model (i18n, Guild-Scoped). (0.2)
+Description: Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details.
+Implement the Location model (0.2) with fields: id (PK, INTEGER), guild_id (BIGINT, Indexed, FK to GuildConfig), static_id (TEXT, unique within the guild), name_i18n (JSONB - for static or primary generated name), descriptions_i18n (JSONB - for static or primary generated description), type (TEXT enum), coordinates_json (JSONB), neighbor_locations_json (JSONB - list of {location_id: connection_type_i18n}), generated_details_json (JSONB - additional generated descriptive details), ai_metadata_json (JSONB - for AI generation).
+Populate the DB with static data during on_guild_join (0.1). World Lore is also stored in the DB (e.g., in WorldState or a separate table), linked to the guild.
+Utilities get_location(guild_id, location_id), get_static_location_id(guild_id, static_id). A utility to get localized location/lore text (using _i18n fields and fallback languages 0.1).
+Result: Location model defined, static data accessible and isolated.
+
+Key achievements for this task:
+- Defined `Location` model and `LocationType` enum in `src/models/location.py`.
+- Created Alembic migration `0003_create_locations_table.py` for `Location`.
+- Implemented `CRUDLocation` in `src/core/crud/crud_location.py` with specific finders.
+- Implemented `get_location`, `get_location_by_static_id`, and `get_localized_text` utilities in `src/core/locations_utils.py`.
+- Updated `on_guild_join` in `src/bot/events.py` to create `GuildConfig` and default static locations for new guilds.
+- Updated `__init__.py` files in `src/models`, `src/core`, and `src/core/crud` to include new modules/models.

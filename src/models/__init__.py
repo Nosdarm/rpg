@@ -9,8 +9,8 @@ from .base import Base
 # а также для функций типа Base.metadata.create_all().
 from .guild import GuildConfig
 from .rule_config import RuleConfig
+from .location import Location, LocationType # Import Location model and Enum
 # from .player import Player # Пример будущей модели
-# from .location import Location # Пример будущей модели
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -18,11 +18,12 @@ from .rule_config import RuleConfig
 #     "Base",
 #     "GuildConfig",
 #     "RuleConfig",
+#     "Location",
+#     "LocationType",
 #     # "Player",
-#     # "Location",
 # ]
 
 # Логгер для информации о загрузке моделей (опционально)
 import logging
 logger = logging.getLogger(__name__)
-logger.info("Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig.")
+logger.info("Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType.")
