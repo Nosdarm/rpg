@@ -4,17 +4,6 @@ Overall Project Context: This is a scalable backend service for a Discord bot su
 Decomposed Backend Development Task List (For AI Agent - Autonomous Tasks)
 
 Phase 0: Architecture and Initialization (Foundation MVP)
-🔧 0.1 Discord Bot Project Initialization and Basic Guild Integration.
-Description: Set up the Python project structure using the chosen asynchronous framework. Initialize integration with the Discord API, handle basic Discord events (on_ready, on_message, on_guild_join, on_guild_remove). Configure logging. Implement  Implement utility commands (e.g., /ping). Implement the  Implement the 
-Result: Basic working Discord bot, configured for multiple guilds, logging, language system.
-
-
-💾 0.2 DBMS Setup and Database Model Definition with Guild ID.
-Description: Select a scalable DBMS (PostgreSQL/MySQL) and ORM. Define the structure of all data models in the DB. Crucial: All models storing game data specific to a particular guild MUST INCLUDE a guild_id field (BIGINT, Indexed) as part of a composite key or FK to GuildConfig). (Field details are in task descriptions where these models are detailed: Player, Location, WorldState, Party, GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, RuleConfig, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe). Text fields - JSONB (_i18n).
-Implement the GuildConfig model: id (PK, BIGINT - the Discord guild's ID itself), master_channel_id (BIGINT), system_channel_id (BIGINT), notification_channel_id (BIGINT, for moderation/conflict notifications), main_language (TEXT).
-Configure ORM and migrations.
-Result: DB schema is ready for full data isolation by guild and storing all types of game data with multilingual support.
-
 
 🔧 0.3 Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware).
 Description: Implement low-level functions for working with the DB that always operate within the context of the specified guild.
@@ -510,4 +499,3 @@ Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Depends on API 6
 * Description: In the UI, create a section for displaying the list of commands.
 * Load the list of commands via API 67. Display it in a readable format (table, list). Present command descriptions and parameters.
 * Result: A command help section appears in the UI.
-
