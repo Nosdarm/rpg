@@ -125,3 +125,35 @@ Key achievements for this task:
     - Command calls `handle_move_action` and provides feedback to the user.
 - Updated `src/bot/core.py` to load the `MovementCog`.
 - Considered party movement rules for `RuleConfig` (e.g., `party_movement_policy`), with current MVP behavior being 'any_member'.
+
+---
+
+🧠 2.1 Finalize Definition of ALL DB Schemas (i18n, Guild ID). (0.2, 0.3)
+Description: Final structure for all ORM schemas (fields and relationships) for all game entities. Every model storing game state must have a guild_id field. Text fields - JSONB (_i18n).
+Including models: GeneratedLocation (extends Location 4.1?), GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe. All these models MUST INCLUDE guild_id (BIGINT, Indexed) as part of the primary key or a unique index, and as a Foreign Key to GuildConfig (0.2).
+Result: All core game entity models defined in SQLAlchemy, including necessary Enums. An Alembic migration script created to establish these tables in the database.
+
+Key achievements for this task:
+- Analyzed requirements for all listed models, ensuring `guild_id` and i18n JSONB fields.
+- Iteratively defined the following models in `src/models/`:
+    - `GeneratedNpc`
+    - `GeneratedFaction`
+    - `Item`
+    - `InventoryItem` (with `OwnerEntityType` Enum)
+    - `StoryLog` (with `EventType` Enum)
+    - `Relationship` (with `RelationshipEntityType` Enum)
+    - `PlayerNpcMemory`
+    - `Ability`
+    - `Skill`
+    - `StatusEffect` and `ActiveStatusEffect` (reusing `RelationshipEntityType`)
+    - `Questline`, `GeneratedQuest`, `QuestStep`, `PlayerQuestProgress` (with `QuestStatus` Enum)
+    - `MobileGroup`
+    - `CraftingRecipe`
+- Decided to use existing `Location` model fields instead of a new `GeneratedLocation` model.
+- Decided to use `Item.properties_json` instead of a separate `ItemProperty` model.
+- Updated `src/models/enums.py` with all new enumerations.
+- Updated `src/models/__init__.py` to import all new models and enums.
+- Fixed issues in existing model files (`quest.py` for `Index` import).
+- Resolved Alembic history issue (`down_revision` mismatch).
+- Manually constructed the Alembic migration file `16526fb0e6c7_create_remaining_core_models_task_2_1_.py` after encountering difficulties with offline autogeneration. The manual migration includes creation of all new tables and necessary PostgreSQL ENUM types.
+- Reviewed the defined models and the migration script for completeness and correctness.
