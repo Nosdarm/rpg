@@ -23,9 +23,12 @@ from . import rules
 from . import locations_utils
 from . import player_utils
 from . import party_utils
+from . import movement_logic
+from . import game_events
+from . import ai_prompt_builder
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud, database, rules, locations_utils, player_utils, party_utils.")
+logger.info("Core package initialized. Loaded: crud, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -36,4 +39,7 @@ __all__ = [
     "locations_utils",
     "player_utils",
     "party_utils",
+    "movement_logic",
+    "game_events",
+    "ai_prompt_builder",
 ]
