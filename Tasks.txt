@@ -25,17 +25,7 @@ Implement the Party model (0.2). Fields: id (PK, INTEGER), guild_id (BIGINT, Ind
 Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_players_in_location(guild_id, location_id).
 
 
-🌍 1.3 Movement Logic (Player/Party, Guild-Scoped). (4, 5, 0.3, 14)
-Description: Implement the mechanic of moving between locations within one guild.
-API function handle_move_action(guild_id: int, player_id: int, target_location_identifier: str). Accepts guild_id.
-Loads Player (with guild_id). Determines current location and target_location (4.1) CONSIDERING guild_id.
-Checks location connections (static 4.1 static_connections_json and generated Location.neighbor_locations_json 4.1).
-If player is in a party: Checks party movement rules (RuleConfig 13) FOR THIS GUILD, if the player is in a party.
-Within a SINGLE TRANSACTION (0.3), operating ONLY ON DATA WITHIN THIS GUILD: Updates the Player's (and Party's) location. Logs the movement event (19) WITH THIS guild_id.
-After commit: Asynchronously calls on_enter_location(guild_id, entity_id, entity_type, target_location_id) (14).
-MVP: Link to /move. NLU (10/12) will pass guild_id.
-
-
+{Task 1.3 Movement Logic - Moved to Done.txt}
 
 🧠 Phase 2: AI Integration - Generation Core
 🧠 2.1 Finalize Definition of ALL DB Schemas (i18n, Guild ID). (0.2, 0.3)

@@ -171,6 +171,32 @@
     - Создан `src/bot/commands/party_commands.py` с `PartyCog`.
     - Реализованы команды: `/party create <название>`, `/party leave`, `/party disband`.
     - `src/bot/core.py` обновлен для загрузки `party_commands` Cog.
+- **Задача 1.3 Шаг 1: Анализ требований для Movement Logic** (Выполнено)
+    - Проанализированы требования к API `handle_move_action` и команде `/move`.
+    - Учтены зависимости от моделей `Player`, `Party`, `Location`, `RuleConfig`.
+    - Определена необходимость плейсхолдеров для `log_event` (Task 19) и `on_enter_location` (Task 14).
+- **Задача 1.3 Шаг 2: Создана API функция `handle_move_action`** (Выполнено)
+    - Создан файл `src/core/game_events.py` с плейсхолдерами `on_enter_location` и `log_event`.
+    - Создан файл `src/core/movement_logic.py`.
+    - Реализована функция `handle_move_action(guild_id, player_discord_id, target_location_static_id)`:
+        - Загрузка игрока, текущей и целевой локаций.
+        - Проверка связности локаций через `neighbor_locations_json`.
+        - Обработка движения партии (если игрок в партии, вся партия движется).
+        - Обновление БД в транзакции с использованием `@transactional` через вспомогательную функцию `_update_entities_location`.
+        - Асинхронный вызов `on_enter_location` после успешного перемещения.
+        - Возврат пользователю сообщения об успехе/ошибке.
+- **Задача 1.3 Шаг 3: Реализована команда `/move`** (Выполнено)
+    - Создан файл `src/bot/commands/movement_commands.py` с `MovementCog`.
+    - В `MovementCog` реализована команда `/move <target_location_static_id>` как slash command.
+    - Команда извлекает `guild_id`, `player_discord_id` и вызывает `handle_move_action`.
+    - Отправляет пользователю результат выполнения.
+    - `src/bot/core.py` обновлен для загрузки `movement_commands` Cog.
+- **Задача 1.3 Шаг 4: Продуманы правила движения для группы (RuleConfig)** (Выполнено)
+    - Определен ключ `party_movement_policy` для `RuleConfig` (например, значения: `any_member`, `leader_only`).
+    - MVP-реализация неявно использует политику `any_member`.
+    - Решено отложить интеграцию чтения этого правила из `RuleConfig` до более зрелого состояния системы правил или связанных функций (например, лидерства в группе).
+- **Задача 1.3 Шаг 5: Заглушка для `on_enter_location`** (Выполнено)
+    - Функция `on_enter_location` была создана в `src/core/game_events.py` на Шаге 2 данной задачи и соответствует требованиям (логирует вызов).
 
 ## Текущий план
 
