@@ -1,0 +1,32 @@
+🔧 0.1 Discord Bot Project Initialization and Basic Guild Integration.
+Description: Set up the Python project structure using the chosen asynchronous framework. Initialize integration with the Discord API, handle basic Discord events (on_ready, on_message, on_guild_join, on_guild_remove). Configure logging. Implement utility commands (e.g., /ping).
+Result: Basic working Discord bot, configured for multiple guilds, logging, language system (language system part will be addressed in later tasks).
+
+Key achievements for this task:
+- Project structure created (src, tests, config, bot directories).
+- Core files created: main.py, bot/core.py, bot/events.py, bot/commands.py, config/settings.py, requirements.txt, .gitignore.
+- BotCore class implemented with setup_hook for loading cogs.
+- EventCog implemented with on_ready, on_message, on_guild_join, on_guild_remove, on_command_error handlers.
+- CommandCog implemented with a /ping command.
+- Logging configured, level settable via environment variable.
+- Basic .env file structure mentioned in settings.py.
+- requirements.txt includes discord.py and python-dotenv.
+
+---
+
+💾 0.2 DBMS Setup and Database Model Definition with Guild ID.
+Description: Select a scalable DBMS (PostgreSQL/MySQL) and ORM. Define the structure of all data models in the DB. Crucial: All models storing game data specific to a particular guild MUST INCLUDE a guild_id field (BIGINT, Indexed) as part of a composite key or FK to GuildConfig). (Field details are in task descriptions where these models are detailed: Player, Location, WorldState, Party, GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, RuleConfig, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe). Text fields - JSONB (_i18n).
+Implement the GuildConfig model: id (PK, BIGINT - the Discord guild's ID itself), master_channel_id (BIGINT), system_channel_id (BIGINT), notification_channel_id (BIGINT, for moderation/conflict notifications), main_language (TEXT).
+Configure ORM and migrations.
+Result: DB schema is ready for full data isolation by guild and storing all types of game data with multilingual support.
+
+Key achievements for this task:
+- Defined `Base` model and `GuildConfig` model using SQLAlchemy in `src/models/`.
+- Added `SQLAlchemy`, `asyncpg`, `alembic` to `requirements.txt`.
+- Configured database connection settings (`DATABASE_URL`) in `src/config/settings.py`.
+- Created `src/core/database.py` with async engine, session factory, and `init_db` / `get_db_session` functions.
+- Integrated `init_db` into `main.py` for initial table creation.
+- Initialized and configured Alembic for database migrations:
+    - `alembic.ini` and `alembic/env.py` modified for project structure and async operations.
+    - First migration for `GuildConfig` created (manually due to sandbox limitations).
+- Project is now set up for database interaction with PostgreSQL using SQLAlchemy and Alembic.
