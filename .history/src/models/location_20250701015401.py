@@ -2,8 +2,6 @@ import enum
 from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, List, Any
-
 
 from .base import Base
 # from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
