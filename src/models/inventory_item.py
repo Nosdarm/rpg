@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any
 
 from .base import Base
 from .enums import OwnerEntityType # Import the Enum
+from .item import Item # Import the Item model for relationship type hinting
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
