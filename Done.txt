@@ -72,3 +72,28 @@ Key achievements for this task:
 - Implemented `get_location`, `get_location_by_static_id`, and `get_localized_text` utilities in `src/core/locations_utils.py`.
 - Updated `on_guild_join` in `src/bot/events.py` to create `GuildConfig` and default static locations for new guilds.
 - Updated `__init__.py` files in `src/models`, `src/core`, and `src/core/crud` to include new modules/models.
+
+---
+
+🌍 1.2 Player and Party System (ORM, Commands, Guild-Scoped). (0.2, 0.3, 0.1)
+Description: Managing players and parties within a guild.
+Implement the Player model (0.2/7). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), discord_id (BIGINT, Indexed), name (TEXT), current_location_id (INTEGER FK), selected_language (TEXT), xp (INT), level (INT), unspent_xp (INT), gold (INT), current_status (TEXT - enum), collected_actions_json (JSONB), current_party_id (INTEGER FK Nullable). (Composite Unique Index: guild_id, discord_id).
+Implement the Party model (0.2). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), name (TEXT), player_ids_json (JSONB), current_location_id (INTEGER FK), turn_status (TEXT - enum).
+/start command: Get guild_id from Discord command context. Create Player with this guild_id using 0.3 utilities. Assign starting location (via 4). Set default stats, XP, level, 'exploring' status.
+/party create/join/leave/disband commands: Manage Party within the guild context. All Player/Party loading/modification MUST use guild_id (0.3).
+Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_players_in_location(guild_id, location_id).
+Result: Player and Party models are defined, along with basic commands for player initiation and party management. Core utilities for accessing player/party data are available.
+
+Key achievements for this task:
+- Corrected type hint for `get_db_session` in `src/core/database.py`.
+- Defined `PlayerStatus` and `PartyTurnStatus` enums in `src/models/enums.py`.
+- Defined `Player` model in `src/models/player.py` with FKs, unique constraints, and relationships.
+- Defined `Party` model in `src/models/party.py` with FKs, JSON for player IDs, and relationships.
+- Updated `src/models/__init__.py` to include new models and enums.
+- Created Alembic migration `0004_create_players_and_parties_tables.py` for `Player` and `Party` tables, including ENUM types.
+- Implemented `CRUDPlayer` and `CRUDParty` in `src/core/crud/` with specific helper methods.
+- Implemented utility functions in `src/core/player_utils.py` and `src/core/party_utils.py`.
+- Updated `src/core/__init__.py` and `src/core/crud/__init__.py`.
+- Implemented `/start` command in `src/bot/commands.py` for player creation.
+- Implemented `/party create`, `/party leave`, `/party disband` commands in a new `PartyCog` (`src/bot/commands/party_commands.py`).
+- Updated `src/bot/core.py` to load the new `PartyCog`.
