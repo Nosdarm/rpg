@@ -21,9 +21,9 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-from typing import AsyncGenerator # Add this import
+from typing import AsyncIterator # Import AsyncIterator
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]: # Corrected type hint
+async def get_db_session() -> AsyncIterator[AsyncSession]: # Corrected type hint
     """
     Dependency для получения асинхронной сессии базы данных.
     Используется в обработчиках запросов (например, в FastAPI).

@@ -21,9 +21,11 @@ from . import crud
 from . import database
 from . import rules
 from . import locations_utils
+from . import player_utils
+from . import party_utils
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud, database, rules, locations_utils.")
+logger.info("Core package initialized. Loaded: crud, database, rules, locations_utils, player_utils, party_utils.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -32,4 +34,6 @@ __all__ = [
     "database",
     "rules",
     "locations_utils",
+    "player_utils",
+    "party_utils",
 ]

@@ -10,7 +10,9 @@ from .base import Base
 from .guild import GuildConfig
 from .rule_config import RuleConfig
 from .location import Location, LocationType # Import Location model and Enum
-# from .player import Player # Пример будущей модели
+from .enums import PlayerStatus, PartyTurnStatus # Import game specific Enums
+from .player import Player # Import Player model
+from .party import Party # Import Party model
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -20,10 +22,16 @@ from .location import Location, LocationType # Import Location model and Enum
 #     "RuleConfig",
 #     "Location",
 #     "LocationType",
-#     # "Player",
+#     "PlayerStatus",
+#     "PartyTurnStatus",
+#     "Player",
+#     "Party",
 # ]
 
 # Логгер для информации о загрузке моделей (опционально)
 import logging
 logger = logging.getLogger(__name__)
-logger.info("Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType.")
+logger.info(
+    "Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType, "
+    "PlayerStatus, PartyTurnStatus, Player, Party."
+)

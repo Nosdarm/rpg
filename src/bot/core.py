@@ -29,7 +29,8 @@ class BotCore(commands.Bot):
 
         extensions_to_load = [
             'bot.events',  # Имя файла events.py в директории bot
-            'bot.commands' # Имя файла commands.py в директории bot
+            'bot.commands', # Имя файла commands.py в директории bot (для /ping и /start)
+            'bot.commands.party_commands' # Имя файла party_commands.py в директории bot/commands
         ]
 
         for extension in extensions_to_load:
