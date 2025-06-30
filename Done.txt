@@ -30,3 +30,28 @@ Key achievements for this task:
     - `alembic.ini` and `alembic/env.py` modified for project structure and async operations.
     - First migration for `GuildConfig` created (manually due to sandbox limitations).
 - Project is now set up for database interaction with PostgreSQL using SQLAlchemy and Alembic.
+
+---
+
+🔧 0.3 Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware).
+Description: Implement low-level functions for working with the DB that always operate within the context of the specified guild.
+Implement utilities for managing ORM sessions (get_db_session). Implement decorators or context managers for managing ORM TRANSACTIONS (@transactional(guild_id)). These transactions MUST operate ONLY WITH DATA WITHIN THE SPECIFIED guild_id.
+Implement CRUD utilities (get_entity_by_id, create_entity, update_entity, delete_entity) for ALL models. These utilities MUST accept guild_id as the FIRST mandatory parameter and AUTOMATICALLY add the condition WHERE guild_id = :guild_id to queries.
+Implement the load_rules_config(guild_id: int) -> dict utility: Loads all RuleConfig records (0.2) for the specified guild and forms a rules dictionary. Caches this dictionary per-guild in the bot process memory.
+Implement the get_rule(guild_id: int, key: str) -> Any utility: Retrieves a rule parameter FROM THE CACHE for the specified guild by key. Handle errors.
+Implement the update_rule_config(guild_id: int, key: str, value: Any) utility: Updates the RuleConfig in the DB for the specified guild. After successful saving, updates the cache for this guild (load_rules_config).
+Result: A set of utilities for reliable, secure (guild-isolated) DB data access and configurable rules.
+
+Key achievements for this task:
+- Defined `RuleConfig` model in `src/models/rule_config.py` with `guild_id`, `key`, `value_json` and unique constraint on `(guild_id, key)`.
+- Created Alembic migration `0002_create_rule_configs_table.py` for `RuleConfig`.
+- Implemented `@transactional` decorator in `src/core/database.py` for managing DB transaction lifecycle using `get_db_session`.
+- Created `src/core/crud.py` with:
+    - `CRUDBase` generic class for common CRUD operations.
+    - Generic functions `create_entity`, `get_entity_by_id`, `update_entity`, `delete_entity` that are guild-aware.
+- Created `src/core/rules.py` with:
+    - `load_rules_config_for_guild`: Loads all rules for a guild into an in-memory cache (`_rules_cache`).
+    - `get_rule`: Retrieves a rule from cache (or loads if not present).
+    - `update_rule_config`: Updates/creates a rule in DB and refreshes the guild's cache.
+    - `get_all_rules_for_guild`: Retrieves all rules for a guild from cache.
+- Updated `src/models/__init__.py` and `src/core/__init__.py` to include new modules and models.
