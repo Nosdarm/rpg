@@ -11,6 +11,24 @@ load_dotenv(dotenv_path=dotenv_path)
 # Получите его с Discord Developer Portal (https://discord.com/developers/applications)
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_TOKEN") # Changed from DISCORD_BOT_TOKEN
 
+# ID вашего сервера Discord (опционально, может использоваться для специфичных команд)
+# GUILD_ID = os.getenv("GUILD_ID")
+# Если GUILD_ID нужен как число:
+# GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
+
+
+# Настройки базы данных (будут добавлены в задаче 0.2)
+# DB_TYPE = os.getenv("DB_TYPE", "postgresql") # Например, postgresql или mysql
+# DB_USER = os.getenv("DB_USER", "user")
+# DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+# DB_HOST = os.getenv("DB_HOST", "localhost")
+# DB_PORT = os.getenv("DB_PORT", "5432")
+# DB_NAME = os.getenv("DB_NAME", "rpg_bot_db")
+
+# DATABASE_URL = f"{DB_TYPE}+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Пример для PostgreSQL с asyncpg. Для других СУБД строка подключения будет отличаться.
+
+
 # Настройки логирования (можно расширить)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 

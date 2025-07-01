@@ -11,6 +11,9 @@ load_dotenv(dotenv_path=dotenv_path)
 # Получите его с Discord Developer Portal (https://discord.com/developers/applications)
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_TOKEN") # Changed from DISCORD_BOT_TOKEN
 
+
+
+
 # Настройки логирования (можно расширить)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
