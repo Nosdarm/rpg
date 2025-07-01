@@ -29,20 +29,9 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 
 🧠 Phase 2: AI Integration - Generation Core
 
-🧠 2.3 AI Response Parsing and Validation Module. (7, 13, 14, 30, 37, 39, 18, 16)
-Description: Parsing and multi-level validation of the AI response.
-API: parse_and_validate_ai_response(raw_ai_output_text: str, guild_id: int) -> ParsedAiData | ValidationError. Accepts guild_id.
-Parse JSON. Validate structure (against schema 7).
-Semantic validation (against rules 13/14/30/37/39/40) FOR THIS GUILD: Check generated data against rules and context (stat ranges, relationship correctness, quest structure, prices, consistency), presence of texts in both requested languages in _i18n fields. Autocorrection, flag issues.
+{Task 2.3 AI Response Parsing and Validation Module - Moved to Done.txt}
 
-
-🧠 2.6 AI Generation, Moderation, and Saving Logic. (7, 14, 15, 16, 17, 19, 41, OpenAI API, 0.3, 1, 3, 12, 13, 21)
-Description: Full content generation cycle with manual Master control.
-Function trigger_location_generation(guild_id: int, ...). Accepts guild_id.
-Calls 16 -> API -> 17.
-Pending Moderation: If 17 is valid, create a PendingGeneration record WITH guild_id. Notify the Master (41) IN THE NOTIFICATION CHANNEL FOR THIS GUILD. Set player(s) status to 'awaiting_moderation' IN THIS GUILD.
-Master API (41) for moderation: /master review_ai, /master approve_ai, /master edit_ai, /master reject_ai. Operate on PendingGeneration records BY guild_id. Allows editing _i18n fields.
-Saving Worker: Monitors PendingGeneration. Upon 'approved', copies the guild_id to EVERY generated entity and saves them in the DB (7, 14, etc.) within a transaction for this guild. Asynchronously calls on_enter_location(guild_id, ...) (14).
+{Task 2.6 AI Generation, Moderation, and Saving Logic - Moved to Done.txt}
 
 
 
