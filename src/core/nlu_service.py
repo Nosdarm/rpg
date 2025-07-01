@@ -69,39 +69,40 @@ async def parse_player_input(
     Returns None if no known pattern is matched.
     """
     cleaned_text = raw_text.strip()
-    if not cleaned_text:
-        return None
+    # if not cleaned_text: # Removed this block to allow unknown_intent for empty strings
+    #     return None
 
     # guild_entities = await load_guild_entities(guild_id) # For future use
 
-    for pattern, intent, entity_mapping in ACTION_PATTERNS:
-        match = pattern.match(cleaned_text)
-        if match:
-            entities_extracted: List[ActionEntity] = []
-            for entity_type, group_ref in entity_mapping.items():
-                try:
-                    value = match.group(group_ref)
-                    if value: # Ensure the group captured something
-                        entities_extracted.append(ActionEntity(type=entity_type, value=value.strip()))
-                except IndexError:
-                    logger.warning(f"Regex pattern group '{group_ref}' not found for intent '{intent}' with pattern '{pattern.pattern}'. Check pattern definition.")
-                except Exception as e:
-                    logger.error(f"Error extracting entity '{entity_type}' with group '{group_ref}' for intent '{intent}': {e}")
+    # Only attempt to match patterns if cleaned_text is not empty
+    if cleaned_text:
+        for pattern, intent, entity_mapping in ACTION_PATTERNS:
+            match = pattern.match(cleaned_text)
+            if match:
+                entities_extracted: List[ActionEntity] = []
+                for entity_type, group_ref in entity_mapping.items():
+                    try:
+                        value = match.group(group_ref)
+                        if value: # Ensure the group captured something
+                            entities_extracted.append(ActionEntity(type=entity_type, value=value.strip()))
+                    except IndexError:
+                        logger.warning(f"Regex pattern group '{group_ref}' not found for intent '{intent}' with pattern '{pattern.pattern}'. Check pattern definition.")
+                    except Exception as e:
+                        logger.error(f"Error extracting entity '{entity_type}' with group '{group_ref}' for intent '{intent}': {e}")
 
+                action = ParsedAction(
+                    raw_text=raw_text,
+                    intent=intent,
+                    entities=entities_extracted,
+                    parser_confidence=1.0, # Simple regex match = full confidence for this MVP
+                    guild_id=guild_id,
+                    player_id=player_id,
+                    timestamp=datetime.datetime.now(datetime.timezone.utc) # Use timezone-aware UTC
+                )
+                logger.info(f"Parsed action for guild {guild_id}, player {player_id}: Intent='{intent}', Entities='{entities_extracted}' from text='{raw_text}'")
+                return action
 
-            action = ParsedAction(
-                raw_text=raw_text,
-                intent=intent,
-                entities=entities_extracted,
-                parser_confidence=1.0, # Simple regex match = full confidence for this MVP
-                guild_id=guild_id,
-                player_id=player_id,
-                timestamp=datetime.datetime.now(datetime.timezone.utc) # Use timezone-aware UTC
-            )
-            logger.info(f"Parsed action for guild {guild_id}, player {player_id}: Intent='{intent}', Entities='{entities_extracted}' from text='{raw_text}'")
-            return action
-
-    # If no pattern matched
+    # If no pattern matched or cleaned_text was empty
     logger.info(f"No specific intent matched for input: '{raw_text}' for guild {guild_id}, player {player_id}. Defaulting to 'unknown_intent'.")
     # Optionally, return a default "unknown" action instead of None if all inputs should be logged as actions.
     unknown_action = ParsedAction(
