@@ -13,13 +13,39 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_TOKEN") # Changed from DISCORD_BOT_TOKEN
 
 # Настройки логирования (можно расширить)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+import logging # Added for logging
+logger = logging.getLogger(__name__) # Added for logging
 
 # Настройки базы данных
 # Приоритет отдается DATABASE_URL из .env файла
 DATABASE_URL_ENV = os.getenv("DATABASE_URL")
+DB_SSL_MODE = None
+DB_SSL_CERT_PATH = os.getenv("DB_SSL_CERT_PATH")
+DB_SSL_KEY_PATH = os.getenv("DB_SSL_KEY_PATH")
+DB_SSL_ROOT_CERT_PATH = os.getenv("DB_SSL_ROOT_CERT_PATH")
+
 
 if DATABASE_URL_ENV:
     DATABASE_URL = DATABASE_URL_ENV
+    # Парсинг sslmode из DATABASE_URL для asyncpg
+    if "asyncpg" in DATABASE_URL:
+        from urllib.parse import urlparse, parse_qs, urlunparse
+        parsed_url = urlparse(DATABASE_URL)
+        query_params = parse_qs(parsed_url.query)
+
+        if 'sslmode' in query_params:
+            DB_SSL_MODE = query_params['sslmode'][0]
+            logger.info(f"Найден 'sslmode={DB_SSL_MODE}' в DATABASE_URL. Он будет удален из URL и обработан отдельно для asyncpg.")
+            # Удаляем sslmode из query_params для asyncpg, так как он передается через connect_args
+            del query_params['sslmode']
+            # Собираем URL обратно без sslmode
+            # urlunparse требует кортеж из 6 элементов: scheme, netloc, path, params, query, fragment
+            # Нам нужно обновить только query. parse_qs возвращает значения как списки.
+            # Мы должны преобразовать их обратно в строку запроса.
+            new_query_string = "&".join([f"{k}={v[0]}" for k, v_list in query_params.items() for v in v_list])
+            DATABASE_URL = urlunparse(parsed_url._replace(query=new_query_string))
+            logger.info(f"DATABASE_URL после удаления sslmode: {DATABASE_URL.replace(parsed_url.password, '*****') if parsed_url.password else DATABASE_URL}")
+
 else:
     DB_TYPE = os.getenv("DB_TYPE", "postgresql")
     DB_USER = os.getenv("USER", "postgres") # Changed from DB_USER to USER to match .env
@@ -28,6 +54,12 @@ else:
     DB_PORT = os.getenv("PORT", "5432") # Changed from DB_PORT to PORT to match .env
     DB_NAME = os.getenv("DATABASE", "rpg_bot_db") # Changed from DB_NAME to DATABASE to match .env
     DATABASE_URL = f"{DB_TYPE}+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    # Если DATABASE_URL не задан, но есть переменные для SSL, их можно использовать
+    # Например, DB_SSL_MODE может быть установлен напрямую через переменную окружения
+    if os.getenv("DB_SSL_MODE"):
+        DB_SSL_MODE = os.getenv("DB_SSL_MODE")
+        logger.info(f"DB_SSL_MODE установлен из переменной окружения: {DB_SSL_MODE}")
+
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -61,20 +93,14 @@ if not SECRET_KEY:
 # Пример .env файла (создайте его в корне проекта, НЕ добавляйте в Git, если он содержит секреты):
 """
 DISCORD_TOKEN=your_actual_bot_token_here
+
+# --- Database Configuration ---
+# Вариант 1: Указать полный DATABASE_URL.
+# ВАЖНО для asyncpg: НЕ включайте параметр ?sslmode=... в URL.
+# Вместо этого используйте переменную DB_SSL_MODE ниже.
 DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname
-# Или отдельные компоненты, если DATABASE_URL не указан:
-# HOST=localhost
-# PORT=5432
-# DATABASE=my_rpg_bot_db
-# USER=myuser
-# PASSWORD=mypassword
 
-OPENAI_API_KEY=your_openai_api_key_here
-BOT_PREFIX=!
-BOT_LANGUAGE=en
-SECRET_KEY=your_secret_key_here
-
-# Настройки PostgreSQL (пример)
+# Вариант 2: Указать компоненты БД отдельно (если DATABASE_URL не указан).
 # DB_TYPE=postgresql
 # DB_USER=myuser
 # DB_PASSWORD=mypassword
@@ -82,7 +108,30 @@ SECRET_KEY=your_secret_key_here
 # DB_PORT=5432
 # DB_NAME=my_rpg_bot_db
 
-# GUILD_ID=your_guild_id_here
+# --- SSL Configuration for Database (asyncpg) ---
+# Используйте эту переменную для управления SSL соединением с PostgreSQL через asyncpg.
+# Возможные значения:
+#   disable   - Не использовать SSL.
+#   allow     - Пытаться использовать SSL, но разрешить соединение без SSL, если сервер не поддерживает.
+#   prefer    - Пытаться использовать SSL, но разрешить соединение без SSL, если сервер не поддерживает. (Поведение как 'allow' для asyncpg)
+#   require   - Требовать SSL. Соединение не будет установлено, если сервер не поддерживает SSL. Проверка сертификата сервера не производится (если не указаны CA).
+#   verify-ca - Требовать SSL и проверять сертификат сервера по известным CA.
+#   verify-full - Требовать SSL, проверять сертификат сервера по известным CA и что имя хоста сервера совпадает с именем в сертификате.
+# Если DATABASE_URL содержит ?sslmode=..., это значение будет извлечено и использовано здесь, а из URL удалено.
+# DB_SSL_MODE=require
+
+# Опциональные пути к SSL файлам (если требуются для 'verify-ca', 'verify-full' или клиентской аутентификации):
+# DB_SSL_ROOT_CERT_PATH=/path/to/server-ca.pem  # Путь к файлу корневого сертификата CA для проверки сервера
+# DB_SSL_CERT_PATH=/path/to/client-cert.pem    # Путь к файлу SSL сертификата клиента
+# DB_SSL_KEY_PATH=/path/to/client-key.pem      # Путь к файлу закрытого ключа клиента
+
+# --- Other Configurations ---
+OPENAI_API_KEY=your_openai_api_key_here
+BOT_PREFIX=!
+BOT_LANGUAGE=en
+SECRET_KEY=your_secret_key_here
+
+# GUILD_ID=your_guild_id_here # Пример дополнительной настройки
 """
 
 # Список когов для загрузки ботом
