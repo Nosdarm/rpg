@@ -174,3 +174,25 @@ BOT_COGS = [
     "src.bot.commands.master_ai_commands", # New cog for AI moderation
     "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
 ]
+
+# Константы для команды /start и создания игрока по умолчанию
+DEFAULT_STARTING_LOCATION_STATIC_ID = "town_square" # Пример ID стартовой локации
+DEFAULT_PLAYER_START_PARAMS_JSON = {
+    "level": 1,
+    "experience": 0,
+    "health": 100,
+    "max_health": 100,
+    "mana": 50,
+    "max_mana": 50,
+    "attributes": {
+        "strength": 10,
+        "dexterity": 10,
+        "constitution": 10,
+        "intelligence": 10,
+        "wisdom": 10,
+        "charisma": 10
+    },
+    "inventory": [],
+    "equipment": {},
+    "gold": 25
+}
