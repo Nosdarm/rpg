@@ -171,9 +171,10 @@ async def handle_move_action(
             # To use the @transactional correctly for the helper, we should pass the session from get_db_session.
             # The @transactional on _update_entities_location will then manage the commit/rollback for its scope.
 
-            # We need to call the transactional function with the session from this context
+            # We need to call the transactional function.
+            # The @transactional decorator on _update_entities_location will inject the session.
             await _update_entities_location(
-                session=session,  # Pass the existing session
+                # session=session, # DO NOT pass session explicitly, @transactional handles it
                 guild_id=guild_id,
                 player=player,
                 target_location=target_location,

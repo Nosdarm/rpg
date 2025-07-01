@@ -135,6 +135,8 @@ async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_i
                 logger.info(f"[ACTION_PROCESSOR] Loaded {len(actions_to_process)} actions for player {player.id} and cleared from DB.")
             except json.JSONDecodeError:
                 logger.error(f"[ACTION_PROCESSOR] Failed to decode actions for player {player.id}")
+                player.collected_actions_json = [] # Clear invalid actions on JSONDecodeError too
+                session.add(player)
             except Exception as e: # Pydantic validation error etc.
                 logger.error(f"[ACTION_PROCESSOR] Error parsing actions for player {player.id}: {e}", exc_info=True)
                 player.collected_actions_json = [] # Clear invalid actions
