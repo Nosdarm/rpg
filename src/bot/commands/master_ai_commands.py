@@ -9,8 +9,8 @@ from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db_session, transactional
-from src.models import PendingGeneration
-from src.models.enums import ModerationStatus
+from src.models import PendingGeneration, Player
+from src.models.enums import ModerationStatus, PlayerStatus
 from src.core.crud import get_entity_by_id, update_entity
 from src.core.ai_orchestrator import save_approved_generation
 from src.core.ai_response_parser import parse_and_validate_ai_response, ValidationError, ParsedAiData
