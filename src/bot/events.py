@@ -1,6 +1,8 @@
 import logging
 import discord
 from discord.ext import commands
+from sqlalchemy.ext.asyncio import AsyncSession # Added this
+from typing import Optional # Added this
 
 logger = logging.getLogger(__name__)
 

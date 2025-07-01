@@ -1,7 +1,7 @@
 import re
 import datetime
 import logging
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union # Added Union
 
 from src.models.actions import ParsedAction, ActionEntity
 
