@@ -98,9 +98,38 @@ def mock_session_maker(mock_session: AsyncMock) -> MagicMock:
 
 @pytest.fixture(autouse=True)
 def patch_action_handlers_directly(mocker):
-    mocker.patch('src.core.action_processor._handle_placeholder_action', new_callable=AsyncMock, return_value={"status": "success_placeholder"})
-    mocker.patch('src.core.action_processor._handle_move_action_wrapper', new_callable=AsyncMock, return_value={"status": "success_move"})
-    mocker.patch('src.core.action_processor._handle_intra_location_action_wrapper', new_callable=AsyncMock, return_value={"status": "success_intra_location"})
+    # These are the mock objects we want to be called.
+    mock_placeholder_handler = AsyncMock(return_value={"status": "success_placeholder_mocked"})
+    mock_move_handler = AsyncMock(return_value={"status": "success_move_mocked"})
+    mock_intra_location_handler = AsyncMock(return_value={"status": "success_intra_location_mocked"})
+
+    # Patch the names in the module. If ACTION_DISPATCHER.get uses its default, it will pick these up.
+    mocker.patch('src.core.action_processor._handle_placeholder_action', new=mock_placeholder_handler)
+    mocker.patch('src.core.action_processor._handle_move_action_wrapper', new=mock_move_handler)
+    mocker.patch('src.core.action_processor._handle_intra_location_action_wrapper', new=mock_intra_location_handler)
+
+    # Critically, update the ACTION_DISPATCHER dictionary itself to use these mocks,
+    # because it captured references to the original functions at module definition time.
+    import src.core.action_processor
+
+    # Ensure these specific keys in the live ACTION_DISPATCHER point to our new mocks.
+    # For intents that are supposed to use the default _handle_placeholder_action (now mock_placeholder_handler),
+    # if they are explicitly listed, they also need to be updated.
+    # Based on the second (active) definition of ACTION_DISPATCHER in action_processor.py:
+    src.core.action_processor.ACTION_DISPATCHER["move"] = mock_move_handler
+    src.core.action_processor.ACTION_DISPATCHER["look"] = mock_placeholder_handler
+    src.core.action_processor.ACTION_DISPATCHER["attack"] = mock_placeholder_handler
+    src.core.action_processor.ACTION_DISPATCHER["take"] = mock_placeholder_handler
+    src.core.action_processor.ACTION_DISPATCHER["use"] = mock_placeholder_handler
+    src.core.action_processor.ACTION_DISPATCHER["talk"] = mock_placeholder_handler
+    src.core.action_processor.ACTION_DISPATCHER["examine"] = mock_intra_location_handler
+    src.core.action_processor.ACTION_DISPATCHER["interact"] = mock_intra_location_handler
+    src.core.action_processor.ACTION_DISPATCHER["go_to"] = mock_intra_location_handler
+    # Any other intents in the live ACTION_DISPATCHER would need similar treatment if not using the default.
+
+@pytest.fixture(autouse=True)
+def configure_module_logging(caplog):
+    caplog.set_level(logging.DEBUG, logger="src.core.action_processor")
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
@@ -111,15 +140,18 @@ async def test_process_actions_single_player_only_look(
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
     mock_player_1_with_look_action: Player
 ):
-    from src.core.action_processor import _handle_placeholder_action, _handle_move_action_wrapper
-    _handle_placeholder_action.reset_mock(); _handle_move_action_wrapper.reset_mock()
+    # NOTE: We access the patched mocks directly from the module due to autouse=True fixture
+    import src.core.action_processor
+    src.core.action_processor._handle_placeholder_action.reset_mock()
+    src.core.action_processor._handle_move_action_wrapper.reset_mock()
+
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
     mock_get_player.return_value = mock_player_1_with_look_action
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    _handle_placeholder_action.assert_called_once()
-    _handle_move_action_wrapper.assert_not_called()
+    src.core.action_processor._handle_placeholder_action.assert_called_once()
+    src.core.action_processor._handle_move_action_wrapper.assert_not_called()
     # ... (further assertions on args and player state)
 
 @pytest.mark.asyncio
@@ -131,15 +163,17 @@ async def test_process_actions_single_player_with_both_actions(
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player
 ):
-    from src.core.action_processor import _handle_placeholder_action, _handle_move_action_wrapper
-    _handle_placeholder_action.reset_mock(); _handle_move_action_wrapper.reset_mock()
+    import src.core.action_processor
+    src.core.action_processor._handle_placeholder_action.reset_mock()
+    src.core.action_processor._handle_move_action_wrapper.reset_mock()
+
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
     mock_get_player.return_value = mock_player_1_with_both_actions
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    assert _handle_placeholder_action.call_count == 1
-    assert _handle_move_action_wrapper.call_count == 1
+    assert src.core.action_processor._handle_placeholder_action.call_count == 1
+    assert src.core.action_processor._handle_move_action_wrapper.call_count == 1
     # ... (further assertions)
 
 @pytest.mark.asyncio
@@ -152,16 +186,18 @@ async def test_process_actions_party_with_one_player_actions(
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player, mock_party_with_player_1: Party
 ):
-    from src.core.action_processor import _handle_placeholder_action, _handle_move_action_wrapper
-    _handle_placeholder_action.reset_mock(); _handle_move_action_wrapper.reset_mock()
+    import src.core.action_processor
+    src.core.action_processor._handle_placeholder_action.reset_mock()
+    src.core.action_processor._handle_move_action_wrapper.reset_mock()
+
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
     mock_get_player.return_value = mock_player_1_with_both_actions
     mock_get_party.return_value = mock_party_with_player_1
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PARTY_ID_PK_1, "type": "party"}])
 
-    assert _handle_placeholder_action.call_count == 1
-    assert _handle_move_action_wrapper.call_count == 1
+    assert src.core.action_processor._handle_placeholder_action.call_count == 1
+    assert src.core.action_processor._handle_move_action_wrapper.call_count == 1
     # ... (further assertions)
 
 @pytest.mark.asyncio
@@ -173,14 +209,15 @@ async def test_process_actions_player_no_actions(
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
     mock_player_2_no_actions: Player
 ):
-    from src.core.action_processor import _handle_placeholder_action
-    _handle_placeholder_action.reset_mock()
+    import src.core.action_processor
+    src.core.action_processor._handle_placeholder_action.reset_mock()
+
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
     mock_get_player.return_value = mock_player_2_no_actions
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_2, "type": "player"}])
 
-    _handle_placeholder_action.assert_not_called()
+    src.core.action_processor._handle_placeholder_action.assert_not_called()
     # ... (further assertions)
 
 @pytest.mark.asyncio
@@ -191,8 +228,8 @@ async def test_process_actions_unknown_intent_uses_placeholder(
     mock_log_event_ap: AsyncMock, mock_get_player: AsyncMock,
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock
 ):
-    from src.core.action_processor import _handle_placeholder_action
-    _handle_placeholder_action.reset_mock()
+    import src.core.action_processor
+    src.core.action_processor._handle_placeholder_action.reset_mock()
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     fixed_dt_unknown_str = datetime.datetime(2023, 1, 1, 12, 0, 5, tzinfo=datetime.timezone.utc).isoformat()
@@ -209,7 +246,7 @@ async def test_process_actions_unknown_intent_uses_placeholder(
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    _handle_placeholder_action.assert_called_once()
+    src.core.action_processor._handle_placeholder_action.assert_called_once()
     # ... (further assertions on args)
 
 @pytest.mark.asyncio

@@ -486,4 +486,30 @@
 ---
 **(Ожидание следующей задачи)**
 
+- **Пользовательская задача: Исправление ошибок в тестах (Сессия [сегодняшняя дата/время])**
+    - **Анализ состояния:** Первоначальный запуск `python -m pytest` выявил ошибки `fixture 'mocker' not found` в `tests/core/test_action_processor.py` и `AttributeError: ... has no attribute 'get_db_session'` вместе с `ModuleNotFoundError: No module named 'core'` в `tests/bot/test_general_commands_mocked.py`. Также была ошибка локализации в `test_ping_command`.
+    - **Исправление ошибок в `tests/core/test_action_processor.py`**:
+        - Добавлена зависимость `pytest-mock` в `requirements.txt` и установлена (`pip install -r requirements.txt`). Это устранило ошибку `fixture 'mocker' not found`.
+        - Выявлена проблема с тем, что `ACTION_DISPATCHER` в `src/core/action_processor.py` захватывал ссылки на оригинальные функции до их мокирования.
+        - Исправлена фикстура `patch_action_handlers_directly`: теперь она не только мокирует имена функций в модуле `src.core.action_processor`, но и обновляет ссылки на эти моки непосредственно в словаре `src.core.action_processor.ACTION_DISPATCHER`. Это обеспечило вызов замоканных версий.
+        - Удален лишний декоратор `@transactional` с функции `_load_and_clear_actions` в `src/core/action_processor.py`, так как она вызывается уже в рамках существующей транзакции.
+        - Добавлено логирование уровня DEBUG в `_load_and_clear_actions` для диагностики процесса загрузки и парсинга действий игрока.
+        - Добавлена фикстура `configure_module_logging` в `tests/core/test_action_processor.py` для включения DEBUG логов во время тестов.
+        - В результате все тесты в `tests/core/test_action_processor.py` проходят.
+    - **Исправление ошибок в `tests/bot/test_general_commands_mocked.py`**:
+        - Исправлена ошибка `AttributeError: module 'src.bot.general_commands' has no attribute 'author'`:
+            - Тесты для команды `start_command` были обновлены для использования фикстуры `mock_ctx` (которая мокает `commands.Context`) вместо `mock_interaction`.
+            - Атрибуты контекста (`guild.id`, `author.id`, `author.display_name`, `send`) теперь корректно используются через `mock_ctx`.
+            - Фикстура `mock_ctx` была уточнена: `ctx.author` теперь `MagicMock()` без `spec` для надежного присваивания строковых атрибутов (`display_name`, `mention`). `ctx.bot` также изменен на `MagicMock()` без `spec` и инициализируется через фикстуру `mock_bot` для консистентности `bot.latency`.
+        - Исправлена ошибка `ModuleNotFoundError: No module named 'core'` при выполнении `start_command`:
+            - Импорты внутри функции `start_command` в `src/bot/general_commands.py` (например, `from core.database...`) были изменены на абсолютные импорты от корня `src` (например, `from src.core.database...`). Это обеспечивает корректное разрешение модулей при запуске тестов.
+        - Исправлены пути для `patch` CRUD операций (`player_crud`, `location_crud`) в тестах `start_command`. Теперь они указывают на место определения этих объектов (например, `'src.core.crud.crud_player.player_crud.get_by_discord_id'`), так как они импортируются в локальную область видимости `start_command`.
+        - Добавлен импорт `PlayerStatus` из `src.models.enums` в `tests/bot/test_general_commands_mocked.py`.
+        - В `test_start_command_new_player` уточнено создание `created_player_instance_mock` и соответствующая проверка в сообщении (`FixedPlayerNameInTest`). У мока `mock_location` добавлено поле `name_i18n`.
+        - Исправлена ошибка локализации в `test_ping_command`: ассершн теперь ожидает `"Понг!"` и `"123ms"` (без пробела).
+        - В результате все тесты в `tests/bot/test_general_commands_mocked.py` проходят.
+    - **Общий результат**: Все 135 тестов в проекте успешно пройдены.
+    - **Оставшиеся предупреждения (RuntimeWarning)**:
+        - В `tests/core/test_turn_controller.py` и `tests/test_main.py` остались `RuntimeWarning` связанные с `AsyncMockMixin._execute_mock_call` и не до конца обработанными задачами `asyncio`. Эти предупреждения не вызывают падения тестов и требуют отдельного, более глубокого расследования, если будет принято решение их устранить.
+
 [end of AGENTS.md]
