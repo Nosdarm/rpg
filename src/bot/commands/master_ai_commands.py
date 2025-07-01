@@ -177,54 +177,53 @@ class MasterAICog(commands.Cog):
     @master_ai_group.command(name="reject", description="Reject a pending AI generation.")
     @app_commands.describe(pending_id="The ID of the pending generation to reject.", reason="Optional reason for rejection.")
     @is_administrator()
-    @transactional # Ensures atomic update of pending_gen and player status
-    async def reject_ai(self, session: AsyncSession, interaction: discord.Interaction, pending_id: int, reason: Optional[str] = None):
+    # Removed @transactional decorator
+    async def reject_ai(self, interaction: discord.Interaction, pending_id: int, reason: Optional[str] = None): # No session parameter here
         """Rejects a pending AI generation."""
-        # @transactional injects 'session', interaction is now the third param
         await interaction.response.defer(ephemeral=True)
         notes = f"Rejected by {interaction.user} (ID: {interaction.user.id})."
         if reason:
             notes += f" Reason: {reason}"
 
-        if interaction.guild_id is None:
+        if interaction.guild_id is None: # Should be caught by guild_only on group
             await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
             return
 
-        pending_gen = await get_entity_by_id(session, PendingGeneration, entity_id=pending_id, guild_id=interaction.guild_id)
-        if not pending_gen:
-            await interaction.followup.send(f"Pending generation ID {pending_id} not found.", ephemeral=True)
-            return
+        async with get_db_session() as session: # Obtain session using context manager
+            pending_gen = await get_entity_by_id(session, PendingGeneration, entity_id=pending_id, guild_id=interaction.guild_id)
+            if not pending_gen:
+                await interaction.followup.send(f"Pending generation ID {pending_id} not found.", ephemeral=True)
+                return
 
-        original_player_id_if_any = pending_gen.triggered_by_user_id
-        await update_entity(session, pending_gen, {"status": ModerationStatus.REJECTED, "master_notes": notes})
+            original_player_id_if_any = pending_gen.triggered_by_user_id
+            await update_entity(session, pending_gen, {"status": ModerationStatus.REJECTED, "master_notes": notes})
 
-        if original_player_id_if_any:
-            player = await get_entity_by_id(session, Player, entity_id=original_player_id_if_any, guild_id=interaction.guild_id)
-            if player and player.current_status == PlayerStatus.AWAITING_MODERATION:
-                # TODO: More robust check if this was the *only* pending item for the player.
-                await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING})
-                logger.info(f"Player {player.id} status updated from {PlayerStatus.AWAITING_MODERATION.name} to {PlayerStatus.EXPLORING.name} after generation ID {pending_id} rejected.")
-        # @transactional will commit changes here
+            if original_player_id_if_any:
+                player = await get_entity_by_id(session, Player, entity_id=original_player_id_if_any, guild_id=interaction.guild_id) # Ensure guild_id for player fetch
+                if player and player.current_status == PlayerStatus.AWAITING_MODERATION:
+                    # TODO: More robust check if this was the *only* pending item for the player.
+                    await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING})
+                    logger.info(f"Player {player.id} status updated from {PlayerStatus.AWAITING_MODERATION.name} to {PlayerStatus.EXPLORING.name} after generation ID {pending_id} rejected.")
+            await session.commit() # Commit changes within the session block
+
         await interaction.followup.send(f"Pending generation ID {pending_id} has been rejected.", ephemeral=True)
 
 
     @master_ai_group.command(name="edit", description="Edit the data of a pending AI generation.")
     @app_commands.describe(pending_id="ID of the pending generation.", new_data_json_str="JSON string of the new data for 'parsed_validated_data_json'.")
     @is_administrator()
-    @transactional # Ensures atomic update
-    async def edit_ai(self, session: AsyncSession, interaction: discord.Interaction, pending_id: int, new_data_json_str: str):
+    # Removed @transactional decorator
+    async def edit_ai(self, interaction: discord.Interaction, pending_id: int, new_data_json_str: str): # No session parameter here
         """Edits the 'parsed_validated_data_json' of a pending AI generation."""
         await interaction.response.defer(ephemeral=True)
 
-        if interaction.guild_id is None:
+        if interaction.guild_id is None: # Should be caught by guild_only on group
             await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
             return
+
         try:
             new_parsed_data_dict = json.loads(new_data_json_str)
-            # Basic validation: try to instantiate ParsedAiData.
-            # This won't re-run full semantic validation from ai_response_parser,
-            # but checks basic structure of ParsedAiData.
-            ParsedAiData(**new_parsed_data_dict)
+            ParsedAiData(**new_parsed_data_dict) # Basic validation
         except json.JSONDecodeError:
             await interaction.followup.send("Invalid JSON string provided for new data.", ephemeral=True)
             return
@@ -232,29 +231,31 @@ class MasterAICog(commands.Cog):
             await interaction.followup.send(f"The provided JSON is not valid against ParsedAiData schema: {pydantic_error}", ephemeral=True)
             return
 
-        pending_gen = await get_entity_by_id(session, PendingGeneration, entity_id=pending_id, guild_id=interaction.guild_id)
-        if not pending_gen:
-            await interaction.followup.send(f"Pending generation ID {pending_id} not found.", ephemeral=True)
-            return
+        async with get_db_session() as session: # Obtain session using context manager
+            pending_gen = await get_entity_by_id(session, PendingGeneration, entity_id=pending_id, guild_id=interaction.guild_id)
+            if not pending_gen:
+                await interaction.followup.send(f"Pending generation ID {pending_id} not found.", ephemeral=True)
+                return
 
-        current_status_val = pending_gen.status.value if isinstance(pending_gen.status, ModerationStatus) else pending_gen.status
-        allowed_statuses_for_edit = [
-            ModerationStatus.PENDING_MODERATION.value,
-            ModerationStatus.VALIDATION_FAILED.value,
-            ModerationStatus.EDITED_PENDING_APPROVAL.value,
-            ModerationStatus.REJECTED.value # Allow editing a rejected item
-        ]
-        if current_status_val not in allowed_statuses_for_edit:
-             await interaction.followup.send(f"Pending generation ID {pending_id} cannot be edited in its current state: {current_status_val}.", ephemeral=True)
-             return
+            current_status_val = pending_gen.status.value if isinstance(pending_gen.status, ModerationStatus) else pending_gen.status
+            allowed_statuses_for_edit = [
+                ModerationStatus.PENDING_MODERATION.value,
+                ModerationStatus.VALIDATION_FAILED.value,
+                ModerationStatus.EDITED_PENDING_APPROVAL.value,
+                ModerationStatus.REJECTED.value # Allow editing a rejected item
+            ]
+            if current_status_val not in allowed_statuses_for_edit:
+                 await interaction.followup.send(f"Pending generation ID {pending_id} cannot be edited in its current state: {current_status_val}.", ephemeral=True)
+                 return
 
-        await update_entity(session, pending_gen, {
-            "parsed_validated_data_json": new_parsed_data_dict,
-            "status": ModerationStatus.EDITED_PENDING_APPROVAL,
-            "validation_issues_json": None, # Clear previous validation issues as data is new
-            "master_notes": f"Edited by {interaction.user} (ID: {interaction.user.id}). Previous notes: {pending_gen.master_notes or ''}"
-        })
-        # @transactional will commit changes here
+            await update_entity(session, pending_gen, {
+                "parsed_validated_data_json": new_parsed_data_dict,
+                "status": ModerationStatus.EDITED_PENDING_APPROVAL,
+                "validation_issues_json": None, # Clear previous validation issues as data is new
+                "master_notes": f"Edited by {interaction.user} (ID: {interaction.user.id}). Previous notes: {pending_gen.master_notes or ''}"
+            })
+            await session.commit() # Commit changes within the session block
+
         await interaction.followup.send(f"Pending generation ID {pending_id} data updated and set to EDITED_PENDING_APPROVAL. Review and approve again if necessary.", ephemeral=True)
 
 
