@@ -27,7 +27,8 @@ from . import movement_logic
 from . import game_events
 from . import ai_prompt_builder
 from . import ai_response_parser
-from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, ValidationError
+# Corrected import from CustomValidationError
+from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError
 from . import ai_orchestrator
 from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
 
@@ -51,7 +52,7 @@ __all__ = [
     "ai_response_parser",
     "parse_and_validate_ai_response",
     "ParsedAiData",
-    "ValidationError",
+    "CustomValidationError", # Corrected export
     "ai_orchestrator",
     "trigger_ai_generation_flow",
     "save_approved_generation"

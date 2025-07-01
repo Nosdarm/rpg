@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session, transactional
 from src.models import PendingGeneration, Player
 from src.models.enums import ModerationStatus, PlayerStatus
-from src.core.crud import get_entity_by_id, update_entity
+# Corrected import path for generic CRUD functions
+from src.core.crud_base_definitions import get_entity_by_id, update_entity
 from src.core.ai_orchestrator import save_approved_generation
-from src.core.ai_response_parser import parse_and_validate_ai_response, ValidationError, ParsedAiData
+# Corrected import for CustomValidationError
+from src.core.ai_response_parser import parse_and_validate_ai_response, CustomValidationError, ParsedAiData
 # from src.config.settings import MASTER_ROLE_NAME # Assuming a setting for Master role name
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ class MasterAICog(commands.Cog):
         self.bot = bot
 
     # This check is called for every interaction in this cog (app commands)
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+    async def interaction_check(self, interaction: discord.Interaction) -> bool: # type: ignore[override]
         if interaction.guild is None: # Should mostly be handled by guild_only=True on group/commands
             await interaction.response.send_message("Master commands can only be used in a server.", ephemeral=True, delete_after=10)
             return False

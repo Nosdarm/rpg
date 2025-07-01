@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
 from src.models.enums import ModerationStatus, PlayerStatus
 from src.core.database import transactional
-from src.core.crud import create_entity, get_entity_by_id, update_entity
+# Corrected import path for generic CRUD functions
+from src.core.crud_base_definitions import create_entity, get_entity_by_id, update_entity
 from src.core.ai_prompt_builder import prepare_ai_prompt
-from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, ValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types
+from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
 from discord.ext import commands # For bot instance type hint
 from src.bot.utils import notify_master # Import the new utility
 # Placeholder for game events
@@ -44,7 +45,7 @@ async def trigger_ai_generation_flow(
     location_id: Optional[int] = None,
     player_id: Optional[int] = None,
     # Potentially other context like event_type that triggered this, etc.
-) -> Union[PendingGeneration, ValidationError, str]:
+) -> Union[PendingGeneration, CustomValidationError, str]: # Changed to CustomValidationError
     """
     Orchestrates the AI content generation flow:
     1. Prepares a prompt.
@@ -95,7 +96,7 @@ async def trigger_ai_generation_flow(
                 if player_to_update:
                     await update_entity(session, player_to_update, {"current_status": PlayerStatus.AWAITING_MODERATION})
 
-        elif isinstance(parsed_or_error, ValidationError):
+        elif isinstance(parsed_or_error, CustomValidationError): # Changed to CustomValidationError
             pending_gen_data["validation_issues_json"] = parsed_or_error.model_dump()
             pending_gen_data["status"] = ModerationStatus.VALIDATION_FAILED
             new_pending_generation = await create_entity(session, PendingGeneration, pending_gen_data)

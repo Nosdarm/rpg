@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update as sqlalchemy_update, delete as sqlalchemy_delete
 
 from models.rule_config import RuleConfig
-from src.core.crud import CRUDBase, create_entity, get_entity_by_id, update_entity # Re-using generic CRUD
+# Corrected import path for CRUDBase and generic CRUD functions
+from src.core.crud_base_definitions import CRUDBase, create_entity, get_entity_by_id, update_entity
 from src.core.database import transactional # For transactional operations
 
 logger = logging.getLogger(__name__)

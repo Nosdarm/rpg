@@ -178,7 +178,7 @@ async def resolve_check(
             # Let's assume for now RuleConfig gives `base_attribute_modifier_value` directly or we fetch pre-calculated mod.
             # For this phase, if attribute_value is an int, we use it.
             modifier_details.append(
-                ModifierDetail(source=f"base_stat:{base_attribute_name}", value=stat_modifier)
+                ModifierDetail(source=f"base_stat:{base_attribute_name}", value=stat_modifier, description=f"{base_attribute_name} base stat contribution")
             )
             total_modifier += stat_modifier
             rules_snapshot[f"base_attribute_value:{base_attribute_name}"] = attribute_value # Log raw value
@@ -194,11 +194,11 @@ async def resolve_check(
     # For now, a simple "situational_bonus" or "situational_penalty"
     if "situational_bonus" in check_context and isinstance(check_context["situational_bonus"], int):
         bonus = check_context["situational_bonus"]
-        modifier_details.append(ModifierDetail(source="context:situational_bonus", value=bonus))
+        modifier_details.append(ModifierDetail(source="context:situational_bonus", value=bonus, description="Situational bonus from context"))
         total_modifier += bonus
     if "situational_penalty" in check_context and isinstance(check_context["situational_penalty"], int):
         penalty = check_context["situational_penalty"]
-        modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty))) # Ensure penalty is negative
+        modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty), description="Situational penalty from context")) # Ensure penalty is negative
         total_modifier -= abs(penalty)
 
     # TODO: Add placeholders for other modifier sources (skills, items, statuses, relationships)
@@ -288,9 +288,14 @@ async def resolve_check(
 if __name__ == '__main__':
     # Example usage (will be more useful once integrated)
     import asyncio
+    from unittest.mock import MagicMock
 
-    async def main():
+    async def main(db: Optional[AsyncSession] = None):
+        # If no db is provided (as in this example), use a mock
+        mock_db_session = MagicMock(spec=AsyncSession) if db is None else db
+
         example_result = await resolve_check(
+            db=mock_db_session, # Pass the db session
             guild_id=123,
             check_type="lockpicking",
             entity_doing_check_id=1,
@@ -303,6 +308,7 @@ if __name__ == '__main__':
         print(example_result.model_dump_json(indent=2))
 
         example_crit_fail = await resolve_check(
+            db=mock_db_session, # Pass the db session
             guild_id=123,
             check_type="attack",
             entity_doing_check_id=2,
@@ -320,6 +326,7 @@ if __name__ == '__main__':
         # to force different outcomes with the current simple placeholder logic.
         # For instance, to make the first check fail:
         example_fail_result = await resolve_check(
+            db=mock_db_session, # Pass the db session
             guild_id=123,
             check_type="lockpicking",
             entity_doing_check_id=1,

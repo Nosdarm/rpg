@@ -35,7 +35,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
         guild_id = ctx.guild.id
         discord_id = ctx.author.id
 
-        async for session in get_db_session():
+        async with get_db_session() as session:
             try:
                 player = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=discord_id)
                 if not player:
@@ -79,7 +79,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
         guild_id = ctx.guild.id
         discord_id = ctx.author.id
 
-        async for session in get_db_session():
+        async with get_db_session() as session:
             try:
                 player = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=discord_id)
                 if not player or not player.current_party_id:
@@ -128,7 +128,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
         guild_id = ctx.guild.id
         discord_id = ctx.author.id
 
-        async for session in get_db_session():
+        async with get_db_session() as session:
             try:
                 player = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=discord_id)
                 if not player or not player.current_party_id:

@@ -39,7 +39,7 @@ class CommandCog(commands.Cog):
         from core.crud.crud_location import location_crud
         from models.player import PlayerStatus # Для установки начального статуса
 
-        async for session in get_db_session():
+        async with get_db_session() as session:
             try:
                 player = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=discord_id)
 

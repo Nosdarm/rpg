@@ -1,7 +1,10 @@
 import json
 import logging
 from typing import Union, List, Optional, Dict, Any, TypeVar, Type
-from pydantic import BaseModel, ValidationError, PydanticValidationError, field_validator, Field, parse_obj_as
+
+# Explicitly import Pydantic's ValidationError to avoid confusion
+from pydantic import BaseModel, field_validator, Field, parse_obj_as
+from pydantic import ValidationError as PydanticNativeValidationError # For catching Pydantic errors
 
 from src.core.rules import get_rule, get_all_rules_for_guild
 # from src.config.settings import SUPPORTED_LANGUAGES # Assuming this will be available
@@ -10,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # --- Data Structures ---
 
-class ValidationError(BaseModel):
+class CustomValidationError(BaseModel): # Renamed from ValidationError
     error_type: str  # e.g., "JSONParsingError", "StructuralValidationError", "SemanticValidationError"
     message: str
     details: Optional[List[Dict[str, Any]]] = None # Changed to List[Dict] to match Pydantic's e.errors()
@@ -100,19 +103,19 @@ class ParsedAiData(BaseModel):
 
 T = TypeVar('T')
 
-def _parse_json_from_text(raw_text: str) -> Union[Any, ValidationError]:
-    """Parses JSON from text, returning data or ValidationError."""
+def _parse_json_from_text(raw_text: str) -> Union[Any, CustomValidationError]:
+    """Parses JSON from text, returning data or CustomValidationError."""
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError as e:
         logger.error(f"JSONParsingError: {e}", exc_info=True)
-        return ValidationError(error_type="JSONParsingError", message=str(e))
+        return CustomValidationError(error_type="JSONParsingError", message=str(e))
 
 
 def _validate_overall_structure(
     json_data: Any,
     guild_id: int # Added for context, though not directly used in this Pydantic validation
-) -> Union[List[GeneratedEntity], ValidationError]: # Corrected return type
+) -> Union[List[GeneratedEntity], CustomValidationError]: # Corrected return type
     """Validates the JSON data against the ParsedAiData Pydantic model."""
     try:
         # We expect the AI to return a structure that matches ParsedAiData,
@@ -131,10 +134,10 @@ def _validate_overall_structure(
 
         # Let's assume `json_data` is the list of entities here.
         if not isinstance(json_data, list):
-             return ValidationError(
+             return CustomValidationError( # Renamed
                 error_type="StructuralValidationError",
                 message="Expected a list of entities from AI.",
-                details={"received_type": str(type(json_data))}
+                details=[{"received_type": str(type(json_data))}] # Corrected to List[Dict]
             )
 
         # This will attempt to parse each item in the list as one of the GeneratedEntity types
@@ -143,7 +146,7 @@ def _validate_overall_structure(
         potential_errors = []
         for i, entity_data in enumerate(json_data):
             if not isinstance(entity_data, dict):
-                potential_errors.append(ValidationError(
+                potential_errors.append(CustomValidationError( # Renamed
                     error_type="StructuralValidationError",
                     message=f"Entity at index {i} is not a dictionary.",
                     path=[i]
@@ -151,13 +154,13 @@ def _validate_overall_structure(
                 continue
             try:
                 # Pydantic will use `entity_type` to pick the correct model from the Union
-                validated_entity = parse_obj_as(GeneratedEntity, entity_data) # Use parse_obj_as for Unions
+                validated_entity = parse_obj_as(GeneratedEntity, entity_data) # type: ignore[arg-type] # Pyright struggles with Union here
                 validated_entities.append(validated_entity)
-            except PydanticValidationError as e:
-                potential_errors.append(ValidationError(
+            except PydanticNativeValidationError as e: # Use aliased Pydantic error
+                potential_errors.append(CustomValidationError( # Renamed
                     error_type="StructuralValidationError",
                     message=f"Validation failed for entity at index {i}.",
-                    details=e.errors(),
+                    details=[dict(err) for err in e.errors()], # Explicitly convert ErrorDetails to dict
                     path=[i]
                 ))
 
@@ -169,24 +172,24 @@ def _validate_overall_structure(
         # If all entities validated, return them. The main function will wrap this in ParsedAiData.
         return validated_entities # Returning List[GeneratedEntity]
 
-    except PydanticValidationError as e: # Catch errors from validating ParsedAiData itself if we change the input
+    except PydanticNativeValidationError as e: # Use aliased Pydantic error
         logger.error(f"StructuralValidationError: {e}", exc_info=True)
-        return ValidationError(
+        return CustomValidationError( # Renamed
             error_type="StructuralValidationError",
             message="Overall Pydantic validation failed for AI response structure.",
-            details=e.errors()
+            details=[dict(err) for err in e.errors()] # Explicitly convert ErrorDetails to dict
         )
     except Exception as e: # Catch any other unexpected errors during validation
         logger.error(f"Unexpected error during structural validation: {e}", exc_info=True)
-        return ValidationError(error_type="InternalParserError", message=f"Unexpected validation error: {str(e)}")
+        return CustomValidationError(error_type="InternalParserError", message=f"Unexpected validation error: {str(e)}") # Renamed
 
 
 def _perform_semantic_validation(
     validated_entities: List[GeneratedEntity],
     guild_id: int
-) -> List[ValidationError]:
+) -> List[CustomValidationError]: # Renamed return type
     """Performs semantic validation based on guild rules and game logic."""
-    semantic_errors: List[ValidationError] = []
+    semantic_errors: List[CustomValidationError] = [] # Renamed
 
     try:
         # guild_rules = get_all_rules_for_guild(guild_id) # This is sync
@@ -215,7 +218,7 @@ def _perform_semantic_validation(
                 present_langs = set(i18n_dict.keys())
                 missing = required_langs_for_entity - present_langs
                 if missing:
-                    semantic_errors.append(ValidationError(
+                    semantic_errors.append(CustomValidationError( # Renamed
                         error_type="SemanticValidationError",
                         message=f"Entity {entity_idx} ('{getattr(entity, 'entity_type', 'unknown')}') missing required languages {missing} in '{field_name}'.",
                         path=[entity_idx, field_name]
@@ -245,7 +248,7 @@ def _perform_semantic_validation(
 
     except Exception as e:
         logger.error(f"Error during semantic validation: {e}", exc_info=True)
-        semantic_errors.append(ValidationError(
+        semantic_errors.append(CustomValidationError( # Renamed
             error_type="InternalParserError",
             message=f"Unexpected error during semantic validation: {str(e)}"
         ))
@@ -257,28 +260,31 @@ def _perform_semantic_validation(
 async def parse_and_validate_ai_response(
     raw_ai_output_text: str,
     guild_id: int
-) -> Union[ParsedAiData, ValidationError]:
+) -> Union[ParsedAiData, CustomValidationError]: # Renamed return type
     """
     Parses and validates AI-generated text output.
-    Returns ParsedAiData on success, or ValidationError on failure.
+    Returns ParsedAiData on success, or CustomValidationError on failure.
     """
     # 1. Parse JSON from raw text
     parsed_json = _parse_json_from_text(raw_ai_output_text)
-    if isinstance(parsed_json, ValidationError):
+    if isinstance(parsed_json, CustomValidationError): # Corrected to CustomValidationError
         return parsed_json
 
     # 2. Validate overall structure and individual entity structures using Pydantic
     # _validate_overall_structure expects the list of entities, not the full ParsedAiData structure yet.
     # Let's assume the AI output (parsed_json) IS the list of entities.
-    validated_entities = _validate_overall_structure(parsed_json, guild_id)
-    if isinstance(validated_entities, ValidationError):
-        return validated_entities
+    validated_entities_or_error = _validate_overall_structure(parsed_json, guild_id) # Renamed var
+    if isinstance(validated_entities_or_error, CustomValidationError): # Renamed class
+        return validated_entities_or_error
 
-    # Ensure validated_entities is List[GeneratedEntity] for type safety
+    # Ensure validated_entities_or_error is List[GeneratedEntity] for type safety
+    # This assignment is safe due to the check above.
+    validated_entities: List[GeneratedEntity] = validated_entities_or_error
+
     if not (isinstance(validated_entities, list) and \
             all(isinstance(e, BaseGeneratedEntity) for e in validated_entities)):
         logger.error(f"Structural validation returned unexpected type: {type(validated_entities)}")
-        return ValidationError(
+        return CustomValidationError( # Renamed
             error_type="InternalParserError",
             message="Structural validation did not return the expected list of entities."
         )
