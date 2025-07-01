@@ -140,7 +140,7 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
                 for action in player_actions:
                     all_player_actions_for_turn.append((entity_id, action))
             elif entity_type == "party":
-                party = await get_party_by_id(session, guild_id, entity_id)
+                party = await get_party(session, guild_id, entity_id) # Corrected
                 if party and party.player_ids_json:
                     for player_pk_in_party in party.player_ids_json:
                         player_ids_in_processing_parties.add(player_pk_in_party)
