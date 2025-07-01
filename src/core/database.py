@@ -2,9 +2,9 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 
-from ..config.settings import DATABASE_URL
+from config.settings import DATABASE_URL
 # Импортируем Base из models, чтобы init_db мог создать таблицы
-from ..models.base import Base
+from models.base import Base
 
 logger = logging.getLogger(__name__)
 
