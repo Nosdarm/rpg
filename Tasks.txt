@@ -36,18 +36,9 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 
 
 🎲 Phase 6: Action Resolution Systems (Core Mechanics)
-🎲 6.3.1 Dice Roller Module. (None)
-Description: Implement a dice string parser and rolling function. Not linked to a guild.
-API: roll_dice(dice_string: str) -> Tuple[int, List[int]].
+{Task 🎲 6.3.1 Dice Roller Module. (None) - Moved to Done.txt}
 
-
-🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
-Description: Module for calculating check outcomes based on RuleConfig rules.
-API: resolve_check(guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_check_type: str, target_entity_id: Optional[int] = None, target_entity_type: Optional[str] = None, difficulty_dc: Optional[int] = None, check_context: Optional[dict] = None) -> CheckResult.
-Accepts guild_id. Gets RuleConfig rules FOR THIS GUILD (0.3/13). Loads entities by guild_id (0.3). Uses Effective_Stats (14) FOR THIS ENTITY IN THIS GUILD.
-Calculates modifier based on rules, using stats, skills (14), equipment (15), statuses (14), relationships (31), and context.
-Calls 11 (roll_dice). Calculates final result. Determines outcome based on rules (compare result vs DC/vs_result).
-Returns the result AND an object with details (for log 19, feedback 47).
+{Task 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47) - Moved to Done.txt}
 
 
 ⚙️ 6.10 Action Parsing and Recognition Module (NLU & Intent/Entity). (1, 4, 7, 14, 0.2, 0.3, Choose NLU Libs, Guild-Scoped Dictionary)

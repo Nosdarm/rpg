@@ -17,7 +17,7 @@ import logging
 # Import modules to make them available when 'core' is imported,
 # and also to allow for easier cross-module imports within 'core'.
 
-from . import crud
+from . import crud_base_definitions
 from . import database
 from . import rules
 from . import locations_utils
@@ -33,12 +33,13 @@ from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generatio
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
 __all__ = [
-    "crud",
+    "crud_base_definitions", # Renamed from "crud"
+    # Note: The sub-package src.core.crud is still available as src.core.crud
     "database",
     "rules",
     "locations_utils",
