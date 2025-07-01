@@ -3,7 +3,7 @@ import json
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Any, Coroutine
+from typing import Any, Coroutine, Callable
 
 from src.core.database import get_db_session, transactional
 from src.models import Player, Party, PendingConflict

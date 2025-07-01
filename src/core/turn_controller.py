@@ -1,4 +1,5 @@
 import logging
+import asyncio # Added import
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Callable, Awaitable
