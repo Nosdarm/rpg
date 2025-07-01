@@ -10,9 +10,9 @@ import logging
 import discord
 from discord.ext import commands
 
-from bot.core import BotCore
-from config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL # Добавлен LOG_LEVEL
-from core.database import init_db # Импортируем init_db
+from src.bot.core import BotCore
+from src.config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL # Добавлен LOG_LEVEL
+from src.core.database import init_db # Импортируем init_db
 
 # Настройка логирования
 # Уровень логирования теперь берется из настроек
@@ -48,7 +48,7 @@ async def main():
     intents.message_content = True # Необходимо для чтения содержимого сообщений (если бот будет это делать)
 
     # Используем BOT_PREFIX из настроек
-    from config.settings import BOT_PREFIX
+    from src.config.settings import BOT_PREFIX
     bot_instance = BotCore(command_prefix=commands.when_mentioned_or(BOT_PREFIX), intents=intents)
 
     try:
