@@ -19,6 +19,11 @@ class GuildConfig(Base):
 
     main_language: Mapped[str] = mapped_column(Text, default="en", nullable=False)
 
+    # Relationships
+    # Ensure "PendingConflict" is imported or use forward reference if needed.
+    # For now, assuming PendingConflict will be imported where GuildConfig is used or via __init__.
+    pending_conflicts: Mapped[list["PendingConflict"]] = relationship(back_populates="guild")
+
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"
 

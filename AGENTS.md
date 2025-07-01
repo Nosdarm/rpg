@@ -1,23 +1,25 @@
-## Общая инструкция для Агента
+## Общая инструкция для Агента (Обновлено)
 
 **Основные принципы работы:**
 
-1.  **Последовательное выполнение задач:** Задачи берутся из файла `Tasks.txt` по одной.
-2.  **Полная реализация:** Каждая взятая задача должна быть полностью реализована.
-3.  **Документирование в `AGENTS.md`:** Каждое действие, предпринятое для реализации задачи, должно быть записано в этом файле (`AGENTS.md`) в секции "Лог действий". Это ваша основная память для отслеживания прогресса и контекста.
-4.  **Отметка о выполнении:** Реализованные задачи записываются в файл `Done.txt`.
-5.  **Обновление `Tasks.txt`:** После успешной реализации и записи в `Done.txt`, задача удаляется из файла `Tasks.txt`.
-6.  **Планирование перед реализацией:** Перед началом работы над новой задачей, составляется детальный план ее выполнения и записывается в секцию "Текущий план" в `AGENTS.md`.
+1.  **Анализ `AGENTS.md`:** Перед началом работы всегда анализировать этот файл.
+2.  **Последовательное выполнение задач:** Задачи берутся из файла `Tasks.txt` строго по одной.
+3.  **Полная реализация:** Каждая взятая задача должна быть полностью реализована, включая написание кода, создание/обновление файлов и, по возможности, тестов.
+4.  **Документирование в `AGENTS.md`:** Каждое действие, предпринятое для реализации задачи, должно быть немедленно записано в этом файле (`AGENTS.md`) в секции "Лог действий". Этот файл является вашей локальной памятью для отслеживания прогресса, контекста и принятых решений.
+5.  **Отметка о выполнении в `Done.txt`:** После полной и успешной реализации, информация о выполненной задаче (например, ее номер и краткое описание) записывается в файл `Done.txt`.
+6.  **Обновление `Tasks.txt` (если применимо):** Если это предусмотрено общим рабочим процессом (например, задачи не должны повторяться), то после записи в `Done.txt`, соответствующая задача удаляется или помечается как выполненная в `Tasks.txt`. *Примечание: Исходная инструкция пользователя указывала на удаление, текущая версия `AGENTS.md` также это подтверждает. Будем следовать этому.*
+7.  **Планирование перед реализацией:** Перед началом работы над новой задачей, необходимо составить детальный план ее выполнения. Этот план записывается в секцию "Текущий план" в `AGENTS.md`.
+8.  **Приоритет инструкций:** Инструкции от пользователя, полученные в ходе диалога, имеют приоритет над общими инструкциями в `AGENTS.md`.
 
 **Структура `AGENTS.md`:**
 
 *   **Общая инструкция для Агента:** (Этот раздел)
 *   **Текущий план:** Детальный план для текущей активной задачи.
-*   **Лог действий:** Хронологический список всех предпринятых действий.
+*   **Лог действий:** Хронологический список всех предпринятых действий с указанием даты/времени или сессии.
 
 ---
 
-## Инструкция для агента (Исходная)
+## Инструкция для агента (Исходная - сохранено для истории, руководствоваться "Общей инструкцией" выше)
 
 1.  **Ознакомление с задачами:** Внимательно прочитать файл `Tasks.txt` для понимания всего объема работ.
 2.  **Выбор задачи:** Взять одну задачу из файла `Tasks.txt` для реализации.
@@ -437,29 +439,59 @@
 8.  **Testing (Conceptual/Manual)**: (Выполнено)
     *   Outlined manual testing steps for the NLU service and `on_message` integration.
 
+- **Задача ⚙️ 6.10 Action Parsing and Recognition Module (NLU & Intent/Entity) завершена и задокументирована.**
+    - Проверено, что все шаги по реализации из предыдущего плана для задачи 6.10 выполнены (создание Pydantic моделей `ParsedAction`, `ActionEntity`; реализация `nlu_service.parse_player_input` с regex; интеграция в `on_message` через `_process_player_message_for_nlu`; обновление `player.collected_actions_json`).
+    - Запись о выполнении задачи добавлена в `Done.txt`.
+    - Текущий план обновлен для отражения завершения этой задачи и перехода к следующей.
+
+- **Задача ⚙️ 6.12 Turn Queue System (Turn Controller) - Per-Guild Processing**:
+    - **Анализ требований**: Проанализированы требования к статусам игроков/групп, командам `/end_turn`, `/end_party_turn`, логике обработки очереди и вызову обработчика действий.
+    - **Обновление статусов**: В `src/models/enums.py` обновлены `PlayerStatus` (добавлены `TURN_ENDED_PENDING_RESOLUTION`, `PROCESSING_GUILD_TURN`; удален `PROCESSING_ACTION`) и `PartyTurnStatus` (добавлены `AWAITING_PARTY_ACTION`, `TURN_ENDED_PENDING_RESOLUTION`, `PROCESSING_GUILD_TURN`; удалены `ACTIVE_TURN`, `PROCESSING_ACTIONS`, `WAITING_FOR_MEMBERS`, `TURN_ENDED`).
+    - **Реализация команд**: Создан `src/bot/commands/turn_commands.py` с `TurnManagementCog`, содержащий команды `/end_turn` и `/end_party_turn`. Команды обновляют статусы игрока/группы и вызывают логику обработки очереди.
+    - **Реализация логики обработки очереди**: Создан `src/core/turn_controller.py` с функциями `process_guild_turn_if_ready` (с блокировкой для гильдии, обновлением статусов сущностей на `PROCESSING_GUILD_TURN` и вызовом заглушки для обработчика действий) и `trigger_guild_turn_processing` (для вызова из Cog).
+    - **Интеграция**: `TurnManagementCog` добавлен в `BOT_COGS` в `src/config/settings.py`. `turn_controller` добавлен в `src/core/__init__.py`. Команды в `turn_commands.py` обновлены для вызова `trigger_guild_turn_processing`.
+    - **Миграция БД**: Создана миграция Alembic `alembic/versions/0006_update_turn_statuses.py` для добавления новых значений в ENUM `PlayerStatus` и `PartyTurnStatus` с использованием `ALTER TYPE ... ADD VALUE IF NOT EXISTS`.
+    - **Тестирование**: Разработан концептуальный план тестирования для проверки команд, изменения статусов и механизма блокировки.
+    - **Документация**: Обновлен "Текущий план" и "Лог действий" в `AGENTS.md`.
+
+- **Задача ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution**:
+    - **Анализ требований**: Детально проанализированы требования: асинхронный воркер, загрузка и очистка действий игроков (`collected_actions_json`), фазы анализа конфликтов (MVP для группы, создание `PendingConflict`, уведомление Мастера), автоматическое разрешение конфликтов (вызов Check Resolver), фаза выполнения действий (каждое действие в атомарной транзакции, вызов соответствующих модулей-заглушек), обновление статусов игроков/групп.
+    - **Определение моделей**: Определена модель `PendingConflict` в `src/models/pending_conflict.py` и Enum `ConflictStatus` в `src/models/enums.py`. Обновлен `src/models/guild.py` для обратной связи. Обновлен `src/models/__init__.py`. Создана миграция Alembic `0007_create_pending_conflicts_table.py`.
+    - **Реализация `action_processor.py`**: Создан `src/core/action_processor.py` с основной функцией `process_actions_for_guild`. Реализована загрузка и очистка действий игроков, MVP-диспетчеризация действий к заглушкам (`_handle_placeholder_action`, `_handle_move_action_wrapper`) с выполнением каждого действия в отдельной транзакции. Реализовано обновление статусов сущностей после обработки их действий.
+    - **Интеграция с `turn_controller.py`**: `src/core/turn_controller.py` обновлен для вызова `action_processor.process_actions_for_guild` через `asyncio.create_task`.
+    - **Обновление `core/__init__.py`**: `action_processor` и его публичные функции добавлены в `src/core/__init__.py`.
+    - **Тестирование (концептуальное)**: Разработан план для мануального/концептуального тестирования основного потока обработки действий, обработки ошибок и очистки `collected_actions_json`.
+
 ## Текущий план
 
-**Общий План Работы (согласно `set_plan` от предыдущего шага):**
+**Задача: ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution**
 
-1.  **Identify Next Task**: (Выполнено для текущего цикла - Задача 6.10 была идентифицирована)
-    *   Read `Tasks.txt`.
-    *   Cross-reference with `Done.txt` and `AGENTS.md` to find the first truly uncompleted task.
-2.  **Plan Task Implementation**: (Выполнено для Задачи 6.10)
-    *   Once the next task is identified, create a detailed, multi-step sub-plan for its implementation.
-    *   Record this sub-plan in `AGENTS.md` under "Текущий план".
-3.  **Implement Task (Execute Sub-Plan)**: (Выполнено для Задачи 6.10)
-    *   Carry out the steps defined in the sub-plan.
-    *   Log all significant actions in `AGENTS.md` under "Лог действий".
-4.  **Record Task Completion**: (Текущий шаг для Задачи 6.10)
-    *   Append a detailed entry for the completed task to `Done.txt`.
-    *   Update `AGENTS.md` to reflect task completion in the "Лог действий".
-5.  **Update `Tasks.txt`**: (Следующий шаг для Задачи 6.10)
-    *   Remove the completed task from `Tasks.txt`.
-6.  **Loop or Submit**:
-    *   If there are more tasks in `Tasks.txt`, go back to Step 1 (Identify Next Task).
-    *   If `Tasks.txt` is empty, proceed to submit all changes.
-7.  **Submit Changes**:
-    *   Commit all accumulated changes.
-    *   Use the `submit` tool.
+1.  **Analyze Requirements for ⚙️ 6.11 Central Collected Actions Processing Module**: (Выполнено)
+    *   Async Worker function signature, loading/clearing actions, conflict analysis (MVP: party, PendingConflict, Master notification), auto-conflict resolution (placeholder), Action Execution (atomic transactions per action, dispatch to placeholders), status updates, feedback/logging placeholders.
+2.  **Define `PendingConflict` Model and related Enums**: (Выполнено)
+    *   Created `ConflictStatus` enum in `src/models/enums.py`.
+    *   Created `PendingConflict` model in `src/models/pending_conflict.py`.
+    *   Updated `src/models/guild.py` (relationship) and `src/models/__init__.py`.
+    *   Created Alembic migration `0007_create_pending_conflicts_table.py`.
+3.  **Create `src/core/action_processor.py`**: (Выполнено)
+    *   Implemented `process_actions_for_guild` as the main async worker.
+    *   Implemented `_load_and_clear_actions` (transactional).
+    *   Implemented MVP action dispatch loop with `ACTION_DISPATCHER` and placeholder handlers (`_handle_placeholder_action`, `_handle_move_action_wrapper`), ensuring each action is in a separate transaction.
+    *   Implemented player/party status updates post-processing.
+4.  **Update `src/core/turn_controller.py`**: (Выполнено)
+    *   Modified `_start_action_processing_worker` to import and call `action_processor.process_actions_for_guild` using `asyncio.create_task`.
+5.  **Integrate and Refine**: (Выполнено)
+    *   Added `action_processor.py` and its components to `src/core/__init__.py`.
+    *   Ensured logging and guild-scoping.
+6.  **Testing (Manual/Conceptual)**: (Выполнено)
+    *   Outlined test cases for action loading, dispatching, error handling within an action, and status updates.
+7.  **Documentation**: (Текущий шаг)
+    *   Update `AGENTS.md` with this plan and log actions.
+8.  **Completion**:
+    *   Record task completion in `Done.txt`.
+    *   Remove task from `Tasks.txt`.
+    *   Identify next task.
+
+**(Задача ⚙️ 6.11 находится в процессе завершения документации.)**
 
 [end of AGENTS.md]
