@@ -56,14 +56,6 @@ Logs the event (19) for the guild. Provides feedback (47).
 Task Block: Phase 7: Narrative Generation and Event Log
 This block presents tasks related to maintaining an event log and generating narrative text, including turn reports.
 
-Task 17: 📚 7.1 Event Log Model (Story Log, i18n, Guild-Scoped).
-Description: Model for storing a detailed log of game events within each guild. (Renamed from 5.1, moved).
-Implement the StoryLog model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, FK to GuildConfig), timestamp (DATETIME), location_id (INTEGER FK, Nullable), event_type (TEXT, ENUM?), entity_ids_json (JSONB - {"players":[...], "npcs":[...], ...} - references to affected entities by ID), details_json (JSONB - full event details, for rollback 20 and feedback 47).
-Implement the log_event(session: Session, guild_id: int, event_type: str, details_json: dict, player_id=None, party_id=None, location_id=None, entity_ids_json=None) API: Saves a record to StoryLog within the provided transaction (session), SPECIFYING THIS guild_id. Called by all modules that change state or produce important events.
-Result: StoryLog model defined, API for logging events within a guild implemented.
-
-
-
 Task 18: 📚 7.2 AI Narrative Generation (Multilang).
 Description: Call LLM to generate more freeform narrative text (event description, reactions to something).
 API generate_narrative(guild_id: int, context: dict) -> str. Accepts guild_id. Called by other modules to enrich event descriptions.

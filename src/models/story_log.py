@@ -7,11 +7,10 @@ from typing import Optional, Dict, Any
 from .base import Base
 from .enums import EventType # Import the Enum
 
-# Forward declaration for type hinting
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from .guild import GuildConfig
-#     from .location import Location
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .guild import GuildConfig
+    from .location import Location
 
 class StoryLog(Base):
     __tablename__ = "story_logs"
@@ -21,14 +20,14 @@ class StoryLog(Base):
     guild_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), index=True
     )
-    # guild: Mapped["GuildConfig"] = relationship() # Optional
+    guild: Mapped["GuildConfig"] = relationship(back_populates="story_logs")
 
     timestamp: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
 
     event_type: Mapped[EventType] = mapped_column(
-        SQLAlchemyEnum(EventType, name="event_type_enum", create_type=False),
+        SQLAlchemyEnum(EventType, name="event_type_enum", create_type=False), # Assuming event_type_enum is globally managed or this model is part of its first definition
         nullable=False,
         index=True
     )
@@ -36,7 +35,7 @@ class StoryLog(Base):
     location_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    # current_location: Mapped[Optional["Location"]] = relationship() # Optional
+    location: Mapped[Optional["Location"]] = relationship() # One-way relationship, no back_populates needed unless Location tracks logs
 
     # JSONB to store references to entities involved in the event.
     # Example: {"player_ids": [1, 2], "npc_ids": [101], "item_ids": [50]}
