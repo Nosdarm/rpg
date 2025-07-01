@@ -2,9 +2,9 @@ from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.party import Party
-from core.crud.crud_party import party_crud # Specific CRUD for Party
-from core.crud.crud_player import player_crud # For fetching player details if needed
+from ..models.party import Party
+from .crud.crud_party import party_crud # Specific CRUD for Party
+from .crud.crud_player import player_crud # For fetching player details if needed
 
 async def get_party(db: AsyncSession, guild_id: int, party_id: int) -> Optional[Party]:
     """
