@@ -8,7 +8,7 @@ from sqlalchemy.future import select # Ensure this is imported for select statem
 
 from .database import transactional, get_db_session
 from .crud import player_crud, party_crud, location_crud
-from models import Player, Party, Location
+from ..models import Player, Party, Location
 from .game_events import on_enter_location, log_event # Placeholders
 from .rules import get_rule # For party movement rules, if needed later
 

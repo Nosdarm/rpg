@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
 
 from ..crud_base_definitions import CRUDBase
-from models.party import Party, PartyTurnStatus
-from models.player import Player # Needed for updating Player.current_party_id
+from ...models.party import Party, PartyTurnStatus
+from ...models.player import Player # Needed for updating Player.current_party_id
 
 
 class CRUDParty(CRUDBase[Party]):

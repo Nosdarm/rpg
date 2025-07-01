@@ -56,10 +56,12 @@ async def main():
         await bot_instance.start(DISCORD_BOT_TOKEN)
     except discord.LoginFailure:
         logger.error("Ошибка входа: неверный токен Discord.")
+        return # Explicit return
     except Exception as e:
         logger.error(f"Произошла ошибка при запуске бота: {e}")
+        return # Explicit return
     finally:
-        if not bot_instance.is_closed():
+        if not bot_instance.is_closed(): # Ensure bot_instance is defined before using
             await bot_instance.close()
         logger.info("Бот остановлен.")
 
