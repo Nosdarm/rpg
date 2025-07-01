@@ -83,7 +83,7 @@ async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_i
     """Loads actions for a single entity and clears them from the DB."""
     actions_to_process = []
     if entity_type == "player":
-        player = await get_player_by_id(session, guild_id, entity_id) # Use get_player_by_id (PK)
+        player = await get_player(session, guild_id, entity_id) # Corrected
         if player and player.collected_actions_json:
             try:
                 actions_data = json.loads(player.collected_actions_json) if isinstance(player.collected_actions_json, str) else player.collected_actions_json
@@ -101,7 +101,7 @@ async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_i
 
 
     elif entity_type == "party":
-        party = await get_party_by_id(session, guild_id, entity_id) # Use get_party_by_id (PK)
+        party = await get_party(session, guild_id, entity_id) # Corrected
         if party:
             # Party actions might be stored differently, e.g., on a party model or aggregated from members.
             # For now, assume party actions are collected similarly or this part needs specific logic.
@@ -200,20 +200,20 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
                 entity_id = entity_info["id"]
                 entity_type = entity_info["type"]
                 if entity_type == "player":
-                    player = await get_player_by_id(final_session, guild_id, entity_id)
+                    player = await get_player(final_session, guild_id, entity_id) # Corrected
                     if player and player.status == PlayerStatus.PROCESSING_GUILD_TURN:
                         player.status = PlayerStatus.EXPLORING # Or PlayerStatus.AWAITING_INPUT
                         final_session.add(player)
                         logger.info(f"[ACTION_PROCESSOR] Player {player.id} status reset to EXPLORING.")
                 elif entity_type == "party":
-                    party = await get_party_by_id(final_session, guild_id, entity_id)
+                    party = await get_party(final_session, guild_id, entity_id) # Corrected
                     if party and party.turn_status == PartyTurnStatus.PROCESSING_GUILD_TURN:
                         party.turn_status = PartyTurnStatus.IDLE # Or AWAITING_PARTY_ACTION
                         final_session.add(party)
                         logger.info(f"[ACTION_PROCESSOR] Party {party.id} status reset to IDLE.")
                         # Reset party members too if they were part of this party's processing
                         for p_id in party.player_ids_json:
-                             member = await get_player_by_id(final_session, guild_id, p_id)
+                             member = await get_player(final_session, guild_id, p_id) # Corrected
                              if member and member.status == PlayerStatus.PROCESSING_GUILD_TURN:
                                  member.status = PlayerStatus.EXPLORING
                                  final_session.add(member)
