@@ -1,7 +1,26 @@
-## Инструкция для агента
+## Общая инструкция для Агента
 
-1.  **Ознакомление с задачами:** Внимательно прочитать файл `tasks` для понимания всего объема работ.
-2.  **Выбор задачи:** Взять одну задачу из файла `tasks` для реализации.
+**Основные принципы работы:**
+
+1.  **Последовательное выполнение задач:** Задачи берутся из файла `Tasks.txt` по одной.
+2.  **Полная реализация:** Каждая взятая задача должна быть полностью реализована.
+3.  **Документирование в `AGENTS.md`:** Каждое действие, предпринятое для реализации задачи, должно быть записано в этом файле (`AGENTS.md`) в секции "Лог действий". Это ваша основная память для отслеживания прогресса и контекста.
+4.  **Отметка о выполнении:** Реализованные задачи записываются в файл `Done.txt`.
+5.  **Обновление `Tasks.txt`:** После успешной реализации и записи в `Done.txt`, задача удаляется из файла `Tasks.txt`.
+6.  **Планирование перед реализацией:** Перед началом работы над новой задачей, составляется детальный план ее выполнения и записывается в секцию "Текущий план" в `AGENTS.md`.
+
+**Структура `AGENTS.md`:**
+
+*   **Общая инструкция для Агента:** (Этот раздел)
+*   **Текущий план:** Детальный план для текущей активной задачи.
+*   **Лог действий:** Хронологический список всех предпринятых действий.
+
+---
+
+## Инструкция для агента (Исходная)
+
+1.  **Ознакомление с задачами:** Внимательно прочитать файл `Tasks.txt` для понимания всего объема работ.
+2.  **Выбор задачи:** Взять одну задачу из файла `Tasks.txt` для реализации.
 3.  **Планирование:**
     *   Создать детальный план для реализации выбранной задачи.
     *   Записать план в `AGENTS.md` в секцию "Текущий план".
@@ -13,8 +32,8 @@
     *   Каждое значимое действие (создание файла, изменение функции, запуск тестов и т.д.) должно быть записано в `AGENTS.md` в секцию "Лог действий".
 6.  **Завершение задачи:**
     *   После успешной реализации и тестирования, записать выполненную задачу в файл `done.txt`.
-    *   Удалить выполненную задачу из файла `tasks`.
-7.  **Повторение:** Вернуться к шагу 2, если в файле `tasks` остались невыполненные задачи.
+    *   Удалить выполненную задачу из файла `Tasks.txt`.
+7.  **Повторение:** Вернуться к шагу 2, если в файле `Tasks.txt` остались невыполненные задачи.
 8.  **Отправка изменений:** После выполнения всех задач, отправить изменения с соответствующим коммитом.
 
 ## Лог действий
@@ -391,8 +410,56 @@
     *   Записать лог действий по реализации в "Лог действий".
     *   Обновить "Текущий план".
 
-6.  **Записать выполненную задачу 2.6 в `Done.txt`**.
-7.  **Удалить выполненную задачу 2.6 из `Tasks.txt`**.
-8.  **Перейти к следующей задаче или отправить изменения, если это последняя задача в фазе.**
+6.  **Записать выполненную задачу 2.6 в `Done.txt`**. (Выполнено)
+7.  **Удалить выполненную задачу 2.6 из `Tasks.txt`**. (Выполнено, т.к. она уже была помечена как "Moved to Done.txt")
+8.  **Перейти к следующей задаче или отправить изменения, если это последняя задача в фазе.** (Перешли к следующей задаче)
+
+---
+**Задача: ⚙️ 6.10 Action Parsing and Recognition Module (NLU & Intent/Entity)**
+
+1.  **Research and Choose NLU Library**: (Выполнено)
+    *   Chosen approach: Simple keyword/regex-based parser for MVP. No new external libraries required initially.
+2.  **Update `requirements.txt`**: (Выполнено)
+    *   No changes needed as per chosen NLU approach.
+3.  **Define Action JSON Structure**: (Выполнено)
+    *   Created `src/models/actions.py` with `ParsedAction` and `ActionEntity` Pydantic models.
+    *   Updated `src/models/__init__.py` to include these models.
+4.  **Implement Basic NLU Service/Wrapper**: (Выполнено)
+    *   Created `src/core/nlu_service.py` with `parse_player_input` function using regex patterns.
+    *   Updated `src/core/__init__.py` to export the service.
+5.  **Modify `Player` Model**: (Выполнено)
+    *   Verified `Player.collected_actions_json` exists and is suitable. No changes or migration needed.
+6.  **Integrate NLU into `on_message` Event**: (Выполнено)
+    *   Modified `on_message` in `src/bot/events.py`.
+    *   Added transactional helper `process_player_message_for_nlu` to handle player fetching, status checks, calling NLU, and updating `player.collected_actions_json`.
+7.  **Guild-Specific Entity Dictionary (Conceptual)**: (Выполнено)
+    *   Conceptualized future enhancements for guild-specific entities. Current MVP uses global regex.
+8.  **Testing (Conceptual/Manual)**: (Выполнено)
+    *   Outlined manual testing steps for the NLU service and `on_message` integration.
+
+## Текущий план
+
+**Общий План Работы (согласно `set_plan` от предыдущего шага):**
+
+1.  **Identify Next Task**: (Выполнено для текущего цикла - Задача 6.10 была идентифицирована)
+    *   Read `Tasks.txt`.
+    *   Cross-reference with `Done.txt` and `AGENTS.md` to find the first truly uncompleted task.
+2.  **Plan Task Implementation**: (Выполнено для Задачи 6.10)
+    *   Once the next task is identified, create a detailed, multi-step sub-plan for its implementation.
+    *   Record this sub-plan in `AGENTS.md` under "Текущий план".
+3.  **Implement Task (Execute Sub-Plan)**: (Выполнено для Задачи 6.10)
+    *   Carry out the steps defined in the sub-plan.
+    *   Log all significant actions in `AGENTS.md` under "Лог действий".
+4.  **Record Task Completion**: (Текущий шаг для Задачи 6.10)
+    *   Append a detailed entry for the completed task to `Done.txt`.
+    *   Update `AGENTS.md` to reflect task completion in the "Лог действий".
+5.  **Update `Tasks.txt`**: (Следующий шаг для Задачи 6.10)
+    *   Remove the completed task from `Tasks.txt`.
+6.  **Loop or Submit**:
+    *   If there are more tasks in `Tasks.txt`, go back to Step 1 (Identify Next Task).
+    *   If `Tasks.txt` is empty, proceed to submit all changes.
+7.  **Submit Changes**:
+    *   Commit all accumulated changes.
+    *   Use the `submit` tool.
 
 [end of AGENTS.md]

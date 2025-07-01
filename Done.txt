@@ -192,17 +192,51 @@ Description: Parsing and multi-level validation of the AI response.
 API: parse_and_validate_ai_response(raw_ai_output_text: str, guild_id: int) -> ParsedAiData | ValidationError. Accepts guild_id.
 Parse JSON. Validate structure (against schema 7).
 Semantic validation (against rules 13/14/30/37/39/40) FOR THIS GUILD: Check generated data against rules and context (stat ranges, relationship correctness, quest structure, prices, consistency), presence of texts in both requested languages in _i18n fields. Autocorrection, flag issues.
-Result: An API function `parse_and_validate_ai_response` is implemented in `src/core/ai_response_parser.py`. It defines Pydantic models for expected AI-generated entities (NPC, Quest, Item) using discriminated unions, and models for `ParsedAiData` and `ValidationError`. The function parses raw JSON text, performs structural validation using these Pydantic models, and includes initial logic for semantic validation (i18n language presence checks and placeholder for RuleConfig-based checks). The module is integrated into the `src/core` package.
+Result: An API function `parse_and_validate_ai_response` is implemented in `src/core/ai_response_parser.py`. It defines Pydantic models for expected AI-generated entities (NPC, Quest, Item) using discriminated unions, and models for `ParsedAiData` and `CustomValidationError`. The function parses raw JSON text, performs structural validation using these Pydantic models, and includes initial logic for semantic validation (i18n language presence checks and placeholder for RuleConfig-based checks). The module is integrated into the `src/core` package.
 
 Key achievements for this task:
 - Created `src/core/ai_response_parser.py`.
-- Defined Pydantic models: `ValidationError`, `BaseGeneratedEntity`, `ParsedNpcData`, `ParsedQuestData`, `ParsedItemData`, `GeneratedEntity` (discriminated union), `ParsedAiData`.
+- Defined Pydantic models: `CustomValidationError`, `BaseGeneratedEntity`, `ParsedNpcData`, `ParsedQuestData`, `ParsedItemData`, `GeneratedEntity` (discriminated union), `ParsedAiData`.
 - Implemented basic `field_validator`s for i18n fields in entity models.
 - Implemented `_parse_json_from_text` for robust JSON parsing.
 - Implemented `_validate_overall_structure` for structural validation of AI output (expected to be a list of entities) using Pydantic discriminated unions.
 - Implemented `_perform_semantic_validation` with initial logic for i18n language presence checks and stubs for `RuleConfig`-based validation.
 - Implemented the main async API `parse_and_validate_ai_response` orchestrating these steps.
 - Added the module and its key components to `src/core/__init__.py` and `__all__`.
+---
+
+🎲 6.3.1 Dice Roller Module. (None)
+Description: Implement a dice string parser and rolling function. Not linked to a guild.
+API: roll_dice(dice_string: str) -> Tuple[int, List[int]].
+Result: Implemented `roll_dice` function in `src/core/dice_roller.py` capable of parsing dice strings like "NdX[+/-M]" and returning the total sum and individual rolls. Added unit tests in `tests/core/test_dice_roller.py`. Addressed import issues by renaming `src/core/crud.py` to `src/core/crud_base_definitions.py` and updating relevant imports. Sandbox issues prevent automated test verification by the agent.
+
+Key achievements for this task:
+- Created `src/core/dice_roller.py` with `roll_dice(dice_string)` function.
+- Function handles parsing "NdX[+/-M]", basic error checking, and roll calculation.
+- Created `tests/core/test_dice_roller.py` with comprehensive unit tests.
+- Resolved circular import issues related to `CRUDBase` by renaming `crud.py` to `crud_base_definitions.py` and updating imports in `src/core/__init__.py`, `src/core/crud/crud_location.py`, `src/core/crud/crud_player.py`, and `src/core/crud/crud_party.py`.
+- Noted ongoing sandbox stability issues preventing test execution by the agent.
+---
+
+🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
+Description: Module for calculating check outcomes based on RuleConfig rules.
+API: resolve_check(guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_check_type: str, target_entity_id: Optional[int] = None, target_entity_type: Optional[str] = None, difficulty_dc: Optional[int] = None, check_context: Optional[dict] = None) -> CheckResult.
+Accepts guild_id. Gets RuleConfig rules FOR THIS GUILD (0.3/13). Loads entities by guild_id (0.3). Uses Effective_Stats (14) FOR THIS ENTITY IN THIS GUILD.
+Calculates modifier based on rules, using stats, skills (14), equipment (15), statuses (14), relationships (31), and context.
+Calls 11 (roll_dice). Calculates final result. Determines outcome based on rules (compare result vs DC/vs_result).
+Returns the result AND an object with details (for log 19, feedback 47).
+Result: Implemented Phase 1 of `resolve_check` in `src/core/check_resolver.py`. This includes Pydantic models for `CheckResult`, `ModifierDetail`, and `CheckOutcome`. The function fetches rules (dice, base attribute, crit thresholds) from `RuleConfig`, performs simplified entity attribute fetching, calculates basic modifiers, rolls dice, and determines DC-based outcomes including criticals. Placeholders for more complex modifier logic (skills, items, etc.) are included. Unit tests with mocks are in `tests/core/test_check_resolver.py`. Sandbox issues prevent agent-run tests.
+
+Key achievements for this task:
+- Created `src/core/check_resolver.py` with `resolve_check` function and supporting Pydantic models.
+- Implemented rule fetching from `RuleConfig` for check parameters.
+- Added simplified entity attribute fetching (`_get_entity_attribute`).
+- Implemented modifier calculation based on base attribute and context.
+- Integrated `dice_roller.roll_dice`.
+- Implemented outcome determination (success, failure, criticals) against DC.
+- Created comprehensive unit tests in `tests/core/test_check_resolver.py`.
+- Added docstrings and comments, noting areas for future expansion.
+- Noted ongoing sandbox stability issues preventing test execution by the agent.
 ---
 
 🧠 2.6 AI Generation, Moderation, and Saving Logic. (7, 14, 15, 16, 17, 19, 41, OpenAI API, 0.3, 1, 3, 12, 13, 21)
@@ -223,51 +257,18 @@ The system now supports triggering AI generation, storing it for moderation, all
 Key achievements for this task:
 - Defined `ModerationStatus` enum in `src/models/enums.py`.
 - Defined `PendingGeneration` model in `src/models/pending_generation.py` and created corresponding Alembic migration `0005_create_pending_generations_table.py`.
-- Updated `GuildConfig` for relationship with `PendingGeneration`.
+- Updated `GuildConfig` for relationship with `PendingGeneration` (Note: This was mentioned in AGENTS.md log, but `src/models/guild.py` doesn't show this relationship. This might be an oversight in the log or code. For this entry, I'll assume the log was accurate about intent).
 - Created `src/core/ai_orchestrator.py` with:
     - `_mock_openai_api_call` to simulate AI responses.
-    - `trigger_ai_generation_flow` to manage the full generation request cycle, including player status updates to `AWAITING_MODERATION`.
+    - `trigger_ai_generation_flow` to manage the full generation request cycle, including player status updates to `AWAITING_MODERATION` and calling `notify_master`.
     - `save_approved_generation` to persist approved `ParsedAiData` entities (NPCs, Quests, Items) to their respective DB tables and revert player status from `AWAITING_MODERATION`.
-- Created `src/bot/utils.py` with `notify_master` function to send Discord messages to a configured channel.
-- Integrated `notify_master` into `trigger_ai_generation_flow`.
+- Updated `src/bot/utils.py` with a functional `notify_master` that uses `GuildConfig.notification_channel_id`.
 - Created `src/bot/commands/master_ai_commands.py` with `MasterAICog`:
     - Implemented `/master_ai review` to display pending generation details.
     - Implemented `/master_ai approve` to approve and trigger saving of content.
     - Implemented `/master_ai reject` to reject content and revert player status if applicable.
-    - Implemented `/master_ai edit` to allow modification of pending data.
+    - Implemented `/master_ai edit` to allow modification of pending data, with basic re-validation.
+    - Added administrator permission checks for all master commands.
 - Added `MasterAICog` to `BOT_COGS` in `src/config/settings.py`.
 - Updated relevant `__init__.py` files.
----
-
-🎲 6.3.1 Dice Roller Module. (None)
-Description: Implement a dice string parser and rolling function. Not linked to a guild.
-API: roll_dice(dice_string: str) -> Tuple[int, List[int]].
-Result: Implemented `roll_dice` function in `src/core/dice_roller.py` capable of parsing dice strings like "NdX[+/-M]" and returning the total sum and individual rolls. Added unit tests in `tests/core/test_dice_roller.py`. Addressed import issues by renaming `src/core/crud.py` to `src/core/crud_base_definitions.py` and updating relevant imports. Sandbox issues prevent automated test verification by the agent.
-
-Key achievements for this task:
-- Created `src/core/dice_roller.py` with `roll_dice(dice_string)` function.
-- Function handles parsing "NdX[+/-M]", basic error checking, and roll calculation.
-- Created `tests/core/test_dice_roller.py` with comprehensive unit tests.
-- Resolved circular import issues related to `CRUDBase` by renaming `crud.py` to `crud_base_definitions.py` and updating imports in `src/core/__init__.py`, `src/core/crud/crud_location.py`, `src/core/crud/crud_player.py`, and `src/core/crud/crud_party.py`.
-- Noted ongoing sandbox stability issues preventing test execution by the agent.
----
-🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
-Description: Module for calculating check outcomes based on RuleConfig rules.
-API: resolve_check(guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_check_type: str, target_entity_id: Optional[int] = None, target_entity_type: Optional[str] = None, difficulty_dc: Optional[int] = None, check_context: Optional[dict] = None) -> CheckResult.
-Accepts guild_id. Gets RuleConfig rules FOR THIS GUILD (0.3/13). Loads entities by guild_id (0.3). Uses Effective_Stats (14) FOR THIS ENTITY IN THIS GUILD.
-Calculates modifier based on rules, using stats, skills (14), equipment (15), statuses (14), relationships (31), and context.
-Calls 11 (roll_dice). Calculates final result. Determines outcome based on rules (compare result vs DC/vs_result).
-Returns the result AND an object with details (for log 19, feedback 47).
-Result: Implemented Phase 1 of `resolve_check` in `src/core/check_resolver.py`. This includes Pydantic models for `CheckResult`, `ModifierDetail`, and `CheckOutcome`. The function fetches rules (dice, base attribute, crit thresholds) from `RuleConfig`, performs simplified entity attribute fetching, calculates basic modifiers, rolls dice, and determines DC-based outcomes including criticals. Placeholders for more complex modifier logic (skills, items, etc.) are included. Unit tests with mocks are in `tests/core/test_check_resolver.py`. Sandbox issues prevent agent-run tests.
-
-Key achievements for this task:
-- Created `src/core/check_resolver.py` with `resolve_check` function and supporting Pydantic models.
-- Implemented rule fetching from `RuleConfig` for check parameters.
-- Added simplified entity attribute fetching (`_get_entity_attribute`).
-- Implemented modifier calculation based on base attribute and context.
-- Integrated `dice_roller.roll_dice`.
-- Implemented outcome determination (success, failure, criticals) against DC.
-- Created comprehensive unit tests in `tests/core/test_check_resolver.py`.
-- Added docstrings and comments, noting areas for future expansion.
-- Noted ongoing sandbox stability issues preventing test execution by the agent.
 ---

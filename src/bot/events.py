@@ -19,21 +19,109 @@ class EventCog(commands.Cog):
         else:
             logger.error("EventCog: on_ready called, but self.bot.user is None.")
 
+from src.core.database import get_db_session, transactional
+from src.core.crud.crud_player import player_crud
+from src.core.nlu_service import parse_player_input
+from src.models.player import PlayerStatus
+from src.models.actions import ParsedAction
+
+# Helper function for NLU processing to keep on_message clean
+# This function will handle fetching the player and updating them.
+@transactional
+async def process_player_message_for_nlu(session: AsyncSession, bot: commands.Bot, message: discord.Message):
+    """
+    Processes a player's message for NLU, updates player's collected_actions_json.
+    This function is decorated with @transactional to ensure DB operations are atomic.
+    """
+    if not message.guild: # Should not happen if called from on_message with guild check
+        return
+
+    guild_id = message.guild.id
+    player_discord_id = message.author.id
+
+    player = await player_crud.get_by_discord_id(db=session, guild_id=guild_id, discord_id=player_discord_id)
+
+    if not player:
+        # logger.debug(f"Player not found for discord_id {player_discord_id} in guild {guild_id}. NLU skipped.")
+        return
+
+    # Define statuses where NLU should be skipped or handled differently
+    # For MVP, let's process if player is IDLE or EXPLORING.
+    # Other statuses like COMBAT, DIALOGUE, MENU, AWAITING_MODERATION might have their own input handlers
+    # or should explicitly not trigger general NLU.
+    skippable_statuses = [
+        PlayerStatus.COMBAT,
+        PlayerStatus.DIALOGUE,
+        # PlayerStatus.MENU, # Depends on if menu interaction is text-based
+        PlayerStatus.AWAITING_MODERATION,
+        PlayerStatus.PROCESSING_ACTION,
+        PlayerStatus.DEAD
+    ]
+    if player.current_status in skippable_statuses:
+        logger.debug(f"Player {player.name} (ID: {player.id}) in status {player.current_status.name}. NLU processing skipped for message: '{message.content}'")
+        return
+
+    parsed_action: Optional[ParsedAction] = await parse_player_input(
+        raw_text=message.content,
+        guild_id=guild_id,
+        player_id=player_discord_id
+    )
+
+    if parsed_action and parsed_action.intent != "unknown_intent": # Only save if intent is known for now
+        action_dict = parsed_action.model_dump(mode="json") # Convert Pydantic model to dict
+
+        current_actions = player.collected_actions_json or []
+        current_actions.append(action_dict)
+
+        update_data = {"collected_actions_json": current_actions}
+        await player_crud.update(db=session, db_obj=player, obj_in=update_data)
+        logger.info(f"Saved action for player {player.name} (ID: {player.id}): {parsed_action.intent}")
+
+        try:
+            # Optional: React to message to show it was "understood"
+            await message.add_reaction("✅") # Checkmark emoji
+        except discord.Forbidden:
+            logger.warning(f"Missing permissions to add reaction in guild {guild_id}, channel {message.channel.id}")
+        except discord.HTTPException as e:
+            logger.warning(f"Failed to add reaction: {e}")
+    elif parsed_action and parsed_action.intent == "unknown_intent":
+        logger.info(f"Intent for player {player.name} (ID: {player.id}) was 'unknown_intent' for message: '{message.content}'. Not saved to collected_actions.")
+        # Optionally, react with a question mark for unknown intents
+        # try:
+        #     await message.add_reaction("❓")
+        # except: pass # Ignore reaction errors
+
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author == self.bot.user:
             return  # Игнорировать сообщения от самого себя
 
-        # logger.info(f"Сообщение от {message.author} в канале {message.channel}: {message.content}")
-        # Обработка команд будет осуществляться через command_prefix, заданный в BotCore.
-        # Здесь можно добавить логику, не связанную с командами, если это необходимо.
-        # Например, реакции на ключевые слова, сбор статистики и т.д.
+        if not message.guild: # Ignore DMs for NLU processing for now
+            return
 
-        # Важно: если вы хотите, чтобы команды обрабатывались, убедитесь, что
-        # `await self.bot.process_commands(message)` вызывается где-то,
-        # если вы переопределяете on_message и не вызываете super().on_message.
-        # В данном случае, так как мы используем Cog, discord.py сам позаботится об этом.
-        pass
+        # Standard command processing will still happen due to how Cogs work.
+        # This is for additional NLU parsing of non-command messages.
+
+        # Avoid NLU processing for messages that are likely commands
+        # This is a simple check; more robust would be to see if it matches bot's command_prefix
+        # However, with app commands, prefix check is less relevant for slash commands.
+        # This check is more for traditional prefixed commands if they are also supported.
+        if message.content.startswith(self.bot.command_prefix if isinstance(self.bot.command_prefix, str) else tuple(self.bot.command_prefix)): # type: ignore
+             # logger.debug(f"Message starts with command prefix, NLU skipped: {message.content}")
+             return
+
+        # Call the transactional helper function to handle NLU logic
+        # We need to pass the bot instance if the helper needs it (e.g., for notifications, not needed here)
+        # And the message.
+        # The session will be managed by the @transactional decorator on process_player_message_for_nlu
+        try:
+            # Pass `self.bot` if `process_player_message_for_nlu` needs it.
+            # For now, it doesn't, but good practice if it might for e.g. sending messages.
+            await process_player_message_for_nlu(self.bot, message)
+        except Exception as e:
+            logger.error(f"Error during NLU processing in on_message for guild {message.guild.id}: {e}", exc_info=True)
+
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):

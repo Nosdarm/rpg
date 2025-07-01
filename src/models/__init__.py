@@ -27,6 +27,7 @@ from .quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress # I
 from .mobile_group import MobileGroup # Import MobileGroup model
 from .crafting_recipe import CraftingRecipe # Import CraftingRecipe model
 from .pending_generation import PendingGeneration # Import PendingGeneration model
+from .actions import ParsedAction, ActionEntity # Import Action models
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -73,5 +74,5 @@ logger.info(
     "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, Player, Party, "
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
-    "CraftingRecipe, PendingGeneration."
+    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity."
 )
