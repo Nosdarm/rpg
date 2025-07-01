@@ -26,12 +26,17 @@ class BotCore(commands.Bot):
         # Пути к когам указываются относительно корневой директории проекта, если PYTHONPATH настроен,
         # или относительно директории, откуда запускается main.py, используя точки как разделители пакетов.
         # В нашем случае, если main.py в src/, а коги в src/bot/, то путь будет 'bot.events' и 'bot.commands'
+        # Project root (parent of 'src') is added to sys.path by main.py.
+        # Therefore, we should use 'src.module.submodule' for clarity and correctness.
 
         extensions_to_load = [
-            'bot.events',  # Имя файла events.py в директории bot
-            'bot.commands', # Имя файла commands.py в директории bot (для /ping и /start)
-            'bot.commands.party_commands', # Имя файла party_commands.py в директории bot/commands
-            'bot.commands.movement_commands' # For /move command
+            'src.bot.events',  # Was 'bot.events'
+            'src.bot.general_commands', # Was 'bot.commands', and file was renamed
+            'src.bot.commands.party_commands', # Was 'bot.commands.party_commands'
+            'src.bot.commands.movement_commands', # Was 'bot.commands.movement_commands'
+            # Add other specific command modules from the src/bot/commands/ directory if they exist and need loading
+            'src.bot.commands.master_ai_commands', # Assuming this should be loaded
+            'src.bot.commands.turn_commands',      # Assuming this should be loaded
         ]
 
         for extension in extensions_to_load:
