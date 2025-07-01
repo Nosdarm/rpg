@@ -42,9 +42,39 @@ if DATABASE_URL_ENV:
             # urlunparse требует кортеж из 6 элементов: scheme, netloc, path, params, query, fragment
             # Нам нужно обновить только query. parse_qs возвращает значения как списки.
             # Мы должны преобразовать их обратно в строку запроса.
-            new_query_string = "&".join([f"{k}={v[0]}" for k, v_list in query_params.items() for v in v_list])
+            new_query_string = "&".join([f"{k}={v[0]}" for k_list in query_params.values() for k in k_list for v in query_params.get(k, [])])
+            # Corrected new_query_string construction to handle multiple values for a key if that edge case arose, though unlikely for sslmode.
+            # A more standard way for typical query strings (key=value&key2=value2):
+            new_query_string = "&".join(f"{k}={v[0]}" for k, v in query_params.items())
+
+
+            # Update the actual DATABASE_URL first (without sslmode in query)
             DATABASE_URL = urlunparse(parsed_url._replace(query=new_query_string))
-            logger.info(f"DATABASE_URL после удаления sslmode: {DATABASE_URL.replace(parsed_url.password, '*****') if parsed_url.password else DATABASE_URL}")
+
+            # Now, create a version for logging with masked password
+            # Re-parse the *original* URL to get all parts, especially netloc with password
+            original_parsed_url = urlparse(DATABASE_URL_ENV) # Use the original URL from env
+
+            safe_netloc_for_log = original_parsed_url.netloc
+            if original_parsed_url.password:
+                if original_parsed_url.username:
+                    safe_netloc_for_log = f"{original_parsed_url.username}:*****@{original_parsed_url.hostname}"
+                else: # Only password, no username (e.g. postgresql://:password@host/db)
+                    safe_netloc_for_log = f":*****@{original_parsed_url.hostname}"
+                if original_parsed_url.port:
+                    safe_netloc_for_log += f":{original_parsed_url.port}"
+
+            # Construct the logged URL using parts from original_parsed_url, but with new_query_string (sslmode removed)
+            # and safe_netloc_for_log.
+            logged_url = urlunparse(
+                (original_parsed_url.scheme,
+                 safe_netloc_for_log,
+                 original_parsed_url.path,
+                 original_parsed_url.params,
+                 new_query_string, # Query string without sslmode
+                 original_parsed_url.fragment)
+            )
+            logger.info(f"DATABASE_URL (после обработки sslmode, если был): {logged_url}")
 
 else:
     DB_TYPE = os.getenv("DB_TYPE", "postgresql")

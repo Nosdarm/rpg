@@ -206,12 +206,31 @@ async def init_db():
     или в разработке. В продакшене для управления схемой БД следует использовать Alembic.
     """
     # Логирование параметров подключения (без пароля)
-    parsed_url = urlparse(DATABASE_URL)
-    safe_url = parsed_url._replace(password="*****" if parsed_url.password else None).geturl()
-    logger.info(f"Инициализация БД с URL: {safe_url}")
+    from urllib.parse import urlunparse # Ensure urlunparse is available
+
+    parsed_url_for_log = urlparse(DATABASE_URL) # DATABASE_URL already processed by settings.py
+
+    safe_netloc_for_log = parsed_url_for_log.netloc
+    if parsed_url_for_log.password:
+        if parsed_url_for_log.username:
+            safe_netloc_for_log = f"{parsed_url_for_log.username}:*****@{parsed_url_for_log.hostname}"
+        else: # Only password, no username
+            safe_netloc_for_log = f":*****@{parsed_url_for_log.hostname}"
+        if parsed_url_for_log.port:
+            safe_netloc_for_log += f":{parsed_url_for_log.port}"
+
+    safe_url_for_log = urlunparse(
+        (parsed_url_for_log.scheme,
+         safe_netloc_for_log,
+         parsed_url_for_log.path,
+         parsed_url_for_log.params,
+         parsed_url_for_log.query, # Query is already modified (sslmode removed if applicable)
+         parsed_url_for_log.fragment)
+    )
+    logger.info(f"Инициализация БД с URL: {safe_url_for_log}")
+
+    logged_connect_args = {} # Prepare for logging connect_args too
     if connect_args:
-        # Логируем connect_args, но аккуратно с SSL объектами
-        logged_connect_args = {}
         for k, v in connect_args.items():
             if isinstance(v, ssl.SSLContext):
                 logged_connect_args[k] = f"<SSLContext configured with mode: {DB_SSL_MODE}>"
@@ -226,7 +245,7 @@ async def init_db():
             await conn.run_sync(Base.metadata.create_all)
             logger.info("Таблицы успешно созданы на основе метаданных моделей.")
         except Exception as e:
-            logger.error(f"Ошибка при инициализации таблиц БД ({safe_url}, connect_args: {logged_connect_args if connect_args else 'None'}): {e}", exc_info=True)
+            logger.error(f"Ошибка при инициализации таблиц БД ({safe_url_for_log}, connect_args: {logged_connect_args if connect_args else 'None'}): {e}", exc_info=True)
             raise
 
 # Пример использования get_db_session (не для прямого вызова здесь, а в контексте приложения)
