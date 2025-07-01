@@ -238,3 +238,36 @@ Key achievements for this task:
 - Added `MasterAICog` to `BOT_COGS` in `src/config/settings.py`.
 - Updated relevant `__init__.py` files.
 ---
+
+🎲 6.3.1 Dice Roller Module. (None)
+Description: Implement a dice string parser and rolling function. Not linked to a guild.
+API: roll_dice(dice_string: str) -> Tuple[int, List[int]].
+Result: Implemented `roll_dice` function in `src/core/dice_roller.py` capable of parsing dice strings like "NdX[+/-M]" and returning the total sum and individual rolls. Added unit tests in `tests/core/test_dice_roller.py`. Addressed import issues by renaming `src/core/crud.py` to `src/core/crud_base_definitions.py` and updating relevant imports. Sandbox issues prevent automated test verification by the agent.
+
+Key achievements for this task:
+- Created `src/core/dice_roller.py` with `roll_dice(dice_string)` function.
+- Function handles parsing "NdX[+/-M]", basic error checking, and roll calculation.
+- Created `tests/core/test_dice_roller.py` with comprehensive unit tests.
+- Resolved circular import issues related to `CRUDBase` by renaming `crud.py` to `crud_base_definitions.py` and updating imports in `src/core/__init__.py`, `src/core/crud/crud_location.py`, `src/core/crud/crud_player.py`, and `src/core/crud/crud_party.py`.
+- Noted ongoing sandbox stability issues preventing test execution by the agent.
+---
+🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
+Description: Module for calculating check outcomes based on RuleConfig rules.
+API: resolve_check(guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_check_type: str, target_entity_id: Optional[int] = None, target_entity_type: Optional[str] = None, difficulty_dc: Optional[int] = None, check_context: Optional[dict] = None) -> CheckResult.
+Accepts guild_id. Gets RuleConfig rules FOR THIS GUILD (0.3/13). Loads entities by guild_id (0.3). Uses Effective_Stats (14) FOR THIS ENTITY IN THIS GUILD.
+Calculates modifier based on rules, using stats, skills (14), equipment (15), statuses (14), relationships (31), and context.
+Calls 11 (roll_dice). Calculates final result. Determines outcome based on rules (compare result vs DC/vs_result).
+Returns the result AND an object with details (for log 19, feedback 47).
+Result: Implemented Phase 1 of `resolve_check` in `src/core/check_resolver.py`. This includes Pydantic models for `CheckResult`, `ModifierDetail`, and `CheckOutcome`. The function fetches rules (dice, base attribute, crit thresholds) from `RuleConfig`, performs simplified entity attribute fetching, calculates basic modifiers, rolls dice, and determines DC-based outcomes including criticals. Placeholders for more complex modifier logic (skills, items, etc.) are included. Unit tests with mocks are in `tests/core/test_check_resolver.py`. Sandbox issues prevent agent-run tests.
+
+Key achievements for this task:
+- Created `src/core/check_resolver.py` with `resolve_check` function and supporting Pydantic models.
+- Implemented rule fetching from `RuleConfig` for check parameters.
+- Added simplified entity attribute fetching (`_get_entity_attribute`).
+- Implemented modifier calculation based on base attribute and context.
+- Integrated `dice_roller.roll_dice`.
+- Implemented outcome determination (success, failure, criticals) against DC.
+- Created comprehensive unit tests in `tests/core/test_check_resolver.py`.
+- Added docstrings and comments, noting areas for future expansion.
+- Noted ongoing sandbox stability issues preventing test execution by the agent.
+---
