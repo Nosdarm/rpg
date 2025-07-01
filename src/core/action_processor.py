@@ -5,23 +5,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Any, Coroutine, Callable
 
-from src.core.database import get_db_session, transactional
-from src.models import Player, Party, PendingConflict
-from src.models.enums import PlayerStatus, PartyTurnStatus, ConflictStatus
-from src.models.actions import ParsedAction
-from src.core.rules import get_rule # For conflict_resolution_rules
-from src.core.player_utils import get_player_by_id # Generic get by PK
-from src.core.party_utils import get_party_by_id # Generic get by PK
+from .database import get_db_session, transactional
+from ..models import Player, Party, PendingConflict
+from ..models.enums import PlayerStatus, PartyTurnStatus, ConflictStatus
+from ..models.actions import ParsedAction
+from .rules import get_rule # For conflict_resolution_rules
+from .player_utils import get_player_by_id # Generic get by PK
+from .party_utils import get_party_by_id # Generic get by PK
 
 # Placeholder imports for actual game modules - these will be called by dispatch
-# from src.core.movement_logic import handle_move_action_internal # Needs to be created/adapted
-# from src.core.some_other_module import handle_look_action_internal
-# from src.core.combat_module import handle_combat_action_internal
-# from src.core.inventory_module import handle_inventory_action_internal
-# from src.core.quest_module import handle_quest_event_internal
-# from src.core.interaction_module import handle_intra_location_interaction_internal
-from src.core.game_events import log_event # Placeholder
-from src.bot.utils import notify_master # Utility to notify master
+# from .movement_logic import handle_move_action_internal # Needs to be created/adapted
+# from .some_other_module import handle_look_action_internal
+# from .combat_module import handle_combat_action_internal
+# from .inventory_module import handle_inventory_action_internal
+# from .quest_module import handle_quest_event_internal
+# from .interaction_module import handle_intra_location_interaction_internal
+from .game_events import log_event # Placeholder
+from ..bot.utils import notify_master # Utility to notify master
 
 logger = logging.getLogger(__name__)
 

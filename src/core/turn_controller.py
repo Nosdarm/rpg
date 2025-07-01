@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Callable, Awaitable
 
-from src.core.database import get_db_session, transactional # Assuming transactional might be useful here or in called functions
-from src.models import Player, Party, GuildConfig # GuildConfig might be needed for guild-specific turn rules
-from src.models.enums import PlayerStatus, PartyTurnStatus
+from .database import get_db_session, transactional # Assuming transactional might be useful here or in called functions
+from ..models import Player, Party, GuildConfig # GuildConfig might be needed for guild-specific turn rules
+from ..models.enums import PlayerStatus, PartyTurnStatus
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ async def _start_action_processing_worker(guild_id: int, entities_to_process: li
     logger.info(f"[TURN_CONTROLLER] Worker for Task 6.11 (Action Processing) would start now for guild_id: {guild_id}.")
     logger.info(f"[TURN_CONTROLLER] Entities to process: {entities_to_process}")
     # In a real scenario, this would likely be:
-    from src.core.action_processor import process_actions_for_guild
+    from .action_processor import process_actions_for_guild
     asyncio.create_task(process_actions_for_guild(guild_id, entities_to_process))
     # pass # No longer just pass
 
