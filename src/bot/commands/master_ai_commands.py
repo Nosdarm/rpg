@@ -165,7 +165,7 @@ class MasterAICog(commands.Cog):
 
         # Now, call save_approved_generation, which runs in its own transaction.
         # This is fine, as the state change to APPROVED is already committed.
-        save_success = await save_approved_generation(pending_generation_id=pending_id, guild_id=interaction.guild_id)
+        save_success = await save_approved_generation(pending_generation_id=pending_id, guild_id=interaction.guild_id) # type: ignore
 
         if save_success:
             await interaction.followup.send(f"Pending generation ID {pending_id} approved and entities are being saved.", ephemeral=True)

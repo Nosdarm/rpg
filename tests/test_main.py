@@ -118,7 +118,7 @@ async def test_main_discord_login_failure(mock_settings, mock_bot_core, mock_ini
 
     mock_init_db.assert_called_once()
     # Check that BotCore constructor was called before start failed
-    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван"
+    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван" # type: ignore
     mock_bot_core.start.assert_called_once_with('fake_token')
     mock_bot_core.close.assert_called_once()
     assert "Ошибка входа: неверный токен Discord." in caplog.text
@@ -141,7 +141,7 @@ async def test_main_generic_start_exception(mock_settings, mock_bot_core, mock_i
     await main_module.main()
 
     mock_init_db.assert_called_once()
-    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван"
+    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван" # type: ignore
     mock_bot_core.start.assert_called_once_with('fake_token')
     mock_bot_core.close.assert_called_once()
     assert "Произошла ошибка при запуске бота: Generic Start Error" in caplog.text
@@ -268,10 +268,10 @@ async def test_main_success_with_bot_args_check(mock_settings, mock_bot_core, mo
     # Проверка вызова конструктора BotCore
     # main_module.BotCore это mock.MagicMock который вернул mock_bot_core
     # поэтому main_module.BotCore был вызван
-    assert mocked_bot_constructor.called, "Конструктор BotCore должен был быть вызван"
+    assert mocked_bot_constructor.called, "Конструктор BotCore должен был быть вызван" # type: ignore
 
     # Проверка аргументов вызова конструктора
-    args, kwargs = mocked_bot_constructor.call_args
+    args, kwargs = mocked_bot_constructor.call_args # type: ignore
     # commands.when_mentioned_or(BOT_PREFIX) возвращает функцию, ее сложно сравнить напрямую.
     # Проверим хотя бы intents.
     assert 'intents' in kwargs

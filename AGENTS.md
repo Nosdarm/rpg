@@ -353,6 +353,32 @@
     - Создан файл `tests/core/test_check_resolver.py` с unit-тестами, использующими моки для `get_rule`, `_get_entity_attribute` и `roll_dice`. Тесты покрывают различные сценарии (успех/неудача, криты, модификаторы, ошибки конфигурации).
     - Документация (docstrings, комментарии) добавлена в `src/core/check_resolver.py`, отмечены TODO для будущих улучшений.
     - **Примечание:** Из-за проблем с песочницей, автоматический запуск тестов невозможен. Реализация предназначена для ручной проверки пользователем.
+<<<<<<< HEAD
+=======
+
+- **Пользовательская задача: Исправление ошибок Pyright (Сессия [сегодняшняя дата/время])**
+    - **Анализ `pyright_summary.txt`**: Проанализирован файл `pyright_summary.txt` для выявления ошибок типизации в проекте.
+    - **Исправление ошибок атрибута `Player.status`**:
+        - Во всех файлах (`src/bot/commands/turn_commands.py`, `src/core/turn_controller.py`, `src/core/action_processor.py`) обращения к `player.status` заменены на `player.current_status` в соответствии с определением модели `Player`.
+        - В `src/models/enums.py` в Enum `PlayerStatus` добавлено недостающее значение `PROCESSING_ACTION = "processing_action"`, используемое в `src/bot/events.py`.
+    - **Исправление ошибок типа `None` для `guild_id`**:
+        - В файле `src/bot/commands/turn_commands.py` для команд, декорированных `@app_commands.guild_only()`, добавлены утверждения `assert interaction.guild_id is not None` и явное указание типа `guild_id: int = interaction.guild_id`. Это решает конфликты `int | None` при передаче `guild_id` в функции, ожидающие `int`.
+    - **Исправление несоответствия типа `session_maker`**:
+        - В `src/core/turn_controller.py` функция `trigger_guild_turn_processing` ожидала `session_maker: Callable[[], AsyncSession]`.
+        - Передаваемая `get_db_session` из `src/core/database.py` имеет тип `Callable[[], AsyncContextManager[AsyncSession]]`.
+        - Тип параметра `session_maker` в `trigger_guild_turn_processing` изменен на `Callable[[], AsyncContextManager[AsyncSession]]` для соответствия фактическому использованию и передаваемому значению. Импортирован `AsyncContextManager` из `typing`.
+    - **Исправление ошибок "Object of type 'None' cannot be used as iterable value"**:
+        - В файлах `src/bot/commands/turn_commands.py`, `src/core/turn_controller.py`, `src/core/action_processor.py` циклы, итерирующие по `party.player_ids_json` (который может быть `None`), изменены на `for item in (party.player_ids_json or []):` для безопасной итерации.
+    - **Исправление несоответствия типа в `process_actions_for_guild`**:
+        - В `src/core/turn_controller.py` функция `_start_action_processing_worker` передавала `list[dict]` в `process_actions_for_guild`, но ее параметр `entities_to_process` был аннотирован как `list[tuple[int, str]]`.
+        - Аннотация типа для `entities_to_process` в `_start_action_processing_worker` исправлена на `list[dict[str, Any]]`. Импортирован `Any` из `typing`.
+    - **Исправление ошибок в `tests/test_main.py`**:
+        - Ошибки вида `Cannot access attribute "called" / "call_args" for class "type[BotCore]"` возникали из-за того, что Pyright не мог статически определить, что `BotCore` был заменен на `MagicMock` во время выполнения тестов.
+        - К строкам с обращениями `.called` и `.call_args` к мокированному конструктору `BotCore` добавлены комментарии `# type: ignore`.
+    - **Исправление ошибок отсутствующих аргументов**:
+        - `src/bot/commands/master_ai_commands.py`: При вызове функции `save_approved_generation` (декорированной `@transactional`) отсутствовал аргумент `session`. Pyright не учитывал, что декоратор внедряет сессию. Добавлен комментарий `# type: ignore` к вызову.
+        - `src/bot/events.py`: Ошибка "Argument missing for parameter 'message'" на строке 123 не удалось однозначно сопоставить с конкретным проблемным вызовом в текущей версии файла. Предполагается, что это либо устаревшая ошибка, либо неверная интерпретация со стороны Pyright, так как основной вызов (`process_player_message_for_nlu`) выглядит корректным с учетом работы декоратора `@transactional`.
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
 
 ## Текущий план
 
