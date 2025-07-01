@@ -3,8 +3,8 @@ from typing import Optional, List, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.crud_base_definitions import CRUDBase
-from models.player import Player, PlayerStatus
+from ..crud_base_definitions import CRUDBase
+from ...models.player import Player, PlayerStatus
 
 
 class CRUDPlayer(CRUDBase[Player]):

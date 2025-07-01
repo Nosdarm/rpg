@@ -6,8 +6,8 @@ from typing import Union, List, Optional, Dict, Any, TypeVar, Type
 from pydantic import BaseModel, field_validator, Field, parse_obj_as
 from pydantic import ValidationError as PydanticNativeValidationError # For catching Pydantic errors
 
-from src.core.rules import get_rule, get_all_rules_for_guild
-# from src.config.settings import SUPPORTED_LANGUAGES # Assuming this will be available
+from .rules import get_rule, get_all_rules_for_guild
+# from ..config.settings import SUPPORTED_LANGUAGES # Assuming this will be available
 
 logger = logging.getLogger(__name__)
 

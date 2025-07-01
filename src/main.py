@@ -1,11 +1,18 @@
+import sys
+import os
+# Add the project root directory (parent of 'src') to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import asyncio
 import logging
 import discord
 from discord.ext import commands
 
-from bot.core import BotCore
-from config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL # Добавлен LOG_LEVEL
-from core.database import init_db # Импортируем init_db
+from src.bot.core import BotCore
+from src.config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL # Добавлен LOG_LEVEL
+from src.core.database import init_db # Импортируем init_db
 
 # Настройка логирования
 # Уровень логирования теперь берется из настроек
@@ -40,17 +47,21 @@ async def main():
     intents.guilds = True    # Необходимо для on_guild_join/remove
     intents.message_content = True # Необходимо для чтения содержимого сообщений (если бот будет это делать)
 
-    bot_instance = BotCore(command_prefix=commands.when_mentioned_or("/"), intents=intents)
+    # Используем BOT_PREFIX из настроек
+    from src.config.settings import BOT_PREFIX
+    bot_instance = BotCore(command_prefix=commands.when_mentioned_or(BOT_PREFIX), intents=intents)
 
     try:
-        logger.info("Запуск бота...")
+        logger.info(f"Запуск бота с префиксом: {BOT_PREFIX}") # Обновлено для отображения префикса
         await bot_instance.start(DISCORD_BOT_TOKEN)
     except discord.LoginFailure:
         logger.error("Ошибка входа: неверный токен Discord.")
+        return # Explicit return
     except Exception as e:
         logger.error(f"Произошла ошибка при запуске бота: {e}")
+        return # Explicit return
     finally:
-        if not bot_instance.is_closed():
+        if not bot_instance.is_closed(): # Ensure bot_instance is defined before using
             await bot_instance.close()
         logger.info("Бот остановлен.")
 
