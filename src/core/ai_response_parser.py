@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Union, List, Optional, Dict, Any, TypeVar, Type
-from pydantic import BaseModel, ValidationError as PydanticValidationError, field_validator, Field
+    PydanticValidationError, field_validator, Field, parse_obj_as
 
 from src.core.rules import get_rule, get_all_rules_for_guild
 # from src.config.settings import SUPPORTED_LANGUAGES # Assuming this will be available
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ValidationError(BaseModel):
     error_type: str  # e.g., "JSONParsingError", "StructuralValidationError", "SemanticValidationError"
     message: str
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[List[Dict[str, Any]]] = None # Changed to List[Dict] to match Pydantic's e.errors()
     path: Optional[List[Union[str, int]]] = None
 
 
@@ -112,7 +112,7 @@ def _parse_json_from_text(raw_text: str) -> Union[Any, ValidationError]:
 def _validate_overall_structure(
     json_data: Any,
     guild_id: int # Added for context, though not directly used in this Pydantic validation
-) -> Union[ParsedAiData, ValidationError]:
+) -> Union[List[GeneratedEntity], ValidationError]: # Corrected return type
     """Validates the JSON data against the ParsedAiData Pydantic model."""
     try:
         # We expect the AI to return a structure that matches ParsedAiData,
@@ -151,7 +151,7 @@ def _validate_overall_structure(
                 continue
             try:
                 # Pydantic will use `entity_type` to pick the correct model from the Union
-                validated_entity = GeneratedEntity(**entity_data)
+                validated_entity = parse_obj_as(GeneratedEntity, entity_data) # Use parse_obj_as for Unions
                 validated_entities.append(validated_entity)
             except PydanticValidationError as e:
                 potential_errors.append(ValidationError(

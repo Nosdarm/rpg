@@ -36,7 +36,7 @@ async def _mock_openai_api_call(prompt: str) -> str:
     ]
     """
 
-@transactional()
+@transactional
 async def trigger_ai_generation_flow(
     session: AsyncSession, # Injected by @transactional
     bot: commands.Bot, # Added bot instance for notifications
@@ -137,7 +137,7 @@ async def trigger_ai_generation_flow(
         return f"Internal server error during AI generation flow: {str(e)}"
 
 
-@transactional()
+@transactional
 async def save_approved_generation(
     session: AsyncSession,
     pending_generation_id: int,

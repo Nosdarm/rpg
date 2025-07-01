@@ -74,7 +74,7 @@ class CRUDBase(Generic[ModelType]):
             return None
 
         if guild_id is not None and hasattr(self.model, "guild_id"):
-            statement = statement.where(self.model.guild_id == guild_id)
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         result = await db.execute(statement)
         return result.scalar_one_or_none()
@@ -93,11 +93,11 @@ class CRUDBase(Generic[ModelType]):
         """
         statement = select(self.model)
         if guild_id is not None and hasattr(self.model, "guild_id"):
-            statement = statement.where(self.model.guild_id == guild_id)
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         statement = statement.offset(skip).limit(limit)
         result = await db.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def update(
         self, db: AsyncSession, *, db_obj: ModelType, obj_in: Union[Dict[str, Any], ModelType]
@@ -167,7 +167,7 @@ class CRUDBase(Generic[ModelType]):
 
         statement = select(self.model).where(attr == value)
         if guild_id is not None and hasattr(self.model, "guild_id"):
-            statement = statement.where(self.model.guild_id == guild_id)
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         result = await db.execute(statement)
         return result.scalar_one_or_none()
@@ -191,11 +191,11 @@ class CRUDBase(Generic[ModelType]):
 
         statement = select(self.model).where(attr == value)
         if guild_id is not None and hasattr(self.model, "guild_id"):
-            statement = statement.where(self.model.guild_id == guild_id)
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         statement = statement.offset(skip).limit(limit)
         result = await db.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
 
 # Example of how to use it for a specific model (e.g., GuildConfig)
@@ -259,7 +259,8 @@ async def update_entity(db: AsyncSession, entity: ModelType, data: Dict[str, Any
     crud = CRUDBase(type(entity))
     # Prevent guild_id from being changed via this generic update if it exists in data and on model
     if hasattr(entity, "guild_id") and "guild_id" in data and data["guild_id"] != entity.guild_id:
-        logger.warning(f"Attempt to change guild_id during update of {type(entity).__name__} ID {entity.id} blocked.")
+        entity_id_for_log = entity.id if hasattr(entity, "id") else "N/A"
+        logger.warning(f"Attempt to change guild_id during update of {type(entity).__name__} ID {entity_id_for_log} blocked.")
         del data["guild_id"]
 
     return await crud.update(db, db_obj=entity, obj_in=data)

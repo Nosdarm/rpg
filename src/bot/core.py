@@ -57,10 +57,13 @@ class BotCore(commands.Bot):
         Это событие может быть также определено в Cog'е (например, в EventCog).
         discord.py вызовет оба, если они есть.
         """
-        logger.info(f'Бот {self.user.name} (ID: {self.user.id}) подключен и готов к работе!')
-        logger.info(f'Подключен к {len(self.guilds)} серверам (гильдиям):')
-        for guild in self.guilds:
-            logger.info(f"- {guild.name} (ID: {guild.id})")
+        if self.user: # Add a check for self.user
+            logger.info(f'Бот {self.user.name} (ID: {self.user.id}) подключен и готов к работе!')
+            logger.info(f'Подключен к {len(self.guilds)} серверам (гильдиям):')
+            for guild in self.guilds:
+                logger.info(f"- {guild.name} (ID: {guild.id})")
+        else:
+            logger.error("Bot is ready, but self.user is None. This should not happen.")
         # Если вы хотите синхронизировать команды приложения (слеш-команды) при запуске:
         # try:
         #     synced = await self.tree.sync()

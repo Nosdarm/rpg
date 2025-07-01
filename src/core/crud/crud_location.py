@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.crud import CRUDBase # Adjust import if CRUDBase is in a different location relative to this file
+from src.core.crud import CRUDBase # Adjust import if CRUDBase is in a different location relative to this file
 from models.location import Location, LocationType
 
 
@@ -46,7 +46,7 @@ class CRUDLocation(CRUDBase[Location]):
             .limit(limit)
         )
         result = await db.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     # get_multi from CRUDBase can be used for getting all locations for a guild:
     # await location_crud.get_multi(db, guild_id=guild_id)

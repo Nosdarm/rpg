@@ -106,6 +106,18 @@ class QuestStatus(enum.Enum):
 #     # ... other columns
 #     turn_status: Mapped[PartyTurnStatus] = mapped_column(SQLAlchemyEnum(PartyTurnStatus), default=PartyTurnStatus.IDLE)
 
+class ModerationStatus(enum.Enum):
+    """
+    Represents the moderation status of AI-generated content.
+    """
+    PENDING_MODERATION = "pending_moderation"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EDITED_PENDING_APPROVAL = "edited_pending_approval" # After a master edits it, needs re-approval
+    VALIDATION_FAILED = "validation_failed" # Automated parsing/validation failed
+    SAVED = "saved" # Successfully saved to game entities
+    ERROR_ON_SAVE = "error_on_save" # An error occurred during the save_approved_generation step
+
 import logging
 logger = logging.getLogger(__name__)
-logger.info("Game-specific Enums (PlayerStatus, PartyTurnStatus, OwnerEntityType) defined.")
+logger.info("Game-specific Enums (PlayerStatus, PartyTurnStatus, OwnerEntityType, ModerationStatus, etc.) defined.")

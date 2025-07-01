@@ -3,7 +3,7 @@ from typing import Optional, List, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.crud import CRUDBase
+from src.core.crud import CRUDBase
 from models.player import Player, PlayerStatus
 
 
@@ -34,7 +34,7 @@ class CRUDPlayer(CRUDBase[Player]):
             .limit(limit)
         )
         result = await db.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get_multi_by_party_id(
         self, db: AsyncSession, *, guild_id: int, party_id: int, skip: int = 0, limit: int = 100
@@ -49,7 +49,7 @@ class CRUDPlayer(CRUDBase[Player]):
             .limit(limit)
         )
         result = await db.execute(statement)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def create_with_defaults(
         self,

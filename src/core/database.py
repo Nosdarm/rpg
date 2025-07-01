@@ -21,9 +21,11 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-from typing import AsyncIterator # Import AsyncIterator
+from typing import AsyncGenerator
+import contextlib # Import contextlib
 
-async def get_db_session() -> AsyncIterator[AsyncSession]: # Corrected type hint
+@contextlib.asynccontextmanager
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]: # Corrected type hint
     """
     Dependency для получения асинхронной сессии базы данных.
     Используется в обработчиках запросов (например, в FastAPI).
@@ -36,8 +38,8 @@ async def get_db_session() -> AsyncIterator[AsyncSession]: # Corrected type hint
         except Exception:
             await session.rollback() # Откат транзакции в случае ошибки
             raise
-        finally:
-            await session.close() # Закрытие сессии
+        # finally:
+            # await session.close() # session is closed by the outer 'async with AsyncSessionLocal() as session:'
 
 # Декоратор для управления транзакциями
 def transactional(func):
@@ -56,7 +58,7 @@ def transactional(func):
         # хотя основная фильтрация по guild_id должна происходить в самих CRUD операциях.
         guild_id_for_log = kwargs.get('guild_id', 'N/A')
 
-        async for session in get_db_session(): # get_db_session уже управляет commit/rollback
+        async with get_db_session() as session: # Use async with for the async context manager
             try:
                 # Передаем сессию как первый аргумент в декорируемую функцию.
                 # args[0] будет сессией, если func это простой метод класса, где self - первый аргумент.
