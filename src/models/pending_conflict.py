@@ -5,9 +5,9 @@ from sqlalchemy.sql import func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy import Enum as SQLAlchemyEnum # Renamed to avoid conflict
 
-from src.models.base import Base
-from src.models.enums import ConflictStatus # Import the new enum
-from src.models.guild import GuildConfig # For ForeignKey relationship
+from .base import Base
+from .enums import ConflictStatus # Import the new enum
+from .guild import GuildConfig # For ForeignKey relationship
 
 import logging
 logger = logging.getLogger(__name__)
