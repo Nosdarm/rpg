@@ -44,33 +44,38 @@ def upgrade() -> None:
     # The ENUM type event_type_enum is expected to be created by a previous migration (e.g., initial schema).
     # eventtype_enum.create(op.get_bind(), checkfirst=True) # Removed redundant creation
 
-    op.create_table(
-        "story_logs",
-        sa.Column("id", sa.Integer(), primary_key=True, index=True),
-        sa.Column("guild_id", sa.BigInteger(), nullable=False, index=True),
-        sa.Column("timestamp", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False, index=True),
-        sa.Column("location_id", sa.Integer(), nullable=True, index=True),
-        sa.Column("event_type", eventtype_enum, nullable=False, index=True),
-        sa.Column("entity_ids_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("details_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True), # Corrected to nullable=True to match model
-        sa.Column("narrative_i18n", postgresql.JSONB(astext_type=sa.Text()), nullable=True), # Added from existing model
+    # The story_logs table and its indexes are created in the initial schema migration (4a069d44a15c_initial_schema.py).
+    # Therefore, the following operations are redundant in this migration.
+    # op.create_table(
+    #     "story_logs",
+    #     sa.Column("id", sa.Integer(), primary_key=True, index=True),
+    #     sa.Column("guild_id", sa.BigInteger(), nullable=False, index=True),
+    #     sa.Column("timestamp", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False, index=True),
+    #     sa.Column("location_id", sa.Integer(), nullable=True, index=True),
+    #     sa.Column("event_type", eventtype_enum, nullable=False, index=True),
+    #     sa.Column("entity_ids_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    #     sa.Column("details_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True), # Corrected to nullable=True to match model
+    #     sa.Column("narrative_i18n", postgresql.JSONB(astext_type=sa.Text()), nullable=True), # Added from existing model
 
-        sa.ForeignKeyConstraint(["guild_id"], ["guild_configs.id"], name=op.f("fk_story_logs_guild_id_guild_configs"), ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["location_id"], ["locations.id"], name=op.f("fk_story_logs_location_id_locations"), ondelete="SET NULL"),
-    )
-    op.create_index(op.f("ix_story_logs_guild_id"), "story_logs", ["guild_id"], unique=False)
-    op.create_index(op.f("ix_story_logs_location_id"), "story_logs", ["location_id"], unique=False)
-    op.create_index(op.f("ix_story_logs_event_type"), "story_logs", ["event_type"], unique=False)
-    op.create_index(op.f("ix_story_logs_timestamp"), "story_logs", ["timestamp"], unique=False)
+    #     sa.ForeignKeyConstraint(["guild_id"], ["guild_configs.id"], name=op.f("fk_story_logs_guild_id_guild_configs"), ondelete="CASCADE"),
+    #     sa.ForeignKeyConstraint(["location_id"], ["locations.id"], name=op.f("fk_story_logs_location_id_locations"), ondelete="SET NULL"),
+    # )
+    # op.create_index(op.f("ix_story_logs_guild_id"), "story_logs", ["guild_id"], unique=False)
+    # op.create_index(op.f("ix_story_logs_location_id"), "story_logs", ["location_id"], unique=False)
+    # op.create_index(op.f("ix_story_logs_event_type"), "story_logs", ["event_type"], unique=False)
+    # op.create_index(op.f("ix_story_logs_timestamp"), "story_logs", ["timestamp"], unique=False)
+    pass # This migration is now effectively a no-op regarding schema changes for story_logs.
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index(op.f("ix_story_logs_timestamp"), table_name="story_logs")
-    op.drop_index(op.f("ix_story_logs_event_type"), table_name="story_logs")
-    op.drop_index(op.f("ix_story_logs_location_id"), table_name="story_logs")
-    op.drop_index(op.f("ix_story_logs_guild_id"), table_name="story_logs")
-    op.drop_table("story_logs")
+    # Correspondingly, if upgrade does nothing for story_logs, downgrade should also do nothing.
+    # op.drop_index(op.f("ix_story_logs_timestamp"), table_name="story_logs")
+    # op.drop_index(op.f("ix_story_logs_event_type"), table_name="story_logs")
+    # op.drop_index(op.f("ix_story_logs_location_id"), table_name="story_logs")
+    # op.drop_index(op.f("ix_story_logs_guild_id"), table_name="story_logs")
+    # op.drop_table("story_logs")
+    pass # This migration is now effectively a no-op regarding schema changes for story_logs.
 
     # Drop the ENUM type - Removed: This migration does not own the ENUM creation.
     # eventtype_enum.drop(op.get_bind(), checkfirst=True)
