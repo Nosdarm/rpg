@@ -41,8 +41,8 @@ eventtype_enum = postgresql.ENUM(*event_type_values, name=event_type_enum_name_a
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Create the ENUM type for event_type
-    eventtype_enum.create(op.get_bind(), checkfirst=True)
+    # The ENUM type event_type_enum is expected to be created by a previous migration (e.g., initial schema).
+    # eventtype_enum.create(op.get_bind(), checkfirst=True) # Removed redundant creation
 
     op.create_table(
         "story_logs",
@@ -72,5 +72,5 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_story_logs_guild_id"), table_name="story_logs")
     op.drop_table("story_logs")
 
-    # Drop the ENUM type
-    eventtype_enum.drop(op.get_bind(), checkfirst=True)
+    # Drop the ENUM type - Removed: This migration does not own the ENUM creation.
+    # eventtype_enum.drop(op.get_bind(), checkfirst=True)
