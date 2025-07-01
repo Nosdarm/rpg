@@ -158,8 +158,7 @@ Key achievements for this task:
 - Manually constructed the Alembic migration file `16526fb0e6c7_create_remaining_core_models_task_2_1_.py` after encountering difficulties with offline autogeneration. The manual migration includes creation of all new tables and necessary PostgreSQL ENUM types.
 - Reviewed the defined models and the migration script for completeness and correctness.
 ---
-Task 2.1 Finalize Definition of ALL DB Schemas (i18n, Guild ID)
----
+
 🧠 2.2 AI Prompt Preparation Module. (1, 4, 7, 13, 14, 30, 36, 37, 38, 39, 40)
 Description: Collects world context for a specific guild and forms a request to the AI for generating new content.
 API: prepare_ai_prompt(guild_id: int, location_id: int, player_id: Optional[int] = None, party_id: Optional[int] = None) -> str. Accepts guild_id.
@@ -186,4 +185,56 @@ Key achievements for this task:
 - `prepare_ai_prompt` assembles these parts into a comprehensive textual prompt string.
 - Added logging and basic error handling.
 - Updated `src/core/__init__.py` to include `ai_prompt_builder`.
+---
+
+🧠 2.3 AI Response Parsing and Validation Module. (7, 13, 14, 30, 37, 39, 18, 16)
+Description: Parsing and multi-level validation of the AI response.
+API: parse_and_validate_ai_response(raw_ai_output_text: str, guild_id: int) -> ParsedAiData | ValidationError. Accepts guild_id.
+Parse JSON. Validate structure (against schema 7).
+Semantic validation (against rules 13/14/30/37/39/40) FOR THIS GUILD: Check generated data against rules and context (stat ranges, relationship correctness, quest structure, prices, consistency), presence of texts in both requested languages in _i18n fields. Autocorrection, flag issues.
+Result: An API function `parse_and_validate_ai_response` is implemented in `src/core/ai_response_parser.py`. It defines Pydantic models for expected AI-generated entities (NPC, Quest, Item) using discriminated unions, and models for `ParsedAiData` and `ValidationError`. The function parses raw JSON text, performs structural validation using these Pydantic models, and includes initial logic for semantic validation (i18n language presence checks and placeholder for RuleConfig-based checks). The module is integrated into the `src/core` package.
+
+Key achievements for this task:
+- Created `src/core/ai_response_parser.py`.
+- Defined Pydantic models: `ValidationError`, `BaseGeneratedEntity`, `ParsedNpcData`, `ParsedQuestData`, `ParsedItemData`, `GeneratedEntity` (discriminated union), `ParsedAiData`.
+- Implemented basic `field_validator`s for i18n fields in entity models.
+- Implemented `_parse_json_from_text` for robust JSON parsing.
+- Implemented `_validate_overall_structure` for structural validation of AI output (expected to be a list of entities) using Pydantic discriminated unions.
+- Implemented `_perform_semantic_validation` with initial logic for i18n language presence checks and stubs for `RuleConfig`-based validation.
+- Implemented the main async API `parse_and_validate_ai_response` orchestrating these steps.
+- Added the module and its key components to `src/core/__init__.py` and `__all__`.
+---
+
+🧠 2.6 AI Generation, Moderation, and Saving Logic. (7, 14, 15, 16, 17, 19, 41, OpenAI API, 0.3, 1, 3, 12, 13, 21)
+Description: Full content generation cycle with manual Master control.
+Function trigger_location_generation(guild_id: int, ...). Accepts guild_id.
+Calls 16 -> API -> 17.
+Pending Moderation: If 17 is valid, create a PendingGeneration record WITH guild_id. Notify the Master (41) IN THE NOTIFICATION CHANNEL FOR THIS GUILD. Set player(s) status to 'awaiting_moderation' IN THIS GUILD.
+Master API (41) for moderation: /master review_ai, /master approve_ai, /master edit_ai, /master reject_ai. Operate on PendingGeneration records BY guild_id. Allows editing _i18n fields.
+Saving Worker: Monitors PendingGeneration. Upon 'approved', copies the guild_id to EVERY generated entity and saves them in the DB (7, 14, etc.) within a transaction for this guild. Asynchronously calls on_enter_location(guild_id, ...) (14).
+Result: Implemented the core flow for AI content generation, moderation, and saving. This includes:
+- `PendingGeneration` model and `ModerationStatus` enum for tracking AI content.
+- `ai_orchestrator.py` with `trigger_ai_generation_flow` (prepares prompt, mocks AI call, parses response, creates `PendingGeneration` record, updates player status, notifies Master) and `save_approved_generation` (saves approved entities to DB, updates player status).
+- `master_ai_commands.py` Cog with app commands (`/master_ai review`, `approve`, `reject`, `edit`) for moderation.
+- `notify_master` utility in `src/bot/utils.py`.
+- Integration of these components (Alembic migration, `__init__` updates, Cog loading).
+The system now supports triggering AI generation, storing it for moderation, allowing Masters to approve/reject/edit, and saving approved content to the database, including reverting player statuses.
+
+Key achievements for this task:
+- Defined `ModerationStatus` enum in `src/models/enums.py`.
+- Defined `PendingGeneration` model in `src/models/pending_generation.py` and created corresponding Alembic migration `0005_create_pending_generations_table.py`.
+- Updated `GuildConfig` for relationship with `PendingGeneration`.
+- Created `src/core/ai_orchestrator.py` with:
+    - `_mock_openai_api_call` to simulate AI responses.
+    - `trigger_ai_generation_flow` to manage the full generation request cycle, including player status updates to `AWAITING_MODERATION`.
+    - `save_approved_generation` to persist approved `ParsedAiData` entities (NPCs, Quests, Items) to their respective DB tables and revert player status from `AWAITING_MODERATION`.
+- Created `src/bot/utils.py` with `notify_master` function to send Discord messages to a configured channel.
+- Integrated `notify_master` into `trigger_ai_generation_flow`.
+- Created `src/bot/commands/master_ai_commands.py` with `MasterAICog`:
+    - Implemented `/master_ai review` to display pending generation details.
+    - Implemented `/master_ai approve` to approve and trigger saving of content.
+    - Implemented `/master_ai reject` to reject content and revert player status if applicable.
+    - Implemented `/master_ai edit` to allow modification of pending data.
+- Added `MasterAICog` to `BOT_COGS` in `src/config/settings.py`.
+- Updated relevant `__init__.py` files.
 ---

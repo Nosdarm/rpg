@@ -70,3 +70,13 @@ DISCORD_BOT_TOKEN=your_actual_bot_token_here
 
 # GUILD_ID=your_guild_id_here
 """
+
+# Список когов для загрузки ботом
+# Пути указываются относительно корня проекта (где находится main.py или точка входа)
+BOT_COGS = [
+    "src.bot.commands", # Contains CommandCog with /ping etc.
+    "src.bot.events",
+    "src.bot.commands.party_commands",
+    "src.bot.commands.movement_commands",
+    "src.bot.commands.master_ai_commands", # New cog for AI moderation
+]
