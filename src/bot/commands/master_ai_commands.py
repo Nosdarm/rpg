@@ -59,7 +59,7 @@ class MasterAICog(commands.Cog):
         """Displays details of a pending AI generation for review."""
         await interaction.response.defer(ephemeral=True)
 
-        async with get_db_session() as session: # type: AsyncSession
+        async with get_db_session() as session:
             if interaction.guild_id is None: # Should be caught by guild_only
                 await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
                 return
@@ -156,7 +156,7 @@ class MasterAICog(commands.Cog):
 
 
         # Wrap the DB operations in a single transaction
-        async with get_db_session() as session: # type: AsyncSession
+        async with get_db_session() as session:
             approval_message = await _approve_task(session, pending_id, interaction.guild_id, interaction.user.id, str(interaction.user))
             if approval_message: # An error message was returned
                 await interaction.followup.send(approval_message, ephemeral=True)
