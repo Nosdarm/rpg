@@ -40,6 +40,7 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 
 {Task 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47) - Moved to Done.txt}
 
+{Task ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 19, 20, 21, 25, 26, 27, 30, 31, 32, 35, 36, 37, 39, 40, 41, 42, 44, 46, 47, 48, 50, 52, 53, 54) - Moved to Done.txt}
 
 ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
 Description: Handles player actions directed at objects or sub-locations WITHIN the current location.

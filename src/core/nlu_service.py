@@ -20,8 +20,14 @@ ACTION_PATTERNS: List[Tuple[re.Pattern, str, Dict[str, Union[str, int]]]] = [
 
     # Look: "look", "look around", "examine"
     (re.compile(r"^(look|l|examine|exa)$", re.IGNORECASE), "look_around", {}),
-    # Look at target: "look at goblin", "examine the sword"
-    (re.compile(r"^(?:look|l|examine|exa)\s+(?:at|on)?\s*(?:the\s+)?(.+)$", re.IGNORECASE), "look_at_target", {"target_name": 1}),
+    # Look at target: "look at goblin", "examine the sword" -> now "examine" intent for intra-location
+    (re.compile(r"^(?:look|l|examine|exa)\s+(?:at|on)?\s*(?:the\s+)?(.+)$", re.IGNORECASE), "examine", {"name": 1}),
+
+    # Interact with target: "interact with lever", "use the terminal"
+    (re.compile(r"^(?:interact|use|activate|touch|press|pull)\s+(?:with\s+)?(?:the\s+)?(.+)$", re.IGNORECASE), "interact", {"name": 1}),
+
+    # Go to sublocation: "go to the kitchen", "enter the library" (distinct from inter-location move)
+    (re.compile(r"^(?:go\s+to|enter|move\s+to)\s+(?:the\s+)?(.+)$", re.IGNORECASE), "go_to", {"name": 1}),
 
     # Get/Take item: "get sword", "take the potion"
     (re.compile(r"^(?:get|take)\s+(?:the\s+)?(.+)$", re.IGNORECASE), "get_item", {"item_name": 1}),

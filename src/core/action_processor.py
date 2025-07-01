@@ -20,6 +20,7 @@ from .party_utils import get_party # Generic get by PK
 # from .inventory_module import handle_inventory_action_internal
 # from .quest_module import handle_quest_event_internal
 # from .interaction_module import handle_intra_location_interaction_internal
+from .interaction_handlers import handle_intra_location_action # Added
 from .game_events import log_event # Placeholder
 from ..bot.utils import notify_master # Utility to notify master
 
@@ -74,7 +75,47 @@ ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Co
     "use": _handle_placeholder_action,   # Placeholder for inventory/item use
     "talk": _handle_placeholder_action, # Placeholder for dialogue
     "examine": _handle_placeholder_action, # Placeholder for detailed look/interaction
+    "examine": _handle_placeholder_action, # Placeholder for detailed look/interaction
     # Add more intents and their handlers here
+}
+
+async def _handle_intra_location_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    """
+    Wrapper for handle_intra_location_action to match ACTION_DISPATCHER signature.
+    It uses action.intent directly and passes action.model_dump() as action_data.
+    """
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling intra-location action '{action.intent}' with data: {action.entities}")
+    try:
+        # We pass the full ParsedAction.model_dump() as action_data,
+        # handle_intra_location_action will look for 'intent' and 'entities' within it.
+        action_data_dict = action.model_dump(mode='json')
+        result_dict = await handle_intra_location_action(
+            guild_id=guild_id,
+            session=session,
+            player_id=player_id,
+            action_data=action_data_dict # Pass the whole action dict
+        )
+        return result_dict
+    except Exception as e:
+        logger.error(f"Error in _handle_intra_location_action_wrapper for intent {action.intent}: {e}", exc_info=True)
+        return {"status": "error", "message": f"Failed to execute intra-location action '{action.intent}': {e}"}
+
+
+# Action dispatch table
+ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Coroutine[Any, Any, dict]]] = {
+    "move": _handle_move_action_wrapper, # This is for inter-location movement
+    "look": _handle_placeholder_action, # General look, might be different from examining specific object
+    "attack": _handle_placeholder_action, # Placeholder for combat
+    "take": _handle_placeholder_action,  # Placeholder for inventory
+    "use": _handle_placeholder_action,   # Placeholder for inventory/item use
+    "talk": _handle_placeholder_action, # Placeholder for dialogue
+    "examine": _handle_intra_location_action_wrapper, # examine specific object/feature in location
+    "interact": _handle_intra_location_action_wrapper, # interact with specific object/feature
+    "go_to": _handle_intra_location_action_wrapper, # move to sublocation / named point within current location
+    # NLU should be updated to produce "examine", "interact", "go_to" (for sublocations)
+    # instead of the previous generic "examine" placeholder.
 }
 
 
