@@ -39,6 +39,7 @@ from . import action_processor # Import the new action_processor module
 from .action_processor import process_actions_for_guild
 from . import interaction_handlers # Import the new interaction_handlers module
 from .interaction_handlers import handle_intra_location_action
+from .game_events import log_event, on_enter_location # Make specific functions available
 
 
 logger = logging.getLogger(__name__)
@@ -73,4 +74,6 @@ __all__ = [
     "process_actions_for_guild",
     "interaction_handlers",
     "handle_intra_location_action",
+    "log_event", # Added from game_events
+    "on_enter_location", # Added from game_events
 ]

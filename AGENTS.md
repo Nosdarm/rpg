@@ -66,6 +66,39 @@
         - Определены сценарии тестирования для различных действий и исходов.
         - В ходе тестирования выявлена и реализована необходимость использовать более каноничное имя для сублокации при обновлении `player.current_sublocation_name` (через поле `actual_sublocation_name` в данных интерактивного элемента).
     - **Документация**: Обновлен "Текущий план" и "Лог действий" в `AGENTS.md`.
+- **Task 17: 📚 7.1 Event Log Model (Story Log, i18n, Guild-Scoped)**:
+    - **Analysis**: Reviewed requirements for `StoryLog` model and `log_event` API from `Tasks.txt`.
+        - Model fields: `id`, `guild_id`, `timestamp`, `location_id`, `event_type`, `entity_ids_json`, `details_json`.
+        - API: `log_event(session, guild_id, event_type, details_json, player_id, party_id, location_id, entity_ids_json)`.
+        - Decided to use existing `EventType` ENUM from `src/models/enums.py` as found in pre-existing `story_log.py`.
+    - **Model Definition**:
+        - Found existing `src/models/story_log.py` which largely matched requirements, including `EventType` enum usage and an additional `narrative_i18n` field.
+        - Updated `src/models/story_log.py` to correctly define relationships:
+            - `guild: Mapped["GuildConfig"] = relationship(back_populates="story_logs")`
+            - `location: Mapped[Optional["Location"]] = relationship()`
+        - Updated `src/models/guild.py` by adding the corresponding `story_logs: Mapped[List["StoryLog"]] = relationship(back_populates="guild", cascade="all, delete-orphan")` relationship and type hints.
+        - Verified `StoryLog` and `EventType` were already imported in `src/models/__init__.py`.
+    - **Alembic Migration**:
+        - Identified latest migration as `0008_add_player_sublocation`.
+        - Installed dependencies from `requirements.txt` using `pip install -r requirements.txt` to make `alembic` command available.
+        - Generated new migration `alembic revision -m "create_story_logs_table" --rev-id "0009"`.
+        - Edited `alembic/versions/0009_create_story_logs_table.py`:
+            - Set `down_revision = '0008_add_player_sublocation'`.
+            - Added operations to create and drop the `event_type_enum` PostgreSQL ENUM type (named `event_type_enum` to match model).
+            - Added operations to create and drop the `story_logs` table, matching the `StoryLog` model fields, FKs, and indexes.
+            - Corrected `details_json` column to be `nullable=True` to match the model definition.
+    - **API Implementation**:
+        - Implemented `log_event` function in `src/core/game_events.py`, replacing the existing placeholder.
+        - Ensured `AsyncSession` type hint and import.
+        - Added logic to convert input `event_type` string (e.g., "PLAYER_ACTION") to `EventType` enum member.
+        - Added logic to automatically populate `entity_ids_json` with `player_id` (under 'players' key) and `party_id` (under 'parties' key) if provided.
+        - Updated `src/core/__init__.py` to import `log_event` and `on_enter_location` from `game_events` and add them to `__all__`.
+    - **Unit Tests**:
+        - Created `tests/core/test_game_events.py`.
+        - Wrote tests for `log_event`: successful logging, invalid event type, entity_ids handling, and minimal parameters.
+        - Resolved `ModuleNotFoundError: No module named 'src'` during test runs by using `python -m pytest`.
+        - Corrected tests to handle `StoryLog.timestamp` (which uses `server_default`) being `None` in unit tests as the database is not hit.
+        - All 10 tests for `log_event` passed.
 - **Важное примечание о миграциях Alembic (Сессия [сегодняшняя дата/время]):**
     - По информации от пользователя, все предыдущие миграции (0002-0007), упомянутые в логах, были удалены.
     - Единственная существующая миграция теперь `4a069d44a15c_initial_schema.py`.

@@ -3,8 +3,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import TYPE_CHECKING
 from .base import Base
 
+from typing import List
+
 if TYPE_CHECKING:
     from .pending_conflict import PendingConflict # type: ignore
+    from .story_log import StoryLog # Added for StoryLog relationship
 
 class GuildConfig(Base):
     """
@@ -26,7 +29,8 @@ class GuildConfig(Base):
     # Relationships
     # Ensure "PendingConflict" is imported or use forward reference if needed.
     # For now, assuming PendingConflict will be imported where GuildConfig is used or via __init__.
-    pending_conflicts: Mapped[list["PendingConflict"]] = relationship(back_populates="guild")
+    pending_conflicts: Mapped[List["PendingConflict"]] = relationship(back_populates="guild")
+    story_logs: Mapped[List["StoryLog"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"

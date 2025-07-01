@@ -370,3 +370,36 @@ Key achievements for this task:
 - Ensured logging and guild-scoping are considered.
 - Outlined conceptual test cases for action loading, dispatching, error handling, and status updates.
 ---
+⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
+Description: Handles player actions directed at objects or sub-locations WITHIN the current location.
+API function handle_intra_location_action(guild_id: int, session: Session, player_id: int, action_data: dict) -> dict. Called from 15 (Central Turn Processor). Accepts guild_id and DB session from 15, as well as action data (intent/entity) from NLU (13).
+Determines interaction type (move_to_sublocation, interact_with_object, examine_object) based on action_data['intent'].
+Loads Player (with guild_id) and their current location (4.1). Finds the target entity (sub-location/object) in the DB (4.1, 7, 14) by guild_id and Entity ID from action_data.
+Uses rules FROM RULECONFIG (13/41) FOR THIS GUILD to determine how to interact: is a check required (12)? What are the consequences (WorldState change 36, item acquisition 15, quest trigger 35)?
+Executes the corresponding logic (updating player's "position within location" - a new field in Player?, calling 12 for a check, calling 15/35/36 for consequences). All within the provided transaction (session).
+Logs the event (19) for the guild. Provides feedback (47).
+Result: Implemented `handle_intra_location_action` in `src/core/interaction_handlers.py`. Added `current_sublocation_name` to `Player` model (with migration `0008_add_player_sublocation.py`). Integrated with `action_processor.py` and updated NLU patterns for `examine`, `interact`, `go_to` (sublocation).
+
+Key achievements for this task:
+- Analyzed requirements for intra-location actions.
+- Added `current_sublocation_name: Optional[str]` to `Player` model (`src/models/player.py`).
+- Created Alembic migration `0008_add_player_sublocation.py`.
+- Implemented `handle_intra_location_action` in `src/core/interaction_handlers.py` with logic for `examine`, `interact` (MVP), and `move_to_sublocation`. Assumes interactables in `Location.generated_details_json.interactable_elements`.
+- Integrated with `action_processor.py` by updating `ACTION_DISPATCHER` and adding a wrapper.
+- Updated NLU in `src/core/nlu_service.py` with patterns for new intents.
+- Conceptual testing performed.
+---
+📚 7.1 Event Log Model (Story Log, i18n, Guild-Scoped).
+Description: Model for storing a detailed log of game events within each guild. (Renamed from 5.1, moved).
+Implement the StoryLog model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, FK to GuildConfig), timestamp (DATETIME), location_id (INTEGER FK, Nullable), event_type (TEXT, ENUM?), entity_ids_json (JSONB - {"players":[...], "npcs":[...], ...} - references to affected entities by ID), details_json (JSONB - full event details, for rollback 20 and feedback 47).
+Implement the log_event(session: Session, guild_id: int, event_type: str, details_json: dict, player_id=None, party_id=None, location_id=None, entity_ids_json=None) API: Saves a record to StoryLog within the provided transaction (session), SPECIFYING THIS guild_id. Called by all modules that change state or produce important events.
+Result: StoryLog model defined and API for logging events implemented.
+
+Key achievements for this task:
+- Found and updated existing `StoryLog` model in `src/models/story_log.py`, ensuring relationships with `GuildConfig` and `Location`.
+- Updated `GuildConfig` model in `src/models/guild.py` with the inverse `story_logs` relationship.
+- Created Alembic migration `0009_create_story_logs_table.py` for the `story_logs` table and its associated `event_type_enum` PostgreSQL ENUM type.
+- Implemented the `log_event` API in `src/core/game_events.py`, including conversion of event type strings to ENUM members and intelligent handling of `player_id`/`party_id` within `entity_ids_json`.
+- Updated `src/core/__init__.py` to correctly export `log_event`.
+- Wrote and passed unit tests for `log_event` in `tests/core/test_game_events.py`.
+---
