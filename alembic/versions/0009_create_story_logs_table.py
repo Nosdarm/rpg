@@ -36,7 +36,7 @@ event_type_values = [
     "level_up", "xp_gained", "relationship_change", "faction_change",
     "world_state_change", "master_command", "error_event"
 ]
-eventtype_enum = postgresql.ENUM(*event_type_values, name=event_type_enum_name_actual)
+eventtype_enum = postgresql.ENUM(*event_type_values, name=event_type_enum_name_actual, create_type=False)
 
 
 def upgrade() -> None:
