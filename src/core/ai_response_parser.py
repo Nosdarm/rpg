@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Union, List, Optional, Dict, Any, TypeVar, Type
-    PydanticValidationError, field_validator, Field, parse_obj_as
+from pydantic import BaseModel, ValidationError, PydanticValidationError, field_validator, Field, parse_obj_as
 
 from src.core.rules import get_rule, get_all_rules_for_guild
 # from src.config.settings import SUPPORTED_LANGUAGES # Assuming this will be available
