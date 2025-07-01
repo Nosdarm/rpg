@@ -3,14 +3,14 @@ import discord
 from discord.ext import commands
 from typing import Optional
 
-from core.database import get_db_session
-from core.crud.crud_player import player_crud
-from core.crud.crud_party import party_crud
-from core.crud.crud_location import location_crud # For party location consistency
-from models.player import Player
-from models.party import Party, PartyTurnStatus
-from models.location import Location
-from core.locations_utils import get_localized_text
+from src.core.database import get_db_session
+from src.core.crud.crud_player import player_crud
+from src.core.crud.crud_party import party_crud
+from src.core.crud.crud_location import location_crud # For party location consistency
+from src.models.player import Player
+from src.models.party import Party, PartyTurnStatus
+from src.models.location import Location
+from src.core.locations_utils import get_localized_text
 
 logger = logging.getLogger(__name__)
 

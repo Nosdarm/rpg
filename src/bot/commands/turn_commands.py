@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db_session, transactional
 from src.core.player_utils import get_player_by_discord_id
-from src.core.party_utils import get_party_by_id
+from src.core.party_utils import get_party # Renamed from get_party_by_id as it doesn't exist
 from src.models import Player, Party
 from src.models.enums import PlayerStatus, PartyTurnStatus
 # Import for turn_controller placeholder - will be created in next step
@@ -85,7 +85,7 @@ class TurnManagementCog(commands.Cog):
                     await interaction.response.send_message("You are not currently in a party. Use `/end_turn` if you are playing solo.", ephemeral=True)
                     return
 
-                party = await get_party_by_id(session, guild_id=guild_id, party_id=player.current_party_id)
+                party = await get_party(session, guild_id=guild_id, party_id=player.current_party_id) # Use the existing get_party function
                 if not party:
                     # This case should ideally not happen if player.current_party_id is set
                     logger.error(f"Player {player.name} has current_party_id {player.current_party_id} but party not found in guild {guild_id}.")
