@@ -492,6 +492,26 @@
             - Восстановлен оригинальный `finally` блок в `src/main.py` (удалены диагностические `print` и явные `return` из `except` блоков, кроме `logger.info` в `finally`).
     - **Результат:** Все 7 тестов в `tests/test_main.py` успешно пройдены.
 
+- **Пользовательская задача: Исправление ошибок импорта и TypeError (Сессия [сегодняшняя дата/время])**
+    - **Проблема 1: Ошибки импорта `ImportError: attempted relative import beyond top-level package` и `ModuleNotFoundError`**
+        - **Причина:** Некорректные пути импорта в `src/bot/core.py` при загрузке расширений (использование `bot.events` вместо `src.bot.events`), конфликт файла `src/bot/commands.py` с директорией `src/bot/commands/`, отсутствие `__init__.py` в `src/bot/commands/`. Также, некоторые модули (например, `party_commands.py`) использовали импорты вида `from core...` вместо `from src.core...`.
+        - **Решение:**
+            - В `src/bot/core.py` изменены пути загрузки расширений на абсолютные от корня проекта (`src.bot.events`, `src.bot.commands.party_commands` и т.д.).
+            - Файл `src/bot/commands.py` переименован в `src/bot/general_commands.py`, и путь его загрузки в `src/bot/core.py` обновлен.
+            - Создан пустой файл `src/bot/commands/__init__.py`.
+            - В `src/bot/commands/party_commands.py` исправлены импорты на `from src.core...` и `from src.models...`.
+    - **Проблема 2: `ImportError: cannot import name 'get_party_by_id' from 'src.core.party_utils'` в `src.bot.commands.turn_commands.py`**
+        - **Причина:** Функция `get_party_by_id` не существовала в `src/core/party_utils.py`. Вместо нее присутствовала функция `get_party(..., party_id: int)`, выполняющая ту же роль.
+        - **Решение:** В `src/bot/commands/turn_commands.py` импорт изменен на `from src.core.party_utils import get_party`, и вызов функции обновлен соответственно.
+    - **Проблема 3: `TypeError: unsupported type annotation <class 'discord.interactions.Interaction'>` в `src.bot.commands.master_ai_commands.py`**
+        - **Причина:** Ошибка возникала при использовании декоратора `@transactional` (который внедряет параметр `session: AsyncSession`) на методах команд (`reject_ai`, `edit_ai`), которые также принимают `interaction: discord.Interaction`. Система типов `discord.py` для slash-команд некорректно обрабатывала аннотацию `discord.Interaction` при наличии предварительно внедренного параметра `AsyncSession`, ошибочно интерпретируя ее как модуль `discord.interactions.Interaction`.
+        - **Решение:** Для затронутых команд (`reject_ai`, `edit_ai`) в `master_ai_commands.py`:
+            - Удален декоратор `@transactional` с сигнатуры команды.
+            - Удален параметр `session: AsyncSession` из сигнатуры команды.
+            - В теле команды сессия теперь получается с помощью контекстного менеджера `async with get_db_session() as session:`.
+            - Явно вызывается `await session.commit()` после успешных операций с БД внутри блока `with`.
+        - Это изменение обеспечивает "чистую" сигнатуру для `discord.py` и переносит управление транзакциями внутрь метода команды. Команда `approve_ai` уже использовала этот паттерн и не требовала изменений.
+
 ## Текущий план
 
 **Задача: ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution**
