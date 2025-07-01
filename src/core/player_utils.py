@@ -2,8 +2,8 @@ from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.player import Player
-from core.crud.crud_player import player_crud # Specific CRUD for Player
+from ..models.player import Player
+from .crud.crud_player import player_crud # Specific CRUD for Player
 
 async def get_player(db: AsyncSession, guild_id: int, player_id: int) -> Optional[Player]:
     """
