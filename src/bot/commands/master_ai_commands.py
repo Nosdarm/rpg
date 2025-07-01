@@ -32,16 +32,15 @@ class MasterAICog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    # Helper for master check, to be used by commands
-    async def cog_check(self, ctx: commands.Context) -> bool:
-        # This check applies to traditional commands if this Cog also had them.
-        # For app commands, the check should be ideally within each command or using discord.py's check decorators if available for app_commands.
-        # For simplicity, we'll assume an admin check here.
-        if ctx.guild is None:
-             await ctx.send("Master commands can only be used in a server.", ephemeral=True)
-             return False
-        if not ctx.author.guild_permissions.administrator: # type: ignore
-            await ctx.send("You do not have permission to use this command.", ephemeral=True)
+    # This check is called for every interaction in this cog (app commands)
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild is None: # Should mostly be handled by guild_only=True on group/commands
+            await interaction.response.send_message("Master commands can only be used in a server.", ephemeral=True, delete_after=10)
+            return False
+        # Assuming interaction.user has guild_permissions. For interactions in DMs, user might not have it.
+        # However, these commands are guild_only.
+        if not interaction.user.guild_permissions.administrator: # type: ignore
+            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True, delete_after=10)
             return False
         return True
 
@@ -50,12 +49,9 @@ class MasterAICog(commands.Cog):
 
     @master_ai_group.command(name="review", description="Review a pending AI generation.")
     @app_commands.describe(pending_id="The ID of the pending generation to review.")
-    # @app_commands.check(is_master) # Ideal way if is_master is an app_commands.check compatible function
     async def review_ai(self, interaction: discord.Interaction, pending_id: int):
         """Displays details of a pending AI generation for review."""
-        if not interaction.user.guild_permissions.administrator: # type: ignore
-            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-            return
+        # Permission check is now handled by interaction_check
 
         await interaction.response.defer(ephemeral=True)
 
@@ -96,9 +92,7 @@ class MasterAICog(commands.Cog):
     @app_commands.describe(pending_id="The ID of the pending generation to approve.")
     async def approve_ai(self, interaction: discord.Interaction, pending_id: int):
         """Approves a pending AI generation, triggering saving logic."""
-        if not interaction.user.guild_permissions.administrator: # type: ignore
-            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-            return
+        # Permission check is now handled by interaction_check
 
         await interaction.response.defer(ephemeral=True)
 
@@ -138,9 +132,7 @@ class MasterAICog(commands.Cog):
     @app_commands.describe(pending_id="The ID of the pending generation to reject.", reason="Optional reason for rejection.")
     async def reject_ai(self, interaction: discord.Interaction, pending_id: int, reason: Optional[str] = None):
         """Rejects a pending AI generation."""
-        if not interaction.user.guild_permissions.administrator: # type: ignore
-            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-            return
+        # Permission check is now handled by interaction_check
 
         await interaction.response.defer(ephemeral=True)
         notes = f"Rejected by {interaction.user} (ID: {interaction.user.id})."
@@ -177,9 +169,7 @@ class MasterAICog(commands.Cog):
     @app_commands.describe(pending_id="ID of the pending generation.", new_data_json_str="JSON string of the new data for 'parsed_validated_data_json'.")
     async def edit_ai(self, interaction: discord.Interaction, pending_id: int, new_data_json_str: str):
         """Edits the 'parsed_validated_data_json' of a pending AI generation."""
-        if not interaction.user.guild_permissions.administrator: # type: ignore
-            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-            return
+        # Permission check is now handled by interaction_check
 
         await interaction.response.defer(ephemeral=True)
 

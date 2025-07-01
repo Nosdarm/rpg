@@ -39,7 +39,10 @@ async def notify_master(
 
         channel = guild.get_channel(guild_config.notification_channel_id)
         if isinstance(channel, discord.TextChannel): # Check if it's a text channel
-            await channel.send(message, embed=embed)
+            if embed:
+                await channel.send(message, embed=embed)
+            else:
+                await channel.send(message)
             logger.info(f"Sent master notification to channel {channel.id} in guild {guild.id}: {message[:100]}")
         else:
             logger.warning(f"Notification channel {guild_config.notification_channel_id} in guild {guild_id} is not a valid text channel or not found.")

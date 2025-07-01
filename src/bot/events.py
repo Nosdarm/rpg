@@ -14,7 +14,10 @@ class EventCog(commands.Cog):
         # Этот on_ready в Cog будет вызван в дополнение к on_ready в BotCore, если он там есть.
         # Обычно основной on_ready оставляют в главном классе бота.
         # Но для демонстрации оставим здесь логирование.
-        logger.info(f"EventCog: Бот {self.bot.user.name} готов (из Cog).")
+        if self.bot.user: # Add a check for self.bot.user
+            logger.info(f"EventCog: Бот {self.bot.user.name} готов (из Cog).")
+        else:
+            logger.error("EventCog: on_ready called, but self.bot.user is None.")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

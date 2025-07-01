@@ -4,7 +4,7 @@ from sqlalchemy import select, update as sqlalchemy_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
 
-from core.crud import CRUDBase
+from src.core.crud import CRUDBase
 from models.party import Party, PartyTurnStatus
 from models.player import Player # Needed for updating Player.current_party_id
 
