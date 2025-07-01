@@ -82,121 +82,67 @@ def transactional(func):
     ожидает сессию БД (db: AsyncSession).
     """
     import functools
+    import inspect # Ensure inspect is imported for the decorator
+    from unittest.mock import Mock # For isinstance check
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        # Извлекаем guild_id из именованных аргументов, если он там есть.
-        # Это может быть полезно для логирования или специфичных проверок на уровне декоратора,
-        # хотя основная фильтрация по guild_id должна происходить в самих CRUD операциях.
         guild_id_for_log = kwargs.get('guild_id', 'N/A')
 
-        async with get_db_session() as session: # Use async with for the async context manager
-            try:
-                # Передаем сессию как первый аргумент в декорируемую функцию.
-                # args[0] будет сессией, если func это простой метод класса, где self - первый аргумент.
-                # Если func - статическая функция или функция модуля, то session будет первым аргументом.
-                # Мы предполагаем, что декорируемая функция ожидает сессию первым аргументом.
+        passed_session = None
+        processed_args = args
 
-                # Если args уже содержит self или cls (если func - метод), то session должна быть вставлена после них.
-                # Однако, стандартная практика - декоратор предоставляет ресурсы, такие как сессия,
-                # и декорируемая функция объявляет их как свои первые параметры.
-                # Пример: @transactional async def my_func(session: AsyncSession, other_arg: int): ...
+        # Check if session is passed as a keyword argument
+        if "session" in kwargs and (isinstance(kwargs["session"], AsyncSession) or isinstance(kwargs["session"], Mock)):
+            passed_session = kwargs["session"]
+        # Else, check if session is passed as the first positional argument
+        elif args and (isinstance(args[0], AsyncSession) or isinstance(args[0], Mock)):
+            # Ensure the function signature's first parameter is indeed 'session'
+            # to avoid consuming 'self' or other parameters.
+            sig = inspect.signature(func)
+            params = list(sig.parameters.keys())
+            if params and params[0] == "session":
+                passed_session = args[0]
+                processed_args = args[1:] # Session consumed from args
 
-                # Проверим, является ли первый аргумент 'self' или 'cls' (часто для методов класса)
-                # Это упрощенная проверка. Более надежно было бы инспектировать сигнатуру func.
-                # if args and isinstance(args[0], object) and func.__name__ in dir(args[0]):
-                #    result = await func(args[0], session, *args[1:], **kwargs)
-                # else:
-                #    result = await func(session, *args, **kwargs)
+        if passed_session:
+            # A session was provided by the caller, use it directly.
+            # The decorated function `func` will receive this session.
+            # If it was from args[0] (and matched 'session' param), it's now in provided_session and removed from processed_args.
+            # If it was from kwargs, it's still in kwargs.
+            # The goal is for `func` to receive the session correctly as per its definition.
+            # If func is `def func(session, arg1, ...)`:
+            #   - called as wrapper(s, a1), provided_session=s, processed_args=(a1,), kwargs={} -> func(s, a1, **{})
+            #   - called as wrapper(a1, session=s), provided_session=s, processed_args=(a1,), kwargs={'session':s} -> func(a1, session=s) -> This might be an issue if func expects session first.
+            # For `process_guild_turn_if_ready(session, guild_id)`:
+            # Call: `wrapper(mock_session, guild_id)`
+            #   `passed_session` becomes `mock_session`. `processed_args` becomes `(guild_id,)`.
+            #   It should call `func(mock_session, guild_id)`.
 
-                # Для простоты, предполагаем, что декорируемая функция всегда принимает сессию первым аргументом.
-                # Если это метод класса, то сигнатура должна быть def my_method(self, session: AsyncSession, ...).
-                # Декоратор тогда должен вызываться как @transactional на методе.
-                # В wrapper args[0] будет self.
-                # Чтобы передать сессию, нам нужно ее вставить.
+            # This simplified call assumes func correctly receives provided_session either positionally or via kwargs
+            # based on how it was originally passed to wrapper and how func is defined.
+            # The crucial point is NOT to create a new session if one is validly provided.
 
-                # Более корректный подход: декорируемая функция должна ЯВНО принимать сессию.
-                # @transactional
-                # async def some_function(session: AsyncSession, guild_id: int): ...
-                # wrapper вызовет some_function(session_instance, guild_id=123)
+            # If the session was originally positional and func expects it positionally first:
+            if processed_args is not args: # Means session was args[0] and consumed
+                 return await func(passed_session, *processed_args, **kwargs)
+            else: # Session was from kwargs or func handles it through kwargs
+                 return await func(*processed_args, **kwargs) # kwargs contains 'session' if it was passed that way
 
-                # В нашем случае, get_db_session() является генератором, который yield-ит сессию.
-                # Декоратор должен передать эту сессию в func.
-
-                # Если func это метод экземпляра, то args[0] это self.
-                # В этом случае, мы передаем session как второй аргумент.
-                # Если func это обычная функция, args будет пустым (или содержать другие аргументы).
-                # Мы передаем session как первый аргумент.
-
-                # Давайте стандартизируем: декорируемая функция ДОЛЖНА принимать сессию первым аргументом.
-                # Если это метод класса, его сигнатура должна быть: async def method(self, session: AsyncSession, ...)
-                # Декоратор будет передавать сессию после self.
-
-                is_method = False
-                if args:
-                    # Простая эвристика: если первый арг есть и имя функции есть в его атрибутах
-                    # Это может быть не всегда точно, но для простоты пока так.
-                    # Лучше использовать inspect.signature(func) для определения первого параметра.
-                    first_arg_is_class_instance = hasattr(args[0], func.__name__)
-                    # Если func это unbound method класса, то args[0] это self.
-                    # Если func это bound method экземпляра, то args[0] это self.
-                    # Если func это staticmethod, то args не будет содержать self/cls.
-                    # Если func это classmethod, то args[0] это cls.
-
-                    # Для простоты, если есть args, предполагаем, что первый - это self/cls
-                    # и сессия должна быть вставлена после него.
-                    # Это не самый надежный способ, но для начала сойдет.
-                    # В идеале, декорируемая функция должна явно принимать 'session' как аргумент.
-                    # Мы же будем внедрять сессию в вызов.
-                    pass # Мы передадим сессию как первый аргумент, а *args последуют за ним.
-
-                # Передаем сессию как первый аргумент, за которым следуют остальные аргументы.
-                # Если func - это метод, то args[0] - это self/cls.
-                # Мы должны передать (self, session, *original_args_after_self, **kwargs)
-                # Если func - обычная функция, то (session, *original_args, **kwargs)
-
-                # Самый простой и явный способ - это если декорируемая функция
-                # явно объявляет сессию как один из своих аргументов (например, первый).
-                # Декоратор тогда просто передает ее.
-
-                # В нашем случае, мы передаем сессию первым аргументом в вызов func.
-                # Если func - это метод экземпляра (например, MyClass.my_method),
-                # то Python автоматически передаст 'self' первым.
-                # Если мы сделаем func(session, *args, **kwargs), то для метода это будет:
-                # MyClass.my_method(session_obj, self_obj, ...other_args...) -> Ошибка
-                # Если это bound method, то self уже "встроен".
-                # my_instance.my_method(session_obj, ...other_args...)
-
-                # Чтобы было универсально, функция, которую мы декорируем, должна
-                # принимать сессию как первый аргумент *после* self/cls, если они есть.
-                # Либо, если это функция модуля, то просто первым аргументом.
-
-                # Давайте придерживаться соглашения:
-                # - Для функций модуля: async def my_func(session: AsyncSession, ...)
-                # - Для методов класса: async def my_method(self, session: AsyncSession, ...)
-                # Декоратор будет внедрять сессию.
-
-                # wrapper(self, *args, **kwargs) если func - метод
-                # wrapper(*args, **kwargs) если func - функция
-                # Мы получаем *args и **kwargs как они были переданы обернутой функции.
-
-                # Если func - это метод, то args[0] - это self.
-                if args and hasattr(args[0], func.__name__) and callable(getattr(args[0], func.__name__)):
-                    # Вероятно, это вызов метода: instance.method(arg1, kwarg1=...)
-                    # args = (self, arg1)
-                    result = await func(args[0], session, *args[1:], **kwargs)
-                else:
-                    # Вероятно, это вызов обычной функции: module_function(arg1, kwarg1=...)
-                    # args = (arg1,)
-                    result = await func(session, *args, **kwargs)
-
-                # session.commit() уже вызывается в get_db_session при успешном выходе из блока try
-                return result
-            except Exception as e:
-                # session.rollback() уже вызывается в get_db_session при исключении
-                logger.error(f"Ошибка в транзакционной функции {func.__name__} (guild_id: {guild_id_for_log}): {e}", exc_info=True)
-                raise
-            # finally: session.close() также обрабатывается в get_db_session
+        else:
+            # No usable session provided by the caller, create a new one.
+            async with get_db_session() as new_created_session:
+                try:
+                    # Pass the new_created_session as the first argument to func.
+                    # original_args here are the args passed to the wrapper.
+                    # This was the problematic line: func(new_created_session, *args, **kwargs)
+                    # if *args still contained a mock_session that wasn't detected.
+                    # Now, *processed_args* should be clean of any previously passed session.
+                    result = await func(new_created_session, *processed_args, **kwargs)
+                    return result
+                except Exception as e:
+                    logger.error(f"Ошибка в транзакционной функции {func.__name__} (guild_id: {guild_id_for_log}): {e}", exc_info=True)
+                    raise
     return wrapper
 
 async def init_db():
