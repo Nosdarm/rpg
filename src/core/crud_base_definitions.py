@@ -5,7 +5,7 @@ from sqlalchemy import select, update as sqlalchemy_update, delete as sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
-from models.base import Base # Assuming Base is your declarative base
+from ..models.base import Base # Assuming Base is your declarative base
 
 logger = logging.getLogger(__name__)
 
