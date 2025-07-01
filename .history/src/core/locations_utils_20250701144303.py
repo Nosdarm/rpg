@@ -2,7 +2,7 @@ from typing import Optional, Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.location import Location
+from models.location import Location
 from .crud.crud_location import location_crud # Specific CRUD for Location
 
 async def get_location(db: AsyncSession, guild_id: int, location_id: int) -> Optional[Location]:

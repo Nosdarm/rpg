@@ -3,8 +3,8 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..crud_base_definitions import CRUDBase
-from ...models.location import Location, LocationType
+from src.core.crud_base_definitions import CRUDBase
+from models.location import Location, LocationType
 
 
 class CRUDLocation(CRUDBase[Location]):

@@ -3,17 +3,17 @@ from typing import Union, Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Assuming models and enums will be imported correctly
-from src.models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
-from src.models.enums import ModerationStatus, PlayerStatus
-from src.core.database import transactional
+from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
+from ..models.enums import ModerationStatus, PlayerStatus
+from .database import transactional
 # Corrected import path for generic CRUD functions
-from src.core.crud_base_definitions import create_entity, get_entity_by_id, update_entity
-from src.core.ai_prompt_builder import prepare_ai_prompt
-from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
+from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
+from .ai_prompt_builder import prepare_ai_prompt
+from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
 from discord.ext import commands # For bot instance type hint
-from src.bot.utils import notify_master # Import the new utility
+from ..bot.utils import notify_master # Import the new utility
 # Placeholder for game events
-# from src.core.game_events import on_enter_location
+# from .game_events import on_enter_location
 
 
 logger = logging.getLogger(__name__)
@@ -169,66 +169,96 @@ async def save_approved_generation(
 
     try:
         ai_data_model = ParsedAiData(**pending_gen.parsed_validated_data_json)
-        saved_entity_ids: Dict[str, List[Any]] = {"npc": [], "quest": [], "item": []}
+        saved_entity_ids: Dict[str, List[Any]] = {"npc": [], "quest": [], "item": [], "location": []} # Added location
 
         for entity_data in ai_data_model.generated_entities:
-            entity_dict = entity_data.model_dump() # Convert Pydantic model to dict for create_entity
-            # Ensure guild_id is present in the data being passed to create_entity
-            entity_dict["guild_id"] = guild_id
+            # entity_dict = entity_data.model_dump() -> This is not needed as create_entity takes dict.
+            # We will construct the dict for each entity type specifically.
 
-            # Remove entity_type as it's a Pydantic discriminator, not a DB model field usually
-            entity_type_val = entity_dict.pop("entity_type", None)
-
+            entity_type_val = entity_data.entity_type # Directly from the discriminated union model
             new_db_entity = None
+
             if entity_type_val == "npc" and isinstance(entity_data, ParsedNpcData):
-                # Map ParsedNpcData fields to GeneratedNpc model fields
-                # Example: name_i18n, description_i18n, stats (might need JSONB conversion or specific fields)
-                # For now, assume direct mapping if fields align.
-                # Actual mapping might be more complex.
                 npc_data_for_db = {
+                    "guild_id": guild_id, # Ensure guild_id is always passed
                     "name_i18n": entity_data.name_i18n,
                     "description_i18n": entity_data.description_i18n,
-                    "stats_json": entity_data.stats, # Assuming GeneratedNpc has stats_json
-                    "guild_id": guild_id,
-                    # Fill other GeneratedNpc fields from entity_data if they exist
+                    # Assuming GeneratedNpc model has 'properties_json' for stats and other dynamic attributes
+                    # And 'ai_metadata_json' for generation related info.
+                    # The ParsedNpcData might need fields like 'static_id', 'npc_type_i18n' if AI is to provide them.
+                    # For now, we map what's available and matches GeneratedNpc structure.
+                    "properties_json": {"stats": entity_data.stats} if entity_data.stats else {},
+                    # "static_id": entity_data.static_id, # If AI provides static_id
+                    # "npc_type_i18n": entity_data.npc_type_i18n, # If AI provides this
                 }
                 new_db_entity = await create_entity(session, GeneratedNpc, npc_data_for_db)
                 if new_db_entity: saved_entity_ids["npc"].append(new_db_entity.id)
                 logger.info(f"Saved NPC: {entity_data.name_i18n.get('en', 'Unknown NPC')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
 
             elif entity_type_val == "quest" and isinstance(entity_data, ParsedQuestData):
-                # Map ParsedQuestData to GeneratedQuest model fields
                 quest_data_for_db = {
-                    "title_i18n": entity_data.title_i18n,
-                    "summary_i18n": entity_data.summary_i18n,
-                    "steps_i18n_json": entity_data.steps_description_i18n, # Assuming GeneratedQuest has steps_i18n_json
-                    "rewards_json": entity_data.rewards_json,
                     "guild_id": guild_id,
-                    # status will be default or set by rules
+                    "title_i18n": entity_data.title_i18n,
+                    "description_i18n": entity_data.summary_i18n, # ParsedQuestData.summary_i18n maps to GeneratedQuest.description_i18n
+                    # Assuming GeneratedQuest has 'steps_json' or similar for steps descriptions
+                    # For GeneratedQuest model:
+                    # description_i18n (from summary_i18n)
+                    # rewards_json
+                    # Needs fields like static_id from AI, or it has to be generated.
+                    # For simplicity, let's assume static_id is not AI-generated for now or is part of ParsedQuestData.
+                    # "static_id": entity_data.static_id, # If AI provides static_id
+                    "rewards_json": entity_data.rewards_json,
+                    # Placeholder for steps - GeneratedQuest might have a direct JSONB field for simple steps
+                    # or require separate QuestStep entries. For now, let's assume a JSONB field.
+                    # "steps_data_json": entity_data.steps_description_i18n # If GeneratedQuest has such a field
                 }
+                # If GeneratedQuest has steps as a list of JSON, and ParsedQuestData provides steps_description_i18n
+                # This mapping needs to be aligned with the actual GeneratedQuest model structure for steps.
+                # For example, if GeneratedQuest expects a field like `ai_metadata_json` to store raw step descriptions:
+                quest_data_for_db["ai_metadata_json"] = {"raw_steps": entity_data.steps_description_i18n}
+
                 new_db_entity = await create_entity(session, GeneratedQuest, quest_data_for_db)
                 if new_db_entity: saved_entity_ids["quest"].append(new_db_entity.id)
                 logger.info(f"Saved Quest: {entity_data.title_i18n.get('en', 'Unknown Quest')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
 
             elif entity_type_val == "item" and isinstance(entity_data, ParsedItemData):
-                # Map ParsedItemData to Item model fields
                 item_data_for_db = {
+                    "guild_id": guild_id,
                     "name_i18n": entity_data.name_i18n,
                     "description_i18n": entity_data.description_i18n,
-                    "item_type_key": entity_data.item_type, # Assuming Item model has item_type_key
+                    # Assuming Item model has 'item_type_i18n' or a key field for item_type
+                    # Item model has item_type_i18n and item_category_i18n
+                    # ParsedItemData has item_type (string). We might need a mapping or store it directly.
+                    # Let's assume item_type from AI can be stored in a generic 'properties_json' or a specific field.
+                    # For now, let's use 'item_type_i18n' as a placeholder if AI gives localized type.
+                    # If AI gives a key like "weapon", we might map it to a localized dict.
+                    "item_type_i18n": {"en": entity_data.item_type, "ru": entity_data.item_type}, # Simple mapping
                     "properties_json": entity_data.properties_json,
-                    "guild_id": guild_id,
+                    # "static_id": entity_data.static_id, # If AI provides static_id
                 }
                 new_db_entity = await create_entity(session, Item, item_data_for_db)
                 if new_db_entity: saved_entity_ids["item"].append(new_db_entity.id)
                 logger.info(f"Saved Item: {entity_data.name_i18n.get('en', 'Unknown Item')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
 
+            # Add Location saving if ParsedLocationData is defined and used
+            # elif entity_type_val == "location" and isinstance(entity_data, ParsedLocationData):
+            #    location_data_for_db = { ... } # map fields
+            #    new_db_entity = await create_entity(session, Location, location_data_for_db)
+            #    if new_db_entity: saved_entity_ids["location"].append(new_db_entity.id)
+
             else:
                 logger.warning(f"Unsupported entity_type '{entity_type_val}' encountered during saving of PendingGeneration ID {pending_generation_id}")
 
+        master_notes_message = (
+            f"Successfully saved entities: "
+            f"NPC IDs: {saved_entity_ids['npc']}, "
+            f"Quest IDs: {saved_entity_ids['quest']}, "
+            f"Item IDs: {saved_entity_ids['item']}"
+            # f"Location IDs: {saved_entity_ids['location']}" # If locations are saved
+        )
         await update_entity(session, pending_gen, {
             "status": ModerationStatus.SAVED,
-            "master_notes": f"Successfully saved entities: NPC IDs: {saved_entity_ids['npc']}, Quest IDs: {saved_entity_ids['quest']}, Item IDs: {saved_entity_ids['item']}"
+            "master_notes": master_notes_message
         })
 
         # Placeholder for post-save hooks like on_enter_location
@@ -238,15 +268,13 @@ async def save_approved_generation(
         #     # await on_enter_location(session, guild_id, location_id=trigger_context["location_id"], player_id=player_id_context, new_entities=saved_entity_ids)
         #     logger.info(f"Placeholder: Called on_enter_location for location {trigger_context['location_id']}")
 
-        # Update player status if they were awaiting moderation for this specific generation
-        # This requires more sophisticated tracking of which player's action led to this.
-        # For now, a simple check if triggered_by_user_id is set on pending_gen.
         if pending_gen.triggered_by_user_id:
             player = await get_entity_by_id(session, Player, entity_id=pending_gen.triggered_by_user_id, guild_id=guild_id)
             if player and player.current_status == PlayerStatus.AWAITING_MODERATION:
-                # More robust logic might check if there are OTHER pending generations for this player.
-                # For now, assume this resolves the await.
-                await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING})
+                # TODO: More robust logic: check if there are OTHER pending_generations for this player.
+                # For now, assume this resolves the await for this specific player action.
+                # This might require linking player action ID to pending_generation ID.
+                await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING}) # Or IDLE, or previous status
                 logger.info(f"Player {player.id} status updated from {PlayerStatus.AWAITING_MODERATION.name} to {PlayerStatus.EXPLORING.name} after generation ID {pending_generation_id} saved.")
             elif player:
                 logger.info(f"Player {player.id} was trigger for generation ID {pending_generation_id}, but status was {player.current_status.name} (not AWAITING_MODERATION). No status change.")
@@ -257,10 +285,15 @@ async def save_approved_generation(
 
     except Exception as e:
         logger.error(f"Error saving entities from PendingGeneration ID {pending_generation_id} for guild {guild_id}: {e}", exc_info=True)
-        try:
-            await update_entity(session, pending_gen, {"status": ModerationStatus.ERROR_ON_SAVE, "master_notes": f"Saving error: {str(e)}"})
-        except Exception as update_err:
-            logger.error(f"Failed to update PendingGeneration status to ERROR_ON_SAVE: {update_err}", exc_info=True)
+        # Ensure pending_gen is loaded before trying to update it in exception handler
+        loaded_pending_gen = await get_entity_by_id(session, PendingGeneration, pending_generation_id, guild_id=guild_id)
+        if loaded_pending_gen:
+            try:
+                await update_entity(session, loaded_pending_gen, {"status": ModerationStatus.ERROR_ON_SAVE, "master_notes": f"Saving error: {str(e)}"})
+            except Exception as update_err:
+                logger.error(f"Failed to update PendingGeneration status to ERROR_ON_SAVE for ID {pending_generation_id}: {update_err}", exc_info=True)
+        else:
+            logger.error(f"Could not load PendingGeneration ID {pending_generation_id} to mark as ERROR_ON_SAVE.")
         return False
 
 logger.info("AI Orchestrator module initialized with trigger_ai_generation_flow and save_approved_generation.")

@@ -39,6 +39,7 @@ class Player(Base):
     collected_actions_json: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSON, nullable=True) # Stores queued actions
 
     current_party_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("parties.id"), nullable=True)
+    current_sublocation_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # New field for sub-location
 
     # Relationships
     location: Mapped[Optional["Location"]] = relationship(foreign_keys=[current_location_id])

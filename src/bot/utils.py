@@ -3,9 +3,9 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from src.models import GuildConfig # For fetching notification_channel_id
+from ..models import GuildConfig # For fetching notification_channel_id
 # Corrected import path for generic CRUD functions
-from src.core.crud_base_definitions import get_entity_by_id # To get GuildConfig
+from ..core.crud_base_definitions import get_entity_by_id # To get GuildConfig
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

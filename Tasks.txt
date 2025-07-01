@@ -40,37 +40,7 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 
 {Task 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47) - Moved to Done.txt}
 
-
-⚙️ 6.10 Action Parsing and Recognition Module (NLU & Intent/Entity). (1, 4, 7, 14, 0.2, 0.3, Choose NLU Libs, Guild-Scoped Dictionary)
-Description: Understands player narrative input and extracts their intentions and targets in the context of their guild.
-Async Listener for on_message(message). Gets guild_id. Checks player status. Uses NLU library and an entity dictionary ONLY FOR THIS GUILD. Saves the Action (JSON) in player.collected_actions_json (0.2) for this player in this guild.
-
-
-⚙️ 6.12 Turn Queue System (Turn Controller) - Per-Guild Processing. (1, 2, 13, 21, 1.3, 19, 11.3, 25, 35, 15, 36, Per-Guild Async Workers/Queue Management)
-Description: Manages the step-by-step progression of the game and triggers action processing independently for each guild.
-Player and Party models with statuses, linked to the guild (0.2/1.2).
-Async Listener for /end_turn//end_party_turn. Gets guild_id.
-Updates player(s) status in this guild within a transaction (0.3).
-If conditions for processing a turn in this guild are met: Sets status(es) to 'processing' in this guild. Starts an async worker for the Action Processing Module (15), passing it the guild_id.
-
-
-⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (14, 13, 14, 0.3, 19, 47, 21, 36, 38, 40, 1.3, 25, 15, 35, Conflict Resolution, Master Notification 41, Transactions 0.3)
-Description: The main asynchronous executor of game logic for one turn in one guild. Processes all collected player actions, resolves conflicts, and calls relevant game modules.
-Async Worker: Accepts guild_id and a list of player_id/party_id from 14.
-ALL data operations (loading, saving, updating) MUST USE THE PROVIDED guild_id. Utilities 0.3, 14, 15, and calls to other modules MUST accept it.
-Loads Players by guild_id. Extracts actions, clears the field in the DB.
-Conflict Analysis Phase (Party): If a party, analyzes actions based on conflict_resolution_rules FROM RULECONFIG FOR THIS GUILD (13/41).
-If a conflict requires MANUAL moderation: Create a pending conflict record WITH guild_id. Notify the Master (41) IN THE CHANNEL FOR THIS GUILD. Mark actions as 'pending'. Pause processing.
-
-
-Automatic Conflict Resolution Phase: If conflict auto_resolve == true: Determine check type (RuleConfig 13/41), call 12 (Check Resolver Module, passing guild_id). Determine outcome based on rules 13/44. Log the decision (19).
-Action Execution Phase: Iterate through actions (skipping pending ones). For each action:
-Start an ATOMIC TRANSACTION (0.3) SCOPED TO THIS GUILD.
-Hand over control to the corresponding module (1.3 - Move, 21 - Look, 25 - Combat init/action, 15 - Inventory actions, 35 - Quest progress event, 16 - Intra-Location Interaction) PASSING IT guild_id and action data. The module executes the logic, updates the DB. Commit the transaction.
-
-
-Collect feedback (47). Log events (19). Generate report (47). Update statuses.
-
+{Task ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 19, 20, 21, 25, 26, 27, 30, 31, 32, 35, 36, 37, 39, 40, 41, 42, 44, 46, 47, 48, 50, 52, 53, 54) - Moved to Done.txt}
 
 ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
 Description: Handles player actions directed at objects or sub-locations WITHIN the current location.
@@ -449,3 +419,5 @@ Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Depends on API 6
 * Description: In the UI, create a section for displaying the list of commands.
 * Load the list of commands via API 67. Display it in a readable format (table, list). Present command descriptions and parameters.
 * Result: A command help section appears in the UI.
+
+[end of Tasks.txt]

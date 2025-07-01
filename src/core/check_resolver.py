@@ -47,12 +47,12 @@ class CheckResult(BaseModel):
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.rules import get_rule, get_all_rules_for_guild
-from src.core.dice_roller import roll_dice
-from src.models.player import Player
-from src.models.generated_npc import GeneratedNpc
-# Add other entity models as needed, e.g., from src.models.object import ObjectModel
-from src.core.crud_base_definitions import get_entity_by_id # Using the generic get_entity_by_id
+from .rules import get_rule, get_all_rules_for_guild
+from .dice_roller import roll_dice
+from ..models.player import Player
+from ..models.generated_npc import GeneratedNpc
+# Add other entity models as needed, e.g., from ..models.object import ObjectModel
+from .crud_base_definitions import get_entity_by_id # Using the generic get_entity_by_id
 
 # Entity types mapping (can be expanded or made more dynamic)
 # For now, a simple string mapping. Could use an Enum later.
