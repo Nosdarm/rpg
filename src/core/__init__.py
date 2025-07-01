@@ -37,10 +37,12 @@ from . import turn_controller # Import the new turn_controller module
 from .turn_controller import trigger_guild_turn_processing, process_guild_turn_if_ready
 from . import action_processor # Import the new action_processor module
 from .action_processor import process_actions_for_guild
+from . import interaction_handlers # Import the new interaction_handlers module
+from .interaction_handlers import handle_intra_location_action
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -68,5 +70,7 @@ __all__ = [
     "trigger_guild_turn_processing",
     "process_guild_turn_if_ready", # Though this might be more internal to turn_controller logic
     "action_processor",
-    "process_actions_for_guild"
+    "process_actions_for_guild",
+    "interaction_handlers",
+    "handle_intra_location_action",
 ]
