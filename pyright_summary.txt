@@ -1,91 +1,42 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_ai_commands.py] — 13 issue(s):
-  Line 12   [ERROR] "PendingGeneration" is unknown import symbol
-  Line 13   [ERROR] "ModerationStatus" is unknown import symbol
-  Line 14   [ERROR] "get_entity_by_id" is unknown import symbol
-  Line 14   [ERROR] "update_entity" is unknown import symbol
-  Line 36   [ERROR] Method "cog_check" overrides class "Cog" in an incompatible manner
-┬а┬аReturn type mismatch: base method returns type "bool", override returns type "CoroutineType[Any, Any, bool]"
-┬а┬а┬а┬а"CoroutineType[Any, Any, bool]" is not assignable to "bool"
-  Line 62   [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 62   [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
-  Line 105  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 105  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
-  Line 150  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 150  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
-  Line 202  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 202  [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\check_resolver.py] — 6 issue(s):
+  Line 181  [ERROR] Argument missing for parameter "description"
+  Line 197  [ERROR] Argument missing for parameter "description"
+  Line 201  [ERROR] Argument missing for parameter "description"
+  Line 293  [ERROR] Argument missing for parameter "db"
+  Line 305  [ERROR] Argument missing for parameter "db"
+  Line 322  [ERROR] Argument missing for parameter "db"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_prompt_builder.py] — 11 issue(s):
-  Line 14   [ERROR] "guild_config_crud" is unknown import symbol
-  Line 15   [ERROR] "generated_npc_crud" is unknown import symbol
-  Line 15   [ERROR] "player_quest_progress_crud" is unknown import symbol
-  Line 15   [ERROR] "relationship_crud" is unknown import symbol
-  Line 16   [ERROR] "ability_crud" is unknown import symbol
-  Line 16   [ERROR] "generated_quest_crud" is unknown import symbol
-  Line 16   [ERROR] "quest_step_crud" is unknown import symbol
-  Line 16   [ERROR] "rule_config_crud" is unknown import symbol
-  Line 16   [ERROR] "skill_crud" is unknown import symbol
-  Line 160  [ERROR] Cannot access attribute "current_quest_step_id" for class "type[PlayerQuestProgress]"
-┬а┬аAttribute "current_quest_step_id" is unknown
-  Line 358  [ERROR] Argument missing for parameter "func"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_response_parser.py] — 5 issue(s):
+  Line 4    [ERROR] Type "ValidationError" is not assignable to declared type "type[ValidationError]"
+┬а┬а"ValidationError" is not assignable to "type[ValidationError]"
+┬а┬аType "ValidationError" is not assignable to type "type[ValidationError]"
+  Line 137  [ERROR] Argument of type "dict[str, str]" cannot be assigned to parameter "details" of type "List[Dict[str, Any]] | None" in function "__init__"
+┬а┬аType "dict[str, str]" is not assignable to type "List[Dict[str, Any]] | None"
+┬а┬а┬а┬а"dict[str, str]" is not assignable to "List[Dict[str, Any]]"
+┬а┬а┬а┬а"dict[str, str]" is not assignable to "None"
+  Line 154  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 156  [ERROR] "object" is not a valid exception class
+  Line 172  [ERROR] "object" is not a valid exception class
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud.py] — 10 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 4 issue(s):
+  Line 9    [ERROR] "create_entity" is unknown import symbol
+  Line 9    [ERROR] "get_entity_by_id" is unknown import symbol
+  Line 9    [ERROR] "update_entity" is unknown import symbol
+  Line 66   [ERROR] Argument of type "int | None" cannot be assigned to parameter "location_id" of type "int" in function "prepare_ai_prompt"
+┬а┬аType "int | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud_base_definitions.py] — 4 issue(s):
   Line 45   [ERROR] Cannot access attribute "id" for class "Base*"
 ┬а┬аAttribute "id" is unknown
-  Line 77   [ERROR] Cannot access attribute "guild_id" for class "type[Base]*"
-┬а┬аAttribute "guild_id" is unknown
-  Line 96   [ERROR] Cannot access attribute "guild_id" for class "type[Base]*"
-┬а┬аAttribute "guild_id" is unknown
-  Line 100  [ERROR] Type "Sequence[ModelType@CRUDBase]" is not assignable to return type "List[ModelType@CRUDBase]"
-┬а┬а"Sequence[ModelType@CRUDBase]" is not assignable to "List[ModelType@CRUDBase]"
   Line 131  [ERROR] Cannot access attribute "id" for class "Base*"
 ┬а┬аAttribute "id" is unknown
-  Line 170  [ERROR] Cannot access attribute "guild_id" for class "type[Base]*"
-┬а┬аAttribute "guild_id" is unknown
-  Line 194  [ERROR] Cannot access attribute "guild_id" for class "type[Base]*"
-┬а┬аAttribute "guild_id" is unknown
-  Line 198  [ERROR] Type "Sequence[ModelType@CRUDBase]" is not assignable to return type "List[ModelType@CRUDBase]"
-┬а┬а"Sequence[ModelType@CRUDBase]" is not assignable to "List[ModelType@CRUDBase]"
   Line 261  [ERROR] Cannot access attribute "guild_id" for class "Base*"
 ┬а┬аAttribute "guild_id" is unknown
   Line 262  [ERROR] Cannot access attribute "id" for class "Base*"
 ┬а┬аAttribute "id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 8 issue(s):
-  Line 6    [ERROR] "PendingGeneration" is unknown import symbol
-  Line 7    [ERROR] "ModerationStatus" is unknown import symbol
-  Line 9    [ERROR] "create_entity" is unknown import symbol
-  Line 9    [ERROR] "get_entity_by_id" is unknown import symbol
-  Line 9    [ERROR] "update_entity" is unknown import symbol
-  Line 39   [ERROR] Argument missing for parameter "func"
-  Line 66   [ERROR] Argument of type "int | None" cannot be assigned to parameter "location_id" of type "int" in function "prepare_ai_prompt"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 140  [ERROR] Argument missing for parameter "func"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_response_parser.py] — 4 issue(s):
-  Line 154  [ERROR] Object of type "UnionType" is not callable
-  Line 160  [ERROR] Argument of type "list[ErrorDetails]" cannot be assigned to parameter "details" of type "Dict[str, Any] | None" in function "__init__"
-┬а┬аType "list[ErrorDetails]" is not assignable to type "Dict[str, Any] | None"
-┬а┬а┬а┬а"list[ErrorDetails]" is not assignable to "Dict[str, Any]"
-┬а┬а┬а┬а"list[ErrorDetails]" is not assignable to "None"
-  Line 170  [ERROR] Type "List[GeneratedEntity]" is not assignable to return type "ParsedAiData | ValidationError"
-┬а┬аType "List[GeneratedEntity]" is not assignable to type "ParsedAiData | ValidationError"
-┬а┬а┬а┬а"List[GeneratedEntity]" is not assignable to "ParsedAiData"
-┬а┬а┬а┬а"List[GeneratedEntity]" is not assignable to "ValidationError"
-  Line 177  [ERROR] Argument of type "list[ErrorDetails]" cannot be assigned to parameter "details" of type "Dict[str, Any] | None" in function "__init__"
-┬а┬аType "list[ErrorDetails]" is not assignable to type "Dict[str, Any] | None"
-┬а┬а┬а┬а"list[ErrorDetails]" is not assignable to "Dict[str, Any]"
-┬а┬а┬а┬а"list[ErrorDetails]" is not assignable to "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\rules.py] — 4 issue(s):
   Line 8    [ERROR] "CRUDBase" is unknown import symbol
@@ -93,37 +44,29 @@
   Line 8    [ERROR] "get_entity_by_id" is unknown import symbol
   Line 8    [ERROR] "update_entity" is unknown import symbol
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\utils.py] — 3 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_ai_commands.py] — 3 issue(s):
+  Line 14   [ERROR] "get_entity_by_id" is unknown import symbol
+  Line 14   [ERROR] "update_entity" is unknown import symbol
+  Line 36   [ERROR] Method "interaction_check" overrides class "Cog" in an incompatible manner
+┬а┬аReturn type mismatch: base method returns type "bool", override returns type "CoroutineType[Any, Any, bool]"
+┬а┬а┬а┬а"CoroutineType[Any, Any, bool]" is not assignable to "bool"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\party_commands.py] — 3 issue(s):
+  Line 38   [ERROR] "_AsyncGeneratorContextManager[AsyncSession, None]" is not iterable
+┬а┬а"__aiter__" method not defined
+  Line 82   [ERROR] "_AsyncGeneratorContextManager[AsyncSession, None]" is not iterable
+┬а┬а"__aiter__" method not defined
+  Line 131  [ERROR] "_AsyncGeneratorContextManager[AsyncSession, None]" is not iterable
+┬а┬а"__aiter__" method not defined
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_prompt_builder.py] — 2 issue(s):
+  Line 90   [ERROR] "Never" is not iterable
+  Line 192  [ERROR] Cannot access attribute "current_quest_step_id" for class "type[PlayerQuestProgress]"
+┬а┬аAttribute "current_quest_step_id" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands.py] — 1 issue(s):
+  Line 42   [ERROR] "_AsyncGeneratorContextManager[AsyncSession, None]" is not iterable
+┬а┬а"__aiter__" method not defined
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\utils.py] — 1 issue(s):
   Line 7    [ERROR] "get_entity_by_id" is unknown import symbol
-  Line 42   [ERROR] Argument of type "Embed | None" cannot be assigned to parameter "embed" of type "Embed" in function "send"
-┬а┬аType "Embed | None" is not assignable to type "Embed"
-┬а┬а┬а┬а"None" is not assignable to "Embed"
-  Line 42   [ERROR] No overloads for "send" match the provided arguments
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_player.py] — 3 issue(s):
-  Line 6    [ERROR] "CRUDBase" is unknown import symbol
-  Line 37   [ERROR] Type "Sequence[Unknown]" is not assignable to return type "List[Player]"
-┬а┬а"Sequence[Unknown]" is not assignable to "List[Player]"
-  Line 52   [ERROR] Type "Sequence[Unknown]" is not assignable to return type "List[Player]"
-┬а┬а"Sequence[Unknown]" is not assignable to "List[Player]"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\core.py] — 2 issue(s):
-  Line 60   [ERROR] "id" is not a known attribute of "None"
-  Line 60   [ERROR] "name" is not a known attribute of "None"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_location.py] — 2 issue(s):
-  Line 6    [ERROR] "CRUDBase" is unknown import symbol
-  Line 49   [ERROR] Type "Sequence[Unknown]" is not assignable to return type "List[Location]"
-┬а┬а"Sequence[Unknown]" is not assignable to "List[Location]"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\movement_logic.py] — 2 issue(s):
-  Line 93   [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 93   [ERROR] Object of type "AsyncIterator[AsyncSession]" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 1 issue(s):
-  Line 17   [ERROR] "name" is not a known attribute of "None"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_party.py] — 1 issue(s):
-  Line 7    [ERROR] "CRUDBase" is unknown import symbol
