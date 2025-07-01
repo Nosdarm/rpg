@@ -10,8 +10,8 @@ from ..models import Player, Party, PendingConflict
 from ..models.enums import PlayerStatus, PartyTurnStatus, ConflictStatus
 from ..models.actions import ParsedAction
 from .rules import get_rule # For conflict_resolution_rules
-from .player_utils import get_player_by_id # Generic get by PK
-from .party_utils import get_party_by_id # Generic get by PK
+from .player_utils import get_player # Generic get by PK
+from .party_utils import get_party # Generic get by PK
 
 # Placeholder imports for actual game modules - these will be called by dispatch
 # from .movement_logic import handle_move_action_internal # Needs to be created/adapted
