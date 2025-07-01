@@ -34,10 +34,10 @@ class CommandCog(commands.Cog):
         discord_id = ctx.author.id
         player_name = ctx.author.display_name # Использовать display_name как имя по умолчанию
 
-        from core.database import get_db_session
-        from core.crud.crud_player import player_crud
-        from core.crud.crud_location import location_crud
-        from models.player import PlayerStatus # Для установки начального статуса
+        from src.core.database import get_db_session
+        from src.core.crud.crud_player import player_crud
+        from src.core.crud.crud_location import location_crud
+        from src.models.enums import PlayerStatus # Для установки начального статуса
 
         async with get_db_session() as session:
             try:
@@ -51,7 +51,7 @@ class CommandCog(commands.Cog):
                         if loc and loc.name_i18n:
                             # Попытка получить язык игрока, если он есть, иначе язык гильдии или 'en'
                             lang = player.selected_language or "en" # Добавить получение языка гильдии позже
-                            from core.locations_utils import get_localized_text
+                            from src.core.locations_utils import get_localized_text # Corrected import
                             location_name = get_localized_text(loc, "name", lang, "en")
 
                     await ctx.send(
@@ -103,7 +103,7 @@ class CommandCog(commands.Cog):
 
                     logger.info(f"Новый игрок создан: {player_name} (Discord ID: {discord_id}) на сервере {guild_id}.")
 
-                    from core.locations_utils import get_localized_text
+                    from src.core.locations_utils import get_localized_text # Corrected import
                     location_name = get_localized_text(start_loc, "name", player.selected_language or "en", "en")
 
                     await ctx.send(

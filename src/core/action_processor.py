@@ -119,28 +119,37 @@ ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Co
 }
 
 
-@transactional # Wraps the initial loading and clearing of actions in a transaction
+# @transactional # Wraps the initial loading and clearing of actions in a transaction - REMOVED
 async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str) -> list[ParsedAction]:
     """Loads actions for a single entity and clears them from the DB."""
     actions_to_process = []
     if entity_type == "player":
         player = await get_player(session, guild_id, entity_id) # Corrected
         if player and player.collected_actions_json:
+            logger.debug(f"Player {entity_id} raw collected_actions_json: {player.collected_actions_json}")
             try:
                 actions_data = json.loads(player.collected_actions_json) if isinstance(player.collected_actions_json, str) else player.collected_actions_json
-                for action_data in actions_data:
-                    actions_to_process.append(ParsedAction(**action_data))
+                logger.debug(f"Player {entity_id} actions_data after potential json.loads: {actions_data}")
+                for i, action_data_item in enumerate(actions_data):
+                    try:
+                        actions_to_process.append(ParsedAction(**action_data_item))
+                    except Exception as e_parse:
+                        logger.error(f"Player {entity_id}, action item {i} failed Pydantic parsing: {action_data_item}", exc_info=True)
                 player.collected_actions_json = [] # Clear actions
                 session.add(player)
                 logger.info(f"[ACTION_PROCESSOR] Loaded {len(actions_to_process)} actions for player {player.id} and cleared from DB.")
             except json.JSONDecodeError:
-                logger.error(f"[ACTION_PROCESSOR] Failed to decode actions for player {player.id}")
+                logger.error(f"[ACTION_PROCESSOR] Failed to decode actions for player {player.id}", exc_info=True)
                 player.collected_actions_json = [] # Clear invalid actions on JSONDecodeError too
                 session.add(player)
-            except Exception as e: # Pydantic validation error etc.
-                logger.error(f"[ACTION_PROCESSOR] Error parsing actions for player {player.id}: {e}", exc_info=True)
+            except Exception as e: # Other errors
+                logger.error(f"[ACTION_PROCESSOR] Error processing actions_data for player {player.id}: {e}", exc_info=True)
                 player.collected_actions_json = [] # Clear invalid actions
                 session.add(player)
+        elif player:
+            logger.debug(f"Player {entity_id} found, but collected_actions_json is empty or None: {player.collected_actions_json}")
+        else:
+            logger.debug(f"Player {entity_id} not found by get_player.")
 
 
     elif entity_type == "party":

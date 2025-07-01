@@ -192,20 +192,30 @@ async def test_process_guild_turn_releases_lock_on_exception(
 
     mock_start_worker_direct_call.side_effect = Exception("Worker failed intentionally")
 
-    async def simulated_create_task(coro):
-        # Simulate task execution that might raise an error
-        # The error from coro (i.e. from mock_start_worker_direct_call) will be caught
-        # by the try-except block in process_guild_turn_if_ready
-        try:
-            await coro
-        except Exception:
-            # This simulates the task's exception being handled/logged by an asyncio loop
-            # or the task itself if it has internal try/except.
-            # process_guild_turn_if_ready doesn't await create_task's result,
-            # so it relies on its own try/except around the worker part.
-            pass
+    # This list will store tasks created by our mock
+    created_test_tasks = []
 
-    mock_create_task.side_effect = simulated_create_task
+    def sync_simulated_create_task(coro):
+        # This function is synchronous, like the real asyncio.create_task.
+        # It needs to schedule the coroutine.
+        # The warning was about the coroutine returned by the *mock of create_task*
+        # (when simulated_create_task was async def) not being awaited.
+        # This version creates a real task and returns it.
+
+        # Wrapper to catch the expected exception from the coro, as the original test logic implied
+        async def run_coro_and_catch_exception():
+            try:
+                await coro
+            except Exception as e:
+                # Log or verify the specific exception if needed for the test
+                logger.debug(f"Simulated task caught exception: {e}")
+                pass # Exception is expected and handled by SUT or this simulation
+
+        task = asyncio.create_task(run_coro_and_catch_exception())
+        created_test_tasks.append(task) # Keep track for potential cleanup
+        return task # Return a real Task object
+
+    mock_create_task.side_effect = sync_simulated_create_task
 
     # process_guild_turn_if_ready should catch the exception from the worker call
     # (or more accurately, the exception during the worker's execution if it were awaited,
@@ -215,6 +225,15 @@ async def test_process_guild_turn_releases_lock_on_exception(
 
     assert DEFAULT_GUILD_ID not in _guild_turn_processing_locks
     mock_start_worker_direct_call.assert_called_once()
+
+    # Clean up any tasks created by the mock
+    for task_item in created_test_tasks:
+        if not task_item.done():
+            task_item.cancel()
+            try:
+                await task_item
+            except asyncio.CancelledError:
+                pass
 
 
 @pytest.mark.asyncio
