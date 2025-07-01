@@ -6,11 +6,11 @@ from typing import Tuple, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select # Ensure this is imported for select statements
 
-from src.core.database import transactional, get_db_session
-from src.core.crud import player_crud, party_crud, location_crud
-from src.models import Player, Party, Location
-from src.core.game_events import on_enter_location, log_event # Placeholders
-from src.core.rules import get_rule # For party movement rules, if needed later
+from .database import transactional, get_db_session
+from .crud import player_crud, party_crud, location_crud
+from ..models import Player, Party, Location
+from .game_events import on_enter_location, log_event # Placeholders
+from .rules import get_rule # For party movement rules, if needed later
 
 logger = logging.getLogger(__name__)
 
