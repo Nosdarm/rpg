@@ -21,11 +21,11 @@ class EventCog(commands.Cog):
         else:
             logger.error("EventCog: on_ready called, but self.bot.user is None.")
 
-from src.core.database import get_db_session, transactional
-from src.core.crud.crud_player import player_crud
-from src.core.nlu_service import parse_player_input
-from src.models.player import PlayerStatus
-from src.models.actions import ParsedAction
+from ..core.database import get_db_session, transactional
+from ..core.crud.crud_player import player_crud
+from ..core.nlu_service import parse_player_input
+from ..models.player import PlayerStatus
+from ..models.actions import ParsedAction
 
 # Helper function for NLU processing to keep on_message clean
 # This function will handle fetching the player and updating them.

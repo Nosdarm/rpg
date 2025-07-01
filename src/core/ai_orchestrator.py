@@ -3,17 +3,17 @@ from typing import Union, Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Assuming models and enums will be imported correctly
-from src.models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
-from src.models.enums import ModerationStatus, PlayerStatus
-from src.core.database import transactional
+from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
+from ..models.enums import ModerationStatus, PlayerStatus
+from .database import transactional
 # Corrected import path for generic CRUD functions
-from src.core.crud_base_definitions import create_entity, get_entity_by_id, update_entity
-from src.core.ai_prompt_builder import prepare_ai_prompt
-from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
+from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
+from .ai_prompt_builder import prepare_ai_prompt
+from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
 from discord.ext import commands # For bot instance type hint
-from src.bot.utils import notify_master # Import the new utility
+from ..bot.utils import notify_master # Import the new utility
 # Placeholder for game events
-# from src.core.game_events import on_enter_location
+# from .game_events import on_enter_location
 
 
 logger = logging.getLogger(__name__)

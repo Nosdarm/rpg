@@ -5,12 +5,12 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from src.core.database import get_db_session, transactional
-from src.models import (
+from .database import get_db_session, transactional
+from ..models import (
     GuildConfig, Location, Player, Party, GeneratedNpc, Relationship,
     PlayerQuestProgress, GeneratedQuest, QuestStep, RuleConfig, Ability, Skill
 )
-from src.core.crud import ( # These should come from src.core.crud (meaning src.core.crud.__init__)
+from .crud import ( # These should come from src.core.crud (meaning src.core.crud.__init__)
     location_crud, player_crud, party_crud,
     # The following are not yet defined in src.core.crud/* or exported by src.core.crud.__init__
     # guild_config_crud, # To be created (e.g., src.core.crud.crud_guild_config.py)
@@ -23,7 +23,7 @@ from src.core.crud import ( # These should come from src.core.crud (meaning src.
     # skill_crud # To be created
 )
 # Import get_all_rules_for_guild instead of the raw rule_config_crud for this purpose
-from src.core.rules import get_all_rules_for_guild
+from .rules import get_all_rules_for_guild
 # For others, we'll have to use placeholders or wait for their creation.
 # For now, let's assume they will be added to src.core.crud later.
 # To avoid breaking the code that uses them, we might need to define placeholders if they are actively used.
@@ -47,7 +47,7 @@ ability_crud = PlaceholderCRUDBase()
 skill_crud = PlaceholderCRUDBase()
 
 
-from src.core.locations_utils import get_localized_text # Assuming this can be used broadly
+from .locations_utils import get_localized_text # Assuming this can be used broadly
 
 logger = logging.getLogger(__name__)
 
