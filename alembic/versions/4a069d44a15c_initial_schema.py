@@ -1,7 +1,11 @@
 """Initial schema
 
 Revision ID: 4a069d44a15c
+<<<<<<< HEAD
 Revises: 
+=======
+Revises:
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
 Create Date: 2025-07-01 18:06:08.886001
 
 """

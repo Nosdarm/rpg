@@ -2,7 +2,11 @@ import logging
 import asyncio # Added import
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+<<<<<<< HEAD
+from typing import Callable, Awaitable
+=======
 from typing import Callable, Awaitable, AsyncContextManager, Any # Added AsyncContextManager and Any
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
 
 from .database import get_db_session, transactional # Assuming transactional might be useful here or in called functions
 from ..models import Player, Party, GuildConfig # GuildConfig might be needed for guild-specific turn rules
@@ -13,10 +17,17 @@ logger = logging.getLogger(__name__)
 # In-memory store for guild turn processing locks. Key: guild_id, Value: True if processing.
 _guild_turn_processing_locks = {}
 
+<<<<<<< HEAD
+async def _start_action_processing_worker(guild_id: int, entities_to_process: list[tuple[int, str]]):
+    """
+    Placeholder for the actual worker that processes actions (Task 6.11).
+    entities_to_process is a list of tuples: (entity_id, entity_type: "player" | "party")
+=======
 async def _start_action_processing_worker(guild_id: int, entities_to_process: list[dict[str, Any]]):
     """
     Placeholder for the actual worker that processes actions (Task 6.11).
     entities_to_process is a list of dicts, e.g., [{'id': 1, 'type': 'player', 'discord_id': 123}]
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
     """
     logger.info(f"[TURN_CONTROLLER] Worker for Task 6.11 (Action Processing) would start now for guild_id: {guild_id}.")
     logger.info(f"[TURN_CONTROLLER] Entities to process: {entities_to_process}")
@@ -46,7 +57,11 @@ async def process_guild_turn_if_ready(session: AsyncSession, guild_id: int):
     # Fetch players and parties that have ended their turn and are pending resolution
     stmt_players = select(Player).where(
         Player.guild_id == guild_id,
+<<<<<<< HEAD
+        Player.status == PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+=======
         Player.current_status == PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
     )
     result_players = await session.execute(stmt_players)
     players_pending = result_players.scalars().all()
@@ -71,7 +86,11 @@ async def process_guild_turn_if_ready(session: AsyncSession, guild_id: int):
     try:
         # Update statuses to PROCESSING_GUILD_TURN
         for player in players_pending:
+<<<<<<< HEAD
+            player.status = PlayerStatus.PROCESSING_GUILD_TURN
+=======
             player.current_status = PlayerStatus.PROCESSING_GUILD_TURN
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
             session.add(player)
             entities_for_action_module.append({"id": player.id, "type": "player", "discord_id": player.discord_id})
             logger.info(f"[TURN_CONTROLLER] Player {player.id} status set to PROCESSING_GUILD_TURN.")
@@ -84,12 +103,21 @@ async def process_guild_turn_if_ready(session: AsyncSession, guild_id: int):
 
             # Also update statuses of players within these parties if not already covered
             # (though they should have been set by /end_party_turn)
+<<<<<<< HEAD
+            for player_id_int in party.player_ids_json:
+                member_player = await session.get(Player, player_id_int)
+                if member_player and member_player.status != PlayerStatus.PROCESSING_GUILD_TURN:
+                    # This is a safeguard or for players who were not individually processed
+                    # but whose party is now being processed.
+                    member_player.status = PlayerStatus.PROCESSING_GUILD_TURN
+=======
             for player_id_int in (party.player_ids_json or []):
                 member_player = await session.get(Player, player_id_int)
                 if member_player and member_player.current_status != PlayerStatus.PROCESSING_GUILD_TURN:
                     # This is a safeguard or for players who were not individually processed
                     # but whose party is now being processed.
                     member_player.current_status = PlayerStatus.PROCESSING_GUILD_TURN
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
                     session.add(member_player)
                     logger.info(f"[TURN_CONTROLLER] Player {member_player.id} (in party {party.id}) status set to PROCESSING_GUILD_TURN.")
 
@@ -122,12 +150,20 @@ async def process_guild_turn_if_ready(session: AsyncSession, guild_id: int):
         logger.info(f"[TURN_CONTROLLER] Released processing lock for guild {guild_id}.")
 
 # This function will be called by the TurnManagementCog commands
+<<<<<<< HEAD
+async def trigger_guild_turn_processing(guild_id: int, session_maker: Callable[[], AsyncSession]):
+=======
 async def trigger_guild_turn_processing(guild_id: int, session_maker: Callable[[], AsyncContextManager[AsyncSession]]):
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
     """
     Entry point to be called from the Cog after a player/party ends their turn.
     Manages its own session.
     """
+<<<<<<< HEAD
+    async with session_maker() as session:
+=======
     async with session_maker() as session: # session_maker() returns an AsyncContextManager yielding an AsyncSession
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
         # The @transactional decorator on process_guild_turn_if_ready will handle its own begin/commit/rollback
         await process_guild_turn_if_ready(session, guild_id)
 

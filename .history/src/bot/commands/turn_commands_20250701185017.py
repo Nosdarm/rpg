@@ -24,8 +24,12 @@ class TurnManagementCog(commands.Cog):
         """
         Allows a player to signal they have finished their turn.
         """
+<<<<<<< HEAD
+        guild_id = interaction.guild_id
+=======
         assert interaction.guild_id is not None, "guild_id should not be None in a guild_only command"
         guild_id: int = interaction.guild_id
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
         player_discord_id = interaction.user.id
         session_maker = get_db_session
 
@@ -41,11 +45,19 @@ class TurnManagementCog(commands.Cog):
                     await interaction.response.send_message("You are in a party. Use `/end_party_turn` to end the turn for your party.", ephemeral=True)
                     return
 
+<<<<<<< HEAD
+                if player.status not in [PlayerStatus.EXPLORING, PlayerStatus.COMBAT]: # Add other active states if needed
+                    await interaction.response.send_message(f"You cannot end your turn while your status is '{player.status.value}'.", ephemeral=True)
+                    return
+
+                player.status = PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+=======
                 if player.current_status not in [PlayerStatus.EXPLORING, PlayerStatus.COMBAT]: # Add other active states if needed
                     await interaction.response.send_message(f"You cannot end your turn while your status is '{player.current_status.value}'.", ephemeral=True)
                     return
 
                 player.current_status = PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
                 session.add(player)
                 await session.commit() # Commit status change first
 
@@ -70,8 +82,12 @@ class TurnManagementCog(commands.Cog):
         """
         Allows a player in a party to signal their party has finished its turn.
         """
+<<<<<<< HEAD
+        guild_id = interaction.guild_id
+=======
         assert interaction.guild_id is not None, "guild_id should not be None in a guild_only command"
         guild_id: int = interaction.guild_id
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
         player_discord_id = interaction.user.id
         session_maker = get_db_session
 
@@ -105,10 +121,17 @@ class TurnManagementCog(commands.Cog):
                 session.add(party)
 
                 # Update status for all players in the party
+<<<<<<< HEAD
+                for member_player_id_int in party.player_ids_json: # Assuming player_ids_json stores integer IDs
+                    member_player = await session.get(Player, member_player_id_int) # Fetch by PK
+                    if member_player and member_player.guild_id == guild_id : # Ensure player belongs to the same guild
+                        member_player.status = PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+=======
                 for member_player_id_int in (party.player_ids_json or []): # Assuming player_ids_json stores integer IDs
                     member_player = await session.get(Player, member_player_id_int) # Fetch by PK
                     if member_player and member_player.guild_id == guild_id : # Ensure player belongs to the same guild
                         member_player.current_status = PlayerStatus.TURN_ENDED_PENDING_RESOLUTION
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
                         session.add(member_player)
                     elif member_player:
                         logger.warning(f"Player {member_player_id_int} in party {party.id} but from different guild {member_player.guild_id} vs {guild_id}")

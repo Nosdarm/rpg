@@ -16,7 +16,10 @@ class PlayerStatus(enum.Enum):
     AWAITING_MODERATION = "awaiting_moderation" # Player action requires GM approval
     TURN_ENDED_PENDING_RESOLUTION = "turn_ended_pending_resolution" # Player has submitted turn, waiting for guild-wide processing
     PROCESSING_GUILD_TURN = "processing_guild_turn" # Player's actions are part of active guild turn processing
+<<<<<<< HEAD
+=======
     PROCESSING_ACTION = "processing_action"  # Player's individual action is being processed
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
 
 class PartyTurnStatus(enum.Enum):
     """

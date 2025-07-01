@@ -242,8 +242,13 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
                 entity_type = entity_info["type"]
                 if entity_type == "player":
                     player = await get_player(final_session, guild_id, entity_id) # Corrected
+<<<<<<< HEAD
+                    if player and player.status == PlayerStatus.PROCESSING_GUILD_TURN:
+                        player.status = PlayerStatus.EXPLORING # Or PlayerStatus.AWAITING_INPUT
+=======
                     if player and player.current_status == PlayerStatus.PROCESSING_GUILD_TURN:
                         player.current_status = PlayerStatus.EXPLORING # Or PlayerStatus.AWAITING_INPUT
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
                         final_session.add(player)
                         logger.info(f"[ACTION_PROCESSOR] Player {player.id} status reset to EXPLORING.")
                 elif entity_type == "party":
@@ -253,10 +258,17 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
                         final_session.add(party)
                         logger.info(f"[ACTION_PROCESSOR] Party {party.id} status reset to IDLE.")
                         # Reset party members too if they were part of this party's processing
+<<<<<<< HEAD
+                        for p_id in party.player_ids_json:
+                             member = await get_player(final_session, guild_id, p_id) # Corrected
+                             if member and member.status == PlayerStatus.PROCESSING_GUILD_TURN:
+                                 member.status = PlayerStatus.EXPLORING
+=======
                         for p_id in (party.player_ids_json or []):
                              member = await get_player(final_session, guild_id, p_id) # Corrected
                              if member and member.current_status == PlayerStatus.PROCESSING_GUILD_TURN:
                                  member.current_status = PlayerStatus.EXPLORING
+>>>>>>> b2afaca2eb51d4d05c43280db1641e28092719fc
                                  final_session.add(member)
                                  logger.info(f"[ACTION_PROCESSOR] Party Member {member.id} status reset to EXPLORING.")
 
