@@ -22,8 +22,8 @@ from src.core.crud import ( # These should come from src.core.crud (meaning src.
     # ability_crud, # To be created
     # skill_crud # To be created
 )
-# rule_config_crud is defined in src.core.rules
-from src.core.rules import rule_config_crud
+# Import get_all_rules_for_guild instead of the raw rule_config_crud for this purpose
+from src.core.rules import get_all_rules_for_guild
 # For others, we'll have to use placeholders or wait for their creation.
 # For now, let's assume they will be added to src.core.crud later.
 # To avoid breaking the code that uses them, we might need to define placeholders if they are actively used.
@@ -60,8 +60,10 @@ async def _get_guild_main_language(session: AsyncSession, guild_id: int) -> str:
     guild_config = await guild_config_crud.get(session, id=guild_id)
     return guild_config.main_language if guild_config else "en"
 
-async def _get_location_context(session: AsyncSession, location_id: int, guild_id: int, lang: str) -> Dict[str, Any]:
-    """Gathers context about a specific location."""
+async def _get_location_context(session: AsyncSession, location_id: Optional[int], guild_id: int, lang: str) -> Dict[str, Any]:
+    """Gathers context about a specific location. Returns empty if location_id is None or not found."""
+    if location_id is None:
+        return {}
     location = await location_crud.get(session, id=location_id, guild_id=guild_id)
     if not location:
         return {}
@@ -145,9 +147,12 @@ async def _get_party_context(session: AsyncSession, party_id: int, guild_id: int
         "members": party_members_details,
     }
 
-async def _get_nearby_entities_context(session: AsyncSession, guild_id: int, location_id: int, lang: str,
+async def _get_nearby_entities_context(session: AsyncSession, guild_id: int, location_id: Optional[int], lang: str,
                                      player_id: Optional[int] = None, party_id: Optional[int] = None) -> Dict[str, List[Dict[str, Any]]]:
-    """Gathers context about NPCs and other relevant entities in the location."""
+    """Gathers context about NPCs and other relevant entities in the location. Handles None location_id."""
+    if location_id is None:
+        return {"npcs": []} # No location, no nearby entities based on location
+
     npcs_in_location = await generated_npc_crud.get_multi_by_attribute(
         session, guild_id=guild_id, current_location_id=location_id
     )
@@ -189,7 +194,8 @@ async def _get_quests_context(session: AsyncSession, guild_id: int, lang: str,
         stmt = (
             select(PlayerQuestProgress, GeneratedQuest, QuestStep)
             .join(GeneratedQuest, PlayerQuestProgress.quest_id == GeneratedQuest.id)
-            .join(QuestStep, PlayerQuestProgress.current_quest_step_id == QuestStep.id)
+            # Use getattr for problematic class-level attribute access in query
+            .join(QuestStep, getattr(PlayerQuestProgress, "current_quest_step_id") == QuestStep.id)
             .where(PlayerQuestProgress.player_id == entity_id_for_quests,
                    PlayerQuestProgress.guild_id == guild_id,
                    PlayerQuestProgress.status != 'completed', # Using string for now, adjust if Enum
@@ -278,10 +284,10 @@ async def _get_world_state_context(session: AsyncSession, guild_id: int) -> Dict
 
 async def _get_game_rules_terms(session: AsyncSession, guild_id: int) -> Dict[str, Any]:
     """Fetches relevant game rules and terms from RuleConfig."""
-    # rules = await rule_config_crud.get_all_for_guild(session, guild_id=guild_id) # Assuming this method exists
+    # rules = await get_all_rules_for_guild(session, guild_id=guild_id) # This gets the dict directly
     # For now, let's mock a simple rule structure.
     # In a real scenario, you'd fetch specific, relevant rules for AI context.
-    all_rules_obj = await rule_config_crud.get_rules_object_for_guild(session, guild_id=guild_id) # Uses the cache
+    all_rules_dict = await get_all_rules_for_guild(session, guild_id=guild_id) # Uses the cache
 
     # Filter or select rules relevant for AI generation context
     # For example, rules about entity generation, language, difficulty, etc.
@@ -294,10 +300,10 @@ async def _get_game_rules_terms(session: AsyncSession, guild_id: int) -> Dict[st
     # }
     # For now, just returning a few example rules directly.
     return {
-        "main_language_code": all_rules_obj.get_rule("guild_main_language", "en"),
-        "generation_style": all_rules_obj.get_rule("ai_generation_style", "classic_fantasy"),
-        "allowed_npc_races": all_rules_obj.get_rule("allowed_npc_races", ["human", "elf", "dwarf"]),
-        "currency_name": all_rules_obj.get_rule("currency_name", "gold pieces")
+        "main_language_code": all_rules_dict.get("guild_main_language", "en"),
+        "generation_style": all_rules_dict.get("ai_generation_style", "classic_fantasy"),
+        "allowed_npc_races": all_rules_dict.get("allowed_npc_races", ["human", "elf", "dwarf"]),
+        "currency_name": all_rules_dict.get("currency_name", "gold pieces")
     }
 
 async def _get_abilities_skills_terms(session: AsyncSession, guild_id: int, lang: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -391,7 +397,7 @@ def _get_entity_schema_terms() -> Dict[str, Any]:
 async def prepare_ai_prompt(
     session: AsyncSession, # Injected by @transactional
     guild_id: int,
-    location_id: int,
+    location_id: Optional[int], # Changed to Optional[int]
     player_id: Optional[int] = None,
     party_id: Optional[int] = None
 ) -> str:

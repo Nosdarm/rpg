@@ -2,7 +2,7 @@ import enum
 from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Union
 
 
 from .base import Base
@@ -44,7 +44,8 @@ class Location(Base):
     type: Mapped[LocationType] = mapped_column(SQLAlchemyEnum(LocationType), nullable=False, default=LocationType.GENERIC)
 
     coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    neighbor_locations_json: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSON, nullable=True) # List of {location_id: int, connection_type_i18n: Dict[str,str]}
+    # Updated to allow either List or Dict for older format compatibility
+    neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JSON, nullable=True)
     generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 

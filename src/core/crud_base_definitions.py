@@ -42,7 +42,8 @@ class CRUDBase(Generic[ModelType]):
         db.add(db_obj)
         await db.flush() # Use flush to get ID before commit if needed, and to ensure guild_id constraint is checked early
         await db.refresh(db_obj)
-        logger.info(f"Created {self.model.__name__} with ID {db_obj.id if hasattr(db_obj, 'id') else 'N/A'}"
+        log_id = getattr(db_obj, 'id', 'N/A') if hasattr(db_obj, 'id') else 'N/A'
+        logger.info(f"Created {self.model.__name__} with ID {log_id}"
                     f"{f' for guild {guild_id}' if guild_id else ''}")
         return db_obj
 
@@ -128,7 +129,8 @@ class CRUDBase(Generic[ModelType]):
         db.add(db_obj) # Add to session if it was detached or to mark as dirty
         await db.flush()
         await db.refresh(db_obj)
-        logger.info(f"Updated {self.model.__name__} with ID {db_obj.id if hasattr(db_obj, 'id') else 'N/A'}")
+        log_id = getattr(db_obj, 'id', 'N/A') if hasattr(db_obj, 'id') else 'N/A'
+        logger.info(f"Updated {self.model.__name__} with ID {log_id}")
         return db_obj
 
     async def delete(self, db: AsyncSession, *, id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
@@ -258,10 +260,12 @@ async def update_entity(db: AsyncSession, entity: ModelType, data: Dict[str, Any
     """
     crud = CRUDBase(type(entity))
     # Prevent guild_id from being changed via this generic update if it exists in data and on model
-    if hasattr(entity, "guild_id") and "guild_id" in data and data["guild_id"] != entity.guild_id:
-        entity_id_for_log = entity.id if hasattr(entity, "id") else "N/A"
-        logger.warning(f"Attempt to change guild_id during update of {type(entity).__name__} ID {entity_id_for_log} blocked.")
-        del data["guild_id"]
+    if hasattr(entity, "guild_id") and "guild_id" in data:
+        current_guild_id = getattr(entity, "guild_id")
+        if data["guild_id"] != current_guild_id:
+            entity_id_for_log = getattr(entity, 'id', "N/A") if hasattr(entity, 'id') else "N/A"
+            logger.warning(f"Attempt to change guild_id during update of {type(entity).__name__} ID {entity_id_for_log} blocked.")
+            del data["guild_id"]
 
     return await crud.update(db, db_obj=entity, obj_in=data)
 
