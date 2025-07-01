@@ -40,10 +40,12 @@ async def main():
     intents.guilds = True    # Необходимо для on_guild_join/remove
     intents.message_content = True # Необходимо для чтения содержимого сообщений (если бот будет это делать)
 
-    bot_instance = BotCore(command_prefix=commands.when_mentioned_or("/"), intents=intents)
+    # Используем BOT_PREFIX из настроек
+    from config.settings import BOT_PREFIX
+    bot_instance = BotCore(command_prefix=commands.when_mentioned_or(BOT_PREFIX), intents=intents)
 
     try:
-        logger.info("Запуск бота...")
+        logger.info(f"Запуск бота с префиксом: {BOT_PREFIX}") # Обновлено для отображения префикса
         await bot_instance.start(DISCORD_BOT_TOKEN)
     except discord.LoginFailure:
         logger.error("Ошибка входа: неверный токен Discord.")
