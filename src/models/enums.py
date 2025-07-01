@@ -6,7 +6,7 @@ class PlayerStatus(enum.Enum):
     """
     UNKNOWN = "unknown"            # Default or error state
     IDLE = "idle"                  # Player is in a safe area, not actively doing much
-    EXPLORING = "exploring"        # Player is actively moving around, looking for content
+    EXPLORING = "exploring"        # Player is actively moving around, looking for content, default active state
     COMBAT = "combat"              # Player is engaged in combat
     DIALOGUE = "dialogue"          # Player is in a conversation with an NPC
     TRADING = "trading"            # Player is interacting with a shop or another player for trade
@@ -14,19 +14,19 @@ class PlayerStatus(enum.Enum):
     AWAY = "away"                  # Player is AFK or otherwise temporarily inactive
     DEAD = "dead"                  # Player character is incapacitated
     AWAITING_MODERATION = "awaiting_moderation" # Player action requires GM approval
-    PROCESSING_ACTION = "processing_action" # Player's action is currently being processed by the system
+    TURN_ENDED_PENDING_RESOLUTION = "turn_ended_pending_resolution" # Player has submitted turn, waiting for guild-wide processing
+    PROCESSING_GUILD_TURN = "processing_guild_turn" # Player's actions are part of active guild turn processing
 
 class PartyTurnStatus(enum.Enum):
     """
     Represents the current turn status of a party in turn-based gameplay.
     """
     UNKNOWN = "unknown"            # Default or error state
-    ACTIVE_TURN = "active_turn"    # It's this party's turn to act
-    PROCESSING_ACTIONS = "processing_actions" # The system is resolving actions for this party's turn
-    WAITING_FOR_MEMBERS = "waiting_for_members" # Waiting for all party members to submit their actions
-    TURN_ENDED = "turn_ended"      # Party has finished their turn, awaiting next cycle
-    AWAITING_MODERATION = "awaiting_moderation" # Party actions/turn outcome requires GM approval
-    IDLE = "idle"                  # Party is not in active turn-based gameplay (e.g., exploring)
+    IDLE = "idle"                  # Party is not in active turn-based gameplay (e.g., exploring together)
+    AWAITING_PARTY_ACTION = "awaiting_party_action" # Party's turn, members deciding or leader to submit /end_party_turn
+    TURN_ENDED_PENDING_RESOLUTION = "turn_ended_pending_resolution" # Party has submitted turn, waiting for guild-wide processing
+    PROCESSING_GUILD_TURN = "processing_guild_turn" # Party's actions are part of active guild turn processing
+    AWAITING_MODERATION = "awaiting_moderation" # Party actions/turn outcome requires GM approval (can be a sub-state or parallel)
 
 class OwnerEntityType(enum.Enum):
     """
@@ -118,6 +118,17 @@ class ModerationStatus(enum.Enum):
     SAVED = "saved" # Successfully saved to game entities
     ERROR_ON_SAVE = "error_on_save" # An error occurred during the save_approved_generation step
 
+class ConflictStatus(enum.Enum):
+    """
+    Represents the status of a pending conflict requiring resolution.
+    """
+    PENDING_MASTER_RESOLUTION = "pending_master_resolution" # Awaiting Game Master intervention
+    RESOLVED_AUTOMATICALLY_CONTINUE = "resolved_automatically_continue" # Auto-resolved, action can proceed
+    RESOLVED_AUTOMATICALLY_REJECT = "resolved_automatically_reject"   # Auto-resolved, action is rejected/failed
+    RESOLVED_BY_MASTER_APPROVED = "resolved_by_master_approved"   # Master approved (possibly with edits)
+    RESOLVED_BY_MASTER_REJECTED = "resolved_by_master_rejected"   # Master rejected the action(s)
+    EXPIRED = "expired"                                     # Conflict resolution timed out (future use)
+
 import logging
 logger = logging.getLogger(__name__)
-logger.info("Game-specific Enums (PlayerStatus, PartyTurnStatus, OwnerEntityType, ModerationStatus, etc.) defined.")
+logger.info("Game-specific Enums (PlayerStatus, PartyTurnStatus, OwnerEntityType, ModerationStatus, ConflictStatus, etc.) defined.")

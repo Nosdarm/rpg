@@ -93,4 +93,5 @@ BOT_COGS = [
     "src.bot.commands.party_commands",
     "src.bot.commands.movement_commands",
     "src.bot.commands.master_ai_commands", # New cog for AI moderation
+    "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
 ]

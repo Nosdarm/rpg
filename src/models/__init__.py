@@ -28,6 +28,8 @@ from .mobile_group import MobileGroup # Import MobileGroup model
 from .crafting_recipe import CraftingRecipe # Import CraftingRecipe model
 from .pending_generation import PendingGeneration # Import PendingGeneration model
 from .actions import ParsedAction, ActionEntity # Import Action models
+from .pending_conflict import PendingConflict # Import PendingConflict model
+from .enums import ConflictStatus # Import ConflictStatus enum
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -71,8 +73,8 @@ logger = logging.getLogger(__name__)
 from .enums import QuestStatus # Ensure QuestStatus is explicitly mentioned if not covered by * from enums
 logger.info(
     "Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType, "
-    "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, Player, Party, "
+    "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, Player, Party, "
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
-    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity."
+    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict."
 )
