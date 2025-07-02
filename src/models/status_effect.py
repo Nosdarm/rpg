@@ -9,10 +9,10 @@ from .base import Base
 from .enums import RelationshipEntityType # Reusing for entities that can have statuses
 
 # Forward declaration for type hinting
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from .guild import GuildConfig
-#     from .ability import Ability
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .guild import GuildConfig
+#     from .ability import Ability # Not directly needed for StatusEffect relationship itself
     # Entities (Player, Npc, etc.)
 
 class StatusEffect(Base):
@@ -27,7 +27,7 @@ class StatusEffect(Base):
     guild_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    # guild: Mapped[Optional["GuildConfig"]] = relationship()
+    guild: Mapped[Optional["GuildConfig"]] = relationship(back_populates="status_effects")
 
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     # Unique identifier, e.g., "poisoned_lvl1", "blessed_might", "stunned"

@@ -447,3 +447,20 @@ Key achievements for this task:
     - Foreign key to `guild_configs.id` with `ondelete='CASCADE'`.
     - Two partial unique indexes for `static_id` to handle global and guild-specific abilities correctly.
 ---
+---
+Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped).
+Description: Define the model for storing various temporary states (buffs/debuffs) of entities. Implement the Status model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable?), static_id (TEXT, unique), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - how it affects stats/behavior, duration).
+Result: StatusEffect model (definition of a status type) updated and corresponding Alembic migration `0011_create_status_effects_table.py` created.
+
+Key achievements for this task:
+- Analyzed requirements and confirmed the existing `StatusEffect` model in `src/models/status_effect.py` largely meets needs.
+- Updated `StatusEffect` model:
+    - Ensured `guild` relationship to `GuildConfig` is correctly defined with `back_populates="status_effects"`.
+- Updated `GuildConfig` model (`src/models/guild.py`):
+    - Added `status_effects` relationship to back-populate `StatusEffect.guild`.
+- Verified `src/models/__init__.py` already correctly includes `StatusEffect` and `ActiveStatusEffect`.
+- Created Alembic migration `0011_create_status_effects_table.py`:
+    - Corrected an issue with `alembic history` by standardizing `down_revision` in a previous migration.
+    - The new migration creates the `status_effects` table with all necessary columns (`id`, `guild_id`, `static_id`, `name_i18n`, `description_i18n`, `effects_json`), FK to `guild_configs`, and appropriate indexes.
+    - Implemented two partial unique indexes for `static_id`: one for guild-specific statuses (where `guild_id` is not null) and one for global statuses (where `guild_id` is null).
+---
