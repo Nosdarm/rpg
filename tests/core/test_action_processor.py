@@ -652,7 +652,7 @@ async def test_handle_move_action_wrapper_success(
     target_id = "the_void"
     action = ParsedAction(
         raw_text="move the_void", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
         entities=[ActionEntity(type="location_static_id", value=target_id)]
     )
     expected_result = {"status": "success", "message": "Moved to the_void"}
@@ -669,95 +669,6 @@ async def test_handle_move_action_wrapper_success(
     )
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.execute_move_for_player_action", new_callable=AsyncMock)
-async def test_handle_move_action_wrapper_extracts_target_from_location_name_entity(
-    mock_execute_move: AsyncMock,
-    mock_session: AsyncMock
-):
-    player_id_pk = PLAYER_ID_PK_1
-    target_name = "Old Town"
-    action = ParsedAction(
-        raw_text="go Old Town", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
-        entities=[ActionEntity(type="location_name", value=target_name)]
-    )
-    mock_execute_move.return_value = {"status": "success"} # Result doesn't matter for this check
-
-    await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
-    mock_execute_move.assert_called_once_with(
-        session=mock_session, guild_id=DEFAULT_GUILD_ID, player_id=player_id_pk,
-        target_location_identifier=target_name
-    )
-
-@pytest.mark.asyncio
-@patch("src.core.action_processor.execute_move_for_player_action", new_callable=AsyncMock)
-async def test_handle_move_action_wrapper_extracts_target_from_single_untyped_entity(
-    mock_execute_move: AsyncMock,
-    mock_session: AsyncMock
-):
-    player_id_pk = PLAYER_ID_PK_1
-    target_value = "market_square"
-    action = ParsedAction(
-        raw_text="move market_square", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
-        entities=[ActionEntity(type="destination", value=target_value)] # type "destination" is generic
-    )
-    mock_execute_move.return_value = {"status": "success"}
-
-    # Test relies on the heuristic that if one entity of type "destination", "target", "location",
-    # or if it's the *only* entity, its value is used.
-    await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
-    mock_execute_move.assert_called_once_with(
-        session=mock_session, guild_id=DEFAULT_GUILD_ID, player_id=player_id_pk,
-        target_location_identifier=target_value
-    )
-
-@pytest.mark.asyncio
-async def test_handle_move_action_wrapper_no_target_identifier(
-    mock_session: AsyncMock
-):
-    player_id_pk = PLAYER_ID_PK_1
-    action_no_target = ParsedAction( # No entities or unclear entities
-        raw_text="move", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str, entities=[]
-    )
-    result = await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action_no_target)
-    assert result["status"] == "error"
-    assert "Target location not specified clearly" in result["message"]
-
-    action_multiple_unclear_entities = ParsedAction(
-        raw_text="move north fast", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
-        entities=[ActionEntity(type="direction", value="north"), ActionEntity(type="manner", value="fast")]
-    )
-    result_multi = await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action_multiple_unclear_entities)
-    assert result_multi["status"] == "error"
-    assert "Target location not specified clearly" in result_multi["message"]
-
-
-@pytest.mark.asyncio
-@patch("src.core.action_processor.execute_move_for_player_action", new_callable=AsyncMock)
-async def test_handle_move_action_wrapper_execute_move_raises_exception(
-    mock_execute_move: AsyncMock,
-    mock_session: AsyncMock
-):
-    player_id_pk = PLAYER_ID_PK_1
-    target_id = "dangerous_lair"
-    action = ParsedAction(
-        raw_text="move dangerous_lair", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
-        entities=[ActionEntity(type="location_static_id", value=target_id)]
-    )
-    error_message = "It's too spooky!"
-    mock_execute_move.side_effect = Exception(error_message)
-
-    result = await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
-
-    assert result["status"] == "error"
-    assert f"Failed to execute move action due to an internal error: {error_message}" in result["message"]
-    mock_execute_move.assert_called_once()
-
-@pytest.mark.asyncio
 @patch("src.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
 async def test_handle_move_action_wrapper_extracts_target_from_location_name_entity(
     mock_execute_move: AsyncMock,
@@ -767,7 +678,7 @@ async def test_handle_move_action_wrapper_extracts_target_from_location_name_ent
     target_name = "Old Town"
     action = ParsedAction(
         raw_text="go Old Town", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
         entities=[ActionEntity(type="location_name", value=target_name)]
     )
     mock_execute_move.return_value = {"status": "success"} # Result doesn't matter for this check
@@ -788,7 +699,7 @@ async def test_handle_move_action_wrapper_extracts_target_from_single_untyped_en
     target_value = "market_square"
     action = ParsedAction(
         raw_text="move market_square", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
         entities=[ActionEntity(type="destination", value=target_value)] # type "destination" is generic
     )
     mock_execute_move.return_value = {"status": "success"}
@@ -808,7 +719,7 @@ async def test_handle_move_action_wrapper_no_target_identifier(
     player_id_pk = PLAYER_ID_PK_1
     action_no_target = ParsedAction( # No entities or unclear entities
         raw_text="move", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str, entities=[]
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str), entities=[]
     )
     result = await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action_no_target)
     assert result["status"] == "error"
@@ -816,7 +727,7 @@ async def test_handle_move_action_wrapper_no_target_identifier(
 
     action_multiple_unclear_entities = ParsedAction(
         raw_text="move north fast", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
         entities=[ActionEntity(type="direction", value="north"), ActionEntity(type="manner", value="fast")]
     )
     result_multi = await _handle_move_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action_multiple_unclear_entities)
@@ -834,7 +745,7 @@ async def test_handle_move_action_wrapper_execute_move_raises_exception(
     target_id = "dangerous_lair"
     action = ParsedAction(
         raw_text="move dangerous_lair", intent="move", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
-        timestamp=fixed_dt_str,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
         entities=[ActionEntity(type="location_static_id", value=target_id)]
     )
     error_message = "It's too spooky!"

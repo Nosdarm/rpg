@@ -28,12 +28,17 @@ class MapMasterCog(commands.GroupCog, name="master_map", description="Master com
         self.bot = bot
         super().__init__()
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool: # Renamed cog_check to interaction_check
+    async def interaction_check(self, interaction: discord.Interaction) -> bool: # type: ignore[override] # Renamed cog_check to interaction_check
         # Дополнительная проверка, если default_permissions недостаточно
         # или если есть список Мастеров в конфиге
-        # Assuming interaction.user is discord.Member due to @app_commands.guild_only()
-        user_as_member = interaction.user # type: discord.Member
-        is_admin = user_as_member.guild_permissions.administrator # type: ignore[attr-defined]
+        if not isinstance(interaction.user, discord.Member):
+            # This should not happen in a guild_only command, but good for type safety
+            logger.warning(f"interaction_check: interaction.user is not discord.Member (type: {type(interaction.user)}). This is unexpected for a guild_only command.")
+            await interaction.response.send_message("Error: Command can only be used by server members.", ephemeral=True)
+            return False
+
+        user_as_member: discord.Member = interaction.user
+        is_admin = user_as_member.guild_permissions.administrator # No longer need ignore here
         is_bot_owner = await self.bot.is_owner(user_as_member)
         # Можно добавить проверку на ID из списка MASTER_IDS в settings
         is_master = str(user_as_member.id) in (settings.MASTER_IDS or [])

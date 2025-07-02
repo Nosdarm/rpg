@@ -150,11 +150,11 @@ async def apply_status(
     # 3. Create ActiveStatusEffect record
     # Check for existing non-stackable status, etc. (placeholder)
 
-    owner_type_enum_val = RelationshipEntityType.PLAYER if entity_type.lower() == "player" else RelationshipEntityType.NPC
+    owner_type_enum_val = RelationshipEntityType.PLAYER if entity_type.lower() == "player" else RelationshipEntityType.GENERATED_NPC
 
     active_status = ActiveStatusEffect(
         owner_id=target_entity.id,
-        owner_type=owner_type_enum_val, # Ensure this matches your enum values
+        owner_type=owner_type_enum_val.value, # Ensure this matches your enum values
         status_effect_id=db_status_effect.id,
         guild_id=guild_id, # ActiveStatusEffect is always guild-scoped
         duration=duration,
@@ -164,10 +164,11 @@ async def apply_status(
     )
     if source_entity_type:
         try:
-            active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower())
+            # Assuming ActiveStatusEffect.source_entity_type also expects a string value
+            active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
         except ValueError:
             logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Setting to None.")
-            active_status.source_entity_type = None
+            active_status.source_entity_type = None # This should be fine if the field is Optional[str]
 
 
     session.add(active_status)
@@ -211,7 +212,8 @@ async def remove_status(
 
     # Store details before deleting for logging
     removed_entity_id = active_status_effect.entity_id
-    removed_entity_type_enum = active_status_effect.entity_type # This should be the enum member
+    # Assuming active_status_effect.entity_type stores the string value (e.g., "player", "generated_npc")
+    removed_entity_type_str = active_status_effect.entity_type
     removed_status_effect_id = active_status_effect.status_effect_id
 
     # Fetch the original StatusEffect to get its static_id for logging
@@ -221,23 +223,23 @@ async def remove_status(
     await session.delete(active_status_effect)
     await session.flush() # Ensure delete is processed before trying to log based on it.
 
-    logger.info(f"ActiveStatusEffect ID {active_status_id} (owner: {removed_entity_type_enum.value} {removed_entity_id}) removed.")
+    logger.info(f"ActiveStatusEffect ID {active_status_id} (owner: {removed_entity_type_str} {removed_entity_id}) removed.")
 
     # Determine player_id for log_event
     event_player_id: Optional[int] = None
     location_id_of_entity: Optional[int] = None
 
-    if removed_entity_type_enum == RelationshipEntityType.PLAYER:
+    if removed_entity_type_str == RelationshipEntityType.PLAYER: # Compare enum member with enum member
         event_player_id = removed_entity_id
         # Optionally fetch player to get location_id
-        player_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_enum.value)
+        player_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str.value) # Use .value for _get_entity
         if player_entity and hasattr(player_entity, 'current_location_id'):
             location_id_of_entity = player_entity.current_location_id
-    elif removed_entity_type_enum == RelationshipEntityType.GENERATED_NPC:
+    elif removed_entity_type_str == RelationshipEntityType.GENERATED_NPC: # Compare enum member with enum member
         # If an NPC, we might still want to log if a player was involved in causing this or is nearby.
         # For now, no direct player_id unless it's the entity itself.
         # Optionally fetch NPC to get location_id
-        npc_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_enum.value)
+        npc_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str.value) # Use .value for _get_entity
         if npc_entity and hasattr(npc_entity, 'current_location_id'): # GeneratedNpc might not have this directly
             # Assuming GeneratedNpc model might store its location_id if it's independent
             # This part depends on GeneratedNpc model structure. For now, assume it might have it.
@@ -248,7 +250,7 @@ async def remove_status(
     log_details_status_removed = {
         "active_status_id": active_status_id,
         "entity_id": removed_entity_id,
-        "entity_type": removed_entity_type_enum.value,
+        "entity_type": removed_entity_type_str, # Use the string directly
         "status_effect_id": removed_status_effect_id,
         "status_static_id": removed_status_static_id
     }
@@ -256,7 +258,7 @@ async def remove_status(
     await log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.STATUS_REMOVED.value,
+        event_type=EventType.STATUS_REMOVED.value, # This .value is correct for EventType enum
         details_json=log_details_status_removed,
         player_id=event_player_id, # Log if the affected entity was a player
         location_id=location_id_of_entity
@@ -458,21 +460,21 @@ async def apply_status_v2( # Renamed
     # Instantiate then set attributes to avoid TypeError with SQLAlchemy constructor
     active_status = ActiveStatusEffect()
     active_status.entity_id = target_entity.id # Corrected: owner_id -> entity_id
-    active_status.entity_type = owner_type_enum_val # Corrected: owner_type -> entity_type
+    active_status.entity_type = owner_type_enum_val.value # Corrected: owner_type -> entity_type, and use .value
     active_status.status_effect_id = db_status_effect.id
     active_status.guild_id = guild_id # ActiveStatusEffect is always guild-scoped for the owner
     active_status.duration_turns = duration # Corrected: duration -> duration_turns
     active_status.source_ability_id = source_ability_id
     # Assuming source_entity_id and source_entity_type will be added to ActiveStatusEffect model
-    active_status.source_entity_id = source_entity_id
-    if source_entity_type:
-        try:
-            active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower())
-        except ValueError:
-            active_status.source_entity_type = None
-            logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Set to None.")
-    else:
-        active_status.source_entity_type = None
+    # active_status.source_entity_id = source_entity_id # Commented out: Field might not exist
+    # if source_entity_type: # Commented out: Field might not exist
+    #     try:
+    #         active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
+    #     except ValueError:
+    #         active_status.source_entity_type = None
+    #         logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Set to None.")
+    # else:
+    #     active_status.source_entity_type = None
 
     session.add(active_status)
     await session.flush() # To get active_status.id for logging if needed immediately

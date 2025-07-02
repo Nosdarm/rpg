@@ -698,23 +698,26 @@ async def test_execute_move_target_location_not_found_by_static_id(
     mock_execute_result_name_search.scalars = MagicMock(return_value=mock_scalars_name_search)
 
     # Setup mock_session.execute for calls from load_rules_config_for_guild AND _find_location_by_identifier (name search)
-    # Call 1: from load_rules_config_for_guild
-    mock_exec_rules = AsyncMock() # This is the result of await session.execute()
-    mock_exec_rules.scalars = AsyncMock() # results.scalars is an async method
-    mock_exec_rules.scalars.return_value = MagicMock() # This is the result of await results.scalars()
-    mock_exec_rules.scalars.return_value.all = AsyncMock(return_value=[]) # await results.scalars().all()
 
-    # Calls 2,3,4: from _find_location_by_identifier (name search, all returning no results)
-    mock_exec_name_search = AsyncMock() # This is the result of await session.execute()
-    mock_exec_name_search.scalars = AsyncMock() # results.scalars is an async method
-    mock_exec_name_search.scalars.return_value = MagicMock() # This is the result of await results.scalars()
-    mock_exec_name_search.scalars.return_value.all = AsyncMock(return_value=[]) # await results.scalars().all()
+    # Mock setup for rule fetching (first call to session.execute)
+    mock_exec_rules_result = MagicMock()
+    mock_exec_rules_result.scalars = AsyncMock()
+    mock_rules_scalar_obj = MagicMock()
+    mock_exec_rules_result.scalars.return_value = mock_rules_scalar_obj
+    mock_rules_scalar_obj.all = AsyncMock(return_value=[])
+
+    # Mock setup for name searching (next 3 calls to session.execute)
+    mock_exec_name_search_result = MagicMock()
+    mock_exec_name_search_result.scalars = AsyncMock()
+    mock_name_search_scalar_obj = MagicMock()
+    mock_exec_name_search_result.scalars.return_value = mock_name_search_scalar_obj
+    mock_name_search_scalar_obj.all = AsyncMock(return_value=[])
 
     mock_session.execute.side_effect = [
-        mock_exec_rules,
-        mock_exec_name_search,
-        mock_exec_name_search,
-        mock_exec_name_search
+        mock_exec_rules_result,
+        mock_exec_name_search_result,
+        mock_exec_name_search_result,
+        mock_exec_name_search_result
     ]
 
     from src.core.movement_logic import execute_move_for_player_action
@@ -743,11 +746,17 @@ async def test_execute_move_not_connected(
     mock_location_crud.get_by_static_id.return_value = mock_unconnected_location
 
     # Setup mock_session.execute for the call from load_rules_config_for_guild (via get_rule)
-    mock_exec_rules = AsyncMock()
-    mock_scalars_rules_method = MagicMock(); mock_exec_rules.scalars = mock_scalars_rules_method
-    mock_scalars_rules_obj = MagicMock(); mock_scalars_rules_obj.all = MagicMock(return_value=[]); mock_scalars_rules_method.return_value = mock_scalars_rules_obj
-    mock_session.execute.return_value = mock_exec_rules
+    mock_rules_execute_result = MagicMock() # Result of session.execute()
+    mock_session.execute.return_value = mock_rules_execute_result
 
+    mock_rules_execute_result.scalars = AsyncMock() # This is the .scalars() method, awaitable.
+
+    # This is the ScalarResult object, returned by 'await result.scalars()'
+    mock_rules_scalar_result_object = MagicMock()
+    mock_rules_execute_result.scalars.return_value = mock_rules_scalar_result_object
+
+    # This ScalarResult object has an 'all' method, which is awaitable
+    mock_rules_scalar_result_object.all = AsyncMock(return_value=[]) # For 'await scalar_results.all()'
 
     # Ensure start_location does not list unconnected_location as a neighbor
     mock_start_location.neighbor_locations_json = [

@@ -53,7 +53,7 @@ async def generate_new_location_via_ai(
             # Based on AGENTS.md, 'custom_instruction' might be part of a general context dict.
             # Safest option without signature: remove or use a very generic name.
             # Let's assume custom_generation_request_params was a typo for generation_params in prepare_ai_prompt
-            generation_params=prompt_context_params # Corrected L50 (tentative)
+            context_params=prompt_context_params
         )
         logger.debug(f"Generated AI prompt for new location in guild {guild_id}:\n{prompt}")
 
@@ -234,7 +234,15 @@ async def update_location_neighbors(
     """
     Вспомогательная функция для добавления/удаления соседа из neighbor_locations_json локации.
     """
-    current_neighbors: List[Dict[str, Any]] = list(location.neighbor_locations_json or [])
+    # Ensure current_neighbors is strictly List[Dict[str, Any]]
+    raw_neighbors = location.neighbor_locations_json or []
+    current_neighbors: List[Dict[str, Any]] = []
+    for item in raw_neighbors:
+        if isinstance(item, dict):
+            current_neighbors.append(item)
+        else:
+            # Log or handle malformed item if necessary
+            logger.warning(f"Location {location.id} contained a malformed (non-dict) neighbor entry: {item}")
 
     if add_connection:
         # Проверяем, нет ли уже такой связи

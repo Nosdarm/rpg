@@ -104,7 +104,7 @@ async def test_trigger_ai_generation_flow_success(
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
         location_id=DEFAULT_LOCATION_ID,
-        player_id=DEFAULT_PLAYER_ID_PK
+            player_id=DEFAULT_PLAYER_ID_PK
     )
 
     assert isinstance(result, PendingGeneration)

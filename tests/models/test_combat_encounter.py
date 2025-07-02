@@ -30,16 +30,17 @@ class TestCombatEncounterModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        Base.metadata.drop_all(cls.engine) # Удаляем все таблицы после тестов
-        if cls.engine:
+        if cls.engine: # Only drop if engine was created
+            Base.metadata.drop_all(cls.engine) # Удаляем все таблицы после тестов
             cls.engine.dispose()
 
     def setUp(self):
         self.session = self.SessionLocal()
 
     def tearDown(self):
-        self.session.rollback() # Откатываем изменения после каждого теста
-        self.session.close()
+        if self.session: # Only operate on session if it exists
+            self.session.rollback() # Откатываем изменения после каждого теста
+            self.session.close()
 
     def test_create_combat_encounter_defaults(self):
         """Тест создания CombatEncounter с минимальными обязательными полями и значениями по умолчанию."""

@@ -61,10 +61,13 @@ class TestStatusEffectModels(unittest.TestCase):
         }
         status_effect = StatusEffect(**status_effect_data)
         self.session.add(status_effect)
+        self.session.flush()
+        self.session.refresh(status_effect)
         self.session.commit()
 
         retrieved_status_effect = self.session.query(StatusEffect).filter_by(static_id="test_status").first()
         self.assertIsNotNone(retrieved_status_effect)
+        assert retrieved_status_effect is not None # For Pyright
         self.assertEqual(retrieved_status_effect.name_i18n["en"], "Test Status")
         self.assertEqual(retrieved_status_effect.properties_json["duration"], 3)
         self.assertEqual(retrieved_status_effect.guild_id, self.guild.id)
@@ -80,6 +83,8 @@ class TestStatusEffectModels(unittest.TestCase):
             properties_json={"effect": "slow"},
         )
         self.session.add(status_effect)
+        self.session.flush()
+        self.session.refresh(status_effect)
         self.session.commit()
 
         active_status_data = {
@@ -94,10 +99,13 @@ class TestStatusEffectModels(unittest.TestCase):
         }
         active_status = ActiveStatusEffect(**active_status_data)
         self.session.add(active_status)
+        self.session.flush()
+        self.session.refresh(active_status)
         self.session.commit()
 
         retrieved_active_status = self.session.query(ActiveStatusEffect).filter_by(entity_id=101).first()
         self.assertIsNotNone(retrieved_active_status)
+        assert retrieved_active_status is not None # For Pyright
         self.assertEqual(retrieved_active_status.status_effect_id, status_effect.id)
         self.assertEqual(retrieved_active_status.entity_type, "player")
         self.assertEqual(retrieved_active_status.duration_turns, 5)
