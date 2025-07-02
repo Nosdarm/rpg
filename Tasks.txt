@@ -86,13 +86,6 @@ This block presents tasks related to defining and managing locations and the wor
 Task 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped).
 * Description: (Moved from 13 for better grouping). Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details. (See description in Task 4).
 
-Task 24: 🗺️ 4.2 Guild Map Generation and Editing (Guild-Scoped).
-* Description: Implement logic for AI generating new locations and adding them to the guild map, as well as Master tools for map management.
-* API function generate_location(guild_id: int, ...): Calls AI (16/17/10) to generate data for a NEW location (name, description, type, coordinates, neighbors). Creates a new record in Location with this guild_id and generated data. Adds connections to existing locations in the DB (updates neighbor_locations_json in neighbors). Logs (19).
-* API function add_location(guild_id: int, data: dict) (for Master). remove_location(guild_id: int, location_id: int). connect_locations(guild_id: int, loc1_id: int, loc2_id: int, connection_type_i18n: dict).
-* Implement Master commands for these APIs (e.g., /master add_location, /master connect_locations).
-* Result: The system can generate and manage the guild map.
-
 Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped).
 * Description: API for handling player/party movement action between locations. (Moved from 6. Partially overlaps with 1.3).
 * API function handle_move_action(guild_id: int, session: Session, player_id: int, target_location_identifier: str) -> dict. Called from 15 (Central Action Processing Module). Accepts guild_id and DB session.
