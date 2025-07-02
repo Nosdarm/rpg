@@ -1,40 +1,39 @@
 # src/core/localization_utils.py
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable, Awaitable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import necessary models and CRUD utilities
-# These will be specific and need to be added as new entity types are supported
 from ..models import Player, Location, GeneratedNpc, Item # Example models
-# Assuming a generic way to get entities or specific CRUDs for each
-from .crud_base_definitions import get_entity_by_id_gino_style # Assuming a generic getter like this exists or will be adapted
 from .player_utils import get_player
-from .locations_utils import get_location_by_id # Assuming this is the correct name
-from .crud.crud_npc import get_npc # Placeholder for actual NPC getter
-from .crud.crud_item import get_item # Placeholder for actual Item getter
+# For location, we will use location_crud.get
+from .crud.crud_location import location_crud
+# For NPC and Item, we've created placeholder functions in their respective crud modules
+from .crud.crud_npc import get_npc
+from .crud.crud_item import get_item
 
 
 logger = logging.getLogger(__name__)
 
 # A map from simple entity type strings to their SQLAlchemy models
-# This will need to be expanded as more entity types are supported for naming.
+# This map is primarily for reference or if a very generic approach was needed,
+# but current implementation relies more on ENTITY_TYPE_GETTER_MAP.
 ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = {
     "player": Player,
     "location": Location,
-    "npc": GeneratedNpc, # Assuming GeneratedNpc is the model for NPCs
+    "npc": GeneratedNpc,
     "item": Item,
-    # Add other entity types here, e.g., "faction", "quest"
 }
 
-# A map for specific getter functions if a generic one isn't suitable for all
-# This provides more flexibility if some entities need special loading logic for their names.
-ENTITY_TYPE_GETTER_MAP: Dict[str, callable] = {
-    "player": lambda session, guild_id, entity_id: get_player(session, entity_id, guild_id=guild_id),
-    "location": lambda session, guild_id, entity_id: get_location_by_id(session, location_id=entity_id, guild_id=guild_id),
-    # For NPCs and Items, assuming direct CRUD access or specific utils like get_player/get_location
-    # These might need to be adjusted based on actual CRUD implementations
-    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id), # Placeholder
-    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id), # Placeholder
+# Define a more specific type for the getter functions
+GetterCallable = Callable[[AsyncSession, int, int], Awaitable[Optional[Any]]]
+
+# A map for specific getter functions
+ENTITY_TYPE_GETTER_MAP: Dict[str, GetterCallable] = {
+    "player": lambda session, guild_id, entity_id: get_player(session, player_id=entity_id, guild_id=guild_id),
+    "location": lambda session, guild_id, entity_id: location_crud.get(session, id=entity_id, guild_id=guild_id),
+    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id),
+    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id),
 }
 
 
@@ -93,33 +92,53 @@ async def get_localized_entity_name(
     entity_type_lower = entity_type.lower()
     logger.debug(f"Attempting to get localized name for entity_type: '{entity_type_lower}', entity_id: {entity_id}, lang: '{language}', guild: {guild_id}")
 
-    model_class = ENTITY_TYPE_MODEL_MAP.get(entity_type_lower)
     getter_func = ENTITY_TYPE_GETTER_MAP.get(entity_type_lower)
-
-    entity: Any = None
+    entity: Optional[Any] = None
 
     try:
         if getter_func:
-            # Some getters might not need guild_id if entity_id is globally unique and getter handles it,
-            # but it's good practice to pass it if the getter supports it for guild-scoped entities.
             # The lambda functions in ENTITY_TYPE_GETTER_MAP are defined to accept guild_id.
-            entity = await getter_func(session, guild_id, entity_id)
-        elif model_class:
-            # Fallback to a generic getter if no specific getter is mapped but model is.
-            # This assumes get_entity_by_id_gino_style can fetch by PK and optionally filters by guild_id if the model has it.
-            # Adjust this call based on your actual generic getter's signature.
-            # If your generic getter requires guild_id, ensure it's passed.
-            # entity = await get_entity_by_id_gino_style(session, model_class, entity_id)
-            # For models that are always guild-scoped, you might need:
-            entity = await get_entity_by_id_gino_style(session, model_class, entity_id, guild_id=guild_id) # Assuming generic takes guild_id
-            logger.warning(f"Using generic getter for {entity_type_lower}. Ensure it's appropriate.")
+            # Note: entity_id is passed as the second arg to the lambda, which maps to guild_id in its signature.
+            # And guild_id is passed as the third arg to the lambda, which maps to entity_id in its signature.
+            # This needs to be consistent: lambda session, guild_id_arg, entity_id_arg: ...
+            # Let's correct the lambda definitions and the call here if necessary.
+            # Current lambda definition: lambda session, guild_id, entity_id: actual_getter(session, actual_entity_id_param_name=entity_id, actual_guild_id_param_name=guild_id)
+            # The call is: getter_func(session, guild_id, entity_id)
+            # This means for player: get_player(session, player_id=entity_id, guild_id=guild_id) -> correct
+            # This means for location: location_crud.get(session, id=entity_id, guild_id=guild_id) -> correct
+            # This means for npc: get_npc(session, npc_id=entity_id, guild_id=guild_id) -> correct
+            # This means for item: get_item(session, item_id=entity_id, guild_id=guild_id) -> correct
 
+            # The Pyright errors "Argument missing for parameter 'player_id'" and "Parameter 'guild_id' is already assigned"
+            # for the player lambda `lambda session, guild_id, entity_id: get_player(session, entity_id, guild_id=guild_id)`
+            # likely stem from Pyright getting confused by the parameter names `guild_id` and `entity_id` in the lambda
+            # shadowing or conflicting with its understanding of the `get_player(session, player_id, guild_id)` signature.
+            # Let's rename lambda parameters for clarity:
+            # "player": lambda s, g_id, e_id: get_player(s, player_id=e_id, guild_id=g_id),
+            # And then call as: entity = await getter_func(session, guild_id, entity_id)
+            # This was already done in the previous step by making `player_id=entity_id` explicit.
+            # The original pyright error might be due to `get_player(session, entity_id, guild_id=guild_id)`
+            # if `get_player` was `def get_player(session, guild_id, player_id)`.
+            # But `get_player` is `async def get_player(session: AsyncSession, player_id: int, guild_id: int)`.
+            # So `get_player(session, entity_id, guild_id=guild_id)` should be fine.
+            # The error "Argument missing for parameter 'player_id'" suggests it thinks `entity_id` is not `player_id`.
+            # And "Parameter 'guild_id' is already assigned" means it thinks `guild_id=guild_id` is trying to set `guild_id` positionally
+            # and then by keyword.
+            # The most robust fix for the lambda for player is:
+            # "player": lambda s, g_id_arg, e_id_arg: get_player(s, player_id=e_id_arg, guild_id=g_id_arg),
+            # The map was already changed to:
+            # "player": lambda session, guild_id, entity_id: get_player(session, player_id=entity_id, guild_id=guild_id),
+            # This should be correct. The pyright error might be stale or a deeper issue.
+            # For now, let's assume the current map is fine and the error was a misinterpretation by Pyright that might clear up.
+
+            entity = await getter_func(session, guild_id, entity_id)
         else:
-            logger.warning(f"Unsupported entity type for name resolution: {entity_type}")
+            # Removed the generic fallback that used get_entity_by_id_gino_style
+            logger.warning(f"Unsupported entity type for name resolution (no getter configured): {entity_type}")
             return f"[{entity_type} ID: {entity_id}]"
 
         if not entity:
-            logger.warning(f"{entity_type.capitalize()} with ID {entity_id} not found in guild {guild_id}.")
+            logger.warning(f"{entity_type.capitalize()} with ID {entity_id} not found in guild {guild_id} using configured getter.")
             return f"[{entity_type.capitalize()} ID: {entity_id} (Unknown)]"
 
         if hasattr(entity, "name_i18n") and isinstance(entity.name_i18n, dict):

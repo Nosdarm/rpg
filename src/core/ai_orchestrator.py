@@ -82,7 +82,9 @@ async def generate_narrative(
     #           2. Guild's main language
     player_id_from_context = context.get("player_id")
     if isinstance(player_id_from_context, int):
-        player = await get_player(session, player_id_from_context, guild_id=guild_id)
+        # Ensure player_id_from_context is treated as int for the call
+        p_id: int = player_id_from_context
+        player = await get_player(session, p_id, guild_id=guild_id)
         if player and player.selected_language:
             target_language = player.selected_language
             logger.debug(f"Using player's selected language: {target_language}")

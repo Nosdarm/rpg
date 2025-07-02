@@ -121,10 +121,23 @@ async def test_examine_existing_object(
     )
 
     assert result["success"] is True
-    expected_desc = mock_location_with_details.generated_details_json["interactable_elements"][0]["description_i18n"]["en"]
+    # Ensure generated_details_json and its structure are valid before subscripting for Pyright
+    details_json = mock_location_with_details.generated_details_json
+    assert details_json is not None, "generated_details_json should not be None"
+    interactable_elements = details_json.get("interactable_elements")
+    assert isinstance(interactable_elements, list) and len(interactable_elements) > 0, "interactable_elements should be a list with at least 1 element"
+    target_object_data = interactable_elements[0]
+    assert isinstance(target_object_data, dict), "target_object_data should be a dict"
+    description_i18n = target_object_data.get("description_i18n")
+    assert isinstance(description_i18n, dict), "description_i18n should be a dict"
+    expected_desc = description_i18n.get("en")
+    assert expected_desc is not None, "English description should exist"
+
     assert f"You examine Old Chest: {expected_desc}" in result["message"]
-    mock_log_event.assert_called_once()
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
+
+    log_event_mock: AsyncMock = mock_log_event # type: ignore
+    log_event_mock.assert_called_once()
+    log_args, log_kwargs = log_event_mock.call_args_list[0]
     assert log_kwargs["event_type"] == "player_examine"
     assert log_kwargs["details_json"]["target"] == "Old Chest"
 
@@ -299,12 +312,25 @@ async def test_move_to_valid_sublocation(
     )
 
     assert result["success"] is True
-    expected_sublocation_name = mock_location_with_details.generated_details_json["interactable_elements"][2]["actual_sublocation_name"]
+    # Ensure generated_details_json and its structure are valid before subscripting for Pyright
+    details_json = mock_location_with_details.generated_details_json
+    assert details_json is not None, "generated_details_json should not be None"
+    interactable_elements = details_json.get("interactable_elements")
+    assert isinstance(interactable_elements, list) and len(interactable_elements) > 2, "interactable_elements should be a list with at least 3 elements"
+    sublocation_data = interactable_elements[2]
+    assert isinstance(sublocation_data, dict), "sublocation_data should be a dict"
+    expected_sublocation_name = sublocation_data.get("actual_sublocation_name")
+    assert expected_sublocation_name is not None, "actual_sublocation_name should exist"
+
     assert f"You move to {expected_sublocation_name}." in result["message"]
     assert mock_player.current_sublocation_name == expected_sublocation_name
-    mock_session.commit.assert_called_once() # Check that player update was committed
-    mock_log_event.assert_called_once()
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
+
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_called_once() # Check that player update was committed
+
+    log_event_mock: AsyncMock = mock_log_event # type: ignore
+    log_event_mock.assert_called_once()
+    log_args, log_kwargs = log_event_mock.call_args_list[0]
     assert log_kwargs["event_type"] == "player_move_sublocation"
     assert log_kwargs["details_json"]["target_sublocation"] == expected_sublocation_name
 
@@ -334,8 +360,10 @@ async def test_move_to_invalid_sublocation_not_a_sublocation_type(
 
     assert result["success"] is False
     assert "'Old Chest' is not a place you can move to" in result["message"]
-    mock_session.commit.assert_not_called()
-    mock_log_event.assert_not_called()
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_not_called()
+    log_event_mock: AsyncMock = mock_log_event # type: ignore
+    log_event_mock.assert_not_called()
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
@@ -363,8 +391,10 @@ async def test_move_to_non_existent_sublocation(
 
     assert result["success"] is False
     assert "There is no sub-location called 'Imaginary Room' here." in result["message"]
-    mock_session.commit.assert_not_called()
-    mock_log_event.assert_not_called()
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_not_called()
+    log_event_mock: AsyncMock = mock_log_event # type: ignore
+    log_event_mock.assert_not_called()
 
 
 @pytest.mark.asyncio

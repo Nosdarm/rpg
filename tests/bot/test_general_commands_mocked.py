@@ -226,25 +226,12 @@ async def test_start_command_no_starting_location(command_cog, mock_ctx, mock_db
     args, kwargs = mock_ctx.send.call_args
     assert "Не могу начать игру: стартовая локация не настроена" in args[0]
 
-# Вспомогательная функция для мокирования get_db_session как контекстного менеджера
-def mock_db_session_context_manager(mock_session):
-    cm = MagicMock()
-    cm.__aenter__.return_value = mock_session
-    cm.__aexit__.return_value = None # или AsyncMock(return_value=None) если нужно
-    return cm
-
 # Тесты для команды !ping (текстовая команда)
-@pytest.fixture
-def mock_ctx():
-    """Мок для объекта discord.ext.commands.Context"""
-    ctx = AsyncMock(spec=commands.Context)
-    ctx.bot = MagicMock(spec=commands.Bot)
-    ctx.bot.latency = 0.123  # Пример задержки
-    ctx.send = AsyncMock()
-    return ctx
+# Используется фикстура mock_ctx, определенная ранее в файле.
+# Вспомогательная функция mock_db_session_context_manager также используется та, что определена ранее.
 
 @pytest.mark.asyncio
-async def test_ping_command(command_cog, mock_ctx):
+async def test_ping_command(command_cog, mock_ctx): # mock_ctx fixture is defined above
     """Тест текстовой команды !ping."""
     await command_cog.ping_command(command_cog, mock_ctx) # Обратите внимание на передачу self (cog)
 

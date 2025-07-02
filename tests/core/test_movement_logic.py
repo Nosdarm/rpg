@@ -332,7 +332,8 @@ async def test_handle_move_action_malformed_neighbors_json(
     mock_location_crud.get.return_value = mock_start_location
     mock_location_crud.get_by_static_id.return_value = mock_target_location
 
-    mock_start_location.neighbor_locations_json = "not a list or dict" # Malformed
+    # Intentionally setting an invalid type to test runtime handling.
+    mock_start_location.neighbor_locations_json = "not a list or dict"  # type: ignore[assignment]
 
     success, message = await handle_move_action(
         DEFAULT_GUILD_ID, DEFAULT_PLAYER_DISCORD_ID, TARGET_LOCATION_STATIC_ID
