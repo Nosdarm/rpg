@@ -227,77 +227,8 @@ async def remove_status(
 # active_status_effect_crud = CRUDActiveStatusEffect(ActiveStatusEffect)
 
 # These would then be imported here.
-# For now, using direct model operations or assuming they will be available.
-# For Ability and StatusEffect, specific finders by static_id + guild_id/global might be needed.
-# For _get_entity, player_crud and npc_crud are assumed to exist.
-
-# Example for ability_crud (to be placed in its own file)
-# from src.models import Ability
-# from src.core.crud_base_definitions import CRUDBase
-# from sqlalchemy.future import select
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from typing import Optional
-# class CRUDAbility(CRUDBase[Ability]):
-#     async def get_by_static_id(self, db: AsyncSession, *, static_id: str, guild_id: Optional[int] = None) -> Optional[Ability]:
-#         # This logic needs to handle global (guild_id IS NULL) vs specific guild_id
-#         # For simplicity here, assuming direct ID lookup or that static_id is globally unique for now
-#         # A more robust version would query considering guild_id and nullable guild_id for globals
-#         stmt = select(self.model).where(self.model.static_id == static_id)
-#         if guild_id:
-#             stmt = stmt.where(self.model.guild_id == guild_id)
-#         else: # For global abilities
-#             stmt = stmt.where(self.model.guild_id.is_(None))
-#
-#         results = await db.execute(stmt)
-#         return results.scalars().first()
-
-# ability_crud = CRUDAbility(Ability)
-
-# Example for status_effect_crud
-# from src.models import StatusEffect
-# ...
-# class CRUDStatusEffect(CRUDBase[StatusEffect]):
-#      async def get_by_static_id(self, db: AsyncSession, *, static_id: str, guild_id: Optional[int] = None) -> Optional[StatusEffect]:
-#        # Similar logic to CRUDAbility.get_by_static_id
-#        pass
-# status_effect_crud = CRUDStatusEffect(StatusEffect)
-
-# Actual CRUD instances will be imported from their respective files once created.
-# For now, `ability_crud.get` will be a placeholder.
-# `status_effect_crud` will be a placeholder.
-
-# A more concrete way to get Ability and StatusEffect without dedicated CRUDs yet for get_by_static_id:
-async def get_ability_by_id_or_static_id(session: AsyncSession, ability_identifier: Union[int, str], guild_id: Optional[int]=None) -> Optional[Ability]:
-    if isinstance(ability_identifier, int):
-        return await session.get(Ability, ability_identifier)
-
-    # Search by static_id, preferring guild-specific then global
-    stmt = select(Ability).where(Ability.static_id == ability_identifier)
-    results = await session.execute(stmt)
-    possible_abilities = results.scalars().all()
-    if not possible_abilities: return None
-
-    if guild_id:
-        guild_specific = next((a for a in possible_abilities if a.guild_id == guild_id), None)
-        if guild_specific: return guild_specific
-
-    return next((a for a in possible_abilities if a.guild_id is None), None)
-
-
-async def get_status_effect_by_static_id(session: AsyncSession, static_id: str, guild_id: Optional[int]=None) -> Optional[StatusEffect]:
-    stmt = select(StatusEffect).where(StatusEffect.static_id == static_id)
-    results = await session.execute(stmt)
-    possible_statuses = results.scalars().all()
-    if not possible_statuses: return None
-
-    if guild_id:
-        guild_specific = next((s for s in possible_statuses if s.guild_id == guild_id), None)
-        if guild_specific: return guild_specific
-
-    return next((s for s in possible_statuses if s.guild_id is None), None)
-
-# Re-wire activate_ability and apply_status to use these temp direct getters
-# (This is a temporary step until CRUDs are fully fleshed out or if we decide to use such helpers directly)
+# Using CRUD operations now
+# Removed local get_ability_by_id_or_static_id and get_status_effect_by_static_id
 
 async def activate_ability_v2( # Renamed to avoid clash while showing evolution
     session: AsyncSession,
@@ -310,14 +241,23 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
 ) -> AbilityOutcomeDetails:
     outcome = AbilityOutcomeDetails(success=False, message="Ability activation failed.")
 
-    db_ability = await get_ability_by_id_or_static_id(session, ability_identifier, guild_id)
+    db_ability: Optional[Ability] = None
+    if isinstance(ability_identifier, int):
+        db_ability = await ability_crud.get(session, id=ability_identifier)
+    elif isinstance(ability_identifier, str):
+        db_ability = await ability_crud.get_by_static_id(session, static_id=ability_identifier, guild_id=guild_id)
+
     if not db_ability:
         outcome.message = f"Ability '{ability_identifier}' not found."
         return outcome
-    # Ensure guild consistency if ability is guild_specific
-    if db_ability.guild_id is not None and db_ability.guild_id != guild_id:
-        outcome.message = f"Ability '{ability_identifier}' not found for this guild." # Should be caught by get_ability...
-        return outcome
+    # Ensure guild consistency if ability is guild_specific and was fetched by ID (static_id fetch already handles this)
+    if isinstance(ability_identifier, int) and db_ability.guild_id is not None and db_ability.guild_id != guild_id:
+        # This case implies an ID from another guild was passed, or a global ability ID was passed
+        # but we are in a guild context. If it's a global ability (db_ability.guild_id is None), it's fine.
+        # If db_ability.guild_id is not None AND not equal to current guild_id, then it's an error.
+         outcome.message = f"Ability ID '{ability_identifier}' does not belong to this guild or is not global."
+         return outcome
+
 
     outcome.raw_ability_properties = db_ability.properties_json
     caster = await _get_entity(session, guild_id, entity_id, entity_type)
@@ -345,33 +285,38 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
     # 1. Check and apply costs (Placeholder)
     if db_ability.properties_json and "cost" in db_ability.properties_json:
         cost_info = db_ability.properties_json["cost"]
-        # TODO: Deduct cost_info["amount"] of cost_info["resource"] from caster
-        # For now, log it
+        # TODO: Deduct cost_info["amount"] of cost_info["resource"] from caster's actual stats
+        # For now, log it and add to caster_updates
         logger.info(f"Caster needs to pay {cost_info.get('amount')} of {cost_info.get('resource')}")
         outcome.caster_updates.append(CasterUpdateDetail(resource_type=cost_info.get('resource', 'unknown'), change= -1 * cost_info.get('amount',0)))
-
 
     # 2. Apply effects (Placeholder for complex targeting and RuleConfig)
     if db_ability.properties_json and "effects" in db_ability.properties_json:
         for effect_data in db_ability.properties_json.get("effects", []):
             effect_type = effect_data.get("type")
             # MVP: assume "first" target or self if no targets and effect implies self
-            current_targets = targets # Basic targeting - apply to all specified targets
-            if not current_targets and effect_data.get("target") == "self": # Example for self-target
-                 current_targets = [caster]
+            current_targets_for_effect = targets # Basic targeting - apply to all specified targets initially
+            if not current_targets_for_effect and effect_data.get("target") == "self": # Example for self-target
+                 current_targets_for_effect = [caster]
 
-            for target_individual in current_targets: # Iterate over chosen targets for this effect
-                target_individual_type = "player" if isinstance(target_individual, Player) else "npc"
+            for target_individual in current_targets_for_effect: # Iterate over chosen targets for this effect
+                target_individual_type_str = "player" if isinstance(target_individual, Player) else "npc"
 
                 if effect_type == "damage":
                     # TODO: Get damage amount from RuleConfig if formula-based
                     damage_amount = effect_data.get("amount", 0)
                     # TODO: Apply damage to target_individual.current_hp or target_individual.stats_json['hp']
                     # For now, just log and add to outcome
-                    logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type} ID {target_individual.id}")
+                    if isinstance(target_individual, Player) and target_individual.current_hp is not None:
+                        target_individual.current_hp -= damage_amount
+                    elif isinstance(target_individual, GeneratedNpc) and target_individual.stats_json and "hp" in target_individual.stats_json:
+                        target_individual.stats_json["hp"] -= damage_amount
+                    # else: logger.warning for unhandled hp update
+
+                    logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
                     outcome.damage_dealt.append(DamageDetail(
                         target_entity_id=target_individual.id,
-                        target_entity_type=target_individual_type,
+                        target_entity_type=target_individual_type_str,
                         amount=damage_amount,
                         damage_type=effect_data.get("damage_type")
                     ))
@@ -382,7 +327,7 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
                     if status_to_apply_static_id:
                         applied_successfully = await apply_status_v2( # use v2 of apply_status
                             session, guild_id,
-                            target_individual.id, target_individual_type,
+                            target_individual.id, target_individual_type_str,
                             status_to_apply_static_id, status_duration,
                             source_ability_id=db_ability.id,
                             source_entity_id=caster.id,
@@ -392,20 +337,17 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
                              outcome.applied_statuses.append(AppliedStatusDetail(
                                  status_static_id=status_to_apply_static_id,
                                  target_entity_id=target_individual.id,
-                                 target_entity_type=target_individual_type,
+                                 target_entity_type=target_individual_type_str,
                                  duration=status_duration
                              ))
                         else:
-                            logger.warning(f"Failed to apply status {status_to_apply_static_id} from ability {db_ability.static_id}")
-
+                            logger.warning(f"Failed to apply status {status_to_apply_static_id} from ability {db_ability.static_id} to {target_individual_type_str} ID {target_individual.id}")
                 # TODO: Add "healing" effect type
-
     # --- End of MVP Ability Logic ---
 
     outcome.success = True
     outcome.message = f"Ability '{db_ability.static_id}' processed (MVP)."
 
-    # Actual Logging
     log_details = {
         "caster_id": caster.id,
         "caster_type": entity_type,
@@ -419,19 +361,17 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
     }
     outcome.log_event_details = log_details
 
-    # Determine player_id for log_event
     event_player_id = caster.id if isinstance(caster, Player) else None
-    if not event_player_id and targets: # If caster is NPC, check if first target is player
-        if isinstance(targets[0], Player):
-            event_player_id = targets[0].id
+    if not event_player_id and targets and isinstance(targets[0], Player):
+        event_player_id = targets[0].id
 
     await log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.ABILITY_USED, # Will add this to EventType enum
+        event_type=EventType.ABILITY_USED,
         details_json=log_details,
-        player_id=event_player_id, # Log relative to caster if player, or first target if player
-        # location_id=caster.current_location_id # If applicable
+        player_id=event_player_id,
+        location_id=caster.current_location_id if hasattr(caster, 'current_location_id') else None
     )
     return outcome
 
@@ -447,7 +387,7 @@ async def apply_status_v2( # Renamed
     source_entity_id: Optional[int] = None,
     source_entity_type: Optional[str] = None
 ) -> bool:
-    db_status_effect = await get_status_effect_by_static_id(session, status_static_id, guild_id)
+    db_status_effect = await status_effect_crud.get_by_static_id(session, static_id=status_static_id, guild_id=guild_id)
     if not db_status_effect:
         logger.error(f"StatusEffect definition '{status_static_id}' not found for apply_status.")
         return False
@@ -459,12 +399,12 @@ async def apply_status_v2( # Renamed
 
     owner_type_enum_val = RelationshipEntityType(entity_type.lower())
 
-    # Diagnostic: Instantiate then set attributes
+    # Instantiate then set attributes to avoid TypeError with SQLAlchemy constructor
     active_status = ActiveStatusEffect()
     active_status.owner_id = target_entity.id
     active_status.owner_type = owner_type_enum_val
     active_status.status_effect_id = db_status_effect.id
-    active_status.guild_id = guild_id
+    active_status.guild_id = guild_id # ActiveStatusEffect is always guild-scoped for the owner
     active_status.duration = duration
     active_status.source_ability_id = source_ability_id
     active_status.source_entity_id = source_entity_id
@@ -473,40 +413,38 @@ async def apply_status_v2( # Renamed
         try:
             active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower())
         except ValueError:
-            active_status.source_entity_type = None
+            active_status.source_entity_type = None # Or handle error appropriately
             logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Set to None.")
     else:
         active_status.source_entity_type = None
 
-
     session.add(active_status)
-    await session.flush()
+    await session.flush() # To get active_status.id for logging if needed immediately
 
     logger.info(f"Status '{db_status_effect.static_id}' (ID: {db_status_effect.id}, ActiveID: {active_status.id}) applied to {entity_type} ID {entity_id}.")
 
-    # Determine player_id for log_event
     event_player_id = target_entity.id if isinstance(target_entity, Player) else None
     if not event_player_id and source_entity_id and source_entity_type and source_entity_type.lower() == "player":
         event_player_id = source_entity_id
 
+    log_details_status = {
+        "target_id": target_entity.id,
+        "target_type": entity_type,
+        "status_effect_id": db_status_effect.id,
+        "status_static_id": db_status_effect.static_id,
+        "active_status_id": active_status.id,
+        "duration": duration,
+        "source_ability_id": source_ability_id,
+        "source_entity_id": source_entity_id,
+        "source_entity_type": source_entity_type
+    }
+
     await log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.STATUS_APPLIED, # Will add this to EventType enum
-        details_json={
-            "target_id": target_entity.id,
-            "target_type": entity_type,
-            "status_effect_id": db_status_effect.id,
-            "status_static_id": db_status_effect.static_id,
-            "active_status_id": active_status.id,
-            "duration": duration,
-            "source_ability_id": source_ability_id,
-            "source_entity_id": source_entity_id,
-            "source_entity_type": source_entity_type
-        },
+        event_type=EventType.STATUS_APPLIED,
+        details_json=log_details_status,
         player_id=event_player_id,
+        location_id=target_entity.current_location_id if hasattr(target_entity, 'current_location_id') else None
     )
     return True
-
-# Placeholder for remove_status, using active_status_id from ActiveStatusEffect table
-# async def remove_status_v2(...)

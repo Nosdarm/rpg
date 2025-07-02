@@ -463,20 +463,30 @@ Key achievements for this task:
     - The new migration creates the `status_effects` table with all necessary columns (`id`, `guild_id`, `static_id`, `name_i18n`, `description_i18n`, `effects_json`), FK to `guild_configs`, and appropriate indexes.
     - Implemented two partial unique indexes for `static_id`: one for guild-specific statuses (where `guild_id` is not null) and one for global statuses (where `guild_id` is null).
 ---
-Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - MVP.
-Description: Implement the logic for characters using abilities and applying/removing statuses.
-Result: Implemented MVP of `activate_ability_v2`, `apply_status_v2`, and `remove_status` in `src/core/ability_system.py`. Added `Player.current_hp` field and migration. Defined `AbilityOutcomeDetails` and related Pydantic models. Added new `EventType` values. Created placeholder CRUDs for Ability and StatusEffect. Updated `__init__` files. Basic unit tests created.
-
-Key achievements for this task:
-- Added `current_hp` to `Player` model and created Alembic migration `0012_add_player_current_hp.py`.
-- Defined `AbilityOutcomeDetails` and related Pydantic models in `src/models/ability_outcomes.py`.
-- Implemented `activate_ability_v2`, `apply_status_v2`, `remove_status` in `src/core/ability_system.py` with MVP logic for loading entities/definitions, interpreting basic ability properties (cost, damage, apply_status), creating `ActiveStatusEffect` records, and logging events.
-- Added `ABILITY_USED`, `STATUS_APPLIED`, `STATUS_REMOVED` to `EventType` enum.
-- Created placeholder CRUDs: `crud_ability.py`, `crud_status_effect.py`.
-- Updated `__init__.py` for `models`, `core/crud`, and `core`.
-- Created initial unit tests in `tests/core/test_ability_system.py` for happy paths.
----
 Task 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped) - Covered by Task 1.1.
 Description: (Moved from 13 for better grouping). Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details. (See description in Task 4).
 Result: This task is a duplicate of Task 1.1, which has already been completed. The `Location` model, its i18n fields, guild-scoping, and associated utilities were implemented as part of Task 1.1.
+---
+Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - MVP.
+Description: Implement the logic for characters using abilities and applying/removing statuses. API function activate_ability(...). API functions for applying/removing statuses: apply_status(...).
+Result: Implemented MVP of `activate_ability_v2`, `apply_status_v2`, and `remove_status` in `src/core/ability_system.py`. This includes loading entities and definitions, MVP interpretation of ability properties (cost, damage, status application), creation of `ActiveStatusEffect` records, and event logging. Unit tests for core logic were created and passed.
+
+Key achievements for this task:
+- Verified/updated `Player.current_hp` field and associated migration `0012_add_player_current_hp.py`.
+- Verified/updated Pydantic models in `src/models/ability_outcomes.py`.
+- Implemented/refactored `activate_ability_v2` in `src/core/ability_system.py`:
+    - Uses `ability_crud` to fetch ability definitions by ID or static_id.
+    - Basic interpretation of `properties_json` for "cost" and "effects" (damage, apply_status).
+    - Rudimentary HP update for Player/NPC targets.
+    - Calls `apply_status_v2` for status effects.
+    - Logs `ABILITY_USED` event.
+- Implemented/refactored `apply_status_v2` in `src/core/ability_system.py`:
+    - Uses `status_effect_crud` to fetch status definitions.
+    - Creates `ActiveStatusEffect` instances.
+    - Logs `STATUS_APPLIED` event.
+- Implemented basic `remove_status` function.
+- Ensured `EventType` enum contains `ABILITY_USED`, `STATUS_APPLIED`, `STATUS_REMOVED`.
+- Verified CRUD classes `CRUDAbility` and `CRUDStatusEffect` with `get_by_static_id` methods.
+- Verified `__init__.py` files for `core` and `core/crud` export new modules/functions.
+- Updated and passed unit tests in `tests/core/test_ability_system.py` to reflect use of CRUDs and cover basic scenarios.
 ---
