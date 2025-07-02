@@ -143,6 +143,20 @@ class ModerationStatus(enum.Enum):
     SAVED = "saved" # Successfully saved to game entities
     ERROR_ON_SAVE = "error_on_save" # An error occurred during the save_approved_generation step
 
+class CombatStatus(enum.Enum):
+    """
+    Represents the status of an active combat encounter.
+    """
+    PENDING_START = "pending_start"      # Combat is initialized but not yet active (e.g., waiting for all participants)
+    ACTIVE = "active"                  # Combat is ongoing
+    PLAYER_TURN = "player_turn"          # It's a player's (or player-controlled party's) turn
+    NPC_TURN = "npc_turn"                # It's an NPC's turn
+    ENDED_VICTORY_PLAYERS = "ended_victory_players" # Players/Player-side won
+    ENDED_VICTORY_NPCS = "ended_victory_npcs"     # NPCs/Opposing-side won
+    ENDED_STALEMATE = "ended_stalemate"      # Combat ended without a clear victor (e.g., all fled, or by other rules)
+    ENDED_ESCAPED = "ended_escaped"          # One or more sides escaped
+    ERROR = "error"                    # An error occurred in combat processing
+
 class ConflictStatus(enum.Enum):
     """
     Represents the status of a pending conflict requiring resolution.

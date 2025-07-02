@@ -10,7 +10,7 @@ from .base import Base
 from .guild import GuildConfig
 from .rule_config import RuleConfig
 from .location import Location, LocationType # Import Location model and Enum
-from .enums import PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType # Import game specific Enums
+from .enums import PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, CombatStatus # Import game specific Enums
 from .player import Player # Import Player model
 from .party import Party # Import Party model
 from .generated_npc import GeneratedNpc # Import GeneratedNpc model
@@ -30,6 +30,7 @@ from .pending_generation import PendingGeneration # Import PendingGeneration mod
 from .actions import ParsedAction, ActionEntity # Import Action models
 from .pending_conflict import PendingConflict # Import PendingConflict model
 from .enums import ConflictStatus # Import ConflictStatus enum
+from .combat_encounter import CombatEncounter # Import CombatEncounter model
 from .ability_outcomes import ( # Import Ability Outcome models
     AbilityOutcomeDetails,
     AppliedStatusDetail,
@@ -80,9 +81,9 @@ logger = logging.getLogger(__name__)
 from .enums import QuestStatus # Ensure QuestStatus is explicitly mentioned if not covered by * from enums
 logger.info(
     "Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType, "
-    "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, Player, Party, "
+    "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, CombatStatus, Player, Party, "
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
-    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, AbilityOutcomeDetails, "
+    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
     "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail."
 )

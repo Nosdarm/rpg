@@ -814,18 +814,19 @@ async def test_find_location_by_name_player_language(
 
     mock_get_by_static_id.return_value = None # Not found by static_id
 
-    # Mock session.execute for name search
-    # Mock session.execute for name search
-    # result = await session.execute(stmt)
-    mock_execute_result = AsyncMock() # This is the mock for 'result'
-    mock_session_execute.return_value = mock_execute_result
+        # Mock session.execute for name search
+        # results = await session.execute(stmt)
+        # This mock_result_object will simulate the object returned by 'await session.execute(stmt)'
+        # Since mock_session_execute is an AsyncMock, its return_value is what the await resolves to.
+        mock_result_object = MagicMock()
+        mock_session_execute.return_value = mock_result_object
 
-    # scalar_results = result.scalars() -> mock_scalar_results_object
-    mock_scalar_results_object = MagicMock()
-    mock_execute_result.scalars = MagicMock(return_value=mock_scalar_results_object) # scalars() method returns this object
+        # result.scalars() returns a new object that has an .all() method
+        mock_scalars_instance = MagicMock()
+        mock_result_object.scalars.return_value = mock_scalars_instance
 
-    # found_obj_list = scalar_results.all()
-    mock_scalar_results_object.all.return_value = [mock_target_location] # .all() method on that object returns a list
+        # scalar_results.all() returns the list of locations
+        mock_scalars_instance.all.return_value = [mock_target_location]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
@@ -860,15 +861,15 @@ async def test_find_location_by_name_guild_language_fallback(
     mock_get_by_static_id.return_value = None
 
     # First call (for 'de') returns no results
-    mock_execute_de = AsyncMock()
-    mock_scalars_de = MagicMock(); mock_execute_de.scalars = MagicMock(return_value=mock_scalars_de)
+    mock_result_de = MagicMock() # Simulates Result object
+    mock_scalars_de = MagicMock(); mock_result_de.scalars.return_value = mock_scalars_de
     mock_scalars_de.all.return_value = []
     # Second call (for 'en') returns the location
-    mock_execute_en = AsyncMock()
-    mock_scalars_en = MagicMock(); mock_execute_en.scalars = MagicMock(return_value=mock_scalars_en)
+    mock_result_en = MagicMock() # Simulates Result object
+    mock_scalars_en = MagicMock(); mock_result_en.scalars.return_value = mock_scalars_en
     mock_scalars_en.all.return_value = [mock_target_location]
 
-    mock_session_execute.side_effect = [mock_execute_de, mock_execute_en]
+    mock_session_execute.side_effect = [mock_result_de, mock_result_en]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
@@ -902,21 +903,21 @@ async def test_find_location_by_name_english_fallback(
     mock_get_by_static_id.return_value = None
 
     # Mock for 'de' language search
-    mock_execute_de = AsyncMock()
-    mock_scalars_de = MagicMock(); mock_execute_de.scalars = MagicMock(return_value=mock_scalars_de)
+    mock_result_de = MagicMock()
+    mock_scalars_de = MagicMock(); mock_result_de.scalars.return_value = mock_scalars_de
     mock_scalars_de.all.return_value = []
 
     # Mock for 'fr' language search
-    mock_execute_fr = AsyncMock()
-    mock_scalars_fr = MagicMock(); mock_execute_fr.scalars = MagicMock(return_value=mock_scalars_fr)
+    mock_result_fr = MagicMock()
+    mock_scalars_fr = MagicMock(); mock_result_fr.scalars.return_value = mock_scalars_fr
     mock_scalars_fr.all.return_value = []
 
     # Mock for 'en' language search
-    mock_execute_en = AsyncMock()
-    mock_scalars_en = MagicMock(); mock_execute_en.scalars = MagicMock(return_value=mock_scalars_en)
+    mock_result_en = MagicMock()
+    mock_scalars_en = MagicMock(); mock_result_en.scalars.return_value = mock_scalars_en
     mock_scalars_en.all.return_value = [mock_target_location]
 
-    mock_session_execute.side_effect = [mock_execute_de, mock_execute_fr, mock_execute_en]
+    mock_session_execute.side_effect = [mock_result_de, mock_result_fr, mock_result_en]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
@@ -937,10 +938,11 @@ async def test_find_location_by_name_case_insensitive(
     mock_target_location.name_i18n = {"en": "Forest"}
     mock_get_by_static_id.return_value = None
 
-    mock_execute_result = AsyncMock()
-    mock_scalars = MagicMock(); mock_execute_result.scalars = MagicMock(return_value=mock_scalars)
-    mock_scalars.all.return_value = [mock_target_location]
-    mock_session_execute.return_value = mock_execute_result
+    mock_result_object = MagicMock()
+    mock_session_execute.return_value = mock_result_object
+    mock_scalars_instance = MagicMock()
+    mock_result_object.scalars.return_value = mock_scalars_instance
+    mock_scalars_instance.all.return_value = [mock_target_location]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
@@ -962,12 +964,12 @@ async def test_find_location_not_found(
     identifier = "non_existent_place"
     mock_get_by_static_id.return_value = None
 
-    mock_execute_empty = AsyncMock()
-    mock_scalars_empty = MagicMock(); mock_execute_empty.scalars = MagicMock(return_value=mock_scalars_empty)
+    mock_result_empty = MagicMock()
+    mock_scalars_empty = MagicMock(); mock_result_empty.scalars.return_value = mock_scalars_empty
     mock_scalars_empty.all.return_value = []
 
     # All language searches will return empty
-    mock_session_execute.side_effect = [mock_execute_empty, mock_execute_empty, mock_execute_empty]
+    mock_session_execute.side_effect = [mock_result_empty, mock_result_empty, mock_result_empty]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, "de", "fr" # Triggers de, fr, en search
@@ -992,10 +994,11 @@ async def test_find_location_by_name_ambiguous_returns_first_and_logs(
     mock_target_location.name_i18n = {"en": "Ambiguous Tavern"} # Same name
 
     mock_get_by_static_id.return_value = None
-    mock_execute_result = AsyncMock()
-    mock_scalars = MagicMock(); mock_execute_result.scalars = MagicMock(return_value=mock_scalars)
-    mock_scalars.all.return_value = [mock_start_location, mock_target_location]
-    mock_session_execute.return_value = mock_execute_result
+    mock_result_object = MagicMock()
+    mock_session_execute.return_value = mock_result_object
+    mock_scalars_instance = MagicMock()
+    mock_result_object.scalars.return_value = mock_scalars_instance
+    mock_scalars_instance.all.return_value = [mock_start_location, mock_target_location]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
