@@ -209,10 +209,58 @@ async def remove_status(
         logger.warning(f"ActiveStatusEffect ID {active_status_id} not found or not in guild {guild_id}.")
         return False
 
+    # Store details before deleting for logging
+    removed_entity_id = active_status_effect.entity_id
+    removed_entity_type_enum = active_status_effect.entity_type # This should be the enum member
+    removed_status_effect_id = active_status_effect.status_effect_id
+
+    # Fetch the original StatusEffect to get its static_id for logging
+    original_status_effect = await session.get(StatusEffect, removed_status_effect_id)
+    removed_status_static_id = original_status_effect.static_id if original_status_effect else "unknown_static_id"
+
     await session.delete(active_status_effect)
-    await session.flush()
-    logger.info(f"ActiveStatusEffect ID {active_status_id} removed.")
-    # TODO: log_event
+    await session.flush() # Ensure delete is processed before trying to log based on it.
+
+    logger.info(f"ActiveStatusEffect ID {active_status_id} (owner: {removed_entity_type_enum.value} {removed_entity_id}) removed.")
+
+    # Determine player_id for log_event
+    event_player_id: Optional[int] = None
+    location_id_of_entity: Optional[int] = None
+
+    if removed_entity_type_enum == RelationshipEntityType.PLAYER:
+        event_player_id = removed_entity_id
+        # Optionally fetch player to get location_id
+        player_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_enum.value)
+        if player_entity and hasattr(player_entity, 'current_location_id'):
+            location_id_of_entity = player_entity.current_location_id
+    elif removed_entity_type_enum == RelationshipEntityType.GENERATED_NPC:
+        # If an NPC, we might still want to log if a player was involved in causing this or is nearby.
+        # For now, no direct player_id unless it's the entity itself.
+        # Optionally fetch NPC to get location_id
+        npc_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_enum.value)
+        if npc_entity and hasattr(npc_entity, 'current_location_id'): # GeneratedNpc might not have this directly
+            # Assuming GeneratedNpc model might store its location_id if it's independent
+            # This part depends on GeneratedNpc model structure. For now, assume it might have it.
+            if hasattr(npc_entity, 'current_location_id'): # Re-check for safety
+                 location_id_of_entity = getattr(npc_entity, 'current_location_id', None)
+
+
+    log_details_status_removed = {
+        "active_status_id": active_status_id,
+        "entity_id": removed_entity_id,
+        "entity_type": removed_entity_type_enum.value,
+        "status_effect_id": removed_status_effect_id,
+        "status_static_id": removed_status_static_id
+    }
+
+    await log_event(
+        session=session,
+        guild_id=guild_id,
+        event_type=EventType.STATUS_REMOVED.value,
+        details_json=log_details_status_removed,
+        player_id=event_player_id, # Log if the affected entity was a player
+        location_id=location_id_of_entity
+    )
     return True
 
 # CRUD instances that need to be created/moved:

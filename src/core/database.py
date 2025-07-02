@@ -133,12 +133,14 @@ def transactional(func):
             # No usable session provided by the caller, create a new one.
             async with get_db_session() as new_created_session:
                 try:
-                    # Pass the new_created_session as the first argument to func.
+                    # Pass the new_created_session as a keyword argument 'session'.
                     # original_args here are the args passed to the wrapper.
                     # This was the problematic line: func(new_created_session, *args, **kwargs)
                     # if *args still contained a mock_session that wasn't detected.
                     # Now, *processed_args* should be clean of any previously passed session.
-                    result = await func(new_created_session, *processed_args, **kwargs)
+                    # Ensure kwargs doesn't already have 'session' if func doesn't expect it to be overwritten.
+                    # However, given this branch means no session was passed, it's safe to inject.
+                    result = await func(*processed_args, session=new_created_session, **kwargs)
                     return result
                 except Exception as e:
                     logger.error(f"Ошибка в транзакционной функции {func.__name__} (guild_id: {guild_id_for_log}): {e}", exc_info=True)

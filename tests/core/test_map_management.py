@@ -62,7 +62,7 @@ async def test_add_location_master_success(
         )
 
         mock_log_event.assert_called_once() # type: ignore[attr-defined]
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_ADDED # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_ADDED.value # type: ignore[attr-defined]
         commit_mock_add: AsyncMock = mock_db_session.commit # type: ignore
         commit_mock_add.assert_called_once()
 
@@ -115,7 +115,8 @@ async def test_remove_location_master_success(
 
     # Первый get находит удаляемую локацию, второй get находит соседа
     mock_location_crud.get.side_effect = [loc_to_remove, neighbor_loc]
-    mock_location_crud.delete.return_value = True # Changed from remove to delete
+    # mock_location_crud.delete.return_value = True # This was the error
+    mock_location_crud.delete = AsyncMock(return_value=loc_to_remove) # Fix: make it async and return the object
 
     with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
          patch("src.core.map_management.location_crud", new=mock_location_crud), \
@@ -130,7 +131,7 @@ async def test_remove_location_master_success(
         mock_update_neighbors.assert_called_once_with(mock_db_session, neighbor_loc, loc_id_to_remove, {}, add_connection=False) # type: ignore[attr-defined]
 
         mock_log_event.assert_called_once() # type: ignore[attr-defined]
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_REMOVED # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_REMOVED.value # type: ignore[attr-defined]
         commit_mock_remove: AsyncMock = mock_db_session.commit # type: ignore
         commit_mock_remove.assert_called_once()
 
@@ -180,7 +181,7 @@ async def test_connect_locations_master_success(
         mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, conn_type, add_connection=True) # type: ignore[attr-defined]
 
         mock_log_event.assert_called_once() # type: ignore[attr-defined]
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_CONNECTED # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_CONNECTED.value # type: ignore[attr-defined]
         commit_mock_connect: AsyncMock = mock_db_session.commit # type: ignore
         commit_mock_connect.assert_called_once()
 
@@ -212,7 +213,7 @@ async def test_disconnect_locations_master_success(
         mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, {}, add_connection=False) # type: ignore[attr-defined]
 
         mock_log_event.assert_called_once() # type: ignore[attr-defined]
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED.value # type: ignore[attr-defined]
         commit_mock_disconnect: AsyncMock = mock_db_session.commit # type: ignore
         commit_mock_disconnect.assert_called_once()
 

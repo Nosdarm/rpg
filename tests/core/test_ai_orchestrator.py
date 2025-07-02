@@ -529,7 +529,7 @@ async def test_generate_narrative_success_default_language(
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
 
     assert narrative == expected_narrative
-    mock_get_player.assert_called_once_with(mock_session, mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID)
     mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
 
     call_args, _ = mock_narrative_call.call_args

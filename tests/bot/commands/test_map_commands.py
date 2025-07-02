@@ -163,7 +163,7 @@ async def test_map_master_cog_check_no_permission(
     original_master_ids = settings.MASTER_IDS
     settings.MASTER_IDS = [] # Убираем из списка Мастеров на время теста
 
-    allowed = await map_master_cog.cog_check(mock_interaction)
+    allowed = await map_master_cog.interaction_check(mock_interaction)
 
     assert allowed is False
     mock_interaction.response.send_message.assert_called_once_with(
@@ -184,7 +184,7 @@ async def test_map_master_cog_check_is_master_id(
     original_master_ids = settings.MASTER_IDS
     settings.MASTER_IDS = [str(mock_interaction.user.id)] # Пользователь в списке Мастеров
 
-    allowed = await map_master_cog.cog_check(mock_interaction)
+    allowed = await map_master_cog.interaction_check(mock_interaction)
 
     assert allowed is True
     mock_interaction.response.send_message.assert_not_called()

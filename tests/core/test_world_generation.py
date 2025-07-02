@@ -85,7 +85,7 @@ async def test_generate_new_location_via_ai_success(
         )
 
         mock_log_event.assert_called_once()
-        assert mock_log_event.call_args[1]["event_type"] == EventType.WORLD_EVENT_LOCATION_GENERATED
+        assert mock_log_event.call_args[1]["event_type"] == EventType.WORLD_EVENT_LOCATION_GENERATED.value
         assert mock_log_event.call_args[1]["details_json"]["location_id"] == 100
 
         commit_mock: AsyncMock = mock_db_session.commit # type: ignore
