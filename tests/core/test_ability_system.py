@@ -112,36 +112,58 @@ async def test_activate_ability_fireball_on_npc(
     # Arrange
     guild_id = mock_player.guild_id
 
-    # Mock get_ability_by_id_or_static_id
-    async def mock_get_ability(*args, **kwargs):
-        if kwargs.get('ability_identifier') == mock_ability_fireball.static_id or kwargs.get('ability_identifier') == mock_ability_fireball.id:
-            return mock_ability_fireball
-        return None
-
-    # Mock _get_entity
+    # Mock _get_entity (used by activate_ability_v2)
     async def mock_internal_get_entity(session, g_id, e_id, e_type_str):
         if e_id == mock_player.id and e_type_str.lower() == RelationshipEntityType.PLAYER.value.lower(): return mock_player
         if e_id == mock_npc.id and e_type_str.lower() == RelationshipEntityType.GENERATED_NPC.value.lower(): return mock_npc
         return None
 
-    # Simplified patching with return_value
-    with patch('src.core.ability_system.get_ability_by_id_or_static_id', new_callable=AsyncMock, return_value=mock_ability_fireball) as mock_get_ability_patched, \
-         patch('src.core.ability_system._get_entity', side_effect=mock_internal_get_entity) as mock_get_entity_patched: # keep side_effect for _get_entity as it needs to return different types
+    # Mock CRUD operations
+    mock_ability_crud_get = AsyncMock(return_value=mock_ability_fireball)
+    mock_ability_crud_get_by_static_id = AsyncMock(return_value=mock_ability_fireball)
 
-        # Act
+    with patch('src.core.ability_system.ability_crud.get', mock_ability_crud_get), \
+         patch('src.core.ability_system.ability_crud.get_by_static_id', mock_ability_crud_get_by_static_id), \
+         patch('src.core.ability_system._get_entity', side_effect=mock_internal_get_entity) as mock_get_entity_patched:
+
+        # Act: Test with static_id
+        outcome_static_id = await activate_ability_v2(
+            session=mock_session,
+            guild_id=guild_id,
+            entity_id=mock_player.id,
+            entity_type=RelationshipEntityType.PLAYER.value,
+            ability_identifier=mock_ability_fireball.static_id, # Use static_id
+            target_entity_ids=[mock_npc.id],
+            target_entity_types=[RelationshipEntityType.GENERATED_NPC.value]
+        )
+
+        # Assert for static_id case
+        assert outcome_static_id.success is True
+        mock_ability_crud_get_by_static_id.assert_called_with(mock_session, static_id=mock_ability_fireball.static_id, guild_id=guild_id)
+
+        # Reset mocks for next call if necessary or use separate tests
+        mock_ability_crud_get.reset_mock()
+        mock_ability_crud_get_by_static_id.reset_mock()
+        mock_get_entity_patched.reset_mock() # Reset this if side_effect calls are counted across tests
+        mock_apply_status.reset_mock()
+        mock_log_event.reset_mock()
+
+        # Act: Test with id
         outcome = await activate_ability_v2(
             session=mock_session,
             guild_id=guild_id,
             entity_id=mock_player.id,
             entity_type=RelationshipEntityType.PLAYER.value,
-            ability_identifier=mock_ability_fireball.static_id,
+            ability_identifier=mock_ability_fireball.id, # Use ID
             target_entity_ids=[mock_npc.id],
             target_entity_types=[RelationshipEntityType.GENERATED_NPC.value]
         )
 
-        # Assert
+        # Assert for ID case
         assert outcome.success is True
         assert "processed (MVP)" in outcome.message
+        mock_ability_crud_get.assert_called_with(mock_session, id=mock_ability_fireball.id)
+
         assert len(outcome.damage_dealt) == 1
         assert outcome.damage_dealt[0].target_entity_id == mock_npc.id
         assert outcome.damage_dealt[0].amount == 15
@@ -152,18 +174,15 @@ async def test_activate_ability_fireball_on_npc(
         assert outcome.applied_statuses[0].target_entity_id == mock_npc.id
 
         mock_apply_status.assert_called_once()
-        # apply_status_v2(session, guild_id, entity_id, entity_type, status_static_id, duration, ...)
-        # args[0] is a tuple of positional arguments
         called_args_tuple = mock_apply_status.call_args[0]
-        assert called_args_tuple[4] == "burning" # status_static_id is the 5th positional arg (index 4)
-        assert called_args_tuple[2] == mock_npc.id   # entity_id is the 3rd positional arg (index 2)
-
+        assert called_args_tuple[4] == "burning"
+        assert called_args_tuple[2] == mock_npc.id
 
         mock_log_event.assert_called_once()
         log_args, log_kwargs = mock_log_event.call_args
         assert log_kwargs['event_type'] == EventType.ABILITY_USED
         assert log_kwargs['details_json']['ability_static_id'] == "fireball"
-        assert log_kwargs['player_id'] == mock_player.id # Caster is player
+        assert log_kwargs['player_id'] == mock_player.id
 
 # --- Test apply_status_v2 ---
 @pytest.mark.asyncio
@@ -171,23 +190,18 @@ async def test_activate_ability_fireball_on_npc(
 async def test_apply_status_burning_on_player(
     mock_log_event, mock_session, mock_player, mock_status_effect_burning
 ):
-    # Arrange
     guild_id = mock_player.guild_id
 
-    async def mock_get_status_effect(*args, **kwargs):
-        if kwargs.get('static_id') == mock_status_effect_burning.static_id:
-            return mock_status_effect_burning
-        return None
-
+    # Mock _get_entity (used by apply_status_v2)
     async def mock_internal_get_entity(session, g_id, e_id, e_type_str):
         if e_id == mock_player.id and e_type_str.lower() == "player": return mock_player
         return None
 
-    # Using direct return_value for patched functions for simplicity in this test
-    with patch('src.core.ability_system.get_status_effect_by_static_id', new_callable=AsyncMock, return_value=mock_status_effect_burning) as mock_get_status, \
-         patch('src.core.ability_system._get_entity', new_callable=AsyncMock, return_value=mock_player) as mock_get_target_entity:
+    mock_status_effect_crud_get_by_static_id = AsyncMock(return_value=mock_status_effect_burning)
 
-        # Act
+    with patch('src.core.ability_system.status_effect_crud.get_by_static_id', mock_status_effect_crud_get_by_static_id), \
+         patch('src.core.ability_system._get_entity', side_effect=mock_internal_get_entity) as mock_get_target_entity:
+
         success = await apply_status_v2(
             session=mock_session,
             guild_id=guild_id,
@@ -197,8 +211,12 @@ async def test_apply_status_burning_on_player(
             duration=3
         )
 
-        # Assert
         assert success is True
+        mock_status_effect_crud_get_by_static_id.assert_called_once_with(
+            mock_session, static_id=mock_status_effect_burning.static_id, guild_id=guild_id
+        )
+        mock_get_target_entity.assert_called_once() # Check it was called
+
         mock_session.add.assert_called_once()
         added_obj = mock_session.add.call_args[0][0]
         assert isinstance(added_obj, ActiveStatusEffect)
@@ -213,37 +231,30 @@ async def test_apply_status_burning_on_player(
         assert log_kwargs['player_id'] == mock_player.id
 
 
+@pytest.mark.asyncio
+@patch('src.core.ability_system.ability_crud.get_by_static_id', new_callable=AsyncMock, return_value=None)
+async def test_activate_ability_not_found(mock_get_ability_static_id, mock_session, mock_player):
+    outcome = await activate_ability_v2(
+        session=mock_session,
+        guild_id=mock_player.guild_id,
+        entity_id=mock_player.id,
+        entity_type=RelationshipEntityType.PLAYER.value,
+        ability_identifier="non_existent_ability_static_id"
+    )
+    assert outcome.success is False
+    assert "not found" in outcome.message.lower()
+    mock_get_ability_static_id.assert_called_once_with(mock_session, static_id="non_existent_ability_static_id", guild_id=mock_player.guild_id)
+
+
 # TODO: More tests:
-# - activate_ability: ability not found, caster not found, target not found
+# - activate_ability: caster not found, target not found
 # - activate_ability: guild-specific ability used in wrong guild (or by non-guild member if applicable)
 # - activate_ability: global ability usage
 # - activate_ability: no targets
-# - activate_ability: cost deduction (mock entity stats)
+# - activate_ability: cost deduction (mock entity stats & verify change)
+# - activate_ability: HP update on Player/NPC (mock entity & verify change)
 # - activate_ability: different effects (healing)
-# - apply_status: status_effect not found
+# - apply_status: status_effect not found (global and guild-specific cases)
 # - apply_status: target entity not found
-# - apply_status: guild-specific status_effect
 # - remove_status tests
 # - Test interaction with RuleConfig (when logic is added)
-# - Test actual HP/resource updates on mocked entities (when logic is added)
-
-# Placeholder for transactional decorator mock if needed for some test setups
-# def transactional_mock(func):
-#     @wraps(func)
-#     async def wrapper(*args, **kwargs):
-#         if 'session' not in kwargs:
-#             # If called without session, try to get it from args or create a mock one
-#             session_arg_index = -1
-#             try:
-#                 session_arg_index = func.__code__.co_varnames.index('session')
-#             except ValueError:
-#                 pass # 'session' not in varnames
-
-#             if session_arg_index != -1 and session_arg_index < len(args) and isinstance(args[session_arg_index], AsyncSession):
-#                 kwargs['session'] = args[session_arg_index]
-#             elif 'session' not in kwargs: # if still not found
-#                 kwargs['session'] = AsyncMock(spec=AsyncSession) # Provide a default mock session
-
-#         # Call the original function with the session ensured
-#         return await func(*args, **kwargs)
-#     return wrapper
