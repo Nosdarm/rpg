@@ -28,6 +28,8 @@ Result: API for generating narrative text on demand is confirmed to be in place 
 ## Phase 3: Abilities and Checks Mechanics
 - Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped)
 - Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped)
+Description: Defined `StatusEffect` and `ActiveStatusEffect` models in `src/models/status_effect.py`. `StatusEffect` stores definitions (guild-scoped, i18n names/descriptions, properties). `ActiveStatusEffect` tracks instances applied to entities (players, NPCs) with duration, source, and custom properties. Updated `GuildConfig` with relationships. Created Alembic migration `0004_create_status_effects_tables.py`. Added basic unit tests for model creation.
+Result: StatusEffect and ActiveStatusEffect models defined and integrated with basic tests.
 - Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - MVP
 ## Phase 4: World and Location Model
 - Task 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped) - Covered by Task 1.1

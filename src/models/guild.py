@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .pending_conflict import PendingConflict # type: ignore
     from .story_log import StoryLog # Added for StoryLog relationship
     from .ability import Ability # Added for Ability relationship
-    from .status_effect import StatusEffect # Added for StatusEffect relationship
+    from .status_effect import StatusEffect, ActiveStatusEffect # Added for StatusEffect relationship
     from .combat_encounter import CombatEncounter # Added for CombatEncounter relationship
 
 class GuildConfig(Base):
@@ -36,6 +36,7 @@ class GuildConfig(Base):
     story_logs: Mapped[List["StoryLog"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     abilities: Mapped[List["Ability"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     status_effects: Mapped[List["StatusEffect"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    active_status_effects: Mapped[List["ActiveStatusEffect"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     combat_encounters: Mapped[List["CombatEncounter"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
