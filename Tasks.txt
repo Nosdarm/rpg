@@ -56,12 +56,6 @@ Logs the event (19) for the guild. Provides feedback (47).
 Task Block: Phase 7: Narrative Generation and Event Log
 This block presents tasks related to maintaining an event log and generating narrative text, including turn reports.
 
-Task 18: 📚 7.2 AI Narrative Generation (Multilang).
-Description: Call LLM to generate more freeform narrative text (event description, reactions to something).
-API generate_narrative(guild_id: int, context: dict) -> str. Accepts guild_id. Called by other modules to enrich event descriptions.
-Forms the LLM prompt: Context (event, participants, location, WorldState - all for this guild). Requests the LLM to generate text IN THE PLAYER'S LANGUAGE (0.1/0.2) or the bot's main language (guild 1), relevant to the context.
-Result: API for generating narrative text on demand.
-
 Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).
 Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
 API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
