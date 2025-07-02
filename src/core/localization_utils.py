@@ -99,6 +99,10 @@ async def get_batch_localized_entity_names(
     # Group entity_refs by entity_type
     grouped_refs: Dict[str, List[int]] = {}
     for ref_dict in entity_refs: # Итерация по словарям
+        if not isinstance(ref_dict, dict):
+            logger.warning(f"Invalid entity reference found in batch (not a dict): {ref_dict}. Skipping.")
+            continue
+
         entity_type_str = ref_dict.get("entity_type")
         entity_id = ref_dict.get("entity_id")
 

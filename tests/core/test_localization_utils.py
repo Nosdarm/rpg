@@ -275,3 +275,100 @@ async def test_get_batch_localized_entity_names_crud_exception(mock_db_session: 
         names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
 
     assert names_cache[("player", 1)] == "[player ID: 1 (Error)]" # Исправлено P -> p
+
+@pytest.mark.asyncio
+async def test_get_batch_localized_entity_names_all_entities_not_found(mock_db_session: AsyncSession):
+    guild_id = 100
+    entities_to_fetch = [
+        {"entity_type": "player", "entity_id": 1},
+        {"entity_type": "location", "entity_id": 10},
+    ]
+
+    mock_player_crud_instance = MagicMock()
+    mock_player_crud_instance.get_many_by_ids = AsyncMock(return_value=[]) # No players found
+
+    mock_location_crud_instance = MagicMock()
+    mock_location_crud_instance.get_many_by_ids = AsyncMock(return_value=[]) # No locations found
+
+    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
+        "player": mock_player_crud_instance,
+        "location": mock_location_crud_instance,
+    }):
+        names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
+
+    assert names_cache.get(("player", 1)) == "[player ID: 1 (Unknown)]"
+    assert names_cache.get(("location", 10)) == "[location ID: 10 (Unknown)]"
+    assert len(names_cache) == 2
+    mock_player_crud_instance.get_many_by_ids.assert_called_once_with(db=mock_db_session, ids=[1], guild_id=guild_id)
+    mock_location_crud_instance.get_many_by_ids.assert_called_once_with(db=mock_db_session, ids=[10], guild_id=guild_id)
+
+@pytest.mark.asyncio
+async def test_get_batch_localized_entity_names_fallback_and_nameless(mock_db_session: AsyncSession):
+    guild_id = 100
+
+    entity_plain_name = MagicMock(spec=Player)
+    entity_plain_name.id = 1
+    entity_plain_name.name_i18n = {"fr": "Joueur FR"} # No 'en' or 'ru'
+    entity_plain_name.name = "Player Plain Name"
+
+    entity_no_name = MagicMock(spec=Location)
+    entity_no_name.id = 2
+    entity_no_name.name_i18n = None
+    entity_no_name.name = None
+
+    entities_to_fetch = [
+        {"entity_type": "player", "entity_id": 1},
+        {"entity_type": "location", "entity_id": 2},
+    ]
+
+    mock_player_crud_instance = MagicMock()
+    mock_player_crud_instance.get_many_by_ids = AsyncMock(return_value=[entity_plain_name])
+
+    mock_location_crud_instance = MagicMock()
+    mock_location_crud_instance.get_many_by_ids = AsyncMock(return_value=[entity_no_name])
+
+    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
+        "player": mock_player_crud_instance,
+        "location": mock_location_crud_instance,
+    }):
+        # Request "en", fallback "ru". "fr" exists in i18n, but not requested/fallback, so plain name should be used.
+        names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en", "ru")
+
+    assert names_cache.get(("player", 1)) == "Player Plain Name"
+    assert names_cache.get(("location", 2)) == "[location ID: 2 (Nameless)]"
+    assert len(names_cache) == 2
+
+@pytest.mark.asyncio
+async def test_get_batch_localized_entity_names_invalid_refs_skipped(mock_db_session: AsyncSession):
+    guild_id = 100
+    player1 = MagicMock(spec=Player)
+    player1.id = 1
+    player1.name_i18n = {"en": "Player Valid"}
+
+    entities_to_fetch = [
+        {"entity_type": "player", "entity_id": 1},
+        {"entity_type": "player"}, # Missing entity_id
+        {"entity_id": 2}, # Missing entity_type
+        {"entity_type": "player", "entity_id": "not_an_int"},
+        "not_a_dict"
+    ]
+
+    mock_player_crud_instance = MagicMock()
+    mock_player_crud_instance.get_many_by_ids = AsyncMock(return_value=[player1])
+
+    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {"player": mock_player_crud_instance}):
+        with patch.object(localization_utils_logger, 'warning') as mock_logger_warning: # Assuming logger is named localization_utils_logger
+            names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
+
+    assert names_cache.get(("player", 1)) == "Player Valid"
+    assert len(names_cache) == 1 # Only the valid entity should be processed
+    # Check that warnings were logged for invalid entries
+    assert mock_logger_warning.call_count >= 3 # One for each clearly invalid dict structure, "not_a_dict" might not trigger same path
+    # Example check for one of the warnings
+    # mock_logger_warning.assert_any_call("Invalid entity reference found in batch: {'entity_type': 'player'}. Skipping.")
+    # This specific assertion depends on exact logger message format.
+    # For now, checking call_count is a good indicator.
+
+# Need to import logger from the module to patch it correctly
+from src.core import localization_utils as localization_utils_module
+localization_utils_logger = localization_utils_module.logger
