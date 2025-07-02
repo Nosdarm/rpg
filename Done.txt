@@ -32,6 +32,9 @@
 - Task 24: 🗺️ 4.2 Guild Map Generation and Editing (Guild-Scoped)
 Description: Implemented API for AI location generation (`generate_new_location_via_ai`) and Master commands for map management (`add_location`, `remove_location`, `connect_locations`, `disconnect_locations`). Includes AI integration (prompt, response parsing for locations), database operations for locations and their connections, event logging, and Discord command Cog (`MapMasterCog`) with permission checks. Unit tests written for core logic and commands.
 Result: System can now generate new locations via AI (mocked) and allows Masters to manually manage the game map through Discord commands.
+- Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped)
+Description: Implemented `execute_move_for_player_action` in `movement_logic.py` to handle player/party movement based on a target identifier (static_id or name). Includes i18n-aware, case-insensitive name matching with language fallback. Integrated this function into `action_processor.py`. Added unit tests for new search logic and updated existing tests.
+Result: Player/party movement actions Prozessoreingang can now be resolved using location names or static_ids.
 
 ## Пользовательские задачи (Разное)
 - Пользовательская задача: Написать тест для main.py, запустить и исправить баги
