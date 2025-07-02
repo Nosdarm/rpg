@@ -1,6 +1,9 @@
 import pytest
 import asyncio
 import logging # For capturing logs in tests if needed
+
+
+logger = logging.getLogger(__name__)
 from unittest.mock import AsyncMock, patch, MagicMock, call
 
 from sqlalchemy.ext.asyncio import AsyncSession
