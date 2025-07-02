@@ -45,10 +45,12 @@ from .localization_utils import get_localized_entity_name, get_localized_text # 
 from . import report_formatter # Import new report formatter
 # format_log_entry is now internal, only format_turn_report is public
 from .report_formatter import format_turn_report
+from . import ability_system # Import the new ability_system module
+from .ability_system import activate_ability_v2, apply_status_v2, remove_status # Import public functions
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -88,4 +90,8 @@ __all__ = [
     "report_formatter",
     # "format_log_entry", # This is now an internal helper _format_log_entry_with_names_cache
     "format_turn_report",
+    "ability_system",
+    "activate_ability_v2",
+    "apply_status_v2",
+    "remove_status",
 ]

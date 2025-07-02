@@ -7,12 +7,14 @@
     *   Брать одну задачу за раз из файла `Tasks.txt`.
     *   Полностью реализовывать каждую взятую задачу. Это включает написание кода, создание/обновление файлов, и, если применимо, написание тестов.
 3.  **Локальная память в `AGENTS.md`:**
-    *   `AGENTS.md` используется как локальная память.
-    *   Каждое действие, предпринятое для реализации задачи, должно быть немедленно записано в `AGENTS.md`. Это помогает отслеживать прогресс, контекст и принятые решения.
-4.  **Отметка о выполнении в `Done.txt`:**
+    *   `AGENTS.md` используется как ваша локальная память для отслеживания прогресса, контекста и принятых решений.
+    *   Каждое действие, предпринятое для реализации текущей задачи, должно быть немедленно записано в `AGENTS.md` в секции "Лог действий" под заголовком текущей задачи.
+4.  **Планирование текущей задачи:**
+    *   Перед началом реализации новой задачи необходимо составить детальный план ее выполнения.
+    *   Этот план записывается в секцию "Текущий план" в `AGENTS.md`. По завершении задачи эта секция очищается или обновляется для следующей задачи.
+5.  **Отметка о выполнении в `Done.txt`:**
     *   После полной и успешной реализации задачи, информация о выполненной задаче (например, ее номер и краткое описание) записывается в файл `Done.txt`.
-5.  **Планирование:**
-    *   Перед началом реализации новой задачи необходимо составить детальный план. Этот план также должен быть отражен в `AGENTS.md` (например, в секции "Текущий план").
+    *   Задачи из `Tasks.txt` **не удаляются** после записи в `Done.txt`, если только пользователь не дал явной инструкции сделать это. `Tasks.txt` рассматривается как полный список задач.
 6.  **Приоритет инструкций:**
     *   Явные инструкции от пользователя, полученные в ходе текущего диалога, имеют наивысший приоритет.
     *   Затем следуют инструкции из этого раздела ("Новая Инструкция для Агента").
@@ -613,10 +615,130 @@
 
 ## Текущий план
 
-**(Ожидание следующей задачи)**
+**Задача 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped)**
+
+1.  **Analyze Requirements & Existing Code:**
+    *   Review Task 22 description in `Tasks.txt` for `activate_ability` and `apply_status`/`remove_status` APIs.
+    *   Examine existing models: `Ability` (Task 20), `StatusEffect` (Task 21), `Player`, `GeneratedNpc`, `RuleConfig`, `StoryLog`.
+    *   Identify dependencies: `log_event` (Task 19), `RuleConfig` access (Task 0.3).
+    *   Consider how "Entity" (Player/NPC) will be loaded and updated.
+    *   Define what `AbilityOutcomeDetails` should contain (e.g., success, effects applied, damage dealt, messages).
+
+2.  **Define `AbilityOutcomeDetails` Pydantic Model:**
+    *   Create a Pydantic model in `src/models/actions.py` (or a new relevant file like `src/models/ability_outcomes.py`) to represent the structured result of activating an ability.
+    *   Include fields for success status, messages, applied effects, damage, etc.
+
+3.  **Implement `activate_ability` API:**
+    *   Create/update `src/core/ability_system.py` (or a similar name).
+    *   Implement `activate_ability(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str, ability_id: int, target_ids: Optional[List[int]] = None) -> AbilityOutcomeDetails`.
+    *   **Load Data:**
+        *   Load the `Ability` by `ability_id` (and `guild_id` if applicable).
+        *   Load the acting entity (Player/NPC) by `entity_id`, `entity_type`, and `guild_id`.
+        *   Load target entities if `target_ids` are provided.
+    *   **Checks & Validation:**
+        *   Check if the entity possesses/can use the ability (placeholder for now, as entity-ability linkage isn't fully defined).
+        *   Check resource costs (e.g., mana, stamina from `Ability.properties_json` against entity's stats - placeholder for entity stats).
+        *   Validate targets (e.g., are they valid types for the ability? within range? - placeholder for complex targeting).
+    *   **Execute Logic (based on `Ability.properties_json`):**
+        *   This will be an MVP. Interpret `properties_json` for effects like:
+            *   `damage`: Calculate damage (placeholder for damage formulas from `RuleConfig`).
+            *   `apply_status_effects`: List of status effect `static_id`s to apply (references Task 21).
+            *   `healing`: Calculate healing.
+        *   Use `RuleConfig` for this guild for any calculations or effect modifications (placeholder for deep `RuleConfig` integration).
+    *   **Update State:**
+        *   Update entity's state (HP, resources - placeholders).
+        *   If applying status effects, call the `apply_status` function (to be implemented in step 4).
+    *   **Logging:** Call `log_event` (Task 19) with details of the ability activation and outcome.
+    *   Return `AbilityOutcomeDetails`.
+
+4.  **Implement `apply_status` API:**
+    *   In the same `src/core/ability_system.py`.
+    *   Implement `apply_status(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str, status_static_id: str, duration: int, source_ability_id: Optional[int] = None) -> bool` (returns success).
+    *   **Load Data:**
+        *   Load the `StatusEffect` definition by `status_static_id` (and `guild_id` if applicable).
+        *   Load the target entity.
+    *   **Apply Effect:**
+        *   Create an `ActiveStatusEffect` record linking the entity to the `StatusEffect`, including duration and source.
+        *   (Future: Modify entity's effective stats based on `StatusEffect.effects_json`).
+    *   **Logging:** Call `log_event`.
+    *   Return `True` if successful.
+
+5.  **Implement `remove_status` API (Conceptual):**
+    *   Define signature: `remove_status(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str, active_status_id: int) -> bool`.
+    *   Logic: Delete the `ActiveStatusEffect` record. (Future: Revert stat modifications).
+    *   Logging: Call `log_event`.
+    *   *This might be deferred if `apply_status` is complex, focusing on activation first.*
+
+6.  **Integrate with `action_processor.py` (Conceptual):**
+    *   Define how an "use_ability" action from `player.collected_actions_json` would be dispatched to `activate_ability`.
+    *   This is a placeholder for now, as full integration depends on NLU and action dispatching refinement.
+
+7.  **Unit Tests:**
+    *   Create `tests/core/test_ability_system.py`.
+    *   Write tests for `activate_ability`:
+        *   Successful activation with mock data.
+        *   Ability not found, entity not found.
+        *   Insufficient resources (mocked).
+        *   Target validation (basic).
+        *   Correct interpretation of `properties_json` (damage, apply_status).
+        *   `log_event` called correctly.
+    *   Write tests for `apply_status`:
+        *   Successful application.
+        *   StatusEffect not found.
+        *   `ActiveStatusEffect` record created correctly.
+        *   `log_event` called correctly.
+    *   Mock database interactions, `log_event`, and `RuleConfig` access.
+
+8.  **Update `src/core/__init__.py`:**
+    *   Add `ability_system` and its public functions to `__all__`.
+
+9.  **Documentation & Final Review:**
+    *   Ensure docstrings and comments are adequate.
+    *   Review against task requirements.
+    *   Update `AGENTS.md` log for each step.
+    *   Add task to `Done.txt` upon completion.
 
 ---
 ## Лог действий
+
+**Задача 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped)**
+- **Шаг 1: Анализ требований и существующего кода**
+    - Проанализированы требования к API `activate_ability` и `apply_status`/`remove_status` из `Tasks.txt`.
+    - Изучены существующие модели: `Ability`, `StatusEffect`, `ActiveStatusEffect`, `Player`, `GeneratedNpc`, `RuleConfig`, `StoryLog`.
+- **Шаг 2: Определение Pydantic модели `AbilityOutcomeDetails` и обновление модели `Player`**
+    - Создан файл `src/models/ability_outcomes.py` с Pydantic моделями: `AppliedStatusDetail`, `DamageDetail`, `HealingDetail`, `CasterUpdateDetail`, `AbilityOutcomeDetails`.
+    - В модель `Player` (`src/models/player.py`) добавлено поле `current_hp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)`.
+    - Установлены зависимости (`pip install -r requirements.txt`) для использования `alembic`.
+    - Создана миграция Alembic `0012_add_player_current_hp.py` для добавления поля `current_hp` в таблицу `players`.
+- **Шаг 3 & 4: Реализация API `activate_ability` и `apply_status` (MVP)**
+    - Создан файл `src/core/ability_system.py`.
+    - Реализованы функции `activate_ability_v2`, `apply_status_v2`, и `remove_status` (базовая версия).
+        - Включают загрузку `Ability`, `StatusEffect`, `Player`, `GeneratedNpc`.
+        - Используют вспомогательные функции `_get_entity`, `get_ability_by_id_or_static_id`, `get_status_effect_by_static_id`.
+        - Реализована MVP логика для обработки `Ability.properties_json` (стоимость, урон, применение статуса).
+        - Создаются записи `ActiveStatusEffect`.
+        - Вызывается `log_event` с новыми типами событий.
+    - Обновлен `src/models/__init__.py` для импорта моделей из `ability_outcomes.py`.
+    - В `src/models/enums.py` в `EventType` добавлены `ABILITY_USED`, `STATUS_APPLIED`, `STATUS_REMOVED`.
+    - Созданы файлы-заглушки `src/core/crud/crud_ability.py` и `src/core/crud/crud_status_effect.py` с базовыми CRUD-классами и методами `get_by_static_id`.
+    - Обновлен `src/core/crud/__init__.py` для экспорта новых CRUD-объектов и исправления предыдущих пропусков.
+    - Обновлен `src/core/__init__.py` для импорта и экспорта модуля `ability_system` и его публичных функций.
+- **Шаг 7: Написание Unit-тестов (Начальная настройка и базовые сценарии)**
+    - Создан файл `tests/core/test_ability_system.py`.
+    - Реализованы фикстуры для мокирования моделей (`Player`, `GeneratedNpc`, `Ability`, `StatusEffect`) и `AsyncSession`.
+    - Написаны тесты для вспомогательной функции `_get_entity`.
+    - Написаны начальные тесты для `activate_ability_v2` (успешная активация, проверка урона, применения статуса, вызова `log_event`).
+    - Написаны начальные тесты для `apply_status_v2` (успешное применение, создание `ActiveStatusEffect`, вызов `log_event`).
+    - Тесты используют `unittest.mock.patch` и `AsyncMock` для мокирования зависимостей и DB-операций.
+- **Шаг 9: Документация и Финальный Обзор (MVP)**
+    - Добавлены/обновлены docstrings и комментарии в `src/core/ability_system.py`, `src/models/ability_outcomes.py`, и `tests/core/test_ability_system.py`.
+    - Проведена сверка с требованиями задачи для MVP: API `activate_ability` и `apply_status` реализованы с базовой логикой загрузки данных, интерпретации `properties_json` для эффектов (урон, применение статусов), и логирования. Глубокая интеграция `RuleConfig` и полное обновление статов сущностей (HP, ресурсы) остаются задачами для будущих улучшений.
+    - Задача 22 считается выполненной на уровне MVP.
+    - Определены зависимости: `log_event` (из `game_events.py`), доступ к `RuleConfig` (из `rules.py`).
+    - Рассмотрены способы загрузки и обновления "Сущности" (Игрок/NPC). Для MVP решено, что `Player` потребует нового поля `current_hp`, а `GeneratedNpc.stats_json` будет использоваться для хранения `hp`. Управление ресурсами (мана/стамины) будет упрощено.
+    - Определена структура для `AbilityOutcomeDetails` (Pydantic модель): `success`, `message`, `applied_statuses`, `damage_dealt`, `healing_done`, `caster_updates`.
+    - Принято решение создать новый файл `src/core/ability_system.py` для реализации этого функционала.
+    - Отмечено, что для `apply_status` входной параметр `status_id` из `Tasks.txt` будет интерпретирован как `status_static_id` для поиска `StatusEffect`.
 
 - **Задача 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped)**
     - **Анализ требований**: Проанализированы требования к "Status model" из `Tasks.txt`. Выявлено, что существующая модель `StatusEffect` в `src/models/status_effect.py` (созданная в рамках Задачи 2.1) в значительной степени соответствует требованиям. Основные моменты: поля `id`, `guild_id` (nullable), `static_id`, `name_i18n`, `description_i18n`, `effects_json` (взамен `properties_json`, признано подходящим). Подтверждена необходимость реализации частичных уникальных индексов для `static_id` в зависимости от `guild_id`.

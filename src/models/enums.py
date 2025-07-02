@@ -69,6 +69,11 @@ class EventType(enum.Enum):
     WORLD_STATE_CHANGE = "world_state_change" # Significant change in the game world
     MASTER_COMMAND = "master_command"       # An action taken by a Game Master
     ERROR_EVENT = "error_event"             # For logging internal errors if necessary
+
+    # Ability and Status Events
+    ABILITY_USED = "ability_used"
+    STATUS_APPLIED = "status_applied"
+    STATUS_REMOVED = "status_removed" # For future use with remove_status
     # Add more specific event types as the game mechanics are developed
 
 class RelationshipEntityType(enum.Enum):
