@@ -74,7 +74,26 @@ class EventType(enum.Enum):
     ABILITY_USED = "ability_used"
     STATUS_APPLIED = "status_applied"
     STATUS_REMOVED = "status_removed" # For future use with remove_status
-    # Add more specific event types as the game mechanics are developed
+
+    # AI Orchestrator related
+    AI_GENERATION_TRIGGERED = "ai_generation_triggered"
+    AI_RESPONSE_RECEIVED = "ai_response_received"
+    AI_CONTENT_VALIDATION_SUCCESS = "ai_content_validation_success"
+    AI_CONTENT_VALIDATION_FAILED = "ai_content_validation_failed"
+    AI_CONTENT_APPROVED = "ai_content_approved"
+    AI_CONTENT_REJECTED = "ai_content_rejected"
+    AI_CONTENT_EDITED = "ai_content_edited"
+    AI_CONTENT_SAVED = "ai_content_saved"
+
+    # World Generation / Map Management
+    WORLD_EVENT_LOCATION_GENERATED = "world_event_location_generated" # AI generated
+    MASTER_ACTION_LOCATION_ADDED = "master_action_location_added" # Master added
+    MASTER_ACTION_LOCATION_REMOVED = "master_action_location_removed" # Master removed
+    MASTER_ACTION_LOCATIONS_CONNECTED = "master_action_locations_connected" # Master connected
+    MASTER_ACTION_LOCATIONS_DISCONNECTED = "master_action_locations_disconnected" # Master disconnected
+
+    # TODO: Add more event types as needed for other modules
+    # e.g., QUEST_ACCEPTED, QUEST_STEP_COMPLETED, QUEST_COMPLETED, COMBAT_STARTED, COMBAT_ENDED, ITEM_CRAFTED, etc.
 
 class RelationshipEntityType(enum.Enum):
     """

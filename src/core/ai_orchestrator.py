@@ -24,18 +24,40 @@ async def _mock_openai_api_call(prompt: str) -> str:
     Returns a sample JSON string representing AI output.
     """
     logger.info(f"Mocking OpenAI API call for prompt (first 200 chars): {prompt[:200]}...")
-    # This sample should be updatable for different test scenarios
-    # For now, a simple NPC
-    return """
-    [
-        {
-            "entity_type": "npc",
-            "name_i18n": {"en": "Sir Reginald the Bold", "ru": "Сэр Реджинальд Смелый"},
-            "description_i18n": {"en": "A knight of stern gaze and noble heart.", "ru": "Рыцарь сурового взгляда и благородного сердца."},
-            "stats": {"hp": 100, "attack": 10}
-        }
-    ]
-    """
+
+    # Check if the prompt is for location generation
+    if "generation_type\": \"location\"" in prompt:
+        mock_response_obj = [{
+            "entity_type": "location",
+            "name_i18n": {"en": "Mocked Mystic Grove", "ru": "Моковая Мистическая Роща"},
+            "descriptions_i18n": {
+                "en": "A serene grove, sunlight dappling through ancient trees. AI generated.",
+                "ru": "Безмятежная роща, солнечный свет играет на древних деревьях. Сгенерировано ИИ."
+            },
+            "location_type": "FOREST",
+            "coordinates_json": {"x": 15, "y": 25, "plane": "AstralPlane"},
+            "generated_details_json": {
+                "flora_i18n": {"en": "Lush magical plants.", "ru": "Пышные магические растения."},
+                "fauna_i18n": {"en": "Rare mystical creatures.", "ru": "Редкие мистические существа."}
+            },
+            "potential_neighbors": [
+                {"static_id_or_name": "town_square", "connection_description_i18n": {"en": "a shimmering portal", "ru": "мерцающий портал"}},
+                {"static_id_or_name": "dark_cave_entrance", "connection_description_i18n": {"en": "a narrow, overgrown path", "ru": "узкая, заросшая тропа"}}
+            ]
+        }]
+        return json.dumps(mock_response_obj)
+    else:
+        # Default mock (e.g., for NPC or other types if not specified)
+        return """
+        [
+            {
+                "entity_type": "npc",
+                "name_i18n": {"en": "Sir Reginald the Bold", "ru": "Сэр Реджинальд Смелый"},
+                "description_i18n": {"en": "A knight of stern gaze and noble heart.", "ru": "Рыцарь сурового взгляда и благородного сердца."},
+                "stats": {"hp": 100, "attack": 10}
+            }
+        ]
+        """
 
 async def _mock_narrative_openai_api_call(prompt: str, language: str) -> str:
     """
