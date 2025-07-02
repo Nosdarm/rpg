@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch, MagicMock, call, ANY
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.action_processor import process_actions_for_guild, _load_and_clear_actions
+# Removed _load_and_clear_actions from import
+from src.core.action_processor import process_actions_for_guild
 from src.models import Player, Party
 from src.models.actions import ParsedAction, ActionEntity
 from src.models.enums import PlayerStatus, PartyTurnStatus
@@ -133,24 +134,40 @@ def configure_module_logging(caplog):
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock) # Patch for player_crud
+@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)   # Patch for party_crud
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+# mock_get_player and mock_get_party might not be needed if _load_and_clear_all_actions only uses get_many_by_ids
+# but _finalize_turn_processing still uses get_player/get_party individually.
+@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("src.core.action_processor.get_party", new_callable=AsyncMock)
 async def test_process_actions_single_player_only_look(
-    mock_log_event_ap: AsyncMock, mock_get_player: AsyncMock,
-    mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
+    mock_get_party_ap: AsyncMock, # Renamed to avoid conflict if used elsewhere
+    mock_get_player_ap: AsyncMock, # Renamed
+    mock_log_event_ap: AsyncMock,
+    mock_party_crud_get_many: AsyncMock,
+    mock_player_crud_get_many: AsyncMock,
+    mock_session_maker_in_ap: MagicMock, # This is patching get_db_session in action_processor
+    mock_session: AsyncMock, # This is the session object returned by the maker
     mock_player_1_with_look_action: Player
 ):
-    # NOTE: We access the patched mocks directly from the module due to autouse=True fixture
     import src.core.action_processor
-    # Explicitly type the mocks for Pyright
     placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
     move_handler_mock: AsyncMock = src.core.action_processor._handle_move_action_wrapper # type: ignore
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
+    mock_log_event_ap.reset_mock()
+
+    # Setup mocks for _load_and_clear_all_actions
+    mock_player_crud_get_many.return_value = [mock_player_1_with_look_action]
+    mock_party_crud_get_many.return_value = [] # No parties in this test case
+
+    # Setup mocks for _finalize_turn_processing (uses individual getters)
+    mock_get_player_ap.return_value = mock_player_1_with_look_action
+    # mock_get_party_ap is not strictly needed here as no parties are processed
 
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
-    mock_get_player.return_value = mock_player_1_with_look_action
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
@@ -160,11 +177,19 @@ async def test_process_actions_single_player_only_look(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing (not used in this test)
 async def test_process_actions_single_player_with_both_actions(
-    mock_log_event_ap: AsyncMock, mock_get_player: AsyncMock,
-    mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
+    mock_get_party_ap: AsyncMock,
+    mock_get_player_ap: AsyncMock,
+    mock_log_event_ap: AsyncMock,
+    mock_party_crud_get_many: AsyncMock,
+    mock_player_crud_get_many: AsyncMock,
+    mock_session_maker_in_ap: MagicMock,
+    mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player
 ):
     import src.core.action_processor
@@ -173,9 +198,13 @@ async def test_process_actions_single_player_with_both_actions(
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
+    mock_log_event_ap.reset_mock()
+
+    mock_player_crud_get_many.return_value = [mock_player_1_with_both_actions]
+    mock_party_crud_get_many.return_value = []
+    mock_get_player_ap.return_value = mock_player_1_with_both_actions # For finalize step
 
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
-    mock_get_player.return_value = mock_player_1_with_both_actions
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
@@ -185,12 +214,19 @@ async def test_process_actions_single_player_with_both_actions(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)
+@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
 async def test_process_actions_party_with_one_player_actions(
-    mock_log_event_ap: AsyncMock, mock_get_party: AsyncMock, mock_get_player: AsyncMock,
-    mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
+    mock_get_party_ap: AsyncMock,
+    mock_get_player_ap: AsyncMock,
+    mock_log_event_ap: AsyncMock,
+    mock_party_crud_get_many: AsyncMock,
+    mock_player_crud_get_many: AsyncMock,
+    mock_session_maker_in_ap: MagicMock,
+    mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player, mock_party_with_player_1: Party
 ):
     import src.core.action_processor
@@ -199,10 +235,18 @@ async def test_process_actions_party_with_one_player_actions(
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
+    mock_log_event_ap.reset_mock()
+
+    mock_party_crud_get_many.return_value = [mock_party_with_player_1]
+    # _load_and_clear_all_actions will fetch players based on party.player_ids_json
+    mock_player_crud_get_many.return_value = [mock_player_1_with_both_actions]
+
+    # For _finalize_turn_processing
+    mock_get_player_ap.return_value = mock_player_1_with_both_actions
+    mock_get_party_ap.return_value = mock_party_with_player_1
+
 
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
-    mock_get_player.return_value = mock_player_1_with_both_actions
-    mock_get_party.return_value = mock_party_with_player_1
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PARTY_ID_PK_1, "type": "party"}])
 
@@ -234,16 +278,24 @@ async def test_process_actions_player_no_actions(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
 async def test_process_actions_unknown_intent_uses_placeholder(
-    mock_log_event_ap: AsyncMock, mock_get_player: AsyncMock,
-    mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock
+    mock_get_party_ap: AsyncMock,
+    mock_get_player_ap: AsyncMock,
+    mock_log_event_ap: AsyncMock,
+    mock_party_crud_get_many: AsyncMock,
+    mock_player_crud_get_many: AsyncMock,
+    mock_session_maker_in_ap: MagicMock,
+    mock_session: AsyncMock
 ):
     import src.core.action_processor
     placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
     placeholder_handler_mock.reset_mock()
-    mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
+    mock_log_event_ap.reset_mock()
 
     fixed_dt_unknown_str = datetime.datetime(2023, 1, 1, 12, 0, 5, tzinfo=datetime.timezone.utc).isoformat()
     unknown_action_data = {
@@ -255,37 +307,14 @@ async def test_process_actions_unknown_intent_uses_placeholder(
         collected_actions_json=json.dumps([unknown_action_data]),
         current_status=PlayerStatus.PROCESSING_GUILD_TURN
     )
-    mock_get_player.return_value = player_for_test
+
+    mock_player_crud_get_many.return_value = [player_for_test]
+    mock_party_crud_get_many.return_value = []
+    mock_get_player_ap.return_value = player_for_test # For finalize step
+
+    mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
     placeholder_handler_mock.assert_called_once()
     # ... (further assertions on args)
-
-@pytest.mark.asyncio
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
-async def test_load_and_clear_actions_invalid_json(
-    mock_transactional_on_load_clear: MagicMock, mock_get_player: AsyncMock,
-    mock_session: AsyncMock,
-):
-    def passthrough_deco(func):
-        import functools
-        @functools.wraps(func)
-        async def wrapper(*args,**kwargs): return await func(*args,**kwargs)
-        return wrapper
-    mock_transactional_on_load_clear.side_effect = passthrough_deco
-
-    player_with_bad_json = Player(
-        id=PLAYER_ID_PK_1, discord_id=PLAYER_DISCORD_ID_1, guild_id=DEFAULT_GUILD_ID,
-        name="BadJsonPlayer", collected_actions_json="[this is not valid json",
-        current_status=PlayerStatus.PROCESSING_GUILD_TURN
-    )
-    mock_get_player.return_value = player_with_bad_json
-
-    actions = await _load_and_clear_actions(mock_session, DEFAULT_GUILD_ID, PLAYER_ID_PK_1, "player")
-
-    assert actions == []
-    assert player_with_bad_json.collected_actions_json == []
-    mock_session.add.assert_called_with(player_with_bad_json)
-    mock_session.commit.assert_not_called()

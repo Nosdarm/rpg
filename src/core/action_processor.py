@@ -3,7 +3,7 @@ import json
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Any, Coroutine, Callable
+from typing import Any, Coroutine, Callable, Dict, List, Tuple, AsyncContextManager
 
 from .database import get_db_session, transactional
 from ..models import Player, Party, PendingConflict
@@ -65,17 +65,42 @@ async def _handle_move_action_wrapper(
         logger.error(f"Error in _handle_move_action_wrapper: {e}", exc_info=True)
         return {"status": "error", "message": f"Failed to execute move action: {e}"}
 
+async def _handle_intra_location_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    """
+    Wrapper for handle_intra_location_action to match ACTION_DISPATCHER signature.
+    It uses action.intent directly and passes action.model_dump() as action_data.
+    """
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling intra-location action '{action.intent}' with data: {action.entities}")
+    try:
+        # We pass the full ParsedAction.model_dump() as action_data,
+        # handle_intra_location_action will look for 'intent' and 'entities' within it.
+        action_data_dict = action.model_dump(mode='json')
+        result_dict = await handle_intra_location_action(
+            guild_id=guild_id,
+            session=session,
+            player_id=player_id,
+            action_data=action_data_dict # Pass the whole action dict
+        )
+        return result_dict
+    except Exception as e:
+        logger.error(f"Error in _handle_intra_location_action_wrapper for intent {action.intent}: {e}", exc_info=True)
+        return {"status": "error", "message": f"Failed to execute intra-location action '{action.intent}': {e}"}
 
 # Action dispatch table
 ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Coroutine[Any, Any, dict]]] = {
-    "move": _handle_move_action_wrapper,
-    "look": _handle_placeholder_action,
+    "move": _handle_move_action_wrapper, # This is for inter-location movement
+    "look": _handle_placeholder_action, # General look, might be different from examining specific object
     "attack": _handle_placeholder_action, # Placeholder for combat
     "take": _handle_placeholder_action,  # Placeholder for inventory
     "use": _handle_placeholder_action,   # Placeholder for inventory/item use
     "talk": _handle_placeholder_action, # Placeholder for dialogue
-    "examine": _handle_placeholder_action, # Placeholder for detailed look/interaction
-    "examine": _handle_placeholder_action, # Placeholder for detailed look/interaction
+    "examine": _handle_intra_location_action_wrapper, # examine specific object/feature in location
+    "interact": _handle_intra_location_action_wrapper, # interact with specific object/feature
+    "go_to": _handle_intra_location_action_wrapper, # move to sublocation / named point within current location
+    # NLU should be updated to produce "examine", "interact", "go_to" (for sublocations)
+    # instead of the previous generic "examine" placeholder.
     # Add more intents and their handlers here
 }
 
@@ -102,25 +127,8 @@ async def _handle_intra_location_action_wrapper(
         logger.error(f"Error in _handle_intra_location_action_wrapper for intent {action.intent}: {e}", exc_info=True)
         return {"status": "error", "message": f"Failed to execute intra-location action '{action.intent}': {e}"}
 
-
-# Action dispatch table
-ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Coroutine[Any, Any, dict]]] = {
-    "move": _handle_move_action_wrapper, # This is for inter-location movement
-    "look": _handle_placeholder_action, # General look, might be different from examining specific object
-    "attack": _handle_placeholder_action, # Placeholder for combat
-    "take": _handle_placeholder_action,  # Placeholder for inventory
-    "use": _handle_placeholder_action,   # Placeholder for inventory/item use
-    "talk": _handle_placeholder_action, # Placeholder for dialogue
-    "examine": _handle_intra_location_action_wrapper, # examine specific object/feature in location
-    "interact": _handle_intra_location_action_wrapper, # interact with specific object/feature
-    "go_to": _handle_intra_location_action_wrapper, # move to sublocation / named point within current location
-    # NLU should be updated to produce "examine", "interact", "go_to" (for sublocations)
-    # instead of the previous generic "examine" placeholder.
-}
-
-
 # @transactional # Wraps the initial loading and clearing of actions in a transaction - REMOVED
-async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str) -> list[ParsedAction]:
+async def _load_and_clear_actions_for_entity(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str) -> list[ParsedAction]:
     """Loads actions for a single entity and clears them from the DB."""
     actions_to_process = []
     if entity_type == "player":
@@ -170,110 +178,208 @@ async def _load_and_clear_actions(session: AsyncSession, guild_id: int, entity_i
     return actions_to_process
 
 
-async def process_actions_for_guild(guild_id: int, entities_and_types_to_process: list[dict]):
+async def _load_and_clear_all_actions(
+    session: AsyncSession, guild_id: int, entities_and_types_to_process: list[dict]
+) -> list[tuple[int, ParsedAction]]:
     """
-    Main asynchronous worker for processing a guild's turn.
-    entities_and_types_to_process: list of dicts, e.g. [{'id': 1, 'type': 'player', 'discord_id': 123}, {'id': 2, 'type': 'party', 'name': 'The Group'}]
+    Loads actions for all relevant players and clears them from the DB in a single transaction.
+    Optimized to load players and parties in batches.
+    Returns a list of (player_id, action) tuples.
     """
-    session_maker = get_db_session
-    all_player_actions_for_turn: list[tuple[int, ParsedAction]] = [] # Store as (player_id, action)
+    all_player_actions_for_turn: list[tuple[int, ParsedAction]] = []
 
-    async with session_maker() as session:
-        # 1. Load actions for all relevant players and clear them from DB
-        # This initial load is within one transaction managed by @transactional on _load_and_clear_actions
-        player_ids_in_processing_parties = set()
+    player_entity_ids_direct = {info["id"] for info in entities_and_types_to_process if info["type"] == "player"}
+    party_entity_ids = {info["id"] for info in entities_and_types_to_process if info["type"] == "party"}
 
-        for entity_info in entities_and_types_to_process:
-            entity_id = entity_info["id"]
-            entity_type = entity_info["type"]
+    all_player_ids_to_process_actions_for = set(player_entity_ids_direct)
+    parties_map: Dict[int, Party] = {}
 
-            if entity_type == "player":
-                player_actions = await _load_and_clear_actions(session, guild_id, entity_id, "player")
-                for action in player_actions:
-                    all_player_actions_for_turn.append((entity_id, action))
-            elif entity_type == "party":
-                party = await get_party(session, guild_id, entity_id) # Corrected
-                if party and party.player_ids_json:
-                    for player_pk_in_party in party.player_ids_json:
-                        player_ids_in_processing_parties.add(player_pk_in_party)
-                        # Check if this player was also passed as individual entity_info
-                        # to avoid double loading if player is passed AND their party is passed.
-                        is_player_individually_processed = any(
-                            p_info['type'] == 'player' and p_info['id'] == player_pk_in_party
-                            for p_info in entities_and_types_to_process
-                        )
-                        if not is_player_individually_processed:
-                            player_actions = await _load_and_clear_actions(session, guild_id, player_pk_in_party, "player")
-                            for action in player_actions:
-                                all_player_actions_for_turn.append((player_pk_in_party, action))
-        await session.commit() # Commit the clearing of collected_actions_json
+    if party_entity_ids:
+        # Dynamically import party_crud here if not already available at module level
+        # For now, assume party_crud is available similar to how player_crud would be.
+        # from .crud.crud_party import party_crud # This might cause circular if party_crud needs this module
+        # A better approach would be to pass crud instances or use a registry.
+        # For this refactor, let's assume party_crud is accessible.
+        # This import might need adjustment based on actual project structure and dependencies.
+        from .crud.crud_party import party_crud # Assuming this is safe
 
-    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Processing {len(all_player_actions_for_turn)} actions.")
+        loaded_parties = await party_crud.get_many_by_ids(db=session, ids=list(party_entity_ids), guild_id=guild_id)
+        for party in loaded_parties:
+            parties_map[party.id] = party
+            if party.player_ids_json:
+                for p_id in party.player_ids_json:
+                    all_player_ids_to_process_actions_for.add(p_id)
 
-    # 2. Conflict Analysis (Conceptual MVP for party actions)
-    # For now, we'll assume actions are processed individually without complex conflict resolution.
-    # A real implementation would group actions by party, check for conflicts, etc.
-    # If conflict -> create PendingConflict, notify master, skip action.
-    # Example:
-    # conflict_rule = await get_rule(session_maker, guild_id, "party_conflict_policy", "leader_decides")
-    # if conflict_rule == "manual_moderation_required_for_movement": ...
+    if not all_player_ids_to_process_actions_for:
+        logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: No players found to process actions for.")
+        return []
 
-    processed_actions_results = []
+    # Dynamically import player_crud
+    from .crud.crud_player import player_crud
 
-    # 3. Action Execution Phase - Each action in its own transaction
-    for player_id, action in all_player_actions_for_turn:
-        async with session_maker() as action_session: # New session for each action's transaction
+    loaded_players_list = await player_crud.get_many_by_ids(db=session, ids=list(all_player_ids_to_process_actions_for), guild_id=guild_id)
+    players_map: Dict[int, Player] = {p.id: p for p in loaded_players_list}
+
+    for player_id, player_obj in players_map.items():
+        if player_obj.collected_actions_json:
+            logger.debug(f"Player {player_id} raw collected_actions_json: {player_obj.collected_actions_json}")
             try:
-                async with action_session.begin(): # Start transaction for this action
+                actions_data = json.loads(player_obj.collected_actions_json) if isinstance(player_obj.collected_actions_json, str) else player_obj.collected_actions_json
+                logger.debug(f"Player {player_id} actions_data after potential json.loads: {actions_data}")
+                for i, action_data_item in enumerate(actions_data):
+                    try:
+                        parsed_action = ParsedAction(**action_data_item)
+                        all_player_actions_for_turn.append((player_id, parsed_action))
+                    except Exception as e_parse:
+                        logger.error(f"Player {player_id}, action item {i} failed Pydantic parsing: {action_data_item}", exc_info=True)
+                player_obj.collected_actions_json = [] # Clear actions
+                session.add(player_obj) # Add to session to mark for update
+            except json.JSONDecodeError:
+                logger.error(f"[ACTION_PROCESSOR] Failed to decode actions for player {player_id}", exc_info=True)
+                player_obj.collected_actions_json = []
+                session.add(player_obj)
+            except Exception as e:
+                logger.error(f"[ACTION_PROCESSOR] Error processing actions_data for player {player_id}: {e}", exc_info=True)
+                player_obj.collected_actions_json = []
+                session.add(player_obj)
+        elif player_obj:
+            logger.debug(f"Player {player_id} found, but collected_actions_json is empty or None: {player_obj.collected_actions_json}")
+
+    if all_player_actions_for_turn:
+        logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Prepared {len(all_player_actions_for_turn)} actions from {len(players_map)} players for processing.")
+
+    return all_player_actions_for_turn
+
+
+async def _execute_player_actions(
+    session_maker: Callable[[], AsyncContextManager[AsyncSession]],
+    guild_id: int,
+    all_player_actions_for_turn: list[tuple[int, ParsedAction]]
+) -> list[dict]:
+    """
+    Executes all player actions, each in its own transaction.
+    Returns a list of action results.
+    """
+    processed_actions_results = []
+    for player_id, action in all_player_actions_for_turn:
+        async with session_maker() as action_session:  # New session for each action's transaction
+            try:
+                async with action_session.begin():  # Start transaction for this action
                     handler = ACTION_DISPATCHER.get(action.intent, _handle_placeholder_action)
                     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Dispatching action '{action.intent}' to {handler.__name__}")
-
                     action_result = await handler(action_session, guild_id, player_id, action)
                     processed_actions_results.append({"player_id": player_id, "action": action.model_dump(mode='json'), "result": action_result})
-
-                    # The transaction is committed here if handler is successful
                 logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Action '{action.intent}' committed successfully.")
             except Exception as e:
-                # Transaction automatically rolled back by async with session.begin() context manager
                 logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Error processing action '{action.intent}': {e}", exc_info=True)
                 processed_actions_results.append({
                     "player_id": player_id,
                     "action": action.model_dump(mode='json'),
                     "result": {"status": "error", "message": str(e)}
                 })
-                await log_event(action_session, guild_id=guild_id, event_type="ACTION_PROCESSING_ERROR",
-                                details_json={"player_id": player_id, "action": action.model_dump(mode='json'), "error": str(e)}, player_id=player_id)
-                # No explicit rollback needed due to context manager, but commit is skipped.
+                # Log event within the same session if possible, but outside the failed transaction
+                try:
+                    async with action_session.begin(): # Attempt a new transaction for logging
+                        await log_event(action_session, guild_id=guild_id, event_type="ACTION_PROCESSING_ERROR",
+                                        details_json={"player_id": player_id, "action": action.model_dump(mode='json'), "error": str(e)}, player_id=player_id)
+                    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: ACTION_PROCESSING_ERROR event logged.")
+                except Exception as log_e:
+                    logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Failed to log ACTION_PROCESSING_ERROR: {log_e}", exc_info=True)
+    return processed_actions_results
 
-    # 4. Post-Processing (Update statuses, log turn completion, send feedback)
+
+async def _finalize_turn_processing(
+    session_maker: Callable[[], AsyncContextManager[AsyncSession]],
+    guild_id: int,
+    entities_and_types_to_process: list[dict],
+    processed_actions_results_count: int
+) -> None:
+    """
+    Updates entity statuses and logs the completion of the guild turn.
+    """
     async with session_maker() as final_session:
         async with final_session.begin():
             for entity_info in entities_and_types_to_process:
                 entity_id = entity_info["id"]
                 entity_type = entity_info["type"]
                 if entity_type == "player":
-                    player = await get_player(final_session, guild_id, entity_id) # Corrected
+                    player = await get_player(final_session, guild_id, entity_id)
                     if player and player.current_status == PlayerStatus.PROCESSING_GUILD_TURN:
-                        player.current_status = PlayerStatus.EXPLORING # Or PlayerStatus.AWAITING_INPUT
+                        player.current_status = PlayerStatus.EXPLORING
                         final_session.add(player)
                         logger.info(f"[ACTION_PROCESSOR] Player {player.id} status reset to EXPLORING.")
                 elif entity_type == "party":
-                    party = await get_party(final_session, guild_id, entity_id) # Corrected
+                    party = await get_party(final_session, guild_id, entity_id)
                     if party and party.turn_status == PartyTurnStatus.PROCESSING_GUILD_TURN:
-                        party.turn_status = PartyTurnStatus.IDLE # Or AWAITING_PARTY_ACTION
+                        party.turn_status = PartyTurnStatus.IDLE
                         final_session.add(party)
                         logger.info(f"[ACTION_PROCESSOR] Party {party.id} status reset to IDLE.")
-                        # Reset party members too if they were part of this party's processing
                         for p_id in (party.player_ids_json or []):
-                             member = await get_player(final_session, guild_id, p_id) # Corrected
-                             if member and member.current_status == PlayerStatus.PROCESSING_GUILD_TURN:
-                                 member.current_status = PlayerStatus.EXPLORING
-                                 final_session.add(member)
-                                 logger.info(f"[ACTION_PROCESSOR] Party Member {member.id} status reset to EXPLORING.")
-
+                            member = await get_player(final_session, guild_id, p_id)
+                            if member and member.current_status == PlayerStatus.PROCESSING_GUILD_TURN:
+                                member.current_status = PlayerStatus.EXPLORING
+                                final_session.add(member)
+                                logger.info(f"[ACTION_PROCESSOR] Party Member {member.id} status reset to EXPLORING.")
             await log_event(final_session, guild_id=guild_id, event_type="GUILD_TURN_PROCESSED",
-                            details_json={"processed_entities": entities_and_types_to_process, "results_summary_count": len(processed_actions_results)})
-        # Commit status updates and final log event
+                            details_json={"processed_entities": entities_and_types_to_process, "results_summary_count": processed_actions_results_count})
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Entity statuses updated and GUILD_TURN_PROCESSED event logged.")
+
+
+async def process_actions_for_guild(guild_id: int, entities_and_types_to_process: list[dict]):
+    """
+    Main asynchronous worker for processing a guild's turn.
+    Orchestrates loading, execution, and finalization of player actions.
+    entities_and_types_to_process: list of dicts, e.g. [{'id': 1, 'type': 'player', 'discord_id': 123}, {'id': 2, 'type': 'party', 'name': 'The Group'}]
+    """
+    session_maker = get_db_session
+    all_player_actions_for_turn: list[tuple[int, ParsedAction]] = []
+    processed_actions_results: list[dict] = []
+
+    # 1. Load and clear all player actions for the turn in a single transaction
+    try:
+        async with session_maker() as session:
+            all_player_actions_for_turn = await _load_and_clear_all_actions(session, guild_id, entities_and_types_to_process)
+            await session.commit() # Commit the clearing of collected_actions_json
+        logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Loaded and cleared {len(all_player_actions_for_turn)} player actions.")
+    except Exception as e:
+        logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Critical error during action loading/clearing phase: {e}", exc_info=True)
+        # Optionally, attempt to log this critical failure to the database if possible
+        try:
+            async with session_maker() as error_log_session:
+                await log_event(error_log_session, guild_id=guild_id, event_type="ACTION_LOAD_ERROR",
+                                details_json={"error": str(e), "phase": "load_and_clear_all_actions"})
+                await error_log_session.commit()
+        except Exception as log_e_critical:
+            logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Failed to log critical ACTION_LOAD_ERROR: {log_e_critical}", exc_info=True)
+        return # Stop processing if actions can't be loaded
+
+    # 2. Conflict Analysis (Conceptual MVP)
+    # Placeholder for future conflict resolution logic
+    # conflict_rule = await get_rule(session_maker, guild_id, "party_conflict_policy", "leader_decides")
+    # if conflict_rule == "manual_moderation_required_for_movement": ...
+    # For now, all loaded actions are assumed to be executable.
+
+    # 3. Execute player actions, each in its own transaction
+    if all_player_actions_for_turn:
+        processed_actions_results = await _execute_player_actions(session_maker, guild_id, all_player_actions_for_turn)
+        logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Execution phase completed for {len(all_player_actions_for_turn)} actions. Results count: {len(processed_actions_results)}.")
+    else:
+        logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: No player actions to execute for this turn.")
+
+    # 4. Finalize turn processing (update statuses, log turn completion)
+    try:
+        await _finalize_turn_processing(session_maker, guild_id, entities_and_types_to_process, len(processed_actions_results))
+    except Exception as e:
+        logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Error during turn finalization phase: {e}", exc_info=True)
+        # Optionally, log this error to the database
+        try:
+            async with session_maker() as error_log_session:
+                await log_event(error_log_session, guild_id=guild_id, event_type="TURN_FINALIZE_ERROR",
+                                details_json={"error": str(e), "phase": "finalize_turn_processing"})
+                await error_log_session.commit()
+        except Exception as log_e_final:
+            logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Failed to log TURN_FINALIZE_ERROR: {log_e_final}", exc_info=True)
+
 
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Turn processing complete. Processed {len(processed_actions_results)} individual action results.")
     # TODO: Send feedback reports to players/master based on processed_actions_results

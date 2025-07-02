@@ -199,6 +199,40 @@ class CRUDBase(Generic[ModelType]):
         result = await db.execute(statement)
         return list(result.scalars().all())
 
+    async def get_many_by_ids(
+        self, db: AsyncSession, *, ids: List[Any], guild_id: Optional[int] = None
+    ) -> List[ModelType]:
+        """
+        Get multiple records by a list of their IDs.
+
+        :param db: The database session.
+        :param ids: A list of IDs to fetch.
+        :param guild_id: Optional guild ID to filter by.
+        :return: A list of objects. Returns empty list if ids is empty.
+        """
+        if not ids:
+            return []
+
+        pk_column_name = "id" # Default assumption
+        if hasattr(self.model, "static_id") and not hasattr(self.model, "id"):
+             pk_column_name = "static_id"
+
+        if not hasattr(self.model, pk_column_name):
+            logger.error(f"Model {self.model.__name__} does not have a recognized PK attribute ('id' or 'static_id') for get_many_by_ids operation.")
+            return []
+
+        pk_column = getattr(self.model, pk_column_name)
+        statement = select(self.model).where(pk_column.in_(ids))
+
+        if guild_id is not None and hasattr(self.model, "guild_id"):
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
+
+        result = await db.execute(statement) # This was missing await previously for execute
+        # For execute returning a result, scalars().all() is correct.
+        # If result itself was awaitable (e.g. from a different ORM or raw driver), then await result would be needed.
+        # SQLAlchemy's execute() on an AsyncSession returns a Result object, not a coroutine.
+        return list(result.scalars().all())
+
 
 # Example of how to use it for a specific model (e.g., GuildConfig)
 # from models.guild import GuildConfig
