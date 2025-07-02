@@ -205,4 +205,4 @@ async def test_get_localized_entity_name_generic_getter_fallback(
         # These assertions might be too fragile if the internal logic of get_localized_entity_name changes slightly
         # mock_getter_map_empty.get.assert_called_with("player")
         # mock_model_map_with_player.get.assert_called_with("player")
-```
+

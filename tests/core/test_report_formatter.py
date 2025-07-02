@@ -232,4 +232,4 @@ async def test_format_turn_report_skips_mismatched_guild_id_entry(
         call(mock_session, log_entries[2], "en")
     ]
     mock_format_log_entry.assert_has_calls(expected_calls)
-```
+
