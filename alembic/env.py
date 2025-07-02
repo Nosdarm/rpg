@@ -9,6 +9,10 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
+# --- Add this print statement ---
+print(f"DEBUG: alembic/env.py: Initial sqlalchemy.url from alembic.ini (if any): {config.get_main_option('sqlalchemy.url')}")
+# --- End of added print statement ---
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -30,9 +34,17 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), ".."
 from src.config.settings import DATABASE_URL # Импортируем URL базы данных
 from src.models import Base # Импортируем базовую модель из src.models.__init__
 
+# --- Add this print statement ---
+print(f"DEBUG: alembic/env.py: DATABASE_URL from src.config.settings: {DATABASE_URL}")
+# --- End of added print statement ---
+
 # Устанавливаем URL базы данных из настроек проекта
 # Это переопределит sqlalchemy.url из alembic.ini
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+# --- Add this print statement ---
+print(f"DEBUG: alembic/env.py: Final sqlalchemy.url set for Alembic: {config.get_main_option('sqlalchemy.url')}")
+# --- End of added print statement ---
 
 target_metadata = Base.metadata
 # --- Конец изменений ---
