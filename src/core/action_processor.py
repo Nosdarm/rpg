@@ -48,22 +48,57 @@ async def _handle_move_action_wrapper(
 ) -> dict:
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling MOVE action: {action.entities}")
     try:
-        # Assuming movement_logic.handle_move_action is adapted or a new internal version is created
-        # that takes a session and player_id (PK) instead of discord_id.
-        # For now, this is a conceptual adaptation.
-        # from src.core.movement_logic import execute_move_for_player
-        # target_location_static_id = action.get_entity_value("target_location_static_id") # Example
-        # if target_location_static_id:
-        #     result = await execute_move_for_player(session, guild_id, player_id, target_location_static_id)
-        #     return result
-        # else:
-        #     return {"status": "error", "message": "Target location not specified for move action."}
-        await log_event(session=session, guild_id=guild_id, event_type="ACTION_MOVE_EXECUTED",
-                        details_json={"player_id": player_id, "action": action.model_dump(mode='json')}, player_id=player_id)
-        return {"status": "success", "message": "Move action (placeholder) handled."} # Placeholder
+        from src.core.movement_logic import execute_move_for_player_action # Import here to avoid circular deps at module level if any
+
+        target_location_identifier = None
+        # Try to get identifier from entities. NLU might provide it under various keys.
+        # Common ones could be 'name', 'destination', 'target_location', 'location_static_id'.
+        if action.entities:
+            for entity in action.entities:
+                # Corrected: use entity.type instead of entity.entity_type
+                if entity.type == "location_name" or entity.type == "location_static_id":
+                    target_location_identifier = entity.value
+                    break
+            # Fallback or alternative common keys if not found by specific entity_type
+            if not target_location_identifier:
+                if len(action.entities) == 1: # If only one entity, assume it's the target
+                     target_location_identifier = action.entities[0].value
+                else: # Heuristic: look for common keys
+                    for entity in action.entities:
+                        # Corrected: use entity.type instead of entity.entity_type
+                        if entity.type.lower() in ["destination", "target", "location"]:
+                             target_location_identifier = entity.value
+                             break
+
+
+        if not target_location_identifier:
+            # Fallback: if intent is 'move' and there's a single entity value, use it.
+            # This might be fragile and depends on NLU output structure.
+            # A more robust NLU would clearly label the target location entity.
+            # For now, let's assume NLU provides at least one entity that is the target.
+            # If action.entities is a list of {'entity_type': 'some_type', 'value': 'some_value'}
+            if action.entities and isinstance(action.entities, list) and len(action.entities) > 0:
+                 # Let's assume the NLU is simple and the first entity value is the target if not specifically typed.
+                 # This part needs to be robust based on actual NLU output.
+                 # For this implementation, we'll be strict: NLU must provide an entity we can identify as the target.
+                 # The logic above tries to find a suitable entity. If none, then it's an error.
+                 pass # Identifier already sought above
+
+        if not target_location_identifier:
+            logger.warning(f"Player {player_id} MOVE action: Target location identifier not found in entities: {action.entities}")
+            return {"status": "error", "message": "Where do you want to move? Target location not specified clearly."}
+
+        logger.info(f"Player {player_id} MOVE action: Attempting to move to '{target_location_identifier}'.")
+        result = await execute_move_for_player_action(
+            session=session,
+            guild_id=guild_id,
+            player_id=player_id,
+            target_location_identifier=target_location_identifier
+        )
+        return result
     except Exception as e:
-        logger.error(f"Error in _handle_move_action_wrapper: {e}", exc_info=True)
-        return {"status": "error", "message": f"Failed to execute move action: {e}"}
+        logger.error(f"Error in _handle_move_action_wrapper for player {player_id}: {e}", exc_info=True)
+        return {"status": "error", "message": f"Failed to execute move action due to an internal error: {e}"}
 
 async def _handle_intra_location_action_wrapper(
     session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction

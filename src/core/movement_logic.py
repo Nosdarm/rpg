@@ -1,16 +1,17 @@
 import logging
 import json
 import asyncio
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any # Added Dict, Any here
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select # Ensure this is imported for select statements
+from sqlalchemy.future import select
+from sqlalchemy import func # Added for func.lower
 
 from .database import transactional, get_db_session
 from .crud import player_crud, party_crud, location_crud
 from ..models import Player, Party, Location
-from .game_events import on_enter_location, log_event # Placeholders
-from .rules import get_rule # For party movement rules, if needed later
+from .game_events import on_enter_location, log_event
+from .rules import get_rule # Now used for guild_main_language as well
 
 logger = logging.getLogger(__name__)
 
@@ -222,3 +223,204 @@ async def example_usage():
     # success, message = await handle_move_action(guild_id_example, player_discord_id_example, target_static_id_example)
     # print(f"Movement attempt: Success: {success}, Message: {message}")
     pass
+
+
+async def _find_location_by_identifier(
+    session: AsyncSession,
+    guild_id: int,
+    identifier: str,
+    player_language: Optional[str],
+    guild_main_language: Optional[str],
+) -> Optional[Location]:
+    """
+    Finds a location by its static_id or name (i18n).
+    Priority: static_id, then name by language priority.
+    For name search, it's case-insensitive. If multiple names match, logs warning and returns first.
+    """
+    # 1. Try to find by static_id (exact match)
+    location = await location_crud.get_by_static_id(session, guild_id=guild_id, static_id=identifier)
+    if location:
+        logger.debug(f"Found location by static_id '{identifier}' for guild {guild_id}: {location.id}")
+        return location
+
+    # 2. Try to find by name (case-insensitive, language priority)
+    # Ensure identifier is in lowercase for case-insensitive comparison
+    lower_identifier = identifier.lower()
+
+    language_priority: list[str] = []
+    if player_language:
+        language_priority.append(player_language)
+    if guild_main_language and guild_main_language != player_language: # Avoid duplicate
+        language_priority.append(guild_main_language)
+    if 'en' not in language_priority: # Add 'en' if not already included
+        language_priority.append('en')
+
+    logger.debug(f"Searching for location by name '{identifier}' (normalized: '{lower_identifier}') for guild {guild_id} with language priority: {language_priority}")
+
+    for lang in language_priority:
+        # Query for locations where name_i18n->>'lang' ILIKE identifier
+        # Using func.lower on the JSONB text value for case-insensitivity.
+        # The specific JSON access (->>) and functions depend on the DB backend (PostgreSQL assumed for JSONB).
+        stmt = (
+            select(Location)
+            .where(
+                Location.guild_id == guild_id,
+                func.lower(Location.name_i18n.op("->>")(lang)) == lower_identifier
+            )
+        )
+        results = await session.execute(stmt)
+        found_locations = results.scalars().all()
+
+        if found_locations:
+            if len(found_locations) > 1:
+                logger.warning(
+                    f"Ambiguous location name '{identifier}' (lang: {lang}) for guild {guild_id}. "
+                    f"Found {len(found_locations)} locations. Returning the first one: {found_locations[0].id}."
+                )
+            else:
+                logger.debug(f"Found location by name '{identifier}' (lang: {lang}) for guild {guild_id}: {found_locations[0].id}")
+            return found_locations[0]
+
+    # TODO: Consider searching other keys in name_i18n if no match in priority languages, though this might be too broad.
+    # For now, if not found in priority languages, it's considered not found by name.
+
+    logger.debug(f"Location with identifier '{identifier}' not found for guild {guild_id} by static_id or prioritized names.")
+    return None
+
+
+async def execute_move_for_player_action(
+    session: AsyncSession,
+    guild_id: int,
+    player_id: int, # Primary Key of the player
+    target_location_identifier: str,
+) -> Dict[str, Any]:
+    """
+    Handles the logic for a player moving to a new location, designed to be called
+    from the action processing system.
+
+    Args:
+        session: The SQLAlchemy AsyncSession.
+        guild_id: The ID of the guild.
+        player_id: The Primary Key of the player initiating the move.
+        target_location_identifier: The static_id or name of the target location.
+
+    Returns:
+        A dictionary with "status" and "message".
+    """
+    try:
+        player = await player_crud.get(session, id=player_id)
+        if not player:
+            # This should ideally not happen if player_id comes from a validated context
+            raise MovementError(f"Player with ID {player_id} not found.")
+        if player.guild_id != guild_id:
+            # Security check
+            raise MovementError(f"Player {player_id} does not belong to guild {guild_id}.")
+
+        if player.current_location_id is None:
+            raise MovementError(f"Player {player.id} (Guild: {guild_id}) has no current location set.")
+
+        current_location = await location_crud.get(session, id=player.current_location_id)
+        if not current_location:
+            raise MovementError(f"Current location ID {player.current_location_id} for player {player.id} not found.")
+        if current_location.guild_id != guild_id:
+             raise MovementError(f"Data integrity issue: Player's current location {current_location.id} does not belong to guild {guild_id}.")
+
+        # Resolve target_location_identifier using the new helper
+        player_lang = player.selected_language
+        # Fetch guild_main_language using get_rule; provide a default if not set or rule system not fully integrated
+        guild_main_lang = await get_rule(session, guild_id, "guild_main_language", default="en")
+        # Ensure guild_main_lang is a string, as get_rule can return complex types if the rule is complex.
+        # For 'guild_main_language', we expect a simple string.
+        if not isinstance(guild_main_lang, str):
+            logger.warning(f"Rule 'guild_main_language' for guild {guild_id} returned non-string value: {guild_main_lang}. Defaulting to 'en'.")
+            guild_main_lang = "en"
+
+
+        target_location = await _find_location_by_identifier(
+            session,
+            guild_id,
+            target_location_identifier,
+            player_language=player_lang,
+            guild_main_language=guild_main_lang
+        )
+
+        if not target_location:
+            logger.info(f"Player {player.id} tried to move to '{target_location_identifier}', but it was not found (guild: {guild_id}).")
+            return {"status": "error", "message": f"Location '{target_location_identifier}' could not be found."}
+
+        if target_location.id == current_location.id:
+            # Using name_i18n.get for user-facing messages
+            # Assuming 'en' as a default fallback if specific language logic isn't fully implemented here
+            loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
+            return {"status": "error", "message": f"You are already at '{loc_name}'."}
+
+        # Check for connectivity
+        is_neighbor = False
+        if isinstance(current_location.neighbor_locations_json, list):
+            for neighbor_info in current_location.neighbor_locations_json:
+                if isinstance(neighbor_info, dict) and neighbor_info.get("location_id") == target_location.id:
+                    is_neighbor = True
+                    break
+
+        if not is_neighbor:
+            curr_loc_name = current_location.name_i18n.get(player.selected_language or 'en', current_location.static_id)
+            target_loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
+            return {"status": "error", "message": f"You cannot move directly from '{curr_loc_name}' to '{target_loc_name}'."}
+
+        party: Optional[Party] = None
+        if player.current_party_id:
+            party = await party_crud.get(session, id=player.current_party_id)
+            if not party:
+                logger.warning(f"Player {player.id} has party_id {player.current_party_id} but party not found. Proceeding as solo.")
+            elif party.guild_id != guild_id:
+                logger.error(f"Data integrity issue: Player's party {party.id} does not belong to guild {guild_id}.")
+                party = None # Treat as solo
+
+        # TODO (Task 25): Integrate RuleConfig check for party_movement_policy.
+        # Example:
+        # party_movement_rule = await get_rule(session, guild_id, "party_movement_policy", default_value="all_move")
+        # if party_movement_rule == "leader_only" and (not party or party.leader_id != player.id):
+        #     # Logic to prevent movement or handle accordingly
+        #     pass
+        # if party_movement_rule == "majority_vote":
+        #     # Complex logic for voting needed
+        #     pass
+        # For current MVP (Task 1.3 / Task 25), if player is in a party, the whole party moves.
+        # This matches the "all_move" implicit policy.
+
+        await _update_entities_location(
+            guild_id=guild_id,
+            player=player,
+            target_location=target_location,
+            party=party,
+            session=session # Explicitly pass session to the transactional function
+        )
+
+        # Asynchronous call to on_enter_location (fire and forget)
+        entity_id_for_event = party.id if party else player.id
+        entity_type_for_event = "party" if party else "player"
+
+        # Ensure on_enter_location is called after the current transaction might have committed.
+        # It's better to schedule it if it performs its own DB operations or is lengthy.
+        asyncio.create_task(
+            on_enter_location(
+                guild_id=guild_id,
+                entity_id=entity_id_for_event,
+                entity_type=entity_type_for_event,
+                location_id=target_location.id,
+            )
+        )
+
+        target_loc_display_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
+        moved_entity_message = "You and your party have" if party else "You have"
+        return {"status": "success", "message": f"{moved_entity_message} moved to '{target_loc_display_name}'."}
+
+    except MovementError as e:
+        logger.warning(f"MovementError for player {player_id} in guild {guild_id} targeting '{target_location_identifier}': {e}")
+        return {"status": "error", "message": str(e)}
+    except Exception as e:
+        logger.exception(
+            f"Unexpected error in execute_move_for_player_action for player {player_id} in guild {guild_id} "
+            f"targeting '{target_location_identifier}': {e}"
+        )
+        return {"status": "error", "message": "An unexpected internal error occurred while trying to move."}
