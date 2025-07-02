@@ -30,7 +30,7 @@ from . import ai_response_parser
 # Corrected import from CustomValidationError
 from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError
 from . import ai_orchestrator
-from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
+from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, generate_narrative
 from . import nlu_service # Import the new NLU service module
 from .nlu_service import parse_player_input # Import the main function
 from . import turn_controller # Import the new turn_controller module
@@ -40,10 +40,14 @@ from .action_processor import process_actions_for_guild
 from . import interaction_handlers # Import the new interaction_handlers module
 from .interaction_handlers import handle_intra_location_action
 from .game_events import log_event, on_enter_location # Make specific functions available
+from . import localization_utils # Import new localization utils
+from .localization_utils import get_localized_entity_name, get_localized_text # Make specific functions available
+from . import report_formatter # Import new report formatter
+from .report_formatter import format_log_entry, format_turn_report # Make specific functions available
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -65,6 +69,7 @@ __all__ = [
     "ai_orchestrator",
     "trigger_ai_generation_flow",
     "save_approved_generation",
+    "generate_narrative", # Added new function
     "nlu_service",
     "parse_player_input",
     "turn_controller",
@@ -76,4 +81,10 @@ __all__ = [
     "handle_intra_location_action",
     "log_event", # Added from game_events
     "on_enter_location", # Added from game_events
+    "localization_utils",
+    "get_localized_entity_name",
+    "get_localized_text", # Also exported from localization_utils
+    "report_formatter",
+    "format_log_entry",
+    "format_turn_report",
 ]
