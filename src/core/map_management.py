@@ -53,7 +53,7 @@ async def add_location_master(
             "ai_metadata_json": location_data.get("ai_metadata_json", {"created_by_master": True})
         }
 
-        new_location = await location_crud.create(session, obj_in_data=obj_in_data)
+        new_location = await location_crud.create(session, obj_in=obj_in_data) # Corrected: obj_in_data to obj_in
         await session.flush() # Чтобы получить new_location.id
 
         # Обновление связей у соседей, если они были указаны в neighbor_locations_json
@@ -72,7 +72,7 @@ async def add_location_master(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.MASTER_ACTION_LOCATION_ADDED,
+            event_type=EventType.MASTER_ACTION_LOCATION_ADDED.value, # Corrected: Added .value
             details_json={
                 "location_id": new_location.id,
                 "static_id": new_location.static_id,
@@ -118,8 +118,8 @@ async def remove_location_master(
         removed_name_i18n = location_to_remove.name_i18n
 
         # Удаляем локацию
-        await location_crud.remove(session, id=location_id_to_remove)
-        # session.flush() # remove не требует flush для немедленного эффекта, commit сделает это
+        await location_crud.delete(session, id=location_id_to_remove) # Corrected: remove to delete
+        # session.flush() # delete (from CRUDBase) typically doesn't require separate flush before commit
 
         # Обновляем бывших соседей
         for neighbor_id in neighbor_ids_to_update:
@@ -133,7 +133,7 @@ async def remove_location_master(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.MASTER_ACTION_LOCATION_REMOVED,
+            event_type=EventType.MASTER_ACTION_LOCATION_REMOVED.value, # Corrected: Added .value
             details_json={
                 "removed_location_id": location_id_to_remove,
                 "removed_static_id": removed_static_id,
@@ -183,7 +183,7 @@ async def connect_locations_master(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.MASTER_ACTION_LOCATIONS_CONNECTED,
+            event_type=EventType.MASTER_ACTION_LOCATIONS_CONNECTED.value, # Corrected: Added .value
             details_json={
                 "location1_id": loc1_id,
                 "location2_id": loc2_id,
@@ -231,7 +231,7 @@ async def disconnect_locations_master(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED, # Новый EventType
+            event_type=EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED.value, # Corrected: Added .value
             details_json={
                 "location1_id": loc1_id,
                 "location2_id": loc2_id,

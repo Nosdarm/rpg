@@ -49,10 +49,12 @@ from . import ability_system # Import the new ability_system module
 from .ability_system import activate_ability_v2, apply_status_v2, remove_status # Import public functions
 from . import world_generation # Added new module
 from .world_generation import generate_new_location_via_ai # Added new function
+from . import map_management # Import the map_management module
+from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.

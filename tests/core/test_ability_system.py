@@ -220,11 +220,11 @@ async def test_apply_status_burning_on_player(
         mock_session.add.assert_called_once()
         added_obj = mock_session.add.call_args[0][0]
         assert isinstance(added_obj, ActiveStatusEffect)
-        assert added_obj.owner_id == mock_player.id
+        assert added_obj.entity_id == mock_player.id # Corrected: owner_id to entity_id
         assert added_obj.status_effect_id == mock_status_effect_burning.id
-        assert added_obj.duration == 3
+        assert added_obj.duration_turns == 3 # Corrected: duration to duration_turns
 
-        mock_log_event.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore[attr-defined]
         log_args, log_kwargs = mock_log_event.call_args
         assert log_kwargs['event_type'] == EventType.STATUS_APPLIED
         assert log_kwargs['details_json']['status_static_id'] == "burning"

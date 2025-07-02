@@ -20,11 +20,13 @@ class MovementError(Exception):
 
 @transactional
 async def _update_entities_location(
-    session: AsyncSession, # Changed: session is now the first positional argument
+    # session: AsyncSession, # Session is injected by @transactional as a keyword argument
     guild_id: int,
     player: Player,
     target_location: Location,
-    party: Optional[Party] = None
+    party: Optional[Party] = None,
+    *, # Make session a keyword-only argument
+    session: AsyncSession
 ) -> None:
     """
     Helper function to update player and optionally party location in DB

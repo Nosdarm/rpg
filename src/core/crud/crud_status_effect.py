@@ -53,11 +53,16 @@ class CRUDActiveStatusEffect(CRUDBase[ActiveStatusEffect]):
         """
         # Ensure owner_type is valid if using RelationshipEntityType directly
         # from src.models.enums import RelationshipEntityType
-        # owner_type_enum = RelationshipEntityType(owner_type.lower())
+        from src.models.enums import RelationshipEntityType # Import enum
+        try:
+            owner_type_enum_val = RelationshipEntityType(owner_type.lower())
+        except ValueError:
+            # Handle invalid owner_type string if necessary, e.g., return empty list or raise error
+            return []
 
         stmt = select(self.model).where(
-            self.model.owner_id == owner_id,
-            self.model.owner_type == owner_type, # Assuming direct string match for now
+            self.model.entity_id == owner_id, # Corrected: owner_id to entity_id
+            self.model.entity_type == owner_type_enum_val, # Corrected: owner_type to entity_type and compare with enum
             self.model.guild_id == guild_id
         ).offset(skip).limit(limit)
         result = await db.execute(stmt)

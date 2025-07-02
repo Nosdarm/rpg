@@ -104,29 +104,6 @@ ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Co
     # Add more intents and their handlers here
 }
 
-async def _handle_intra_location_action_wrapper(
-    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
-) -> dict:
-    """
-    Wrapper for handle_intra_location_action to match ACTION_DISPATCHER signature.
-    It uses action.intent directly and passes action.model_dump() as action_data.
-    """
-    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling intra-location action '{action.intent}' with data: {action.entities}")
-    try:
-        # We pass the full ParsedAction.model_dump() as action_data,
-        # handle_intra_location_action will look for 'intent' and 'entities' within it.
-        action_data_dict = action.model_dump(mode='json')
-        result_dict = await handle_intra_location_action(
-            guild_id=guild_id,
-            session=session,
-            player_id=player_id,
-            action_data=action_data_dict # Pass the whole action dict
-        )
-        return result_dict
-    except Exception as e:
-        logger.error(f"Error in _handle_intra_location_action_wrapper for intent {action.intent}: {e}", exc_info=True)
-        return {"status": "error", "message": f"Failed to execute intra-location action '{action.intent}': {e}"}
-
 # @transactional # Wraps the initial loading and clearing of actions in a transaction - REMOVED
 async def _load_and_clear_actions_for_entity(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str) -> list[ParsedAction]:
     """Loads actions for a single entity and clears them from the DB."""
