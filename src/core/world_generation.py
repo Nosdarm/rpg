@@ -17,81 +17,43 @@ from src.models.pending_generation import PendingGeneration
 
 logger = logging.getLogger(__name__)
 
-async def generate_new_location_via_ai(
+async def generate_location(
     session: AsyncSession,
     guild_id: int,
     generation_params: Optional[Dict[str, Any]] = None,
-    # Параметры для контекста prompt_builder, если нужны сверх стандартных
     location_id_context: Optional[int] = None,
     player_id_context: Optional[int] = None,
     party_id_context: Optional[int] = None
 ) -> Tuple[Optional[Location], Optional[str]]:
     """
-    Генерирует новую локацию с использованием AI, сохраняет ее в БД и обновляет связи.
-    Возвращает (созданная локация, None) или (None, сообщение об ошибке).
+    Generates a new location using AI, saves it to the DB, and updates connections.
+    This is the primary API function for AI-driven location generation.
+    Returns (created location, None) or (None, error message).
     """
     try:
-        # 1. Подготовка промпта для AI
-        # Добавляем указание на тип генерируемого контента
+        # 1. Prepare prompt for AI
         prompt_context_params = generation_params or {}
-        prompt_context_params["generation_type"] = "location" # Указываем, что хотим сгенерировать локацию
-
-        # Если location_id_context не передан, prompt_builder может не найти текущую локацию
-        # для контекста, но для генерации *новой* локации это может быть нормально.
-        # Возможно, понадобится передать сюда ID "стартовой" или "соседней" локации для AI.
-        # Пока что используем location_id_context как есть.
+        # Ensure the AI knows we want a location. This might be part of generation_params or a specific instruction.
+        prompt_context_params["generation_type"] = "location"
 
         prompt = await prepare_ai_prompt(
             session=session,
             guild_id=guild_id,
-            location_id=location_id_context, # ID локации для контекста, не ID новой локации
+            location_id=location_id_context,
             player_id=player_id_context,
             party_id=party_id_context,
-            # Assuming 'context_params' or similar is the intended parameter name in prepare_ai_prompt
-            # For now, trying 'generation_params' as it's a common pattern.
-            # If this is still an error, prepare_ai_prompt signature is needed.
-            # Based on AGENTS.md, 'custom_instruction' might be part of a general context dict.
-            # Safest option without signature: remove or use a very generic name.
-            # Let's assume custom_generation_request_params was a typo for generation_params in prepare_ai_prompt
             context_params=prompt_context_params
         )
-        logger.debug(f"Generated AI prompt for new location in guild {guild_id}:\n{prompt}")
+        logger.debug(f"Generated AI prompt for new location in guild {guild_id}:\n{prompt[:500]}...") # Log snippet
 
-        # 2. Вызов AI (используем мок)
-        # В реальном сценарии здесь будет асинхронный вызов к OpenAI API
-        # Мок должен вернуть JSON строку, имитирующую ответ LLM
-        # Пример ответа AI для локации:
-        # {
-        #   "type": "location",
-        #   "name_i18n": {"en": "Mystic Cave", "ru": "Мистическая Пещера"},
-        #   "descriptions_i18n": {"en": "A dark and damp cave.", "ru": "Темная и сырая пещера."},
-        #   "location_type": "CAVE", // Соответствует LocationType enum
-        #   "coordinates_json": {"x": 10, "y": 5, "plane": "Overworld"},
-        #   "generated_details_json": {"entry_description_i18n": {"en": "A narrow passage leads into darkness.", "ru": "Узкий проход ведет во тьму."}},
-        #   "potential_neighbors": [ // Описание потенциальных соседей
-        #     {"static_id_or_name": "village_center", "connection_description_i18n": {"en": "a hidden path", "ru": "скрытая тропа"}},
-        #     {"new_generated_neighbor_type": "FOREST", "connection_description_i18n": {"en": "a dense thicket", "ru": "густая чаща"}} // Пример, если AI предлагает создать еще соседа
-        #   ]
-        # }
-        # Для MVP мок может быть упрощен.
-        mock_ai_response_str = await _mock_openai_api_call(prompt) # Corrected L71: Removed language="en"
+        # 2. Call AI (using mock for now)
+        mock_ai_response_str = await _mock_openai_api_call(prompt)
+        logger.debug(f"Mock AI response received: {mock_ai_response_str[:500]}...")
 
-        # 3. Парсинг и валидация ответа AI
-        # parse_and_validate_ai_response ожидает список сущностей.
-        # Если AI возвращает одну локацию, обернем ее в список.
-        # Модифицируем мок, чтобы он возвращал список с одной локацией.
-        # (Предполагаем, что мок _mock_openai_api_call возвращает строку, которую нужно обернуть в список JSON)
-        # В реальном сценарии, LLM должен быть настроен на возврат списка.
-
-        # Для теста, предположим, _mock_openai_api_call возвращает одну локацию как JSON объект (строку)
-        # Обернем ее в JSON массив строк, если это необходимо для parse_and_validate_ai_response
-        # Однако, parse_and_validate_ai_response уже должен уметь работать с одним объектом, если он является валидной сущностью.
-        # Проверим, как parse_and_validate_ai_response обрабатывает одиночный объект типа "location"
-
+        # 3. Parse and validate AI response
         parsed_data_or_error = await parse_and_validate_ai_response(
             raw_ai_output_text=mock_ai_response_str,
             guild_id=guild_id
-            # session=session # Corrected L88: Removed session (assuming signature doesn't take it)
         )
 
         if isinstance(parsed_data_or_error, CustomValidationError):
@@ -101,10 +63,9 @@ async def generate_new_location_via_ai(
 
         parsed_ai_data: ParsedAiData = parsed_data_or_error
 
-        # Ищем сгенерированную локацию в parsed_ai_data
         generated_location_data: Optional[ParsedLocationData] = None
-        if parsed_ai_data.generated_entities: # Исправлено entities на generated_entities
-            for entity in parsed_ai_data.generated_entities: # Исправлено entities на generated_entities
+        if parsed_ai_data.generated_entities:
+            for entity in parsed_ai_data.generated_entities:
                 if isinstance(entity, ParsedLocationData):
                     generated_location_data = entity
                     break
@@ -114,115 +75,86 @@ async def generate_new_location_via_ai(
             logger.error(error_msg)
             return None, error_msg
 
-        # 4. Создание записи Location в БД
-        # static_id для генерируемых локаций может быть не нужен или генерироваться уникально
-        # Пока оставим его None, БД присвоит автоинкрементный id
+        # 4. Create Location record in DB
+        # AI-generated locations typically won't have a predefined static_id; it's for static/key locations.
         new_location_db = await location_crud.create(
             session,
-            obj_in={ # Corrected L114, L116: obj_in_data to obj_in
+            obj_in={
                 "guild_id": guild_id,
-                "static_id": None, # Генерируемые локации могут не иметь предопределенного static_id
+                "static_id": None, # AI-generated locations usually don't have a static_id unless specifically designed
                 "name_i18n": generated_location_data.name_i18n,
                 "descriptions_i18n": generated_location_data.descriptions_i18n,
-                "type": generated_location_data.location_type,
+                "type": generated_location_data.location_type, # Ensure this is validated against LocationType enum values
                 "coordinates_json": generated_location_data.coordinates_json or {},
-                "neighbor_locations_json": [], # Будет заполнено ниже
+                "neighbor_locations_json": [], # Will be populated after handling potential_neighbors
                 "generated_details_json": generated_location_data.generated_details_json or {},
-                "ai_metadata_json": {"prompt": prompt, "raw_response": mock_ai_response_str} # Сохраняем метаданные AI
+                "ai_metadata_json": {"prompt_hash": hash(prompt), "raw_response_snippet": mock_ai_response_str[:200]} # Example metadata
             }
         )
-        await session.flush() # Чтобы получить new_location_db.id
+        await session.flush() # To get new_location_db.id for neighbor linking
 
-        logger.info(f"New location '{generated_location_data.name_i18n.get('en', 'N/A')}' (ID: {new_location_db.id}) generated by AI for guild {guild_id}.")
+        logger.info(f"New location '{generated_location_data.name_i18n.get('en', 'N/A')}' (ID: {new_location_db.id}) data created by AI for guild {guild_id}.")
 
-        # 5. Обновление связей с соседями (MVP: простая обработка)
-        # generated_location_data.potential_neighbors должен быть списком словарей
-        # {"static_id_or_name": "some_id", "connection_description_i18n": {...}}
-        # Эта логика требует доработки для поиска существующих локаций по static_id/name
-        # и обновления их neighbor_locations_json.
-
-        # TODO: Реализовать более сложную логику обновления связей с соседями.
-        # На данный момент, просто логируем информацию о потенциальных соседях.
+        # 5. Update connections with neighbors
+        current_neighbor_links_for_new_loc = []
         if generated_location_data.potential_neighbors:
-            logger.info(f"Potential neighbors for location ID {new_location_db.id}: {generated_location_data.potential_neighbors}")
-            # Здесь должна быть логика поиска этих соседей в БД и обновления new_location_db.neighbor_locations_json
-            # и neighbor_locations_json у самих соседей.
-            # Например:
-            # current_neighbors = []
-            # for neighbor_info in generated_location_data.potential_neighbors:
-            #    neighbor_static_id = neighbor_info.get("static_id_or_name")
-            #    if neighbor_static_id:
-            #        existing_neighbor = await location_crud.get_by_static_id(session, guild_id=guild_id, static_id=neighbor_static_id)
-            #        if existing_neighbor:
-            #            # Добавляем связь к новой локации
-            #            current_neighbors.append({
-            #                "id": existing_neighbor.id,
-            #                "type_i18n": neighbor_info.get("connection_description_i18n", {"en": "a connection", "ru": "связь"})
-            #            })
-            #            # Обновляем соседа
-            #            neighbor_neighbor_list = list(existing_neighbor.neighbor_locations_json or [])
-            #            neighbor_neighbor_list.append({
-            #                "id": new_location_db.id,
-            #                "type_i18n": neighbor_info.get("connection_description_i18n", {"en": "a connection", "ru": "связь"}) # Или инвертированное описание
-            #            })
-            #            await location_crud.update(session, db_obj=existing_neighbor, obj_in_data={"neighbor_locations_json": neighbor_neighbor_list})
-            # if current_neighbors:
-            #    await location_crud.update(session, db_obj=new_location_db, obj_in_data={"neighbor_locations_json": current_neighbors})
-            # await session.flush()
-
-        # Примерная логика обновления соседей (требует тестирования и доработки)
-        if generated_location_data.potential_neighbors and new_location_db:
-            new_loc_neighbor_list = []
+            logger.info(f"Processing potential neighbors for location ID {new_location_db.id}: {generated_location_data.potential_neighbors}")
             for neighbor_info in generated_location_data.potential_neighbors:
-                neighbor_static_id = neighbor_info.get("static_id_or_name")
+                neighbor_identifier = neighbor_info.get("static_id_or_name")
                 conn_desc_i18n = neighbor_info.get("connection_description_i18n", {"en": "a path", "ru": "тропа"})
-                if neighbor_static_id:
-                    existing_neighbor_loc = await location_crud.get_by_static_id(session, guild_id=guild_id, static_id=neighbor_static_id)
-                    if existing_neighbor_loc:
-                        # Связь от новой локации к существующей
-                        new_loc_neighbor_list.append({"id": existing_neighbor_loc.id, "type_i18n": conn_desc_i18n})
 
-                        # Связь от существующей локации к новой
-                        # Важно: это изменяет существующую локацию, нужно делать аккуратно
-                        await update_location_neighbors(session, existing_neighbor_loc, new_location_db.id, conn_desc_i18n, add_connection=True)
-                        logger.info(f"Updated existing neighbor {existing_neighbor_loc.id} to connect to new location {new_location_db.id}")
-                    else:
-                        logger.warning(f"Potential neighbor with static_id '{neighbor_static_id}' not found for guild {guild_id}.")
-                # TODO: Обработка случая, когда AI предлагает создать ЕЩЕ ОДНУ новую локацию-соседа (`new_generated_neighbor_type`)
+                if not neighbor_identifier:
+                    logger.warning(f"Skipping potential neighbor for new loc {new_location_db.id} due to missing 'static_id_or_name': {neighbor_info}")
+                    continue
 
-            if new_loc_neighbor_list:
-                new_location_db.neighbor_locations_json = new_loc_neighbor_list
-                # session.add(new_location_db) # SQLAlchemy 2.0+ отслеживает изменения
-                await session.flush([new_location_db])
-                logger.info(f"Updated new location {new_location_db.id} with neighbors: {new_loc_neighbor_list}")
+                # Try to find the existing neighbor by static_id first, then by name (more complex, requires i18n name search)
+                # For MVP, let's assume 'static_id_or_name' is primarily a static_id for existing locations.
+                # A full name search would require a more complex lookup.
+                existing_neighbor_loc = await location_crud.get_by_static_id(session, guild_id=guild_id, static_id=neighbor_identifier)
+                # TODO: Add name-based lookup if static_id fails, or make it a convention for AI to provide static_id.
 
+                if existing_neighbor_loc:
+                    # Add link from new location to existing neighbor
+                    current_neighbor_links_for_new_loc.append({"id": existing_neighbor_loc.id, "type_i18n": conn_desc_i18n})
+                    # Add link from existing neighbor to new location
+                    await update_location_neighbors(session, existing_neighbor_loc, new_location_db.id, conn_desc_i18n, add_connection=True)
+                    logger.info(f"Linked new location {new_location_db.id} with existing neighbor {existing_neighbor_loc.static_id} (ID: {existing_neighbor_loc.id}).")
+                else:
+                    logger.warning(f"Potential neighbor with identifier '{neighbor_identifier}' not found for guild {guild_id} when linking new location {new_location_db.id}.")
+                    # TODO: Handle case where AI suggests creating *another* new location as a neighbor.
+                    # This would involve a recursive call or queueing, which is complex for MVP.
 
-        # 6. Логирование события
+            if current_neighbor_links_for_new_loc:
+                new_location_db.neighbor_locations_json = current_neighbor_links_for_new_loc
+                # session.add(new_location_db) # SQLAlchemy 2.0+ tracks changes
+                await session.flush([new_location_db]) # Ensure this change is also flushed
+                logger.info(f"Finalized neighbor links for new location {new_location_db.id}: {current_neighbor_links_for_new_loc}")
+
+        # 6. Log event
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.WORLD_EVENT_LOCATION_GENERATED.value, # Corrected L198: Added .value
+            event_type=EventType.WORLD_EVENT_LOCATION_GENERATED.value,
             details_json={
-                "location_id": new_location_db.id if new_location_db else -1, # Handle if new_location_db is None (though unlikely here)
-                "name_i18n": new_location_db.name_i18n if new_location_db else {},
+                "location_id": new_location_db.id,
+                "name_i18n": new_location_db.name_i18n,
                 "generated_by": "ai",
-                "generation_params": generation_params
+                "generation_params": generation_params # Log params used for generation
             },
-            location_id=new_location_db.id
+            location_id=new_location_db.id # The new location itself
         )
 
         await session.commit()
-        logger.info(f"Successfully generated and saved new AI location ID {new_location_db.id} for guild {guild_id}.")
+        logger.info(f"Successfully generated and saved new AI location ID {new_location_db.id} (Name: {new_location_db.name_i18n.get('en', 'N/A')}) for guild {guild_id}.")
         return new_location_db, None
 
     except Exception as e:
-        logger.exception(f"Error generating new location via AI for guild {guild_id}: {e}")
+        logger.exception(f"Error in generate_location for guild {guild_id}: {e}")
         await session.rollback()
         return None, f"An unexpected error occurred during AI location generation: {str(e)}"
 
-# TODO: Добавить API функции для Мастера (add_location, remove_location, connect_locations)
-# в src/core/map_management.py, как и планировалось.
-# world_generation.py будет сфокусирован на AI-генерации.
+# world_generation.py should be focused on AI-driven generation.
+# Manual map management functions (add_location_master, etc.) belong in map_management.py.
 
 async def update_location_neighbors(
     session: AsyncSession,

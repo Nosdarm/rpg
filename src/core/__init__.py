@@ -48,7 +48,7 @@ from .report_formatter import format_turn_report
 from . import ability_system # Import the new ability_system module
 from .ability_system import activate_ability_v2, apply_status_v2, remove_status # Import public functions
 from . import world_generation # Added new module
-from .world_generation import generate_new_location_via_ai # Added new function
+from .world_generation import generate_location # Updated function name
 from . import map_management # Import the map_management module
 from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
 
@@ -102,7 +102,7 @@ __all__ = [
     "apply_status_v2",
     "remove_status",
     "world_generation",
-    "generate_new_location_via_ai",
+    "generate_location", # Updated function name
     "map_management", # Added
     "add_location_master", # Added
     "remove_location_master", # Added

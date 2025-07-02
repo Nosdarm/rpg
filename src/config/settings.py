@@ -174,6 +174,7 @@ BOT_COGS = [
     "src.bot.commands.master_ai_commands", # New cog for AI moderation
     "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
     "src.bot.commands.map_commands", # Added Map Master commands
+    "src.bot.commands.master_map_commands", # Cog for Master Map Management
 ]
 
 # Master User IDs - comma-separated string in .env, parsed into a list here
