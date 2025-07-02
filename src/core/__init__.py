@@ -43,7 +43,8 @@ from .game_events import log_event, on_enter_location # Make specific functions 
 from . import localization_utils # Import new localization utils
 from .localization_utils import get_localized_entity_name, get_localized_text # Make specific functions available
 from . import report_formatter # Import new report formatter
-from .report_formatter import format_log_entry, format_turn_report # Make specific functions available
+# format_log_entry is now internal, only format_turn_report is public
+from .report_formatter import format_turn_report
 
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,6 @@ __all__ = [
     "get_localized_entity_name",
     "get_localized_text", # Also exported from localization_utils
     "report_formatter",
-    "format_log_entry",
+    # "format_log_entry", # This is now an internal helper _format_log_entry_with_names_cache
     "format_turn_report",
 ]

@@ -1,6 +1,6 @@
 # src/core/localization_utils.py
 import logging
-from typing import Optional, Dict, Any, Callable, Awaitable
+from typing import Optional, Dict, Any, Callable, Awaitable, List, Tuple # Added List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import necessary models and CRUD utilities
@@ -9,16 +9,16 @@ from .player_utils import get_player
 # For location, we will use location_crud.get
 from .crud.crud_location import location_crud
 # For NPC and Item, we've created placeholder functions in their respective crud modules
-from .crud.crud_npc import get_npc
-from .crud.crud_item import get_item
-
+from .crud.crud_npc import get_npc, npc_crud # Assuming npc_crud exists or is created
+from .crud.crud_item import get_item, item_crud # Assuming item_crud exists or is created
+from .crud.crud_player import player_crud # Import player_crud
 
 logger = logging.getLogger(__name__)
 
 # A map from simple entity type strings to their SQLAlchemy models
 # This map is primarily for reference or if a very generic approach was needed,
 # but current implementation relies more on ENTITY_TYPE_GETTER_MAP.
-ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = {
+ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = { #TODO: Review if this map is still needed
     "player": Player,
     "location": Location,
     "npc": GeneratedNpc,
@@ -27,13 +27,23 @@ ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = {
 
 # Define a more specific type for the getter functions
 GetterCallable = Callable[[AsyncSession, int, int], Awaitable[Optional[Any]]]
-
-# A map for specific getter functions
+# A map for specific getter functions for single entities
 ENTITY_TYPE_GETTER_MAP: Dict[str, GetterCallable] = {
     "player": lambda session, guild_id, entity_id: get_player(session, player_id=entity_id, guild_id=guild_id),
     "location": lambda session, guild_id, entity_id: location_crud.get(session, id=entity_id, guild_id=guild_id),
-    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id),
-    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id),
+    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id), # Uses specific get_npc
+    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id), # Uses specific get_item
+}
+
+# Map entity types to their CRUD instances (assuming they all have get_many_by_ids)
+# This requires that each CRUD object (player_crud, location_crud, etc.) is an instance of CRUDBase
+# or has a compatible get_many_by_ids method.
+from .crud_base_definitions import CRUDBase
+ENTITY_TYPE_CRUD_MAP: Dict[str, CRUDBase] = {
+    "player": player_crud,
+    "location": location_crud,
+    "npc": npc_crud, # Placeholder, ensure npc_crud is defined and is a CRUDBase instance
+    "item": item_crud, # Placeholder, ensure item_crud is defined and is a CRUDBase instance
 }
 
 
@@ -68,6 +78,74 @@ def get_localized_text(
     #             logger.debug(f"Using first available language '{lang_code}' as fallback for i18n field.")
     #             return lang_text
     return ""
+
+
+async def get_batch_localized_entity_names(
+    session: AsyncSession,
+    guild_id: int,
+    entity_refs: List[Tuple[str, int]], # List of (entity_type_str, entity_id)
+    language: str,
+    fallback_language: str = "en",
+) -> Dict[Tuple[str, int], str]:
+    """
+    Fetches multiple entities and returns a map of their localized names.
+    Optimized to load entities of the same type in batches.
+    """
+    localized_names_cache: Dict[Tuple[str, int], str] = {}
+    if not entity_refs:
+        return localized_names_cache
+
+    # Group entity_refs by entity_type
+    grouped_refs: Dict[str, List[int]] = {}
+    for entity_type_str, entity_id in entity_refs:
+        entity_type_lower = entity_type_str.lower()
+        if entity_type_lower not in grouped_refs:
+            grouped_refs[entity_type_lower] = []
+        if entity_id not in grouped_refs[entity_type_lower]: # Ensure unique IDs per type
+             grouped_refs[entity_type_lower].append(entity_id)
+
+    for entity_type, ids in grouped_refs.items():
+        crud_instance = ENTITY_TYPE_CRUD_MAP.get(entity_type)
+        if not crud_instance:
+            logger.warning(f"No CRUD instance found for entity type '{entity_type}' in ENTITY_TYPE_CRUD_MAP. Skipping batch load for this type.")
+            for entity_id in ids: # Fallback to individual or placeholder
+                localized_names_cache[(entity_type, entity_id)] = f"[{entity_type} ID: {entity_id} (No CRUD)]"
+            continue
+
+        try:
+            # Assuming CRUDBase and its derivatives have get_many_by_ids
+            entities = await crud_instance.get_many_by_ids(db=session, ids=ids, guild_id=guild_id)
+            for entity_obj in entities:
+                entity_id = getattr(entity_obj, 'id', None) # Or static_id if that's the PK used in entity_refs
+                if entity_id is None: # Should not happen if get_many_by_ids works with PKs
+                    logger.error(f"Loaded entity of type {entity_type} has no 'id' attribute.")
+                    continue
+
+                current_name = f"[{entity_type} ID: {entity_id} (Nameless)]" # Default placeholder
+                if hasattr(entity_obj, "name_i18n") and isinstance(entity_obj.name_i18n, dict):
+                    localized_name_from_i18n = get_localized_text(entity_obj.name_i18n, language, fallback_language)
+                    if localized_name_from_i18n:
+                        current_name = localized_name_from_i18n
+                    elif hasattr(entity_obj, "name") and isinstance(entity_obj.name, str) and entity_obj.name: # Fallback to non-i18n name
+                        current_name = entity_obj.name
+                elif hasattr(entity_obj, "name") and isinstance(entity_obj.name, str) and entity_obj.name:
+                     current_name = entity_obj.name
+
+                localized_names_cache[(entity_type, entity_id)] = current_name
+
+            # For IDs that were requested but not found in the batch load, add a placeholder
+            loaded_ids = {getattr(e, 'id', None) for e in entities}
+            for entity_id_req in ids:
+                if entity_id_req not in loaded_ids:
+                    localized_names_cache[(entity_type, entity_id_req)] = f"[{entity_type} ID: {entity_id_req} (Unknown)]"
+
+        except Exception as e:
+            logger.error(f"Error batch fetching/localizing names for {entity_type} (Guild: {guild_id}): {e}", exc_info=True)
+            for entity_id_errored in ids: # Add placeholders for all requested IDs of this type on error
+                 if (entity_type, entity_id_errored) not in localized_names_cache:
+                    localized_names_cache[(entity_type, entity_id_errored)] = f"[{entity_type} ID: {entity_id_errored} (Error)]"
+
+    return localized_names_cache
 
 
 async def get_localized_entity_name(
