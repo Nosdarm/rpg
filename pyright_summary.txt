@@ -1,101 +1,100 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 15 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_action_processor.py] — 15 issue(s):
+  Line 655  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 673  [ERROR] Function declaration "test_handle_move_action_wrapper_extracts_target_from_location_name_entity" is obscured by a declaration of the same name
+  Line 681  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 694  [ERROR] Function declaration "test_handle_move_action_wrapper_extracts_target_from_single_untyped_entity" is obscured by a declaration of the same name
+  Line 702  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 716  [ERROR] Function declaration "test_handle_move_action_wrapper_no_target_identifier" is obscured by a declaration of the same name
+  Line 722  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 730  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 740  [ERROR] Function declaration "test_handle_move_action_wrapper_execute_move_raises_exception" is obscured by a declaration of the same name
+  Line 748  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 770  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 791  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 811  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 819  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+  Line 837  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
+┬а┬а"str" is not assignable to "datetime"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_base_definitions.py] — 13 issue(s):
+  Line 52   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 60   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 73   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 86   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 97   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 104  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 112  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 118  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 128  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 162  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 169  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 175  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 185  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 12 issue(s):
   Line 153  [ERROR] Cannot access attribute "NPC" for class "type[RelationshipEntityType]"
 ┬а┬аAttribute "NPC" is unknown
   Line 167  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
   Line 170  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 312  [ERROR] Cannot access attribute "stats_json" for class "GeneratedNpc"
-┬а┬аAttribute "stats_json" is unknown
-  Line 312  [ERROR] Cannot access attribute "stats_json" for class "GeneratedNpc"
-┬а┬аAttribute "stats_json" is unknown
-  Line 313  [ERROR] Cannot access attribute "stats_json" for class "GeneratedNpc"
-┬а┬аAttribute "stats_json" is unknown
-  Line 371  [ERROR] Argument of type "Literal[EventType.ABILITY_USED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.ABILITY_USED]" is not assignable to "str"
-  Line 404  [ERROR] Cannot assign to attribute "owner_id" for class "ActiveStatusEffect"
-┬а┬аAttribute "owner_id" is unknown
-  Line 405  [ERROR] Cannot assign to attribute "owner_type" for class "ActiveStatusEffect"
-┬а┬аAttribute "owner_type" is unknown
-  Line 408  [ERROR] Cannot assign to attribute "duration" for class "ActiveStatusEffect"
-┬а┬аAttribute "duration" is unknown
-  Line 410  [ERROR] Cannot assign to attribute "source_entity_id" for class "ActiveStatusEffect"
+  Line 224  [ERROR] Cannot access attribute "value" for class "str"
+┬а┬аAttribute "value" is unknown
+  Line 233  [ERROR] Cannot access attribute "value" for class "str"
+┬а┬аAttribute "value" is unknown
+  Line 240  [ERROR] Cannot access attribute "value" for class "str"
+┬а┬аAttribute "value" is unknown
+  Line 251  [ERROR] Cannot access attribute "value" for class "str"
+┬а┬аAttribute "value" is unknown
+  Line 461  [ERROR] Cannot assign to attribute "entity_type" for class "ActiveStatusEffect"
+┬а┬аType "RelationshipEntityType" is not assignable to type "SQLCoreOperations[str] | str"
+┬а┬а┬а┬а"RelationshipEntityType" is not assignable to "SQLCoreOperations[str]"
+┬а┬а┬а┬а"RelationshipEntityType" is not assignable to "str"
+  Line 467  [ERROR] Cannot assign to attribute "source_entity_id" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_id" is unknown
-  Line 414  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
+  Line 470  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 416  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
+  Line 472  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 419  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
+  Line 475  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 445  [ERROR] Argument of type "Literal[EventType.STATUS_APPLIED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.STATUS_APPLIED]" is not assignable to "str"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 9 issue(s):
-  Line 91   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 143  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
-┬а┬а"Literal[0]" is not assignable to "str"
-  Line 144  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
-┬а┬а"Literal[0]" is not assignable to "str"
-  Line 145  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 160  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
-┬а┬а"Literal[0]" is not assignable to "str"
-  Line 161  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 175  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
-┬а┬а"Literal[0]" is not assignable to "str"
-  Line 179  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 212  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\map_management.py] — 7 issue(s):
-  Line 56   [ERROR] Argument missing for parameter "obj_in"
-  Line 56   [ERROR] No parameter named "obj_in_data"
-  Line 75   [ERROR] Argument of type "Literal[EventType.MASTER_ACTION_LOCATION_ADDED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.MASTER_ACTION_LOCATION_ADDED]" is not assignable to "str"
-  Line 121  [ERROR] Cannot access attribute "remove" for class "CRUDLocation"
-┬а┬аAttribute "remove" is unknown
-  Line 136  [ERROR] Argument of type "Literal[EventType.MASTER_ACTION_LOCATION_REMOVED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.MASTER_ACTION_LOCATION_REMOVED]" is not assignable to "str"
-  Line 186  [ERROR] Argument of type "Literal[EventType.MASTER_ACTION_LOCATIONS_CONNECTED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.MASTER_ACTION_LOCATIONS_CONNECTED]" is not assignable to "str"
-  Line 234  [ERROR] Argument of type "Literal[EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED]" is not assignable to "str"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 7 issue(s):
-  Line 50   [ERROR] No parameter named "custom_generation_request_params"
-  Line 71   [ERROR] No parameter named "language"
-  Line 88   [ERROR] No parameter named "session"
-  Line 114  [ERROR] Argument missing for parameter "obj_in"
-  Line 116  [ERROR] No parameter named "obj_in_data"
-  Line 198  [ERROR] Argument of type "Literal[EventType.WORLD_EVENT_LOCATION_GENERATED]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
-┬а┬а"Literal[EventType.WORLD_EVENT_LOCATION_GENERATED]" is not assignable to "str"
-  Line 231  [ERROR] Type "list[str | Dict[str, Any]]" is not assignable to declared type "List[Dict[str, Any]]"
-┬а┬а"list[str | Dict[str, Any]]" is not assignable to "List[Dict[str, Any]]"
-┬а┬а┬а┬аType parameter "_T@list" is invariant, but "str | Dict[str, Any]" is not the same as "Dict[str, Any]"
-┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\__init__.py] — 5 issue(s):
-  Line 104  [WARNING] "map_management" is specified in __all__ but is not present in module
-  Line 105  [WARNING] "add_location_master" is specified in __all__ but is not present in module
-  Line 106  [WARNING] "remove_location_master" is specified in __all__ but is not present in module
-  Line 107  [WARNING] "connect_locations_master" is specified in __all__ but is not present in module
-  Line 108  [WARNING] "disconnect_locations_master" is specified in __all__ but is not present in module
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_map_management.py] — 5 issue(s):
-  Line 66   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 95   [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
-┬а┬аAttribute "assert_not_called" is unknown
-  Line 132  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 180  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 210  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_status_effect.py] — 11 issue(s):
+  Line 68   [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 69   [ERROR] "properties_json" is not a known attribute of "None"
+  Line 70   [ERROR] "guild_id" is not a known attribute of "None"
+  Line 101  [ERROR] "status_effect_id" is not a known attribute of "None"
+  Line 102  [ERROR] "entity_type" is not a known attribute of "None"
+  Line 103  [ERROR] "duration_turns" is not a known attribute of "None"
+  Line 104  [ERROR] "applied_at" is not a known attribute of "None"
+  Line 105  [ERROR] "applied_at" is not a known attribute of "None"
+  Line 106  [ERROR] "custom_properties_json" is not a known attribute of "None"
+  Line 106  [ERROR] Object of type "None" is not subscriptable
+  Line 107  [ERROR] "guild_id" is not a known attribute of "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 3 issue(s):
   Line 85   [ERROR] Argument missing for parameter "entity_type"
@@ -103,40 +102,46 @@
   Line 325  [ERROR] Argument missing for parameter "entity_type"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\map_commands.py] — 2 issue(s):
-  Line 31   [ERROR] Method "cog_check" overrides class "Cog" in an incompatible manner
-┬а┬аParameter 2 name mismatch: base parameter is named "ctx", override parameter is named "interaction"
+  Line 31   [ERROR] Method "interaction_check" overrides class "Cog" in an incompatible manner
 ┬а┬аReturn type mismatch: base method returns type "bool", override returns type "CoroutineType[Any, Any, bool]"
 ┬а┬а┬а┬а"CoroutineType[Any, Any, bool]" is not assignable to "bool"
-  Line 34   [ERROR] Cannot access attribute "guild_permissions" for class "User"
-┬а┬аAttribute "guild_permissions" is unknown
+  Line 35   [ERROR] Type "User | Member" is not assignable to declared type "Member"
+┬а┬аType "User | Member" is not assignable to type "Member"
+┬а┬а┬а┬а"User" is not assignable to "Member"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 2 issue(s):
-  Line 110  [ERROR] Argument missing for parameter "player_id"
-  Line 110  [ERROR] Parameter "guild_id" is already assigned
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\map_management.py] — 2 issue(s):
+  Line 63   [ERROR] Cannot access attribute "get" for class "str"
+┬а┬аAttribute "get" is unknown
+  Line 64   [ERROR] Cannot access attribute "get" for class "str"
+┬а┬аAttribute "get" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_status_effect.py] — 2 issue(s):
-  Line 59   [ERROR] Cannot access attribute "owner_id" for class "type[ActiveStatusEffect]"
-┬а┬аAttribute "owner_id" is unknown
-  Line 60   [ERROR] Cannot access attribute "owner_type" for class "type[ActiveStatusEffect]"
-┬а┬аAttribute "owner_type" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\movement_logic.py] — 2 issue(s):
+  Line 179  [ERROR] Argument missing for parameter "session"
+  Line 279  [ERROR] "ScalarResult[Location]" is not awaitable
+┬а┬а"ScalarResult[Location]" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
+┬а┬а┬а┬а"__await__" is not present
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 2 issue(s):
-  Line 223  [ERROR] Cannot access attribute "owner_id" for class "ActiveStatusEffect"
-┬а┬аAttribute "owner_id" is unknown
-  Line 225  [ERROR] Cannot access attribute "duration" for class "ActiveStatusEffect"
-┬а┬аAttribute "duration" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 1 issue(s):
-  Line 123  [ERROR] Argument missing for parameter "session"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 1 issue(s):
-  Line 68   [ERROR] Function declaration "_handle_intra_location_action_wrapper" is obscured by a declaration of the same name
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\movement_logic.py] — 1 issue(s):
-  Line 176  [ERROR] Argument missing for parameter "session"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\report_formatter.py] — 1 issue(s):
-  Line 218  [ERROR] Argument of type "list[Tuple[str, int]]" cannot be assigned to parameter "entity_refs" of type "List[Dict[str, Any]]" in function "get_batch_localized_entity_names"
-┬а┬а"list[Tuple[str, int]]" is not assignable to "List[Dict[str, Any]]"
-┬а┬а┬а┬аType parameter "_T@list" is invariant, but "Tuple[str, int]" is not the same as "Dict[str, Any]"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 2 issue(s):
+  Line 56   [ERROR] No parameter named "generation_params"
+  Line 237  [ERROR] Type "list[str | Dict[str, Any]]" is not assignable to declared type "List[Dict[str, Any]]"
+┬а┬а"list[str | Dict[str, Any]]" is not assignable to "List[Dict[str, Any]]"
+┬а┬а┬а┬аType parameter "_T@list" is invariant, but "str | Dict[str, Any]" is not the same as "Dict[str, Any]"
 ┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_combat_encounter.py] — 2 issue(s):
+  Line 33   [ERROR] Argument of type "Engine | None" cannot be assigned to parameter "bind" of type "_CreateDropBind" in function "drop_all"
+┬а┬аType "Engine | None" is not assignable to type "_CreateDropBind"
+┬а┬а┬а┬аType "None" is not assignable to type "_CreateDropBind"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Engine"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Connection"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "MockConnection"
+  Line 38   [ERROR] Object of type "None" cannot be called
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\rules.py] — 1 issue(s):
+  Line 28   [ERROR] "ScalarResult[RuleConfig]" is not awaitable
+┬а┬а"ScalarResult[RuleConfig]" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
+┬а┬а┬а┬а"__await__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 1 issue(s):
+  Line 516  [ERROR] Argument of type "None" cannot be assigned to parameter "location_data" of type "Dict[str, Any]" in function "_find_target_in_location"
+┬а┬а"None" is not assignable to "Dict[str, Any]"
