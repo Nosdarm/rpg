@@ -1,0 +1,91 @@
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_action_processor.py] — 16 issue(s):
+  Line 145  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 146  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 153  [ERROR] Cannot access attribute "assert_called_once" for class "FunctionType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 154  [ERROR] Cannot access attribute "assert_not_called" for class "FunctionType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 167  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 168  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 175  [ERROR] Cannot access attribute "call_count" for class "FunctionType"
+┬а┬аAttribute "call_count" is unknown
+  Line 176  [ERROR] Cannot access attribute "call_count" for class "FunctionType"
+┬а┬аAttribute "call_count" is unknown
+  Line 190  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 191  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 199  [ERROR] Cannot access attribute "call_count" for class "FunctionType"
+┬а┬аAttribute "call_count" is unknown
+  Line 200  [ERROR] Cannot access attribute "call_count" for class "FunctionType"
+┬а┬аAttribute "call_count" is unknown
+  Line 213  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 220  [ERROR] Cannot access attribute "assert_not_called" for class "FunctionType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 232  [ERROR] Cannot access attribute "reset_mock" for class "FunctionType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 249  [ERROR] Cannot access attribute "assert_called_once" for class "FunctionType"
+┬а┬аAttribute "assert_called_once" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\localization_utils.py] — 7 issue(s):
+  Line 10   [ERROR] "get_entity_by_id_gino_style" is unknown import symbol
+  Line 12   [ERROR] "get_location_by_id" is unknown import symbol
+  Line 13   [ERROR] "get_npc" is unknown import symbol
+  Line 14   [ERROR] "get_item" is unknown import symbol
+  Line 31   [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 32   [ERROR] Argument missing for parameter "player_id"
+  Line 32   [ERROR] Parameter "guild_id" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 5 issue(s):
+  Line 124  [ERROR] Object of type "None" is not subscriptable
+  Line 302  [ERROR] Object of type "None" is not subscriptable
+  Line 305  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 337  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 366  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 3 issue(s):
+  Line 85   [ERROR] Argument missing for parameter "entity_type"
+  Line 198  [ERROR] Argument missing for parameter "entity_type"
+  Line 325  [ERROR] Argument missing for parameter "entity_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 2 issue(s):
+  Line 85   [ERROR] Argument missing for parameter "player_id"
+  Line 85   [ERROR] Parameter "guild_id" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\test_general_commands_mocked.py] — 2 issue(s):
+  Line 61   [ERROR] Function declaration "mock_db_session_context_manager" is obscured by a declaration of the same name
+  Line 69   [ERROR] Function declaration "mock_ctx" is obscured by a declaration of the same name
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 1 issue(s):
+  Line 123  [ERROR] Argument missing for parameter "message"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\game_events.py] — 1 issue(s):
+  Line 6    [ERROR] Function declaration "on_enter_location" is obscured by a declaration of the same name
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\movement_logic.py] — 1 issue(s):
+  Line 176  [ERROR] Argument missing for parameter "session"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\report_formatter.py] — 1 issue(s):
+  Line 58   [ERROR] Argument of type "list[str | int]" cannot be assigned to parameter "path" of type "List[str]" in function "_safe_get"
+┬а┬а"Literal[0]" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_localization_utils.py] — 1 issue(s):
+  Line 14   [ERROR] Cannot assign to attribute "name_i18n" for class "Player"
+┬а┬аAttribute "name_i18n" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_movement_logic.py] — 1 issue(s):
+  Line 335  [ERROR] Cannot assign to attribute "neighbor_locations_json" for class "Location"
+┬а┬аType "Literal['not a list or dict']" is not assignable to type "SQLCoreOperations[List[Dict[str, Any]] | Dict[str, Any] | None] | List[Dict[str, Any]] | Dict[str, Any] | None"
+┬а┬а┬а┬а"Literal['not a list or dict']" is not assignable to "SQLCoreOperations[List[Dict[str, Any]] | Dict[str, Any] | None]"
+┬а┬а┬а┬а"Literal['not a list or dict']" is not assignable to "List[Dict[str, Any]]"
+┬а┬а┬а┬а"Literal['not a list or dict']" is not assignable to "Dict[str, Any]"
+┬а┬а┬а┬а"Literal['not a list or dict']" is not assignable to "None"
