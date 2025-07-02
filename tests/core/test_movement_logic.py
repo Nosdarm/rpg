@@ -814,19 +814,19 @@ async def test_find_location_by_name_player_language(
 
     mock_get_by_static_id.return_value = None # Not found by static_id
 
-        # Mock session.execute for name search
-        # results = await session.execute(stmt)
-        # This mock_result_object will simulate the object returned by 'await session.execute(stmt)'
-        # Since mock_session_execute is an AsyncMock, its return_value is what the await resolves to.
-        mock_result_object = MagicMock()
-        mock_session_execute.return_value = mock_result_object
+    # Mock session.execute for name search
+    # results = await session.execute(stmt)
+    # This mock_result_object will simulate the object returned by 'await session.execute(stmt)'
+    # Since mock_session_execute is an AsyncMock, its return_value is what the await resolves to.
+    mock_result_object = MagicMock()
+    mock_session_execute.return_value = mock_result_object
 
-        # result.scalars() returns a new object that has an .all() method
-        mock_scalars_instance = MagicMock()
-        mock_result_object.scalars.return_value = mock_scalars_instance
+    # result.scalars() returns a new object that has an .all() method
+    mock_scalars_instance = MagicMock()
+    mock_result_object.scalars.return_value = mock_scalars_instance
 
-        # scalar_results.all() returns the list of locations
-        mock_scalars_instance.all.return_value = [mock_target_location]
+    # scalar_results.all() returns the list of locations
+    mock_scalars_instance.all.return_value = [mock_target_location]
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
