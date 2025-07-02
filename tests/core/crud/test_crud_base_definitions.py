@@ -49,7 +49,7 @@ async def test_get_many_by_ids_success_no_guild(
     # Simulate SQLAlchemy Result object that execute returns
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = [user1, user2]
-    mock_db_session.execute.return_value = mock_result
+    mock_db_session.execute.return_value = mock_result # type: ignore[attribute-error]
 
     ids_to_fetch = [1, 2]
     fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
@@ -57,7 +57,7 @@ async def test_get_many_by_ids_success_no_guild(
     assert len(fetched_users) == 2
     assert user1 in fetched_users
     assert user2 in fetched_users
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
     # We can inspect the statement if needed, but for now, checking call and result is fine.
 
 @pytest.mark.asyncio
@@ -70,7 +70,7 @@ async def test_get_many_by_ids_success_with_guild(
 
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = [user_guild1_1, user_guild1_2]
-    mock_db_session.execute.return_value = mock_result
+    mock_db_session.execute.return_value = mock_result # type: ignore[attribute-error]
 
     ids_to_fetch = [1, 2, 3] # Ask for ID 3 as well
     guild_id_filter = 100
@@ -83,7 +83,7 @@ async def test_get_many_by_ids_success_with_guild(
     assert user_guild1_2 in fetched_users
     # Test that the generated SQL (if we could inspect it) would filter by guild_id=100 and ids in [1,2,3]
     # For now, trust the mock_result is what the DB would return with that filter.
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
 
 
 @pytest.mark.asyncio
@@ -94,14 +94,14 @@ async def test_get_many_by_ids_some_not_found(
     # ID 3 is requested but not found
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = [user1]
-    mock_db_session.execute.return_value = mock_result
+    mock_db_session.execute.return_value = mock_result # type: ignore[attribute-error]
 
     ids_to_fetch = [1, 3]
     fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
 
     assert len(fetched_users) == 1
     assert user1 in fetched_users
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
 
 @pytest.mark.asyncio
 async def test_get_many_by_ids_all_not_found(
@@ -109,13 +109,13 @@ async def test_get_many_by_ids_all_not_found(
 ):
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = [] # No users found
-    mock_db_session.execute.return_value = mock_result
+    mock_db_session.execute.return_value = mock_result # type: ignore[attribute-error]
 
     ids_to_fetch = [4, 5]
     fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
 
     assert len(fetched_users) == 0
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
 
 @pytest.mark.asyncio
 async def test_get_many_by_ids_empty_list_input(
@@ -125,7 +125,7 @@ async def test_get_many_by_ids_empty_list_input(
     fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
 
     assert len(fetched_users) == 0
-    mock_db_session.execute.assert_not_called() # Should return early
+    mock_db_session.execute.assert_not_called() # type: ignore[attribute-error] # Should return early
 
 @pytest.mark.asyncio
 async def test_get_many_by_ids_model_no_pk_logs_error(
@@ -159,20 +159,20 @@ async def test_get_many_by_ids_with_static_id_pk(mock_db_session: AsyncSession):
 
     mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = [item1]
-    mock_db_session.execute.return_value = mock_result
+    mock_db_session.execute.return_value = mock_result # type: ignore[attribute-error]
 
     ids_to_fetch = ["item_a", "item_b"]
     fetched_items = await crud_static_pk.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
 
     assert len(fetched_items) == 1
     assert fetched_items[0].static_id == "item_a"
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
     # To fully test, one would inspect the statement passed to execute
     # and ensure it queries where(MockStaticIdPK.static_id.in_(ids_to_fetch))
     # This is a bit more involved with current mocking.
 
     # Test with guild_id as well
-    mock_db_session.execute.reset_mock()
+    mock_db_session.execute.reset_mock() # type: ignore[attribute-error]
     item_guild = MockStaticIdPK(static_id="item_g", name="Item Guild", guild_id=100)
     mock_result.scalars.return_value.all.return_value = [item_guild] # Simulate DB returns only this
 
@@ -182,7 +182,7 @@ async def test_get_many_by_ids_with_static_id_pk(mock_db_session: AsyncSession):
     assert len(fetched_items_guild) == 1
     assert fetched_items_guild[0].static_id == "item_g"
     assert fetched_items_guild[0].guild_id == 100
-    mock_db_session.execute.assert_called_once()
+    mock_db_session.execute.assert_called_once() # type: ignore[attribute-error]
 
 # TODO: Could add tests for different types in `ids` list if the method should handle them,
 # but current signature `ids: List[Any]` implies it relies on SQLAlchemy's `in_` operator.

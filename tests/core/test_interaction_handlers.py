@@ -513,7 +513,7 @@ async def test_find_target_malformed_interactable_elements(
 from src.core.interaction_handlers import _find_target_in_location
 
 def test_find_target_empty_location_data():
-    assert _find_target_in_location(None, "target") is None
+    assert _find_target_in_location(None, "target") is None # type: ignore[arg-type]
     assert _find_target_in_location({}, "target") is None
 
 def test_find_target_no_interactables_key():

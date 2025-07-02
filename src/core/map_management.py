@@ -59,15 +59,22 @@ async def add_location_master(
         # Обновление связей у соседей, если они были указаны в neighbor_locations_json
         # Это предполагает, что neighbor_locations_json содержит ID существующих локаций
         if new_location and new_location.neighbor_locations_json:
-            for neighbor_info in new_location.neighbor_locations_json:
-                neighbor_id = neighbor_info.get("id")
-                conn_type = neighbor_info.get("type_i18n", {"en": "a connection", "ru": "связь"})
-                if neighbor_id:
-                    neighbor_loc = await location_crud.get(session, id=neighbor_id)
-                    if neighbor_loc and neighbor_loc.guild_id == guild_id:
-                        await update_location_neighbors(session, neighbor_loc, new_location.id, conn_type, add_connection=True)
-                    else:
-                        logger.warning(f"Neighbor location ID {neighbor_id} not found or not in guild {guild_id} when adding master location {new_location.id}")
+            for neighbor_data_item in new_location.neighbor_locations_json:
+                if isinstance(neighbor_data_item, dict):
+                    neighbor_id = neighbor_data_item.get("id")
+                    conn_type = neighbor_data_item.get("type_i18n", {"en": "a connection", "ru": "связь"})
+                    if neighbor_id: # Make sure neighbor_id is not None if .get could return it
+                        try:
+                            actual_neighbor_id = int(neighbor_id) # Ensure it's an int
+                            neighbor_loc = await location_crud.get(session, id=actual_neighbor_id)
+                            if neighbor_loc and neighbor_loc.guild_id == guild_id:
+                                await update_location_neighbors(session, neighbor_loc, new_location.id, conn_type, add_connection=True)
+                            else:
+                                logger.warning(f"Neighbor location ID {actual_neighbor_id} not found or not in guild {guild_id} when adding master location {new_location.id}")
+                        except ValueError:
+                            logger.warning(f"Invalid neighbor_id format: {neighbor_id} in new_location.neighbor_locations_json for location {new_location.id}")
+                else:
+                    logger.warning(f"Skipping malformed neighbor_data_item in new_location.neighbor_locations_json for location {new_location.id}: {neighbor_data_item}")
 
         await log_event(
             session=session,

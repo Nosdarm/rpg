@@ -277,9 +277,7 @@ async def _find_location_by_identifier(
         # However, the error "'coroutine' object has no attribute 'all'" means results.scalars() IS the coroutine.
         # So, we need to await it first.
         scalar_results = await results.scalars()
-        # And it seems .all() on the result of scalars() might also be async
-        # if scalars() returns a Result-like object that then has an async .all()
-        # Let's try awaiting .all() as well.
+        # Runtime errors indicate .all() on this ScalarResult is also awaitable
         found_locations = await scalar_results.all()
 
         if found_locations:
