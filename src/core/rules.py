@@ -25,7 +25,8 @@ async def load_rules_config_for_guild(db: AsyncSession, guild_id: int) -> Dict[s
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
     result = await db.execute(statement)
-    rules_from_db = result.scalars().all()
+    scalar_rules = await result.scalars()
+    rules_from_db = await scalar_rules.all() # Assuming .all() also needs await based on mock setup
 
     guild_rules: Dict[str, Any] = {}
     for rule in rules_from_db:
