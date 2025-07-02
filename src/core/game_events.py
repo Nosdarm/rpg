@@ -20,22 +20,9 @@ async def on_enter_location(
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__) # Logger already initialized at the top of the file
 
-async def on_enter_location(
-    guild_id: int,
-    entity_id: int, # Player or Party ID
-    entity_type: str, # "player" or "party"
-    location_id: int
-):
-    """
-    Placeholder function called when an entity enters a new location.
-    This is related to Task 14.
-    """
-    logger.info(
-        f"[Game Event Placeholder] Entity {entity_type} {entity_id} in guild {guild_id} "
-        f"entered location {location_id}."
-    )
+# The second definition of on_enter_location was here and has been removed.
 
 async def log_event(
     session: AsyncSession,

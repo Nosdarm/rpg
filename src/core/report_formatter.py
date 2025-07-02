@@ -1,6 +1,6 @@
 # src/core/report_formatter.py
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union # Added Union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .localization_utils import get_localized_entity_name
@@ -9,12 +9,21 @@ from .localization_utils import get_localized_entity_name
 logger = logging.getLogger(__name__)
 
 # Helper to safely get potentially nested dictionary values
-def _safe_get(data: Dict, path: List[str], default: Any = None) -> Any:
+def _safe_get(data: Dict, path: List[Union[str, int]], default: Any = None) -> Any:
     current = data
-    for key in path:
-        if not isinstance(current, dict) or key not in current:
+    for key_or_index in path:
+        if isinstance(key_or_index, str):
+            if not isinstance(current, dict) or key_or_index not in current:
+                return default
+            current = current[key_or_index]
+        elif isinstance(key_or_index, int):
+            if not isinstance(current, list) or not (0 <= key_or_index < len(current)):
+                return default
+            current = current[key_or_index]
+        else:
+            # This case should ideally not be reached if path is typed correctly
+            logger.warning(f"_safe_get encountered unexpected key type: {type(key_or_index)}")
             return default
-        current = current[key]
     return current
 
 async def format_log_entry(

@@ -11,7 +11,10 @@ from src.models import Player, Location, GeneratedNpc, Item # Assuming these mod
 @pytest.fixture
 def mock_player_instance():
     player = Player(id=1, guild_id=100, name="PlayerOne")
-    player.name_i18n = {"en": "Player One", "ru": "Игрок Один"}
+    # Player model doesn't have name_i18n statically defined.
+    # We are adding it here for testing get_localized_entity_name's i18n capabilities.
+    # The function uses hasattr, so this will work at runtime.
+    player.name_i18n = {"en": "Player One", "ru": "Игрок Один"}  # type: ignore[attr-defined]
     return player
 
 @pytest.fixture

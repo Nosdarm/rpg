@@ -30,10 +30,10 @@ from ..models.actions import ParsedAction
 # Helper function for NLU processing to keep on_message clean
 # This function will handle fetching the player and updating them.
 @transactional
-async def process_player_message_for_nlu(session: AsyncSession, bot: commands.Bot, message: discord.Message):
+async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Message, *, session: AsyncSession):
     """
     Processes a player's message for NLU, updates player's collected_actions_json.
-    This function is decorated with @transactional to ensure DB operations are atomic.
+    Session is injected by @transactional as a keyword argument.
     """
     if not message.guild: # Should not happen if called from on_message with guild check
         return
