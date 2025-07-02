@@ -30,6 +30,13 @@ from .pending_generation import PendingGeneration # Import PendingGeneration mod
 from .actions import ParsedAction, ActionEntity # Import Action models
 from .pending_conflict import PendingConflict # Import PendingConflict model
 from .enums import ConflictStatus # Import ConflictStatus enum
+from .ability_outcomes import ( # Import Ability Outcome models
+    AbilityOutcomeDetails,
+    AppliedStatusDetail,
+    DamageDetail,
+    HealingDetail,
+    CasterUpdateDetail
+)
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -76,5 +83,6 @@ logger.info(
     "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, Player, Party, "
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
-    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict."
+    "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, AbilityOutcomeDetails, "
+    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail."
 )
