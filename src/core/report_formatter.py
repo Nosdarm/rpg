@@ -214,8 +214,11 @@ async def format_turn_report(
     # 2. Batch fetch localized names for all collected references
     names_cache: Dict[Tuple[str, int], str] = {}
     if all_entity_refs: # Only call if there are refs to fetch
+        entity_refs_for_batch_call: List[Dict[str, Any]] = [
+            {"type": entity_type, "id": entity_id} for entity_type, entity_id in all_entity_refs
+        ]
         names_cache = await get_batch_localized_entity_names(
-            session, guild_id, list(all_entity_refs), language, fallback_language
+            session, guild_id, entity_refs_for_batch_call, language, fallback_language
         )
 
     # 3. Format each *prepared* log entry using the names_cache

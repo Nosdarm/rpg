@@ -61,9 +61,10 @@ async def test_add_location_master_success(
             mock_db_session, neighbor_loc_mock, created_loc_mock.id, {"en": "road", "ru": "дорога"}, add_connection=True
         )
 
-        mock_log_event.assert_called_once()
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_ADDED
-        mock_db_session.commit.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_ADDED # type: ignore[attr-defined]
+        commit_mock_add: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock_add.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_add_location_master_static_id_exists(
@@ -92,7 +93,8 @@ async def test_add_location_master_missing_field(mock_db_session: AsyncSession):
     assert error is not None
     assert "Missing required field" in error
     # rollback не должен вызываться, т.к. ошибка до DB операций
-    mock_db_session.rollback.assert_not_called()
+    rollback_mock_missing_field: AsyncMock = mock_db_session.rollback # type: ignore
+    rollback_mock_missing_field.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -113,7 +115,7 @@ async def test_remove_location_master_success(
 
     # Первый get находит удаляемую локацию, второй get находит соседа
     mock_location_crud.get.side_effect = [loc_to_remove, neighbor_loc]
-    mock_location_crud.remove.return_value = True # Предположим, что remove возвращает bool или удаленный объект
+    mock_location_crud.delete.return_value = True # Changed from remove to delete
 
     with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
          patch("src.core.map_management.location_crud", new=mock_location_crud), \
@@ -124,12 +126,13 @@ async def test_remove_location_master_success(
         assert error is None
         assert success is True
 
-        mock_location_crud.remove.assert_called_once_with(mock_db_session, id=loc_id_to_remove)
-        mock_update_neighbors.assert_called_once_with(mock_db_session, neighbor_loc, loc_id_to_remove, {}, add_connection=False)
+        mock_location_crud.delete.assert_called_once_with(mock_db_session, id=loc_id_to_remove) # type: ignore[attr-defined]
+        mock_update_neighbors.assert_called_once_with(mock_db_session, neighbor_loc, loc_id_to_remove, {}, add_connection=False) # type: ignore[attr-defined]
 
-        mock_log_event.assert_called_once()
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_REMOVED
-        mock_db_session.commit.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATION_REMOVED # type: ignore[attr-defined]
+        commit_mock_remove: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock_remove.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_remove_location_master_not_found(
@@ -173,11 +176,13 @@ async def test_connect_locations_master_success(
 
         assert mock_update_neighbors.call_count == 2
         mock_update_neighbors.assert_any_call(mock_db_session, loc1, loc2_id, conn_type, add_connection=True)
-        mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, conn_type, add_connection=True)
+        mock_update_neighbors.assert_any_call(mock_db_session, loc1, loc2_id, conn_type, add_connection=True) # type: ignore[attr-defined]
+        mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, conn_type, add_connection=True) # type: ignore[attr-defined]
 
-        mock_log_event.assert_called_once()
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_CONNECTED
-        mock_db_session.commit.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_CONNECTED # type: ignore[attr-defined]
+        commit_mock_connect: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock_connect.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_disconnect_locations_master_success(
@@ -203,11 +208,13 @@ async def test_disconnect_locations_master_success(
 
         assert mock_update_neighbors.call_count == 2
         mock_update_neighbors.assert_any_call(mock_db_session, loc1, loc2_id, {}, add_connection=False)
-        mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, {}, add_connection=False)
+        mock_update_neighbors.assert_any_call(mock_db_session, loc1, loc2_id, {}, add_connection=False) # type: ignore[attr-defined]
+        mock_update_neighbors.assert_any_call(mock_db_session, loc2, loc1_id, {}, add_connection=False) # type: ignore[attr-defined]
 
-        mock_log_event.assert_called_once()
-        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED
-        mock_db_session.commit.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore[attr-defined]
+        assert mock_log_event.call_args[1]["event_type"] == EventType.MASTER_ACTION_LOCATIONS_DISCONNECTED # type: ignore[attr-defined]
+        commit_mock_disconnect: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock_disconnect.assert_called_once()
 
 # Фикстуры, если они не в conftest.py
 # @pytest.fixture

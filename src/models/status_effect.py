@@ -99,6 +99,14 @@ class ActiveStatusEffect(Base):
     )
     # source_ability: Mapped[Optional["Ability"]] = relationship()
 
+    # Entity that caused this status effect (e.g., another player, an NPC)
+    source_entity_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    source_entity_type: Mapped[Optional[RelationshipEntityType]] = mapped_column(
+        SQLAlchemyEnum(RelationshipEntityType, name="relationship_entity_type_enum_source", create_type=False), # Reusing existing enum
+        nullable=True
+    )
+    # Note: No direct FK here as source could be Player or GeneratedNpc etc. Logic would handle this.
+
     # For instance-specific data, e.g., if a status effect has variable potency based on application
     data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True, default=lambda: {})
     # Example: {"applied_by_player_id": 123, "initial_damage_roll": 15}
@@ -109,10 +117,12 @@ class ActiveStatusEffect(Base):
         # This constraint assumes one active instance per status_effect type on an entity.
         UniqueConstraint('guild_id', 'entity_type', 'entity_id', 'status_effect_id', name='uq_active_status_entity_effect'),
         Index("ix_active_status_effects_entity", "guild_id", "entity_type", "entity_id"),
+        Index("ix_active_status_effects_source_entity", "source_entity_type", "source_entity_id", unique=False), # Index for querying by source
     )
 
     def __repr__(self) -> str:
         return (
             f"<ActiveStatusEffect(id={self.id}, entity='{self.entity_type.value}:{self.entity_id}', "
-            f"status_effect_id={self.status_effect_id}, remaining_turns={self.remaining_turns})>"
+            f"status_effect_id={self.status_effect_id}, remaining_turns={self.remaining_turns}, "
+            f"source_entity='{self.source_entity_type.value if self.source_entity_type else 'None'}:{self.source_entity_id}')>"
         )

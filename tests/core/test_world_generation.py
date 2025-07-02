@@ -88,7 +88,8 @@ async def test_generate_new_location_via_ai_success(
         assert mock_log_event.call_args[1]["event_type"] == EventType.WORLD_EVENT_LOCATION_GENERATED
         assert mock_log_event.call_args[1]["details_json"]["location_id"] == 100
 
-        mock_db_session.commit.assert_called_once()
+        commit_mock: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_generate_new_location_ai_validation_error(mock_db_session: AsyncSession):
@@ -140,9 +141,10 @@ async def test_update_location_neighbors_add_connection(mock_db_session: AsyncSe
 
     assert loc1.neighbor_locations_json is not None
     assert len(loc1.neighbor_locations_json) == 1
-    assert loc1.neighbor_locations_json[0]["id"] == neighbor_id
-    assert loc1.neighbor_locations_json[0]["type_i18n"] == conn_type
-    mock_db_session.flush.assert_called_once_with([loc1])
+    assert loc1.neighbor_locations_json[0]["id"] == neighbor_id  # type: ignore[literal-required]
+    assert loc1.neighbor_locations_json[0]["type_i18n"] == conn_type  # type: ignore[literal-required]
+    flush_mock: AsyncMock = mock_db_session.flush # type: ignore
+    flush_mock.assert_called_once_with([loc1])
 
 @pytest.mark.asyncio
 async def test_update_location_neighbors_remove_connection(mock_db_session: AsyncSession):
@@ -157,8 +159,9 @@ async def test_update_location_neighbors_remove_connection(mock_db_session: Asyn
 
     assert loc1.neighbor_locations_json is not None
     assert len(loc1.neighbor_locations_json) == 1
-    assert loc1.neighbor_locations_json[0]["id"] == 3
-    mock_db_session.flush.assert_called_once_with([loc1])
+    assert loc1.neighbor_locations_json[0]["id"] == 3  # type: ignore[literal-required]
+    flush_mock_remove: AsyncMock = mock_db_session.flush # type: ignore
+    flush_mock_remove.assert_called_once_with([loc1])
 
 @pytest.mark.asyncio
 async def test_update_location_neighbors_add_existing_does_not_duplicate(mock_db_session: AsyncSession):
@@ -172,11 +175,12 @@ async def test_update_location_neighbors_add_existing_does_not_duplicate(mock_db
 
     assert loc1.neighbor_locations_json is not None
     assert len(loc1.neighbor_locations_json) == 1 # Длина не должна измениться
-    assert loc1.neighbor_locations_json[0]["id"] == existing_neighbor_id
+    assert loc1.neighbor_locations_json[0]["id"] == existing_neighbor_id  # type: ignore[literal-required]
     # flush должен быть вызван, так как объект передается в него, даже если список не изменился
     # Однако, если бы мы проверяли session.add(loc1), то он не должен был бы быть вызван, если объект не dirty.
     # Но flush([loc1]) будет вызван в любом случае нашей функцией.
-    mock_db_session.flush.assert_called_once_with([loc1])
+    flush_mock_duplicate: AsyncMock = mock_db_session.flush # type: ignore
+    flush_mock_duplicate.assert_called_once_with([loc1])
 
 @pytest.mark.asyncio
 async def test_generate_new_location_potential_neighbor_not_found(
@@ -208,8 +212,12 @@ async def test_generate_new_location_potential_neighbor_not_found(
         assert location is not None
         assert location.id == 101
         assert not location.neighbor_locations_json # Список соседей должен остаться пустым
-        mock_update_neighbors.assert_not_called() # Не должен вызываться, если сосед не найден
-        mock_db_session.commit.assert_called_once()
+
+        update_neighbors_mock_typed: AsyncMock = mock_update_neighbors # type: ignore
+        update_neighbors_mock_typed.assert_not_called() # Не должен вызываться, если сосед не найден
+
+        commit_mock_no_neighbor: AsyncMock = mock_db_session.commit # type: ignore
+        commit_mock_no_neighbor.assert_called_once()
 
 # TODO: Тесты для обработки `new_generated_neighbor_type` в `potential_neighbors`,
 # когда AI предлагает создать еще одного соседа. Это более сложный сценарий,

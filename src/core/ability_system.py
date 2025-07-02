@@ -305,12 +305,20 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
                 if effect_type == "damage":
                     # TODO: Get damage amount from RuleConfig if formula-based
                     damage_amount = effect_data.get("amount", 0)
-                    # TODO: Apply damage to target_individual.current_hp or target_individual.stats_json['hp']
+                    # TODO: Apply damage to target_individual.current_hp or target_individual.properties_json['stats']['hp']
                     # For now, just log and add to outcome
                     if isinstance(target_individual, Player) and target_individual.current_hp is not None:
                         target_individual.current_hp -= damage_amount
-                    elif isinstance(target_individual, GeneratedNpc) and target_individual.stats_json and "hp" in target_individual.stats_json:
-                        target_individual.stats_json["hp"] -= damage_amount
+                    elif isinstance(target_individual, GeneratedNpc):
+                        if target_individual.properties_json is None:
+                            target_individual.properties_json = {}
+                        if "stats" not in target_individual.properties_json:
+                            target_individual.properties_json["stats"] = {}
+                        current_hp = target_individual.properties_json.get("stats", {}).get("hp")
+                        if isinstance(current_hp, (int, float)):
+                            target_individual.properties_json["stats"]["hp"] = current_hp - damage_amount
+                        else:
+                            logger.warning(f"Could not update HP for NPC {target_individual.id}: 'hp' not found or not a number in properties_json.stats")
                     # else: logger.warning for unhandled hp update
 
                     logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
@@ -368,7 +376,7 @@ async def activate_ability_v2( # Renamed to avoid clash while showing evolution
     await log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.ABILITY_USED,
+        event_type=EventType.ABILITY_USED.value,
         details_json=log_details,
         player_id=event_player_id,
         location_id=caster.current_location_id if hasattr(caster, 'current_location_id') else None
@@ -401,19 +409,19 @@ async def apply_status_v2( # Renamed
 
     # Instantiate then set attributes to avoid TypeError with SQLAlchemy constructor
     active_status = ActiveStatusEffect()
-    active_status.owner_id = target_entity.id
-    active_status.owner_type = owner_type_enum_val
+    active_status.entity_id = target_entity.id # Corrected: owner_id -> entity_id
+    active_status.entity_type = owner_type_enum_val # Corrected: owner_type -> entity_type
     active_status.status_effect_id = db_status_effect.id
     active_status.guild_id = guild_id # ActiveStatusEffect is always guild-scoped for the owner
-    active_status.duration = duration
+    active_status.duration_turns = duration # Corrected: duration -> duration_turns
     active_status.source_ability_id = source_ability_id
+    # Assuming source_entity_id and source_entity_type will be added to ActiveStatusEffect model
     active_status.source_entity_id = source_entity_id
-
     if source_entity_type:
         try:
             active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower())
         except ValueError:
-            active_status.source_entity_type = None # Or handle error appropriately
+            active_status.source_entity_type = None
             logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Set to None.")
     else:
         active_status.source_entity_type = None
@@ -442,7 +450,7 @@ async def apply_status_v2( # Renamed
     await log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.STATUS_APPLIED,
+        event_type=EventType.STATUS_APPLIED.value,
         details_json=log_details_status,
         player_id=event_player_id,
         location_id=target_entity.current_location_id if hasattr(target_entity, 'current_location_id') else None

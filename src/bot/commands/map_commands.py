@@ -28,13 +28,15 @@ class MapMasterCog(commands.GroupCog, name="master_map", description="Master com
         self.bot = bot
         super().__init__()
 
-    async def cog_check(self, interaction: discord.Interaction) -> bool:
+    async def interaction_check(self, interaction: discord.Interaction) -> bool: # Renamed cog_check to interaction_check
         # Дополнительная проверка, если default_permissions недостаточно
         # или если есть список Мастеров в конфиге
-        is_admin = interaction.user.guild_permissions.administrator
-        is_bot_owner = await self.bot.is_owner(interaction.user)
+        # Assuming interaction.user is discord.Member due to @app_commands.guild_only()
+        user_as_member = interaction.user # type: discord.Member
+        is_admin = user_as_member.guild_permissions.administrator # type: ignore[attr-defined]
+        is_bot_owner = await self.bot.is_owner(user_as_member)
         # Можно добавить проверку на ID из списка MASTER_IDS в settings
-        is_master = str(interaction.user.id) in (settings.MASTER_IDS or [])
+        is_master = str(user_as_member.id) in (settings.MASTER_IDS or [])
 
         if not (is_admin or is_bot_owner or is_master):
             await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)

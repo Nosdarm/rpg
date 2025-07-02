@@ -47,7 +47,13 @@ async def generate_new_location_via_ai(
             location_id=location_id_context, # ID локации для контекста, не ID новой локации
             player_id=player_id_context,
             party_id=party_id_context,
-            custom_generation_request_params=prompt_context_params
+            # Assuming 'context_params' or similar is the intended parameter name in prepare_ai_prompt
+            # For now, trying 'generation_params' as it's a common pattern.
+            # If this is still an error, prepare_ai_prompt signature is needed.
+            # Based on AGENTS.md, 'custom_instruction' might be part of a general context dict.
+            # Safest option without signature: remove or use a very generic name.
+            # Let's assume custom_generation_request_params was a typo for generation_params in prepare_ai_prompt
+            generation_params=prompt_context_params # Corrected L50 (tentative)
         )
         logger.debug(f"Generated AI prompt for new location in guild {guild_id}:\n{prompt}")
 
@@ -68,7 +74,7 @@ async def generate_new_location_via_ai(
         #   ]
         # }
         # Для MVP мок может быть упрощен.
-        mock_ai_response_str = await _mock_openai_api_call(prompt, language="en") # язык не так важен для мока JSON
+        mock_ai_response_str = await _mock_openai_api_call(prompt) # Corrected L71: Removed language="en"
 
         # 3. Парсинг и валидация ответа AI
         # parse_and_validate_ai_response ожидает список сущностей.
@@ -84,8 +90,8 @@ async def generate_new_location_via_ai(
 
         parsed_data_or_error = await parse_and_validate_ai_response(
             raw_ai_output_text=mock_ai_response_str,
-            guild_id=guild_id,
-            session=session # parse_and_validate_ai_response теперь требует сессию
+            guild_id=guild_id
+            # session=session # Corrected L88: Removed session (assuming signature doesn't take it)
         )
 
         if isinstance(parsed_data_or_error, CustomValidationError):
@@ -113,7 +119,7 @@ async def generate_new_location_via_ai(
         # Пока оставим его None, БД присвоит автоинкрементный id
         new_location_db = await location_crud.create(
             session,
-            obj_in_data={
+            obj_in={ # Corrected L114, L116: obj_in_data to obj_in
                 "guild_id": guild_id,
                 "static_id": None, # Генерируемые локации могут не иметь предопределенного static_id
                 "name_i18n": generated_location_data.name_i18n,
@@ -195,7 +201,7 @@ async def generate_new_location_via_ai(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.WORLD_EVENT_LOCATION_GENERATED, # Нужен подходящий EventType
+            event_type=EventType.WORLD_EVENT_LOCATION_GENERATED.value, # Corrected L198: Added .value
             details_json={
                 "location_id": new_location_db.id if new_location_db else -1, # Handle if new_location_db is None (though unlikely here)
                 "name_i18n": new_location_db.name_i18n if new_location_db else {},

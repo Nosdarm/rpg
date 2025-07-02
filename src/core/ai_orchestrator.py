@@ -107,7 +107,9 @@ async def generate_narrative(
     if isinstance(player_id_from_context, int):
         # Ensure player_id_from_context is treated as int for the call
         p_id: int = player_id_from_context
-        player = await get_player(session, p_id, guild_id=guild_id)
+        # Corrected call to get_player based on pyright errors (missing player_id, guild_id already assigned)
+        # This assumes get_player signature is (session, *, player_id: int, guild_id: int) or similar with named args.
+        player = await get_player(session, player_id=p_id, guild_id=guild_id)
         if player and player.selected_language:
             target_language = player.selected_language
             logger.debug(f"Using player's selected language: {target_language}")

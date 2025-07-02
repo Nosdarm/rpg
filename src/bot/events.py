@@ -120,7 +120,7 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
         try:
             # Pass `self.bot` if `process_player_message_for_nlu` needs it.
             # For now, it doesn't, but good practice if it might for e.g. sending messages.
-            await process_player_message_for_nlu(self.bot, message)
+            await process_player_message_for_nlu(self.bot, message) # type: ignore[call-arg]
         except Exception as e:
             logger.error(f"Error during NLU processing in on_message for guild {message.guild.id}: {e}", exc_info=True)
 
