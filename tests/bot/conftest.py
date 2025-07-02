@@ -2,6 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from discord.ext import commands
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.fixture
 def mock_bot_class() -> MagicMock: # Имя фикстуры изменено на mock_bot_class для соответствия использованию
