@@ -88,8 +88,59 @@ class ParsedItemData(BaseGeneratedEntity):
             raise ValueError("i18n field must be a dict of str:str")
         return v
 
+from pydantic import ValidationInfo # Added for Pydantic 2.x
+
+# ... (other imports remain the same)
+
+# --- Data Structures ---
+
+# ... (CustomValidationError and BaseGeneratedEntity remain the same)
+
+# ... (ParsedNpcData, ParsedQuestData, ParsedItemData remain largely the same,
+#      but ensure their field_validators are compatible with Pydantic V2 if not already,
+#      e.g. using ValidationInfo for context if needed, though current ones seem simple enough)
+
+class ParsedLocationData(BaseGeneratedEntity):
+    entity_type: str = Field("location", frozen=True)
+    name_i18n: Dict[str, str]
+    descriptions_i18n: Dict[str, str]
+    location_type: str # Должен соответствовать LocationType enum
+    coordinates_json: Optional[Dict[str, Any]] = None
+    generated_details_json: Optional[Dict[str, Any]] = None
+    # Поле для описания связей с соседями, которое AI может вернуть
+    # Пример: [{"static_id_or_name": "village_square", "connection_description_i18n": {"en": "a dusty road", "ru": "пыльная дорога"}}]
+    potential_neighbors: Optional[List[Dict[str, Any]]] = None
+
+    @field_validator("name_i18n", "descriptions_i18n", mode="before") # mode="before" is fine for simple checks
+    @classmethod
+    def check_i18n_languages(cls, value, info: ValidationInfo): # Added ValidationInfo for Pydantic 2.x style
+        # This is a simplified check. Real check should use guild's languages from RuleConfig
+        # or a global list of supported languages.
+        # For now, ensure it's a dict and has at least 'en'.
+        if not isinstance(value, dict):
+            raise ValueError("i18n field must be a dictionary.")
+        if not value: # Cannot be empty
+             raise ValueError("i18n field dictionary cannot be empty.")
+        if "en" not in value: # Example: ensure English is always present
+            logger.warning(f"i18n field {info.field_name} is missing 'en' key: {value}")
+            # Depending on strictness, this could be an error:
+            # raise ValueError(f"i18n field {info.field_name} must contain 'en' translation.")
+        return value
+
+    @field_validator("location_type", mode="before")
+    @classmethod
+    def validate_location_type(cls, value, info: ValidationInfo):
+        # TODO: Validate against actual LocationType enum members from src.models.location
+        # from src.models.location import LocationType
+        # if value not in [lt.value for lt in LocationType]:
+        #     raise ValueError(f"Invalid location_type: {value}. Must be one of {[lt.value for lt in LocationType]}")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("location_type must be a non-empty string.")
+        return value.upper() # Example: Store as uppercase
+
+
 # Union of all possible generated entity types for Pydantic to discriminate
-GeneratedEntity = Union[ParsedNpcData, ParsedQuestData, ParsedItemData]
+GeneratedEntity = Union[ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedLocationData]
 
 
 class ParsedAiData(BaseModel):

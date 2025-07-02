@@ -167,13 +167,25 @@ SECRET_KEY=your_secret_key_here
 # Список когов для загрузки ботом
 # Пути указываются относительно корня проекта (где находится main.py или точка входа)
 BOT_COGS = [
-    "src.bot.commands", # Contains CommandCog with /ping etc.
+    "src.bot.general_commands", # БЫЛ "src.bot.commands" - содержит CommandCog с /ping etc.
     "src.bot.events",
     "src.bot.commands.party_commands",
     "src.bot.commands.movement_commands",
     "src.bot.commands.master_ai_commands", # New cog for AI moderation
     "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
+    "src.bot.commands.map_commands", # Added Map Master commands
 ]
+
+# Master User IDs - comma-separated string in .env, parsed into a list here
+MASTER_IDS_STR = os.getenv("MASTER_IDS", "")
+MASTER_IDS = [uid.strip() for uid in MASTER_IDS_STR.split(',') if uid.strip()]
+if not MASTER_IDS_STR: # Проверяем исходную строку, чтобы не логировать пустоту, если переменная вообще не задана
+    logger.info("MASTER_IDS environment variable is not set. Master command authorization might be limited to server admins/bot owners.")
+elif not MASTER_IDS: # Если строка была, но оказалась пустой после split/strip
+    logger.warning("MASTER_IDS environment variable was set but resulted in an empty list (e.g., just commas or whitespace). Master command authorization might be limited.")
+else:
+    logger.info(f"Loaded MASTER_IDS: {MASTER_IDS}")
+
 
 # Константы для команды /start и создания игрока по умолчанию
 DEFAULT_STARTING_LOCATION_STATIC_ID = "town_square" # Пример ID стартовой локации

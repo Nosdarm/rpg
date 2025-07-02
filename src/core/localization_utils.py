@@ -83,13 +83,14 @@ def get_localized_text(
 async def get_batch_localized_entity_names(
     session: AsyncSession,
     guild_id: int,
-    entity_refs: List[Tuple[str, int]], # List of (entity_type_str, entity_id)
+    entity_refs: List[Dict[str, Any]], # Изменено на List[Dict[str, Any]]
     language: str,
     fallback_language: str = "en",
 ) -> Dict[Tuple[str, int], str]:
     """
     Fetches multiple entities and returns a map of their localized names.
     Optimized to load entities of the same type in batches.
+    entity_refs: List of dictionaries, e.g., [{"entity_type": "player", "entity_id": 1}, ...]
     """
     localized_names_cache: Dict[Tuple[str, int], str] = {}
     if not entity_refs:
@@ -97,7 +98,14 @@ async def get_batch_localized_entity_names(
 
     # Group entity_refs by entity_type
     grouped_refs: Dict[str, List[int]] = {}
-    for entity_type_str, entity_id in entity_refs:
+    for ref_dict in entity_refs: # Итерация по словарям
+        entity_type_str = ref_dict.get("entity_type")
+        entity_id = ref_dict.get("entity_id")
+
+        if not entity_type_str or not isinstance(entity_id, int):
+            logger.warning(f"Invalid entity reference found in batch: {ref_dict}. Skipping.")
+            continue # Пропускаем некорректную ссылку
+
         entity_type_lower = entity_type_str.lower()
         if entity_type_lower not in grouped_refs:
             grouped_refs[entity_type_lower] = []
@@ -105,7 +113,7 @@ async def get_batch_localized_entity_names(
              grouped_refs[entity_type_lower].append(entity_id)
 
     for entity_type, ids in grouped_refs.items():
-        crud_instance = ENTITY_TYPE_CRUD_MAP.get(entity_type)
+        crud_instance = ENTITY_TYPE_CRUD_MAP.get(entity_type) # entity_type здесь уже lowercased
         if not crud_instance:
             logger.warning(f"No CRUD instance found for entity type '{entity_type}' in ENTITY_TYPE_CRUD_MAP. Skipping batch load for this type.")
             for entity_id in ids: # Fallback to individual or placeholder
