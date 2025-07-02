@@ -508,3 +508,150 @@ async def test_find_target_malformed_interactable_elements(
     assert result["success"] is False # Target won't be found
     assert "You don't see any 'Old Chest' here to examine." in result["message"]
     mock_log_event.assert_not_called()
+
+# --- Tests for _find_target_in_location ---
+from src.core.interaction_handlers import _find_target_in_location
+
+def test_find_target_empty_location_data():
+    assert _find_target_in_location(None, "target") is None
+    assert _find_target_in_location({}, "target") is None
+
+def test_find_target_no_interactables_key():
+    location_data = {"some_other_key": "some_value"}
+    assert _find_target_in_location(location_data, "target") is None
+
+def test_find_target_interactables_not_a_list():
+    location_data = {"interactable_elements": "not_a_list_string"}
+    assert _find_target_in_location(location_data, "target") is None
+    location_data_dict = {"interactable_elements": {"not_a_list": "a_dict"}}
+    assert _find_target_in_location(location_data_dict, "target") is None
+
+
+def test_find_target_empty_interactables_list():
+    location_data = {"interactable_elements": []}
+    assert _find_target_in_location(location_data, "target") is None
+
+def test_find_target_success():
+    target_item = {"name": "Shiny Key", "description": "A small shiny key."}
+    other_item = {"name": "Dull Rock", "description": "A boring rock."}
+    location_data = {"interactable_elements": [other_item, target_item]}
+    assert _find_target_in_location(location_data, "Shiny Key") == target_item
+    assert _find_target_in_location(location_data, "shiny key") == target_item # Case-insensitive
+
+def test_find_target_not_found():
+    other_item = {"name": "Dull Rock", "description": "A boring rock."}
+    location_data = {"interactable_elements": [other_item]}
+    assert _find_target_in_location(location_data, "Shiny Key") is None
+
+def test_find_target_item_not_a_dict():
+    location_data = {"interactable_elements": ["not_a_dict_item", {"name": "Real Item"}]}
+    assert _find_target_in_location(location_data, "Real Item") == {"name": "Real Item"}
+    assert _find_target_in_location(location_data, "not_a_dict_item") is None
+
+def test_find_target_item_no_name_key():
+    location_data = {"interactable_elements": [{"description": "Item without name"}, {"name": "Named Item"}]}
+    assert _find_target_in_location(location_data, "Named Item") == {"name": "Named Item"}
+    # Attempting to find by a description or other key should fail if logic relies on "name"
+    assert _find_target_in_location(location_data, "Item without name") is None
+
+# --- I18n tests for examine intent ---
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_examine_object_player_lang_present(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+    mock_location_with_details: Location # Has "Old Chest"
+):
+    mock_player.selected_language = "es" # Player prefers Spanish
+    mock_player_crud.get.return_value = mock_player
+    # Ensure "Old Chest" has a Spanish description
+    # The fixture mock_location_with_details already has "es" for "Old Chest"
+    mock_location_crud.get.return_value = mock_location_with_details
+
+    action_data = {"intent": "examine", "entities": [{"name": "Old Chest"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True
+    expected_desc_es = "Un viejo cofre polvoriento." # From fixture
+    assert f"You examine Old Chest: {expected_desc_es}" in result["message"] # Assuming _format_feedback uses target_name as is
+    # For a fully i18n _format_feedback, the "You examine X:" part would also change.
+    # Current _format_feedback is simple.
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_examine_object_player_lang_missing_fallback_en(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+    mock_location_with_details: Location
+):
+    mock_player.selected_language = "de" # German, not in "Old Chest" data
+    mock_player_crud.get.return_value = mock_player
+    # "Old Chest" has "en" description
+    mock_location_crud.get.return_value = mock_location_with_details
+
+    action_data = {"intent": "examine", "entities": [{"name": "Old Chest"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True
+    expected_desc_en = "A dusty old chest. It looks unlocked." # From fixture
+    assert f"You examine Old Chest: {expected_desc_en}" in result["message"]
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_examine_object_player_lang_and_en_missing_fallback_default(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+):
+    mock_player.selected_language = "fr"
+    mock_player_crud.get.return_value = mock_player
+
+    # Create a location with an item that only has 'jp' description
+    item_jp_only = {"name": "Mysterious Scroll", "description_i18n": {"jp": "謎の巻物"}}
+    location_jp_item = Location(id=2, guild_id=DEFAULT_GUILD_ID, static_id="shrine", name_i18n={"en":"Shrine"}, type=LocationType.GENERIC, generated_details_json={"interactable_elements": [item_jp_only]})
+    mock_location_crud.get.return_value = location_jp_item
+
+    action_data = {"intent": "examine", "entities": [{"name": "Mysterious Scroll"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True
+    assert "You examine Mysterious Scroll: You see nothing special." in result["message"]
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_examine_object_no_description_i18n(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+):
+    mock_player.selected_language = "en"
+    mock_player_crud.get.return_value = mock_player
+
+    item_no_desc_i18n = {"name": "Plain Stone"} # No description_i18n field
+    location_no_desc = Location(id=3, guild_id=DEFAULT_GUILD_ID, static_id="cave", name_i18n={"en":"Cave"}, type=LocationType.GENERIC, generated_details_json={"interactable_elements": [item_no_desc_i18n]})
+    mock_location_crud.get.return_value = location_no_desc
+
+    action_data = {"intent": "examine", "entities": [{"name": "Plain Stone"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True
+    assert "You examine Plain Stone: You see nothing special." in result["message"]

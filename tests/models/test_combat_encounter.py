@@ -16,7 +16,7 @@ DATABASE_URL = "sqlite:///:memory:" # Используем SQLite для про�
 # Компилятор для JSONB на SQLite, чтобы тесты проходили
 @compiles(JSONB, 'sqlite')
 def compile_jsonb_sqlite(type_, compiler, **kw):
-    return compiler.visit_json(type_, **kw)
+    return compiler.visit_JSON(type_, **kw) # Changed to visit_JSON
 
 class TestCombatEncounterModel(unittest.TestCase):
     engine = None
