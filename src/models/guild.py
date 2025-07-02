@@ -8,6 +8,7 @@ from typing import List
 if TYPE_CHECKING:
     from .pending_conflict import PendingConflict # type: ignore
     from .story_log import StoryLog # Added for StoryLog relationship
+    from .ability import Ability # Added for Ability relationship
 
 class GuildConfig(Base):
     """
@@ -31,6 +32,7 @@ class GuildConfig(Base):
     # For now, assuming PendingConflict will be imported where GuildConfig is used or via __init__.
     pending_conflicts: Mapped[List["PendingConflict"]] = relationship(back_populates="guild")
     story_logs: Mapped[List["StoryLog"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    abilities: Mapped[List["Ability"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"

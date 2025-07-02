@@ -417,3 +417,33 @@ Key achievements for this task:
 - Ensured the function is exported via `src/core/__init__.py`.
 - Wrote comprehensive unit tests in `tests/core/test_ai_orchestrator.py` covering language handling, prompt content, and error cases.
 ---
+Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).
+Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
+API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
+API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild (determined from log_entries or explicitly passed). Formats them using format_log_entry. Generates a report for each player in their language (0.1/0.2).
+Result: Logging and feedback formatting system generating localized reports. *Partially implemented, requires future enhancements based on other modules.*
+
+Key achievements for this task:
+- Created `src/core/report_formatter.py` and defined `format_log_entry`, `format_turn_report`.
+- Created `src/core/localization_utils.py` with `get_localized_entity_name` and `get_localized_text`.
+- Integrated `get_localized_entity_name` into `format_log_entry`.
+- Added basic string templating for multiple event types and languages (en/ru).
+- Confirmed base `format_turn_report` logic.
+- Updated `src/core/__init__.py` for new modules/functions.
+- Wrote unit tests for `localization_utils` and `report_formatter`.
+- **Note**: Marked as partially complete in `AGENTS.md` due to dependencies on future tasks.
+
+---
+Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped).
+Description: Define the model for storing ability data. Implement the Ability model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable? - if ability can be global), static_id (TEXT, unique within the guild/globally), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - effects, cost, damage types).
+Result: Ability model defined in `src/models/ability.py`, `GuildConfig` updated with relationship, and Alembic migration `0010_create_abilities_table.py` created to establish the table with appropriate fields and partial unique indexes for `static_id`.
+
+Key achievements for this task:
+- Updated `src/models/ability.py` by renaming `effects_json` to `properties_json` and defining the relationship to `GuildConfig`.
+- Updated `src/models/guild.py` with the corresponding `abilities` back-relationship.
+- Verified `src/models/__init__.py` already included `Ability`.
+- Created Alembic migration `0010_create_abilities_table.py` with:
+    - Table `abilities` creation.
+    - Foreign key to `guild_configs.id` with `ondelete='CASCADE'`.
+    - Two partial unique indexes for `static_id` to handle global and guild-specific abilities correctly.
+---
