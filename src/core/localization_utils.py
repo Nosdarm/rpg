@@ -59,11 +59,14 @@ def get_localized_text(
         return text
 
     # If still not found, try to return any available language or an empty string
-    if i18n_field:
-        for lang_code, lang_text in i18n_field.items():
-            if lang_text:
-                logger.debug(f"Using first available language '{lang_code}' as fallback for i18n field.")
-                return lang_text
+    # If still not found after checking preferred and primary fallback,
+    # do not fall back to any other available language.
+    # Return empty string to allow the caller to decide further fallbacks (e.g., to a non-i18n 'name' field).
+    # if i18n_field:
+    #     for lang_code, lang_text in i18n_field.items():
+    #         if lang_text:
+    #             logger.debug(f"Using first available language '{lang_code}' as fallback for i18n field.")
+    #             return lang_text
     return ""
 
 

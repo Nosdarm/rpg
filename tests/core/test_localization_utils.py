@@ -64,7 +64,9 @@ def mock_plain_name_entity_instance():
     (None, "en", "ru", ""),
     ({}, "en", "ru", ""),
     ({"en": ""}, "en", "ru", ""), # Empty string for requested lang
-    ({"fr": "Bonjour"}, "en", "ru", "Bonjour"), # Fallback to first available if others fail
+    # For this case, if 'en' and 'ru' are not found, it should return ""
+    # as per the modified get_localized_text logic.
+    ({"fr": "Bonjour"}, "en", "ru", ""),
 ])
 def test_get_localized_text(i18n_field, lang, fallback_lang, expected):
     assert get_localized_text(i18n_field, lang, fallback_lang) == expected
@@ -146,7 +148,7 @@ async def test_get_localized_entity_name_unsupported_type(mock_session: AsyncSes
 
             name = await get_localized_entity_name(mock_session, 100, "dragon", 1, "en")
             assert name == "[dragon ID: 1]"
-            mock_model_map.get.assert_called_with("dragon")
+            # mock_model_map.get.assert_called_with("dragon") # This is no longer called
             mock_getter_map.get.assert_called_with("dragon")
 
 
@@ -178,34 +180,9 @@ async def test_get_localized_entity_name_getter_exception(mock_session: AsyncSes
         name = await get_localized_entity_name(mock_session, 100, "item", 123, "en")
         assert name == "[Item ID: 123 (Error)]"
 
-# Example of testing the generic fallback if ENTITY_TYPE_GETTER_MAP doesn't have the type
-# but ENTITY_TYPE_MODEL_MAP does. This relies on the generic getter.
-@pytest.mark.asyncio
-@patch("src.core.localization_utils.get_entity_by_id_gino_style", new_callable=AsyncMock) # Mock the generic getter
-async def test_get_localized_entity_name_generic_getter_fallback(
-    mock_generic_getter: AsyncMock,
-    mock_session: AsyncSession,
-    mock_player_instance: Player # Use a real model instance
-):
-    # Ensure the specific getter is NOT found, but model IS found
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP", return_value={}) as mock_getter_map_empty, \
-         patch("src.core.localization_utils.ENTITY_TYPE_MODEL_MAP", return_value={"player": Player}) as mock_model_map_with_player:
-
-        # mock_getter_map_empty.get.return_value = None # This is implicitly true if map is empty or key missing
-        # mock_model_map_with_player.get.return_value = Player # This is set by the patch
-
-        mock_generic_getter.return_value = mock_player_instance
-
-        name = await get_localized_entity_name(mock_session, 100, "player", 1, "en")
-        assert name == "Player One"
-
-        # Check that the specific getter map was checked and returned None (or key not found)
-        # This is tricky to assert directly if the .get just returns None.
-        # Instead, we check that the generic_getter was called.
-        mock_generic_getter.assert_called_once_with(mock_session, Player, 1, guild_id=100)
-
-        # Verify that the maps were indeed accessed
-        # These assertions might be too fragile if the internal logic of get_localized_entity_name changes slightly
-        # mock_getter_map_empty.get.assert_called_with("player")
-        # mock_model_map_with_player.get.assert_called_with("player")
-
+# The test `test_get_localized_entity_name_generic_getter_fallback` was removed
+# because the generic fallback mechanism using `get_entity_by_id_gino_style` and
+# `ENTITY_TYPE_MODEL_MAP` (when a specific getter is not found) has been removed
+# from `src.core.localization_utils.get_localized_entity_name`.
+# The current behavior (returning a placeholder like "[entity_type ID: entity_id]")
+# is already covered by `test_get_localized_entity_name_unsupported_type`.
