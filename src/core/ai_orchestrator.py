@@ -37,6 +37,109 @@ async def _mock_openai_api_call(prompt: str) -> str:
     ]
     """
 
+async def _mock_narrative_openai_api_call(prompt: str, language: str) -> str:
+    """
+    Mocks a call to an OpenAI API for narrative generation.
+    Returns a sample narrative string.
+    """
+    logger.info(f"Mocking OpenAI API call for NARRATIVE prompt (first 200 chars): {prompt[:200]}...")
+    if language == "ru":
+        return f"Это пример повествования на русском языке, основанный на контексте: {prompt[:100]}..."
+    else:
+        return f"This is a sample narrative in English, based on the context: {prompt[:100]}..."
+
+
+@transactional
+async def generate_narrative(
+    session: AsyncSession,
+    guild_id: int,
+    context: Dict[str, Any],
+    # Optional: Explicitly pass player_id if player-specific language is needed
+    # player_id: Optional[int] = None
+) -> str:
+    """
+    Generates freeform narrative text using an LLM.
+
+    Args:
+        session: The database session.
+        guild_id: The ID of the guild for which to generate narrative.
+        context: A dictionary containing contextual information for the narrative
+                 (e.g., event_type, involved_entities, location_data, world_state_summary).
+        # player_id: Optional ID of the player to determine language preference.
+
+    Returns:
+        A string containing the generated narrative.
+    """
+    from .player_utils import get_player  # Local import to avoid circular dependency issues at module level
+    from .rules import get_rule
+
+    logger.debug(f"Generating narrative for guild_id: {guild_id} with context: {context}")
+
+    target_language = "en"  # Default language
+
+    # Determine target language
+    # Priority: 1. Player's language (if player_id is in context and resolvable)
+    #           2. Guild's main language
+    player_id_from_context = context.get("player_id")
+    if isinstance(player_id_from_context, int):
+        player = await get_player(session, player_id_from_context, guild_id=guild_id)
+        if player and player.selected_language:
+            target_language = player.selected_language
+            logger.debug(f"Using player's selected language: {target_language}")
+        else:
+            # Fallback to guild language if player not found or has no language set
+            guild_main_lang_rule = await get_rule(session, guild_id, "guild_main_language")
+            if guild_main_lang_rule and isinstance(guild_main_lang_rule.value_json, str):
+                target_language = guild_main_lang_rule.value_json
+                logger.debug(f"Using guild's main language (player context provided but no player lang): {target_language}")
+            else:
+                logger.debug(f"Player language not found, guild main language not set or invalid. Defaulting to '{target_language}'.")
+    else:
+        guild_main_lang_rule = await get_rule(session, guild_id, "guild_main_language")
+        if guild_main_lang_rule and isinstance(guild_main_lang_rule.value_json, str):
+            target_language = guild_main_lang_rule.value_json
+            logger.debug(f"Using guild's main language: {target_language}")
+        else:
+            logger.debug(f"Guild main language not set or invalid. Defaulting to '{target_language}'.")
+
+    # Construct the prompt
+    # This is a simplified prompt construction. A more sophisticated version
+    # would use ai_prompt_builder or a similar utility.
+    prompt_parts = [
+        f"Generate a short, engaging narrative piece in {target_language.upper()}.",
+        "The context for this narrative is as follows:",
+    ]
+    if "event_type" in context:
+        prompt_parts.append(f"- Event Type: {context['event_type']}")
+    if "involved_entities" in context: # e.g., {"player_name": "Hero", "npc_name": "Goblin"}
+        actors = ", ".join(f"{k}: {v}" for k, v in context["involved_entities"].items())
+        prompt_parts.append(f"- Key Entities Involved: {actors}")
+    if "location_data" in context: # e.g., {"name": "Dark Forest", "description": "A spooky forest"}
+        loc_info = ", ".join(f"{k}: {v}" for k, v in context["location_data"].items())
+        prompt_parts.append(f"- Location: {loc_info}")
+    if "world_state_summary" in context:
+        prompt_parts.append(f"- World State Summary: {context['world_state_summary']}")
+    if "custom_instruction" in context: # Allow for specific instructions
+        prompt_parts.append(f"- Specific Instruction: {context['custom_instruction']}")
+
+    prompt_parts.append("The narrative should be atmospheric and relevant to these details.")
+    prompt = "\n".join(prompt_parts)
+
+    logger.debug(f"Constructed narrative prompt (first 300 chars): {prompt[:300]}")
+
+    # Call the (mocked) LLM
+    try:
+        # Using a new mock function for narrative to avoid conflicts with existing mock
+        narrative_text = await _mock_narrative_openai_api_call(prompt, target_language)
+        logger.info(f"Generated narrative for guild_id {guild_id} in {target_language}: {narrative_text[:100]}...")
+        return narrative_text
+    except Exception as e:
+        logger.error(f"Error calling LLM for narrative generation (guild {guild_id}): {e}", exc_info=True)
+        if target_language == "ru":
+            return "Произошла ошибка при генерации повествования."
+        return "An error occurred while generating the narrative."
+
+
 @transactional
 async def trigger_ai_generation_flow(
     session: AsyncSession, # Injected by @transactional

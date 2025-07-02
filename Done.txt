@@ -403,3 +403,17 @@ Key achievements for this task:
 - Updated `src/core/__init__.py` to correctly export `log_event`.
 - Wrote and passed unit tests for `log_event` in `tests/core/test_game_events.py`.
 ---
+Task 18: 📚 7.2 AI Narrative Generation (Multilang).
+Description: Call LLM to generate more freeform narrative text (event description, reactions to something).
+API generate_narrative(guild_id: int, context: dict) -> str. Accepts guild_id. Called by other modules to enrich event descriptions.
+Forms the LLM prompt: Context (event, participants, location, WorldState - all for this guild). Requests the LLM to generate text IN THE PLAYER'S LANGUAGE (0.1/0.2) or the bot's main language (guild 1), relevant to the context.
+Result: API for generating narrative text on demand. Implemented `generate_narrative` in `src/core/ai_orchestrator.py` with language selection (player/guild/default), prompt construction from context, and a mock LLM call. Unit tests cover various scenarios.
+
+Key achievements for this task:
+- Implemented `generate_narrative(session, guild_id, context)` in `src/core/ai_orchestrator.py`.
+- Added logic for language determination (player > guild > default 'en').
+- Implemented dynamic prompt construction based on context.
+- Added `_mock_narrative_openai_api_call` for testing.
+- Ensured the function is exported via `src/core/__init__.py`.
+- Wrote comprehensive unit tests in `tests/core/test_ai_orchestrator.py` covering language handling, prompt content, and error cases.
+---

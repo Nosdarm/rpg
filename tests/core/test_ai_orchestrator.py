@@ -340,3 +340,272 @@ async def test_save_approved_generation_entity_creation_fails(
     assert last_update_call_args[1] == mock_pending_gen
     assert last_update_call_args[2]["status"] == ModerationStatus.ERROR_ON_SAVE
     assert "Saving error: DB save error" in last_update_call_args[2]["master_notes"]
+
+
+# Tests for generate_narrative
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("src.core.rules.get_rule", new_callable=AsyncMock)
+@patch("src.core.database.transactional") # Patch for the @transactional decorator
+async def test_generate_narrative_success_player_language(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession, # Re-use existing fixture
+    mock_player: Player # Re-use existing fixture
+):
+    # --- Setup for @transactional passthrough ---
+    def passthrough(func):
+        async def wrapper(*args, **kwargs):
+            # The first arg for a decorated method is 'self' if it's a class method
+            # or the first positional arg if it's a function.
+            # For generate_narrative, the session is the first arg.
+            # We need to ensure that the session is passed correctly.
+            # args[0] should be the session.
+            return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+    # --- End setup for @transactional passthrough ---
+
+    mock_player.selected_language = "fr"
+    mock_get_player.return_value = mock_player
+
+    # get_rule should not be called if player language is found
+    mock_get_rule.return_value = None
+
+    expected_narrative = "Ceci est une narration simulée en français."
+    mock_narrative_call.return_value = expected_narrative
+
+    context = {
+        "player_id": mock_player.id, # Use the ID from the fixture
+        "event_type": "test_event",
+        "involved_entities": {"character": "TestPlayer"},
+        "location_data": {"name": "TestLocation"}
+    }
+
+    # Import generate_narrative here to ensure patches are active
+    from src.core.ai_orchestrator import generate_narrative
+
+    # Call the function being tested
+    # The session is automatically injected by @transactional,
+    # but our passthrough needs it explicitly.
+    # The mock_transactional_deco setup above handles injecting the session.
+    # So, we call it as if the decorator is working normally.
+    # The passthrough above will receive session as args[0] from the decorator,
+    # then call the original func with session as its first arg.
+    narrative = await generate_narrative(
+        session=mock_session, # This will be the first arg to the wrapper
+        guild_id=DEFAULT_GUILD_ID,
+        context=context
+    )
+
+    assert narrative == expected_narrative
+    mock_get_player.assert_called_once_with(mock_session, mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_not_called() # Guild language rule should not be fetched
+
+    # Check prompt construction (simplified check)
+    mock_narrative_call.assert_called_once()
+    call_args, _ = mock_narrative_call.call_args
+    prompt_arg = call_args[0]
+    language_arg = call_args[1]
+
+    assert "Generate a short, engaging narrative piece in FR." in prompt_arg
+    assert "Event Type: test_event" in prompt_arg
+    assert "character: TestPlayer" in prompt_arg
+    assert "Location: name: TestLocation" in prompt_arg
+    assert language_arg == "fr"
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("src.core.rules.get_rule", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_generate_narrative_success_guild_language_player_context(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player # Player exists but has no language set
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    mock_player.selected_language = None # Player has no language preference
+    mock_get_player.return_value = mock_player
+
+    # Simulate RuleConfig for guild_main_language
+    from src.models import RuleConfig # Import here if not at top
+    mock_guild_lang_rule = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="de")
+    mock_get_rule.return_value = mock_guild_lang_rule
+
+    expected_narrative = "Dies ist eine simulierte Erzählung auf Deutsch."
+    mock_narrative_call.return_value = expected_narrative
+
+    context = {"player_id": mock_player.id, "event_type": "guild_lang_event"}
+
+    from src.core.ai_orchestrator import generate_narrative
+    narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+
+    assert narrative == expected_narrative
+    mock_get_player.assert_called_once_with(mock_session, mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
+
+    call_args, _ = mock_narrative_call.call_args
+    assert "Generate a short, engaging narrative piece in DE." in call_args[0]
+    assert call_args[1] == "de"
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock) # Should not be called
+@patch("src.core.rules.get_rule", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_generate_narrative_success_guild_language_no_player_context(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    from src.models import RuleConfig
+    mock_guild_lang_rule = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="es")
+    mock_get_rule.return_value = mock_guild_lang_rule
+
+    expected_narrative = "Esta es una narración simulada en español."
+    mock_narrative_call.return_value = expected_narrative
+
+    context = {"event_type": "system_event"} # No player_id
+
+    from src.core.ai_orchestrator import generate_narrative
+    narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+
+    assert narrative == expected_narrative
+    mock_get_player.assert_not_called()
+    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
+
+    call_args, _ = mock_narrative_call.call_args
+    assert "Generate a short, engaging narrative piece in ES." in call_args[0]
+    assert call_args[1] == "es"
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("src.core.rules.get_rule", new_callable=AsyncMock) # To simulate no rule found
+@patch("src.core.database.transactional")
+async def test_generate_narrative_success_default_language(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    mock_player.selected_language = None
+    mock_get_player.return_value = mock_player # Player found, but no language
+    mock_get_rule.return_value = None # No guild language rule
+
+    expected_narrative = "This is a sample narrative in English."
+    mock_narrative_call.return_value = expected_narrative
+
+    context = {"player_id": mock_player.id}
+
+    from src.core.ai_orchestrator import generate_narrative
+    narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+
+    assert narrative == expected_narrative
+    mock_get_player.assert_called_once_with(mock_session, mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
+
+    call_args, _ = mock_narrative_call.call_args
+    assert "Generate a short, engaging narrative piece in EN." in call_args[0]
+    assert call_args[1] == "en"
+
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("src.core.rules.get_rule", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_generate_narrative_prompt_construction_all_fields(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock, # Irrelevant for this specific check, but part of signature
+    mock_get_player: AsyncMock, # Irrelevant
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    # Default to 'en' for simplicity in this prompt check
+    mock_get_player.return_value = None
+    mock_get_rule.return_value = None
+    mock_narrative_call.return_value = "Narrative"
+
+    context = {
+        "event_type": "complex_event",
+        "involved_entities": {"hero": "Alice", "villain": "Bob"},
+        "location_data": {"name": "Crystal Cave", "atmosphere": "Eerie"},
+        "world_state_summary": "The world is in peril.",
+        "custom_instruction": "Make it dramatic."
+    }
+    from src.core.ai_orchestrator import generate_narrative
+    await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+
+    mock_narrative_call.assert_called_once()
+    prompt_arg = mock_narrative_call.call_args.args[0]
+
+    assert "Generate a short, engaging narrative piece in EN." in prompt_arg
+    assert "Event Type: complex_event" in prompt_arg
+    assert "Key Entities Involved: hero: Alice, villain: Bob" in prompt_arg
+    assert "Location: name: Crystal Cave, atmosphere: Eerie" in prompt_arg
+    assert "World State Summary: The world is in peril." in prompt_arg
+    assert "Specific Instruction: Make it dramatic." in prompt_arg
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("src.core.rules.get_rule", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_generate_narrative_llm_call_error(
+    mock_transactional_deco: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_narrative_call: AsyncMock,
+    mock_session: AsyncSession
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    mock_get_player.return_value = None # Default to 'en'
+    mock_get_rule.return_value = None
+    mock_narrative_call.side_effect = Exception("LLM API is down")
+
+    context = {"event_type": "error_test"}
+    from src.core.ai_orchestrator import generate_narrative
+    narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+
+    assert narrative == "An error occurred while generating the narrative."
+
+    # Test Russian error message
+    from src.models import RuleConfig
+    mock_get_rule.return_value = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="ru")
+    narrative_ru = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
+    assert narrative_ru == "Произошла ошибка при генерации повествования."
