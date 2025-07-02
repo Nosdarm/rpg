@@ -447,7 +447,6 @@ Key achievements for this task:
     - Foreign key to `guild_configs.id` with `ondelete='CASCADE'`.
     - Two partial unique indexes for `static_id` to handle global and guild-specific abilities correctly.
 ---
----
 Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped).
 Description: Define the model for storing various temporary states (buffs/debuffs) of entities. Implement the Status model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable?), static_id (TEXT, unique), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - how it affects stats/behavior, duration).
 Result: StatusEffect model (definition of a status type) updated and corresponding Alembic migration `0011_create_status_effects_table.py` created.
@@ -463,4 +462,21 @@ Key achievements for this task:
     - Corrected an issue with `alembic history` by standardizing `down_revision` in a previous migration.
     - The new migration creates the `status_effects` table with all necessary columns (`id`, `guild_id`, `static_id`, `name_i18n`, `description_i18n`, `effects_json`), FK to `guild_configs`, and appropriate indexes.
     - Implemented two partial unique indexes for `static_id`: one for guild-specific statuses (where `guild_id` is not null) and one for global statuses (where `guild_id` is null).
+---
+Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - MVP.
+Description: Implement the logic for characters using abilities and applying/removing statuses.
+Result: Implemented MVP of `activate_ability_v2`, `apply_status_v2`, and `remove_status` in `src/core/ability_system.py`. Added `Player.current_hp` field and migration. Defined `AbilityOutcomeDetails` and related Pydantic models. Added new `EventType` values. Created placeholder CRUDs for Ability and StatusEffect. Updated `__init__` files. Basic unit tests created.
+
+Key achievements for this task:
+- Added `current_hp` to `Player` model and created Alembic migration `0012_add_player_current_hp.py`.
+- Defined `AbilityOutcomeDetails` and related Pydantic models in `src/models/ability_outcomes.py`.
+- Implemented `activate_ability_v2`, `apply_status_v2`, `remove_status` in `src/core/ability_system.py` with MVP logic for loading entities/definitions, interpreting basic ability properties (cost, damage, apply_status), creating `ActiveStatusEffect` records, and logging events.
+- Added `ABILITY_USED`, `STATUS_APPLIED`, `STATUS_REMOVED` to `EventType` enum.
+- Created placeholder CRUDs: `crud_ability.py`, `crud_status_effect.py`.
+- Updated `__init__.py` for `models`, `core/crud`, and `core`.
+- Created initial unit tests in `tests/core/test_ability_system.py` for happy paths.
+---
+Task 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped) - Covered by Task 1.1.
+Description: (Moved from 13 for better grouping). Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details. (See description in Task 4).
+Result: This task is a duplicate of Task 1.1, which has already been completed. The `Location` model, its i18n fields, guild-scoping, and associated utilities were implemented as part of Task 1.1.
 ---
