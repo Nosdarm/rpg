@@ -1,33 +1,28 @@
-import logging
-from typing import TYPE_CHECKING, Optional, Dict, Any, List
-
-from sqlalchemy import BigInteger, ForeignKey, Integer, Text
+from typing import TYPE_CHECKING, Dict, Any, List # Added List
+from sqlalchemy import BigInteger, ForeignKey, Text, UniqueConstraint # Removed Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.schema import UniqueConstraint
 
 from .base import Base
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
 
-logger = logging.getLogger(__name__)
 
 class Ability(Base):
     """
     Represents an ability that can be used by entities in the game.
-    Abilities can be global (guild_id is NULL) or guild-specific.
+    Abilities are strictly guild-scoped in this iteration.
     """
     __tablename__ = "abilities"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    guild_id: Mapped[Optional[int]] = mapped_column(
-        BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=True, index=True
-    )
+    id: Mapped[int] = mapped_column(primary_key=True, index=True) # Integer is fine for PK
+    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=False, index=True) # Changed to nullable=False, added ondelete
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, default=lambda: {})
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, default=lambda: {})
-    properties_json: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, default=lambda: {})
+
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, server_default='{}')
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, server_default='{}')
+    properties_json: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default='{}')
     # Example for properties_json:
     # {
     #   "cost": {"resource": "mana", "amount": 10},
@@ -48,18 +43,12 @@ class Ability(Base):
     #   "sound_hint": "fireball_whoosh" // Optional
     # }
 
-    # --- Relationships ---
-    guild: Mapped[Optional["GuildConfig"]] = relationship(back_populates="abilities")
+
+    # Relationships
+    guild: Mapped["GuildConfig"] = relationship(back_populates="abilities") # Kept as GuildConfig, will be non-optional due to nullable=False guild_id
 
     __table_args__ = (
-        UniqueConstraint('guild_id', 'static_id', name='uq_ability_guild_static_id'),
-        # Note: For true global static_id uniqueness (where guild_id IS NULL),
-        # a partial index is typically needed in PostgreSQL:
-        # Index('ix_ability_global_static_id', 'static_id', unique=True, postgresql_where=Column('guild_id').is_(None))
-        # The UniqueConstraint on (guild_id, static_id) handles uniqueness for guild-specific abilities
-        # and for all global abilities (guild_id IS NULL) as a group.
-        # If multiple global abilities need the same static_id, this constraint alone is not sufficient without partial indexes.
-        # For this model, we assume static_id for global abilities must be globally unique.
+        UniqueConstraint("guild_id", "static_id", name="uq_ability_guild_static_id"),
     )
 
     def __repr__(self) -> str:
@@ -68,5 +57,3 @@ class Ability(Base):
             f"<Ability(id={self.id}, static_id='{self.static_id}', "
             f"guild_id={self.guild_id}, name='{name_en}')>"
         )
-
-logger.info("Ability model defined")

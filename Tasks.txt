@@ -71,10 +71,7 @@ Result: Logging and feedback formatting system generating localized reports.
 Task Block: Phase 3: Abilities and Checks Mechanics
 This block presents tasks related to defining and using abilities, statuses, and attribute/skill check mechanics.
 
-Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped).
-Description: Define the model for storing ability data.
-Implement the Ability model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable? - if ability can be global), static_id (TEXT, unique within the guild/globally), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - effects, cost, damage types).
-Result: Ability model defined.
+{Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped) - Moved to Done.txt}
 
 Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped).
 Description: Define the model for storing various temporary states (buffs/debuffs) of entities.
