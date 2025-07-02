@@ -52,6 +52,30 @@
 
 ## Лог действий
 
+## Задача 21: 🧠 3.2 Entity Status Model (i18n, Guild-Scoped)
+- **Определена модель `StatusEffect` и `ActiveStatusEffect`** в `src/models/status_effect.py`.
+    - `StatusEffect` включает поля: `id`, `guild_id` (FK, `nullable=False`), `static_id` (`nullable=False`), `name_i18n`, `description_i18n`, `properties_json`. Добавлено отношение к `GuildConfig` и `UniqueConstraint("guild_id", "static_id")`.
+    - `ActiveStatusEffect` включает поля: `id`, `entity_id`, `entity_type`, `status_effect_id` (FK), `guild_id` (FK, `nullable=False`), `applied_at`, `duration_turns`, `remaining_turns`, `source_ability_id`, `custom_properties_json`. Добавлены отношения к `StatusEffect` и `GuildConfig`.
+- **Обновлена модель `GuildConfig`** в `src/models/guild.py`.
+    - Добавлено обратное отношение `active_status_effects: Mapped[List["ActiveStatusEffect"]]`. Отношение `status_effects` уже присутствовало.
+- **Обновлен `src/models/__init__.py`**.
+    - Проверено, что `StatusEffect` и `ActiveStatusEffect` уже импортированы и добавлены в логгер. Изменения не потребовались.
+- **Создана новая миграция Alembic** `alembic/versions/0004_create_status_effects_tables.py`.
+    - `down_revision` установлен на `0003`.
+    - Реализованы функции `upgrade()` и `downgrade()` для таблиц `status_effects` и `active_status_effects`.
+- **Написаны базовые Unit-тесты** для моделей `StatusEffect` и `ActiveStatusEffect` в `tests/models/test_status_effect.py`.
+    - Тесты проверяют создание экземпляров моделей с различными параметрами, используя InMemory SQLite.
+
+## Задача 18: 📚 7.2 AI Narrative Generation (Multilang)
+
+---
+## Отложенные задачи
+*(Этот раздел будет заполняться, если появятся задачи, требующие доработки в будущем)*
+
+---
+
+## Лог действий
+
 ## Задача 18: 📚 7.2 AI Narrative Generation (Multilang)
 - **Анализ требований и существующего кода**:
     - Проанализированы требования к API `generate_narrative` из `Tasks.txt` (Задача 18).
