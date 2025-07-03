@@ -39,7 +39,12 @@ from .ability_outcomes import ( # Import Ability Outcome models
     CasterUpdateDetail
 )
 from .combat_outcomes import CombatActionResult # Import CombatActionResult model
+from .check_results import CheckResult, CheckOutcome, ModifierDetail # Import CheckResult models
 # ... и так далее для всех остальных моделей
+
+# Вызов model_rebuild для моделей с ForwardRefs после того, как все модели импортированы
+# CombatActionResult.model_rebuild() # Moved from combat_outcomes.py
+# CheckResult.model_rebuild() # If CheckResult itself had forward refs, which it doesn't internally
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
 # __all__ = [
@@ -86,5 +91,11 @@ logger.info(
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
-    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult."
+    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail."
 )
+
+# Perform model rebuilds here after all models are known
+CombatActionResult.model_rebuild()
+CheckResult.model_rebuild() # Though CheckResult itself is self-contained, doesn't hurt
+ModifierDetail.model_rebuild()
+CheckOutcome.model_rebuild()
