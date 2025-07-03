@@ -184,6 +184,74 @@ class PartyCog(commands.Cog, name="Party Commands"):
     # TODO: Implement /party info [party_name_or_id]
     # This would display party name, members, current location, etc.
 
+    @party_group.command(name="join", help="Присоединиться к существующей группе. Пример: /party join ИмяГруппы")
+    async def party_join(self, ctx: commands.Context, *, party_identifier: str):
+        if not ctx.guild:
+            await ctx.send("Эту команду можно использовать только на сервере.")
+            return
+
+        guild_id = ctx.guild.id
+        discord_id = ctx.author.id
+
+        async with get_db_session() as session:
+            try:
+                player = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=discord_id)
+                if not player:
+                    await ctx.send(f"{ctx.author.mention}, сначала начни игру командой `/start`.")
+                    return
+
+                if player.current_party_id:
+                    existing_party = await party_crud.get(session, id=player.current_party_id, guild_id=guild_id)
+                    await ctx.send(f"{ctx.author.mention}, ты уже состоишь в группе '{existing_party.name if existing_party else 'Неизвестная группа'}'.")
+                    return
+
+                target_party: Optional[Party] = None
+                # Попытка найти группу по ID, если party_identifier это число
+                try:
+                    party_id_int = int(party_identifier)
+                    target_party = await party_crud.get(session, id=party_id_int, guild_id=guild_id)
+                except ValueError:
+                    # Если не число, ищем по имени
+                    pass
+
+                if not target_party:
+                    target_party = await party_crud.get_by_name(session, guild_id=guild_id, name=party_identifier)
+
+                if not target_party:
+                    await ctx.send(f"{ctx.author.mention}, группа с именем или ID '{party_identifier}' не найдена.")
+                    return
+
+                # TODO: Добавить проверки (например, максимальное количество участников в группе из RuleConfig)
+
+                # Добавляем игрока в JSON список партии
+                target_party = await party_crud.add_player_to_party_json(session, party=target_party, player_id=player.id)
+
+                # Обновляем ID партии у игрока и его локацию, если она отличается от локации партии
+                player.current_party_id = target_party.id
+                if player.current_location_id != target_party.current_location_id:
+                    logger.info(f"Игрок {player.name} (ID: {player.id}) присоединяется к группе '{target_party.name}' и перемещается в ее локацию (ID: {target_party.current_location_id}).")
+                    player.current_location_id = target_party.current_location_id
+
+                await session.merge(player)
+                # party_crud.add_player_to_party_json уже делает flush и refresh для party
+
+                await session.commit()
+                logger.info(f"Игрок {player.name} (ID: {player.id}) присоединился к группе '{target_party.name}' (ID: {target_party.id}) на сервере {guild_id}.")
+
+                player_location_name = "неизвестно"
+                if player.current_location_id:
+                    player_loc_obj = await location_crud.get(session, id=player.current_location_id, guild_id=guild_id)
+                    if player_loc_obj:
+                        player_location_name = get_localized_text(player_loc_obj, "name", player.selected_language or "en")
+
+
+                await ctx.send(f"{ctx.author.mention} успешно присоединился к группе '{target_party.name}'! Текущая локация группы: {player_location_name}.")
+
+            except Exception as e:
+                logger.error(f"Ошибка при присоединении к группе для {ctx.author} на сервере {guild_id}: {e}", exc_info=True)
+                await ctx.send("Произошла ошибка при присоединении к группе.")
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(PartyCog(bot))
     logger.info("PartyCog успешно загружен и добавлен в бота.")

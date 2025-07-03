@@ -1,9 +1,10 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from sqlalchemy import create_engine, event, JSON
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker, Session as SqlAlchemySession # Renamed to avoid conflict
+# Используем create_async_engine для асинхронного движка
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import event, JSON, select # Добавлен select
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 
@@ -31,7 +32,7 @@ class JsonCompat(TypeDecorator):
 
 @event.listens_for(Location.__table__, "column_reflect")
 def receive_column_reflect(inspector, table, column_info):
-    if isinstance(column_info['type'], JSONB):
+    if isinstance(column_info['type'], JSONB): # type: ignore
         column_info['type'] = JsonCompat()
 
 
@@ -49,7 +50,12 @@ class TestGetLocalizedText(unittest.TestCase):
     def test_get_first_available_if_primary_and_fallback_missing(self):
         mock_entity = MagicMock()
         mock_entity.title_i18n = {"de": "Titel"} # No 'en' or 'fr'
+        # В текущей реализации get_localized_text, если не найден ни язык, ни fallback,
+        # и если в словаре есть хоть что-то, вернется первое значение.
+        # Если это нежелательное поведение, get_localized_text нужно изменить.
+        # Пока тест отражает текущую логику.
         self.assertEqual(get_localized_text(mock_entity, "title", "fr", "en"), "Titel")
+
 
     def test_empty_string_if_no_text_found(self):
         mock_entity = MagicMock()
@@ -78,27 +84,29 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(cls.engine)
-        cls.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=cls.engine, class_=AsyncSession)
-
-        # Setup initial guild
-        sync_session_maker = sessionmaker(autocommit=False, autoflush=False, bind=cls.engine)
-        sync_session = sync_session_maker()
-        if not sync_session.get(GuildConfig, cls.test_guild_id):
-            guild = GuildConfig(id=cls.test_guild_id, main_language="en", name="Test Guild")
-            sync_session.add(guild)
-            sync_session.commit()
-        sync_session.close()
+        cls.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        cls.SessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=cls.engine, class_=AsyncSession
+        )
 
     @classmethod
-    def tearDownClass(cls):
-        Base.metadata.drop_all(cls.engine)
-        # cls.engine.dispose() # dispose is for async engine
+    async def tearDownClass(cls): # Хоть и не вызывается автоматически, лучше иметь для справки
+        if cls.engine:
+            await cls.engine.dispose()
 
     async def asyncSetUp(self):
         self.session: AsyncSession = self.SessionLocal()
-        # Seed one location for testing get methods
+
+        async with self.engine.begin() as conn: # type: ignore
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        guild_exists = await self.session.get(GuildConfig, self.test_guild_id)
+        if not guild_exists:
+            guild = GuildConfig(id=self.test_guild_id, main_language="en", name="Test Guild")
+            self.session.add(guild)
+            await self.session.commit()
+
         self.loc1_data = {
             "guild_id": self.test_guild_id,
             "static_id": "loc_001",
@@ -106,21 +114,31 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
             "descriptions_i18n": {"en": "Desc 1"},
             "type": LocationType.TOWN
         }
-        loc1 = Location(**self.loc1_data)
-        self.session.add(loc1)
-        await self.session.commit()
-        self.loc1_id = loc1.id
 
+        existing_loc_stmt = select(Location).filter_by(guild_id=self.test_guild_id, static_id="loc_001")
+        existing_loc_result = await self.session.execute(existing_loc_stmt)
+        scalar_existing_loc = existing_loc_result.scalar_one_or_none()
+
+        if not scalar_existing_loc:
+            loc1 = Location(**self.loc1_data)
+            self.session.add(loc1)
+            await self.session.commit()
+            self.loc1_id = loc1.id
+        else:
+            self.loc1_id = scalar_existing_loc.id # type: ignore
+
+        await self.session.commit()
 
     async def asyncTearDown(self):
-        await self.session.rollback()
-        await self.session.close()
+        if self.session:
+            await self.session.rollback()
+            await self.session.close()
 
     async def test_get_location_existing(self):
         location = await get_location(self.session, guild_id=self.test_guild_id, location_id=self.loc1_id)
         self.assertIsNotNone(location)
-        self.assertEqual(location.id, self.loc1_id)
-        self.assertEqual(location.name_i18n["en"], "Test Location 1")
+        self.assertEqual(location.id, self.loc1_id) # type: ignore
+        self.assertEqual(location.name_i18n["en"], "Test Location 1") # type: ignore
 
     async def test_get_location_not_existing(self):
         location = await get_location(self.session, guild_id=self.test_guild_id, location_id=999)
@@ -133,8 +151,8 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
     async def test_get_location_by_static_id_existing(self):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id, static_id="loc_001")
         self.assertIsNotNone(location)
-        self.assertEqual(location.static_id, "loc_001")
-        self.assertEqual(location.name_i18n["en"], "Test Location 1")
+        self.assertEqual(location.static_id, "loc_001") # type: ignore
+        self.assertEqual(location.name_i18n["en"], "Test Location 1") # type: ignore
 
     async def test_get_location_by_static_id_not_existing(self):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id, static_id="non_existent_static_id")
@@ -144,7 +162,6 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id + 1, static_id="loc_001")
         self.assertIsNone(location)
 
-    # Example of mocking crud method if needed for more complex utils
     @patch("src.core.crud.crud_location.location_crud.get", new_callable=AsyncMock)
     async def test_get_location_mocked(self, mock_crud_get):
         mock_location_instance = Location(id=1, guild_id=1, name_i18n={"en":"Mocked"})

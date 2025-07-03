@@ -9,20 +9,25 @@ from .player_utils import get_player
 # For location, we will use location_crud.get
 from .crud.crud_location import location_crud
 # For NPC and Item, we've created placeholder functions in their respective crud modules
-from .crud.crud_npc import get_npc, npc_crud # Assuming npc_crud exists or is created
-from .crud.crud_item import get_item, item_crud # Assuming item_crud exists or is created
-from .crud.crud_player import player_crud # Import player_crud
+from .crud.crud_npc import get_npc, npc_crud
+from .crud.crud_item import get_item, item_crud
+from .crud.crud_player import player_crud
+from .crud.crud_ability import ability_crud
+from .crud.crud_status_effect import status_effect_crud
+from .crud.crud_quest import generated_quest_crud # Added
+from ..models import Ability, StatusEffect, GeneratedQuest # Added GeneratedQuest
 
 logger = logging.getLogger(__name__)
 
 # A map from simple entity type strings to their SQLAlchemy models
-# This map is primarily for reference or if a very generic approach was needed,
-# but current implementation relies more on ENTITY_TYPE_GETTER_MAP.
-ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = { #TODO: Review if this map is still needed
+ENTITY_TYPE_MODEL_MAP: Dict[str, Any] = {
     "player": Player,
     "location": Location,
     "npc": GeneratedNpc,
     "item": Item,
+    "ability": Ability,
+    "status_effect": StatusEffect,
+    "quest": GeneratedQuest, # Added (using "quest" as simple type string)
 }
 
 # Define a more specific type for the getter functions
@@ -31,19 +36,23 @@ GetterCallable = Callable[[AsyncSession, int, int], Awaitable[Optional[Any]]]
 ENTITY_TYPE_GETTER_MAP: Dict[str, GetterCallable] = {
     "player": lambda session, guild_id, entity_id: get_player(session, player_id=entity_id, guild_id=guild_id),
     "location": lambda session, guild_id, entity_id: location_crud.get(session, id=entity_id, guild_id=guild_id),
-    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id), # Uses specific get_npc
-    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id), # Uses specific get_item
+    "npc": lambda session, guild_id, entity_id: get_npc(session, npc_id=entity_id, guild_id=guild_id),
+    "item": lambda session, guild_id, entity_id: get_item(session, item_id=entity_id, guild_id=guild_id),
+    "ability": lambda session, guild_id, entity_id: ability_crud.get(session, id=entity_id, guild_id=guild_id),
+    "status_effect": lambda session, guild_id, entity_id: status_effect_crud.get(session, id=entity_id, guild_id=guild_id),
+    "quest": lambda session, guild_id, entity_id: generated_quest_crud.get(session, id=entity_id, guild_id=guild_id), # Added
 }
 
-# Map entity types to their CRUD instances (assuming they all have get_many_by_ids)
-# This requires that each CRUD object (player_crud, location_crud, etc.) is an instance of CRUDBase
-# or has a compatible get_many_by_ids method.
+# Map entity types to their CRUD instances
 from .crud_base_definitions import CRUDBase
 ENTITY_TYPE_CRUD_MAP: Dict[str, CRUDBase] = {
     "player": player_crud,
     "location": location_crud,
-    "npc": npc_crud, # Placeholder, ensure npc_crud is defined and is a CRUDBase instance
-    "item": item_crud, # Placeholder, ensure item_crud is defined and is a CRUDBase instance
+    "npc": npc_crud,
+    "item": item_crud,
+    "ability": ability_crud,
+    "status_effect": status_effect_crud,
+    "quest": generated_quest_crud, # Added
 }
 
 
