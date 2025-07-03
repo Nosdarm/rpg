@@ -1,9 +1,10 @@
 from typing import TYPE_CHECKING, Dict, Any, List # Added List
 from sqlalchemy import BigInteger, ForeignKey, Text, UniqueConstraint # Removed Integer
-from sqlalchemy.dialects.postgresql import JSONB
+# from sqlalchemy.dialects.postgresql import JSONB # Removed direct JSONB import
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+from .custom_types import JsonBForSQLite # Import custom type
 
 if TYPE_CHECKING:
     from .guild import GuildConfig

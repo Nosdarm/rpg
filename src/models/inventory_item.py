@@ -1,12 +1,13 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
+# from sqlalchemy.dialects.postgresql import JSONB # Удалено
 from sqlalchemy import Enum as SQLAlchemyEnum
 from typing import Optional, Dict, Any
 
 from .base import Base
-from .enums import OwnerEntityType # Import the Enum
-from .item import Item # Import the Item model for relationship type hinting
+from .enums import OwnerEntityType
+from .item import Item
+from .custom_types import JsonBForSQLite # Добавлено
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -43,7 +44,7 @@ class InventoryItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     instance_specific_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB, nullable=True, default=lambda: {}
+        JsonBForSQLite, nullable=True, default=lambda: {} # Заменено на JsonBForSQLite
     )
     # Example:
     # {"durability": 95, "custom_name": "Bob's Sword of Slaying", "bound_to_player": 123}
@@ -60,7 +61,7 @@ class InventoryItem(Base):
         # A simpler constraint if items are always unique instances or always stackable by item_id could be used.
         # For now, let's assume one row per (owner, item_id, instance_properties_content_hash - if possible or rely on app logic for stacking)
         # A practical approach for stacking: query for existing item_id with matching instance_properties (or null), then update quantity or insert.
-        # The unique constraint below is more about preventing exact duplicates if instance_properties are part of the key.
+        # The unique constraint below is more about preventing exact duplicates if instance_specific_properties are part of the key.
         # For JSONB comparison in unique constraints, it can be tricky. Often application logic handles stacking.
         # Let's make a simpler unique constraint for now, assuming application handles stacking logic.
         # UniqueConstraint('guild_id', 'owner_entity_type', 'owner_entity_id', 'item_id', 'instance_specific_properties_json', name='uq_inventory_item_instance'),

@@ -1,11 +1,12 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint # Removed JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
+# from sqlalchemy.dialects.postgresql import JSONB # Removed direct JSONB import
 from sqlalchemy import Enum as SQLAlchemyEnum
 from typing import Optional, Dict, Any
 
 from .base import Base
 from .enums import RelationshipEntityType # Import the Enum
+from .custom_types import JsonBForSQLite # Import custom type
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -42,7 +43,7 @@ class Relationship(Base):
 
     # Type of relationship, e.g., "personal_feeling", "faction_standing", "diplomatic_status"
     # Could also be an Enum if predefined types are desired. For now, i18n JSON for flexibility.
-    relationship_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSONB, nullable=True, default=lambda: {})
+    relationship_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example: {"en": "Friendly", "ru": "Дружественный"}, {"en": "Hostile", "ru": "Враждебный"}
     # Or more specific: {"en": "Ally of Convenience", "ru": "Союзник по обстоятельствам"}
 
@@ -50,7 +51,7 @@ class Relationship(Base):
     # Numerical representation of the relationship strength/status.
     # E.g., -100 (arch-enemy) to +100 (best friend/ally), or 0-10 for faction reputation levels.
 
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True, default=lambda: {})
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example: {"reason_for_change": "completed_quest_X", "last_interaction_event_id": 12345}
 
     __table_args__ = (

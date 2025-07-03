@@ -12,45 +12,42 @@ from src.models.location import Location, LocationType
 
 # Костыль для SQLite для поддержки JSON/JSONB типов, аналогично test_combat_encounter.py
 # В реальном проекте с PostgreSQL это не требуется.
-class JsonCompat(TypeDecorator):
-    impl = TEXT
-    cache_ok = True
+# class JsonCompat(TypeDecorator): # Удалено, так как JsonBForSQLite используется в модели
+#     impl = TEXT
+#     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
-            return dialect.type_descriptor(JSONB)
-        else:
-            return dialect.type_descriptor(JSON) # Используем JSON для SQLite
+#     def load_dialect_impl(self, dialect):
+#         if dialect.name == 'postgresql':
+#             return dialect.type_descriptor(JSONB)
+#         else:
+#             return dialect.type_descriptor(JSON) # Используем JSON для SQLite
 
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        if dialect.name == 'postgresql':
-            return value # JSONB остается как есть
-        else: # SQLite
-            import json
-            return json.dumps(value)
+#     def process_bind_param(self, value, dialect):
+#         if value is None:
+#             return None
+#         if dialect.name == 'postgresql':
+#             return value # JSONB остается как есть
+#         else: # SQLite
+#             import json
+#             return json.dumps(value)
 
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        if dialect.name == 'postgresql':
-            return value
-        else: # SQLite
-            import json
-            try:
-                return json.loads(value)
-            except (json.JSONDecodeError, TypeError):
-                return value # Если это уже Python объект (например, dict/list после process_bind_param в том же сеансе)
+#     def process_result_value(self, value, dialect):
+#         if value is None:
+#             return None
+#         if dialect.name == 'postgresql':
+#             return value
+#         else: # SQLite
+#             import json
+#             try:
+#                 return json.loads(value)
+#             except (json.JSONDecodeError, TypeError):
+#                 return value # Если это уже Python объект (например, dict/list после process_bind_param в том же сеансе)
 
-# Применение JSONB "заглушки" к соответствующим колонкам Location для тестов с SQLite
-# Это грязный хак для тестов. В реальном приложении с PostgreSQL это не нужно.
-# Более чистым решением было бы использовать PostgreSQL для интеграционных тестов.
-# Однако, для unit-тестов моделей с SQLite это распространенный подход.
-@event.listens_for(Location.__table__, "column_reflect")
-def receive_column_reflect(inspector, table, column_info):
-    if isinstance(column_info['type'], JSONB):
-        column_info['type'] = JsonCompat()
+# # Применение JSONB "заглушки" к соответствующим колонкам Location для тестов с SQLite - Удалено
+# @event.listens_for(Location.__table__, "column_reflect")
+# def receive_column_reflect(inspector, table, column_info):
+#     if isinstance(column_info['type'], JSONB):
+#         column_info['type'] = JsonCompat()
 
 
 class TestLocationModel(unittest.TestCase):
