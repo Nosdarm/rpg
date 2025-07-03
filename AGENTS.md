@@ -42,7 +42,7 @@
 ---
 
 ## Текущий план
-*(Задача 27 завершена, этот раздел очищен)*
+*(Этот раздел будет заполняться планом для следующей задачи)*
 
 ---
 ## Отложенные задачи
@@ -51,6 +51,30 @@
 ---
 
 ## Лог действий
+
+## Задача 6.1.1 (Текущая): ⚙️ Intra-Location Interaction Handler Module
+- **Анализ существующего кода и логов**:
+    - Проанализирован `Tasks.txt` и существующий лог в `AGENTS.MD` (Задача 29), который соответствует Задаче 6.1.1.
+    - Выявлено, что основная структура `handle_intra_location_action` и связанные компоненты (NLU, `action_processor`) уже реализованы.
+    - Ключевая недостающая часть: полная реализация логики интента `interact` с интеграцией `RuleConfig` и `resolve_check`.
+- **Доработка интента `interact` в `src/core/interaction_handlers.py`**:
+    - Реализована загрузка правил взаимодействия из `RuleConfig` по ключу `interactions:<interaction_rules_key>`.
+    - Если правило требует проверки (`requires_check: true`):
+        - Собираются параметры для `resolve_check` (тип проверки, атрибут игрока, DC).
+        - Вызывается `core.check_resolver.resolve_check`.
+        - Результат проверки используется для формирования обратной связи и логирования (`log_event`). Записывается ключ последствий для будущей обработки.
+    - Если проверка не требуется:
+        - Логируется ключ прямых последствий.
+    - Обновлены сообщения обратной связи в `_format_feedback` для различных исходов `interact`.
+    - Обновлено логирование события `player_interact` для включения деталей о правиле и результате проверки.
+- **Обновление Unit-тестов в `tests/core/test_interaction_handlers.py`**:
+    - Тест `test_interact_existing_object_with_rules_placeholder` переименован в `test_interact_object_with_check_success` и обновлен.
+    - Добавлены новые тесты:
+        - `test_interact_object_with_check_failure` (провал проверки).
+        - `test_interact_object_no_check_required` (взаимодействие без проверки).
+        - `test_interact_object_rule_not_found` (правило для ключа не найдено в RuleConfig).
+    - Тест `test_interact_existing_object_no_rules` переименован в `test_interact_object_no_interaction_key` и уточнен.
+    - Тесты мокируют `get_rule` и `resolve_check`, проверяют корректность их вызова и обработку результатов.
 
 ## Задача 27: ⚔️ 5.2 Combat Engine Module
 - **Анализ требований и существующего кода**:

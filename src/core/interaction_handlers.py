@@ -25,8 +25,13 @@ def _format_feedback(message_key: str, lang: str = "en", **kwargs) -> str:
         return f"You don't see any '{kwargs.get('target_name', 'that')}' here to interact with."
     if message_key == "interact_no_rules":
         return f"You try to interact with {kwargs.get('target_name', 'it')}, but nothing interesting happens."
-    if message_key == "interact_success_placeholder":
-        return f"You interact with {kwargs.get('target_name', 'it')}. (Interaction effects TBD)"
+    # Removed "interact_success_placeholder"
+    if message_key == "interact_check_success":
+        return f"You attempt to interact with {kwargs.get('target_name', 'it')}... Success! ({kwargs.get('outcome', 'success')})"
+    if message_key == "interact_check_failure":
+        return f"You attempt to interact with {kwargs.get('target_name', 'it')}... Failure. ({kwargs.get('outcome', 'failure')})"
+    if message_key == "interact_direct_success":
+        return f"You interact with {kwargs.get('target_name', 'it')}. It seems to have worked."
     if message_key == "move_sublocation_success":
         return f"You move to {kwargs.get('target_name', 'the new area')}."
     if message_key == "move_sublocation_fail":
@@ -120,27 +125,125 @@ async def handle_intra_location_action(
     # --- Handle INTERACT intent ---
     elif intent == "interact":
         if target_object_data and target_object_data.get("can_interact", True): # Default to interactable
-            interaction_rules_key = target_object_data.get("interaction_rules_key")
-            if interaction_rules_key:
-                # TODO: Placeholder for RuleConfig based interaction
-                # rule = await get_rule(session=session, guild_id=guild_id, key=f"interactions:{interaction_rules_key}")
-                # if rule and rule.get("requires_check"):
-                #     check_result: CheckResult = await resolve_check(...)
-                #     if check_result.success:
-                #         # Apply success consequences
-                #     else:
-                #         # Apply failure consequences
-                logger.info(f"Placeholder for interaction with '{target_entity_name}' using rule key '{interaction_rules_key}'")
-                feedback = {"message": _format_feedback("interact_success_placeholder", player_lang, target_name=target_entity_name), "success": True}
-                await log_event(
-                    session=session, guild_id=guild_id, event_type="player_interact",
-                    details_json={"player_id": player.id, "target": target_entity_name, "outcome": "placeholder_success", "location_id": location.id, "sublocation": player.current_sublocation_name},
-                    player_id=player.id, location_id=location.id
-                )
-            else:
-                feedback = {"message": _format_feedback("interact_no_rules", player_lang, target_name=target_entity_name), "success": True} # Success is true, just nothing happens
-        else:
+            interaction_rules_key_short = target_object_data.get("interaction_rules_key")
+            log_details: Dict[str, Any] = {
+                "player_id": player.id,
+                "target": target_entity_name,
+                "location_id": location.id,
+                "sublocation": player.current_sublocation_name,
+                "interaction_rules_key": interaction_rules_key_short
+            }
+
+            if interaction_rules_key_short:
+                rule_config_key = f"interactions:{interaction_rules_key_short}"
+                interaction_rule = await get_rule(session=session, guild_id=guild_id, key=rule_config_key)
+
+                if interaction_rule:
+                    log_details["rule_found"] = True
+                    log_details["rule_content"] = interaction_rule
+
+                    if interaction_rule.get("requires_check", False):
+                        log_details["check_required"] = True
+                        check_type = interaction_rule.get("check_type", "ability") # Default check type
+                        # For MVP, player's primary attribute for the check. Real system might be more complex.
+                        actor_attribute_key = interaction_rule.get("actor_attribute_key", "strength")
+                        # Simplified: get a base stat. Real system needs effective stats.
+                        actor_attribute_value = getattr(player, actor_attribute_key, 10) # Default to 10 if no attr
+
+                        actor_attributes = {
+                            actor_attribute_key: {
+                                "value": actor_attribute_value,
+                                "modifiers": [] # Placeholder for detailed modifiers
+                            }
+                        }
+                        # DC could be fixed in rule, or derived from target, or base + target mod
+                        dc = interaction_rule.get("base_dc", 12)
+
+                        # Modifiers from context (e.g. from target_object_data or rule itself)
+                        # Example: rule might specify bonus/penalty based on conditions
+                        contextual_bonus = interaction_rule.get("contextual_bonus", 0)
+                        contextual_penalty = interaction_rule.get("contextual_penalty", 0)
+
+                        # For resolve_check, we'd pass these as part of actor_attributes or bonus_roll_dice_modifier
+                        # Simplified for now: directly adjust dc or roll for MVP
+                        # Let's assume bonus_roll_dice_modifier in resolve_check can take this simple form
+                        # For now, let's use a generic bonus/penalty on the roll.
+                        # bonus_roll_dice_modifier = contextual_bonus - contextual_penalty
+
+                        logger.info(f"Player {player.id} interacting with {target_entity_name}, requires check. Type: {check_type}, Attr: {actor_attribute_key}={actor_attribute_value}, DC: {dc}")
+
+                        check_result: Optional[CheckResult] = None
+                        try:
+                             check_result = await resolve_check(
+                                db=session, # Added db param
+                                guild_id=guild_id,
+                                check_type=check_type,
+                                dc=dc,
+                                actor_id=player.id,
+                                actor_type="player",
+                                actor_attributes=actor_attributes,
+                                # target_id and target_type could be relevant if DC depends on target
+                                # target_id=target_object_data.get("id"), # If target has an ID
+                                # target_type=target_object_data.get("type"),
+                                bonus_roll_dice_modifier= contextual_bonus - contextual_penalty
+                            )
+                        except Exception as e_resolve:
+                            logger.error(f"Error during resolve_check for interaction: {e_resolve}", exc_info=True)
+                            log_details["check_error"] = str(e_resolve)
+                            feedback = {"message": f"An error occurred while trying to interact with {target_entity_name}.", "success": False}
+
+
+                        if check_result:
+                            log_details["check_result"] = check_result.model_dump(mode='json')
+                            consequences_key = ""
+                            if check_result.outcome in ["SUCCESS", "CRITICAL_SUCCESS"]:
+                                consequences_key = interaction_rule.get("success_consequences_key", "generic_interaction_success")
+                                feedback_msg_key = interaction_rule.get("feedback_success", "interact_check_success")
+                                feedback = {
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.lower()),
+                                    "success": True
+                                }
+                            else: # FAILURE, CRITICAL_FAILURE
+                                consequences_key = interaction_rule.get("failure_consequences_key", "generic_interaction_failure")
+                                feedback_msg_key = interaction_rule.get("feedback_failure", "interact_check_failure")
+                                feedback = {
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.lower()),
+                                    "success": False # Interaction failed duef to check
+                                }
+                            log_details["applied_consequences_key"] = consequences_key
+                            logger.info(f"Interaction check outcome: {check_result.outcome}. Consequences to apply (placeholder): {consequences_key}")
+                            # TODO: Implement actual application of consequences based on consequences_key
+                        else: # check_result was None due to error in resolve_check
+                             feedback = {"message": f"Something went wrong trying to interact with {target_entity_name}.", "success": False}
+
+
+                    else: # No check required
+                        log_details["check_required"] = False
+                        direct_consequences_key = interaction_rule.get("direct_consequences_key", "generic_direct_interaction")
+                        feedback_msg_key = interaction_rule.get("feedback_direct", "interact_direct_success")
+                        log_details["applied_consequences_key"] = direct_consequences_key
+                        logger.info(f"Interaction with '{target_entity_name}' - no check required. Consequences (placeholder): {direct_consequences_key}")
+                        feedback = {
+                            "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name),
+                            "success": True
+                        }
+                        # TODO: Implement actual application of direct consequences
+
+                    await log_event(session=session, guild_id=guild_id, event_type="player_interact", details_json=log_details, player_id=player.id, location_id=location.id)
+
+                else: # Rule not found in RuleConfig
+                    log_details["rule_found"] = False
+                    feedback = {"message": _format_feedback("interact_no_rules", player_lang, target_name=target_entity_name), "success": True}
+                    # Log that rule was not found, but interaction still "occurred" (harmlessly)
+                    await log_event(session=session, guild_id=guild_id, event_type="player_interact", details_json=log_details, player_id=player.id, location_id=location.id)
+
+            else: # No interaction_rules_key defined for the object
+                log_details["interaction_rules_key"] = None
+                feedback = {"message": _format_feedback("interact_no_rules", player_lang, target_name=target_entity_name), "success": True}
+                await log_event(session=session, guild_id=guild_id, event_type="player_interact", details_json=log_details, player_id=player.id, location_id=location.id)
+        else: # Target object not found or not interactable
             feedback = {"message": _format_feedback("interact_not_found", player_lang, target_name=target_entity_name), "success": False}
+            # No log_event here as the interaction didn't meaningfully occur with a target
 
     # --- Handle MOVE_TO_SUBLOCATION intent ---
     # NLU should ideally differentiate "move <location_static_id>" (handled by movement_logic)
