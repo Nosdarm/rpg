@@ -126,8 +126,8 @@ async def apply_status(
     # Statuses can be global (guild_id is None) or guild-specific
     stmt = select(StatusEffect).where(StatusEffect.static_id == status_static_id)
     results = await session.execute(stmt)
-    possible_statuses_scalars = await results.scalars()  # .scalars() is ASYNC
-    possible_statuses = await possible_statuses_scalars.all() # .all() on its result is ASYNC
+    possible_statuses_scalars = await results.scalars()  # .scalars() IS async
+    possible_statuses = possible_statuses_scalars.all()  # .all() on its result is synchronous
 
     db_status_effect: Optional[StatusEffect] = None
     if possible_statuses:
