@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, event, JSON
 from sqlalchemy.orm import sessionmaker, Session as SqlAlchemySession # Renamed to avoid conflict
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from src.models.base import Base
