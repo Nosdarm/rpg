@@ -1,26 +1,26 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from typing import Dict, Tuple, Any, List # Added List, Tuple, Any
+from typing import Dict, Tuple, Any, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.report_formatter import format_turn_report, _format_log_entry_with_names_cache, _collect_entity_refs_from_log_entry
-from src.models.enums import EventType # Для создания тестовых логов
+from src.models.enums import EventType
 
-# Фикстуры
+# Fixtures
 
 @pytest.fixture
 def mock_session() -> AsyncMock:
-    """Мок для AsyncSession."""
+    """Mock for AsyncSession."""
     return AsyncMock(spec=AsyncSession)
 
 @pytest.fixture
-def mock_names_cache_fixture() -> Dict[Tuple[str, int], str]: # Renamed to avoid conflict
-    """Базовый мок для кеша имен, используемый в некоторых тестах _format_log_entry."""
+def mock_names_cache_fixture() -> Dict[Tuple[str, int], str]:
+    """Basic mock for names cache."""
     return {
-        ("player", 1): "TestPlayer", ("player", 2): "Another Player",
+        ("player", 1): "TestPlayer", ("player", 2): "Another Player", ("player", 99): "CachedPlayer99",
         ("location", 101): "Old Location", ("location", 102): "New Location",
-        ("item", 201): "Magic Sword",
+        ("item", 201): "Magic Sword", ("item", 999): "CachedItem999",
         ("ability", 301): "Fireball", ("ability", 302): "Heal",
         ("status_effect", 401): "Burning", ("status_effect", 402): "Regeneration",
         ("quest", 501): "Main Quest", ("quest", 502): "Side Quest",
@@ -28,14 +28,11 @@ def mock_names_cache_fixture() -> Dict[Tuple[str, int], str]: # Renamed to avoid
     }
 
 @pytest.fixture
-def mock_get_rule_fixture(): # Renamed
-    """Мок для функции get_rule. По умолчанию возвращает default."""
-    # Эта карта будет изменяться каждым тестом перед использованием фикстуры
+def mock_get_rule_fixture():
+    """Mock for get_rule function."""
     captured_custom_rules_map_for_fixture = {}
 
     async def _mock_get_rule(session, guild_id, key, default=None):
-        # logger.debug(f"Mock get_rule called with key: {key}")
-        # logger.debug(f"Captured custom_rules_map: {captured_custom_rules_map_for_fixture}")
         if key in captured_custom_rules_map_for_fixture:
             return captured_custom_rules_map_for_fixture[key]
         return default
@@ -52,13 +49,10 @@ def mock_get_rule_fixture(): # Renamed
 
 
 @pytest.fixture
-def mock_get_batch_localized_entity_names_fixture(): # Renamed
-    """Мок для get_batch_localized_entity_names."""
+def mock_get_batch_localized_entity_names_fixture():
+    """Mock for get_batch_localized_entity_names."""
     async def _mock_batch_names(session, guild_id, entity_refs, language, fallback_language):
         cache: Dict[Tuple[str, int], str] = {}
-        # Используем mock_names_cache_fixture для простоты, но можно сделать более сложную логику
-        # для имитации разных языков или отсутствующих имен, если нужно.
-        # Эта фикстура будет предоставлять "базовые" имена.
         base_names = {
             ("player", 1): "PlayerOne" if language == "en" else "ИгрокОдин",
             ("player", 2): "PlayerTwo" if language == "en" else "ИгрокДва",
@@ -83,8 +77,7 @@ def mock_get_batch_localized_entity_names_fixture(): # Renamed
     return AsyncMock(side_effect=_mock_batch_names)
 
 
-# Тесты для _collect_entity_refs_from_log_entry
-# (оставляем существующие тесты для _collect_entity_refs_from_log_entry, они полезны)
+# Tests for _collect_entity_refs_from_log_entry
 def test_collect_refs_player_action_examine():
     log_details = {
         "event_type": EventType.PLAYER_ACTION.value,
@@ -106,7 +99,6 @@ def test_collect_refs_player_move():
     assert ("location", 101) in refs
     assert ("location", 102) in refs
 
-# ... (остальные тесты для _collect_entity_refs_from_log_entry остаются как есть) ...
 def test_collect_refs_item_acquired():
     log_details = { "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201 }
     refs = _collect_entity_refs_from_log_entry(log_details)
@@ -167,8 +159,7 @@ def test_collect_refs_quest_completed():
     refs = _collect_entity_refs_from_log_entry(log_details)
     assert ("player", 1) in refs; assert ("quest", 501) in refs
 
-
-# Тесты для _format_log_entry_with_names_cache
+# Tests for _format_log_entry_with_names_cache
 @pytest.mark.asyncio
 async def test_format_player_action_examine_en_with_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
     mock_get_rule_fixture.set_map_for_test({
@@ -180,16 +171,14 @@ async def test_format_player_action_examine_en_with_terms(mock_session, mock_nam
         "guild_id": 1, "event_type": EventType.PLAYER_ACTION.value,
         "actor": {"type": "player", "id": 1},
         "action": {"intent": "examine", "entities": [{"name": "a Dusty Box"}]},
-        "result": {"description": "it is empty"} # This should match the term for full effect
+        "result": {"description": "it is empty"}
     }
-    # Patch get_rule within the scope of this test using the fixture
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(log_details, "en", mock_names_cache_fixture)
     assert "TestPlayer inspects 'a Dusty Box'. Observations: it is empty" in result
 
 @pytest.mark.asyncio
 async def test_format_player_action_examine_ru_default_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
-    # No custom rules, so defaults from _format_log_entry should be used via get_term's default
     log_details = {
         "guild_id": 1, "event_type": EventType.PLAYER_ACTION.value,
         "actor": {"type": "player", "id": 1},
@@ -199,7 +188,6 @@ async def test_format_player_action_examine_ru_default_terms(mock_session, mock_
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
     assert "TestPlayer осматривает 'Старый сундук'. Вы видите: внутри пыльно" in result
-
 
 @pytest.mark.asyncio
 async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
@@ -217,11 +205,9 @@ async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_
         result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
     assert "Схватка в 'Old Location' окончена. Результат: победа игроков. Уцелевшие: TestPlayer, Ogre." in result
 
-
-# Тесты для format_turn_report
+# Tests for format_turn_report
 @pytest.mark.asyncio
 async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_batch_localized_entity_names_fixture):
-    # Используем фикстуру для get_batch_localized_entity_names
     with patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, [], 1, "en")
         assert "Nothing significant happened this turn." in report_en
@@ -231,32 +217,24 @@ async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_
 @pytest.mark.asyncio
 async def test_format_turn_report_with_logs_integration(mock_session, mock_get_rule_fixture, mock_get_batch_localized_entity_names_fixture):
     log_entries = [
-        {"guild_id": 1, "event_type": EventType.MOVEMENT.value, "player_id": 1, "old_location_id": 101, "new_location_id": 102}, # Changed to MOVEMENT
+        {"guild_id": 1, "event_type": EventType.MOVEMENT.value, "player_id": 1, "old_location_id": 101, "new_location_id": 102},
         {"guild_id": 1, "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201, "source": "a chest"}
     ]
-
-    # Патчим обе зависимости
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture), \
-         patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
-
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, log_entries, 1, "en", "en")
 
     assert "Turn Report for PlayerOne:" in report_en
-    assert "PlayerOne moved from 'Old Town' to 'New City'." in report_en # Проверяем использование имен из mock_get_batch_localized_entity_names_fixture
+    assert "PlayerOne moved from 'Old Town' to 'New City'." in report_en
     assert "PlayerOne acquired Sword of Testing (x1) from a chest." in report_en
 
-    # Проверка для русского языка
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture), \
-         patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
-
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_ru = await format_turn_report(mock_session, 1, log_entries, 1, "ru", "en")
 
     assert "Отчет по ходу для ИгрокОдин:" in report_ru
     assert "ИгрокОдин переместился из 'Старый Город' в 'Новый Город'." in report_ru
-    assert "ИгрокОдин получает Меч Тестирования (x1) из a chest." in report_ru # "a chest" не было локализовано через get_term в примере
+    assert "ИгрокОдин получает Меч Тестирования (x1) из a chest." in report_ru
 
-
-# Дополнительные тесты для различных event_type с проверкой RuleConfig
+# Additional tests for event_types with RuleConfig
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lang, expected_verb, expected_particle", [
     ("en", "uses ability", "on"),
@@ -266,13 +244,14 @@ async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fix
     mock_get_rule_fixture.set_map_for_test({
         f"terms.abilities.verb_uses_{lang}": {lang: expected_verb},
         f"terms.abilities.particle_on_{lang}": {lang: expected_particle},
-        f"terms.general.no_target_{lang}": {lang: "nobody" if lang == "en" else "ни на кого"}
+        # Corrected key and ensure mock returns direct string for this specific term
+        f"terms.general.nobody_{lang}": "nobody" if lang == "en" else "ни на кого"
     })
     log_details = {
         "guild_id": 1, "event_type": EventType.ABILITY_USED.value,
         "actor_entity": {"type": "player", "id": 1},
-        "ability": {"id": 301}, # Fireball
-        "targets": [], # No specific target
+        "ability": {"id": 301}, 
+        "targets": [], 
         "outcome": {"description": "The air crackles." if lang == "en" else "Воздух трещит."}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
@@ -280,8 +259,396 @@ async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fix
 
     actor_name = mock_names_cache_fixture[("player", 1)]
     ability_name = mock_names_cache_fixture[("ability", 301)]
-    no_target_str = "nobody" if lang == "en" else "ни на кого"
+    # This is what the SUT's get_term should produce for "terms.general.nobody"
+    actual_no_target_str = "nobody" if lang == "en" else "ни на кого"
     outcome_str = "The air crackles." if lang == "en" else "Воздух трещит."
 
-    expected_string = f"{actor_name} {expected_verb} '{ability_name}' {expected_particle} {no_target_str}. {outcome_str}"
-    assert expected_string in result
+    expected_string = f"{actor_name} {expected_verb} '{ability_name}' {expected_particle} {actual_no_target_str}. {outcome_str}"
+    assert result.strip() == expected_string.strip() # Use exact match and strip
+
+# --- Tests for newly added event types ---
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, expected_template_key, default_template, location_name_key, participants_key, expected_participants_str_default", [
+    ("en", "terms.combat.starts_involving_en", "Combat starts at '{location_name}' involving: {participants_str}.", ("location",101), [("player",1),("npc",601)], "TestPlayer, Goblin"),
+    ("ru", "terms.combat.starts_involving_ru", "Начинается бой в '{location_name}' с участием: {participants_str}.", ("location",101), [("player",1),("npc",601)], "TestPlayer, Goblin"),
+    ("en", "terms.combat.starts_involving_en", "Combat starts at '{location_name}' involving: {participants_str}.", ("location",101), [], "unknown participants"),
+])
+async def test_format_combat_start(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, expected_template_key, default_template, location_name_key, participants_key, expected_participants_str_default):
+    mock_get_rule_fixture.set_map_for_test({
+        expected_template_key: {lang: default_template},
+        f"terms.general.unknown_location_{lang}": {lang: "some place"},
+        f"terms.general.unknown_participants_{lang}": {lang: expected_participants_str_default if not participants_key else ""}
+    })
+
+    log_details = {
+        "guild_id": 1, "event_type": EventType.COMBAT_START.value,
+        "location_id": location_name_key[1],
+        "participant_ids": [{"type": pt[0], "id": pt[1]} for pt in participants_key]
+    }
+    
+    location_name = mock_names_cache_fixture.get(location_name_key, "some place")
+    
+    participant_names = [mock_names_cache_fixture.get(pk, f"{pk[0]} {pk[1]}") for pk in participants_key]
+    participants_str_rendered = ", ".join(participant_names) if participant_names else expected_participants_str_default
+    
+    expected_msg = default_template.format(location_name=location_name, participants_str=participants_str_rendered)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, speaker_key, line_text", [
+    ("en", ("player", 1), "Hello world!"),
+    ("ru", ("npc", 601), "Привет, мир!"),
+    ("en", ("player", 99), "No speaker in cache."), 
+])
+async def test_format_dialogue_line(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, speaker_key, line_text):
+    mock_get_rule_fixture.set_map_for_test({
+        f"terms.general.someone_{lang}": {lang: "SomeoneViaTerm" if lang == "en" else "НектоЧерезТермин"}
+    })
+    
+    log_details = {
+        "guild_id": 1, "event_type": EventType.DIALOGUE_LINE.value,
+        "speaker_entity": {"type": speaker_key[0], "id": speaker_key[1]},
+        "line_text": line_text
+    }
+    
+    sut_default_prefix = speaker_key[0].capitalize()
+    sut_placeholder_if_not_in_cache = f"[{sut_default_prefix} ID: {speaker_key[1]} (Cached?)]"
+    # Correctly expect the placeholder if the speaker is not in the primary cache
+    speaker_name = mock_names_cache_fixture.get(speaker_key) 
+    if speaker_name is None: # Check if it was found in the cache
+        if speaker_key[1] == 99 : # Specific case for player 99 not being in cache
+             speaker_name = sut_placeholder_if_not_in_cache
+        else: # Other un-cached speakers might use a term or a simpler placeholder
+             speaker_name = "Someone" if lang == "en" else "Некто" # Fallback if not player 99 and not in cache
+
+    expected_msg = f"{speaker_name}: {line_text}"
+
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, template_key, default_template, target_key, status_key", [
+    ("en", "terms.statuses.effect_ended_on_en", "'{status_name}' effect has ended on {target_name}.", ("player", 1), ("status_effect", 401)),
+    ("ru", "terms.statuses.effect_ended_on_ru", "Эффект '{status_name}' закончился для {target_name}.", ("npc", 601), ("status_effect", 402)),
+])
+async def test_format_status_removed(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, template_key, default_template, target_key, status_key):
+    mock_get_rule_fixture.set_map_for_test({
+        template_key: {lang: default_template},
+        f"terms.general.someone_{lang}": {lang: "Someone" if lang == "en" else "Некто"}, 
+        f"terms.statuses.a_status_effect_{lang}": {lang: "a status effect" if lang == "en" else "эффект состояния"}
+    })
+    log_details = {
+        "guild_id": 1, "event_type": EventType.STATUS_REMOVED.value,
+        "target_entity": {"type": target_key[0], "id": target_key[1]},
+        "status_effect": {"id": status_key[1]}
+    }
+    target_name = mock_names_cache_fixture.get(target_key, "Someone" if lang == "en" else "Некто")
+    status_name = mock_names_cache_fixture.get(status_key, "a status effect" if lang == "en" else "эффект состояния")
+    expected_msg = default_template.format(status_name=status_name, target_name=target_name)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, reason, template_key_suffix, default_template_format, player_key, quest_key", [
+    ("en", "ran out of time", "with_reason", "{player_name} has failed the quest '{quest_name}' due to: {reason}.", ("player",1), ("quest",501)),
+    ("ru", "кончилось время", "with_reason", "{player_name} провалил(а) задание '{quest_name}' по причине: {reason}.", ("player",1), ("quest",501)),
+    ("en", None, "simple", "{player_name} has failed the quest '{quest_name}'.", ("player",1), ("quest",501)),
+    ("ru", None, "simple", "{player_name} провалил(а) задание '{quest_name}'.", ("player",1), ("quest",501)),
+])
+async def test_format_quest_failed(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, reason, template_key_suffix, default_template_format, player_key, quest_key):
+    template_key = f"terms.quests.failed_{template_key_suffix}_{lang}"
+    mock_get_rule_fixture.set_map_for_test({
+        template_key: {lang: default_template_format},
+        f"terms.general.someone_{lang}": {lang: "Someone" if lang == "en" else "Некто"},
+        f"terms.quests.a_quest_{lang}": {lang: "a quest" if lang == "en" else "задание"}
+    })
+    
+    log_details = {
+        "guild_id": 1, "event_type": EventType.QUEST_FAILED.value,
+        "player_id": player_key[1], "quest_id": quest_key[1]
+    }
+    if reason:
+        log_details["reason"] = reason
+
+    player_name = mock_names_cache_fixture.get(player_key, "Someone" if lang == "en" else "Некто")
+    quest_name = mock_names_cache_fixture.get(quest_key, "a quest" if lang == "en" else "задание")
+    
+    if reason:
+        expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name, reason=reason)
+    else:
+        expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, template_key, default_template, player_key, quest_key", [
+    ("en", "terms.quests.accepted_en", "{player_name} has accepted the quest: '{quest_name}'.", ("player",1), ("quest",501)),
+    ("ru", "terms.quests.accepted_ru", "{player_name} принял(а) задание: '{quest_name}'.", ("player",1), ("quest",501)),
+])
+async def test_format_quest_accepted(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, template_key, default_template, player_key, quest_key):
+    mock_get_rule_fixture.set_map_for_test({template_key: {lang: default_template}})
+    log_details = {
+        "guild_id": 1, "event_type": EventType.QUEST_ACCEPTED.value,
+        "player_id": player_key[1], "quest_id": quest_key[1]
+    }
+    player_name = mock_names_cache_fixture[player_key]
+    quest_name = mock_names_cache_fixture[quest_key]
+    expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, step_details, template_key_suffix, default_template_format", [
+    ("en", "Retrieve the amulet", "detailed", "{player_name} completed a step in '{quest_name}': {step_details}."),
+    ("ru", "Добудьте амулет", "detailed", "{player_name} выполнил(а) этап в задании '{quest_name}': {step_details}."),
+    ("en", None, "simple", "{player_name} completed a step in the quest '{quest_name}'."),
+    ("ru", None, "simple", "{player_name} выполнил(а) этап в задании '{quest_name}'."),
+])
+async def test_format_quest_step_completed(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, step_details, template_key_suffix, default_template_format):
+    template_key = f"terms.quests.step_completed_{template_key_suffix}_{lang}"
+    mock_get_rule_fixture.set_map_for_test({template_key: {lang: default_template_format}})
+    
+    player_key = ("player", 1)
+    quest_key = ("quest", 501)
+    log_details = {
+        "guild_id": 1, "event_type": EventType.QUEST_STEP_COMPLETED.value,
+        "player_id": player_key[1], "quest_id": quest_key[1],
+    }
+    if step_details:
+        log_details["step_details"] = step_details
+
+    player_name = mock_names_cache_fixture[player_key]
+    quest_name = mock_names_cache_fixture[quest_key]
+    
+    if step_details:
+        expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name, step_details=step_details)
+    else:
+        expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, template_key, default_template, player_key, quest_key", [
+    ("en", "terms.quests.completed_en", "{player_name} has completed the quest: '{quest_name}'!", ("player",1), ("quest",501)),
+    ("ru", "terms.quests.completed_ru", "{player_name} завершил(а) задание: '{quest_name}'!", ("player",1), ("quest",501)),
+])
+async def test_format_quest_completed(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, template_key, default_template, player_key, quest_key):
+    mock_get_rule_fixture.set_map_for_test({template_key: {lang: default_template}})
+    log_details = {
+        "guild_id": 1, "event_type": EventType.QUEST_COMPLETED.value,
+        "player_id": player_key[1], "quest_id": quest_key[1]
+    }
+    player_name = mock_names_cache_fixture[player_key]
+    quest_name = mock_names_cache_fixture[quest_key]
+    expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, new_level, template_key, default_template", [
+    ("en", 5, "terms.character.level_up_en", "{player_name} has reached level {level_str}!"),
+    ("ru", 5, "terms.character.level_up_ru", "{player_name} достиг(ла) уровня {level_str}!"),
+    ("en", None, "terms.character.level_up_en", "{player_name} has reached level {level_str}!"), 
+])
+async def test_format_level_up(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, new_level, template_key, default_template):
+    player_key = ("player", 1)
+    mock_get_rule_fixture.set_map_for_test({
+        template_key: {lang: default_template},
+        f"terms.character.unknown_level_{lang}": {lang: "a new level" if lang == "en" else "новый уровень"}
+    })
+    log_details = {
+        "guild_id": 1, "event_type": EventType.LEVEL_UP.value,
+        "player_id": player_key[1], "new_level": new_level
+    }
+    player_name = mock_names_cache_fixture[player_key]
+    level_str = str(new_level) if new_level is not None else ("a new level" if lang == "en" else "новый уровень")
+    
+    expected_msg = default_template.format(player_name=player_name, level_str=level_str)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, amount, source, template_key_suffix, default_template_format", [
+    ("en", 100, "defeating a goblin", "with_source", "{player_name} gained {amount_str} {xp_term} {source_str}."),
+    ("ru", 100, "победа над гоблином", "with_source", "{player_name} получил(а) {amount_str} {xp_term} {source_str}."),
+    ("en", 50, None, "simple", "{player_name} gained {amount_str} {xp_term}."),
+    ("ru", 50, None, "simple", "{player_name} получил(а) {amount_str} {xp_term}."),
+    ("en", None, "a mysterious event", "with_source", "{player_name} gained {amount_str} {xp_term} {source_str}."),
+])
+async def test_format_xp_gained(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, amount, source, template_key_suffix, default_template_format):
+    player_key = ("player", 1)
+    template_key = f"terms.character.xp_gained_{template_key_suffix}_{lang}"
+    
+    term_map = {
+        template_key: {lang: default_template_format},
+        f"terms.character.xp_{lang}": {lang: "XP" if lang == "en" else "опыта"},
+        f"terms.character.some_xp_{lang}": {lang: "some" if lang == "en" else "немного"}
+    }
+    if source:
+        term_map[f"terms.character.from_source_{lang}"] = {lang: "from {source}" if lang == "en" else "из {source}"}
+
+    mock_get_rule_fixture.set_map_for_test(term_map)
+
+    log_details = {
+        "guild_id": 1, "event_type": EventType.XP_GAINED.value,
+        "player_id": player_key[1], "amount": amount
+    }
+    if source:
+        log_details["source"] = source
+
+    player_name = mock_names_cache_fixture[player_key]
+    amount_str = str(amount) if amount is not None else ("some" if lang == "en" else "немного")
+    xp_term = "XP" if lang == "en" else "опыта"
+    
+    if source:
+        source_term_template = "from {source}" if lang == "en" else "из {source}"
+        source_str_rendered = source_term_template.format(source=source)
+        expected_msg = default_template_format.format(player_name=player_name, amount_str=amount_str, xp_term=xp_term, source_str=source_str_rendered)
+    else:
+        expected_msg = default_template_format.format(player_name=player_name, amount_str=amount_str, xp_term=xp_term)
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, new_value, reason, e1_key, e2_key", [
+    ("en", 50, "completed a task", ("player", 1), ("npc", 601)),
+    ("ru", -20, "оскорбление", ("npc", 601), ("player", 2)),
+    ("en", 0, None, ("player", 1), ("player", 2)), 
+    ("ru", None, "таинственное событие", ("quest", 501), ("location", 101)), 
+])
+async def test_format_relationship_change(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, new_value, reason, e1_key, e2_key):
+    term_map = {
+        f"terms.relationships.relation_between_{lang}": {lang: "Relationship between {e1_name} and {e2_name}" if lang == "en" else "Отношения между {e1_name} и {e2_name}"},
+        f"terms.relationships.is_now_{lang}": {lang: "is now {value_str}" if lang == "en" else "теперь {value_str}"},
+        f"terms.relationships.an_unknown_level_{lang}": {lang: "an unknown level" if lang == "en" else "неизвестного уровня"},
+        f"terms.general.one_entity_{lang}": {lang: "One entity", "ru": "Одна сущность"}, 
+        f"terms.general.another_entity_{lang}": {lang: "another entity", "ru": "другой сущностью"}, 
+    }
+    if reason:
+        term_map[f"terms.relationships.due_to_reason_{lang}"] = {lang: "due to: {change_reason}" if lang == "en" else "по причине: {change_reason}"}
+    
+    mock_get_rule_fixture.set_map_for_test(term_map)
+
+    log_details = {
+        "guild_id": 1, "event_type": EventType.RELATIONSHIP_CHANGE.value,
+        "entity1": {"type": e1_key[0], "id": e1_key[1]},
+        "entity2": {"type": e2_key[0], "id": e2_key[1]},
+        "new_value": new_value
+    }
+    if reason:
+        log_details["change_reason"] = reason
+
+    e1_name = mock_names_cache_fixture.get(e1_key, "One entity" if lang=="en" else "Одна сущность")
+    e2_name = mock_names_cache_fixture.get(e2_key, "another entity" if lang=="en" else "другой сущностью")
+    value_str = str(new_value) if new_value is not None else ("an unknown level" if lang == "en" else "неизвестного уровня")
+
+    relation_between_fmt = "Relationship between {e1_name} and {e2_name}" if lang == "en" else "Отношения между {e1_name} и {e2_name}"
+    is_now_fmt = "is now {value_str}" if lang == "en" else "теперь {value_str}"
+    
+    expected_msg = f"{relation_between_fmt.format(e1_name=e1_name, e2_name=e2_name)} {is_now_fmt.format(value_str=value_str)}"
+    if reason:
+        due_to_reason_fmt = "due to: {change_reason}" if lang == "en" else "по причине: {change_reason}"
+        expected_msg += f" ({due_to_reason_fmt.format(change_reason=reason)})."
+    else:
+        expected_msg += "."
+        
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, duration, source_info, target_key, status_key", [
+    ("en", 3, {"type": "ability", "id": 301}, ("player", 1), ("status_effect", 401)), 
+    ("ru", None, {"name": "Ловушка с ядом"}, ("npc", 601), ("status_effect", 402)), 
+    ("en", 5, None, ("player", 2), ("status_effect", 401)), 
+    ("ru", 2, {"type": "item", "id": 999}, ("npc", 602), ("status_effect", 402)), 
+])
+async def test_format_status_applied(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, duration, source_info, target_key, status_key):
+    term_map = {
+        f"terms.statuses.is_now_affected_by_{lang}": {lang: "is now affected by" if lang == "en" else "теперь под действием"},
+        f"terms.statuses.a_status_effect_{lang}": {lang: "a status effect" if lang == "en" else "эффект состояния"},
+        f"terms.general.someone_{lang}": {lang: "Someone", "ru": "Некто"},
+    }
+    if duration:
+        term_map[f"terms.statuses.for_duration_{lang}"] = {lang: "for {duration_turns} turns" if lang == "en" else "на {duration_turns} ходов"}
+    if source_info:
+        term_map[f"terms.statuses.from_source_{lang}"] = {lang: "from" if lang == "en" else "от"}
+        if not (source_info.get("id") and source_info.get("type")) and not source_info.get("name"):
+             term_map[f"terms.statuses.an_unknown_source_{lang}"] = {lang: "an unknown source" if lang == "en" else "неизвестного источника"}
+
+    mock_get_rule_fixture.set_map_for_test(term_map)
+
+    log_details = {
+        "guild_id": 1, "event_type": EventType.STATUS_APPLIED.value,
+        "target_entity": {"type": target_key[0], "id": target_key[1]},
+        "status_effect": {"id": status_key[1]},
+    }
+    if duration is not None:
+        log_details["duration_turns"] = duration
+    if source_info:
+        log_details["source_entity"] = source_info
+
+    target_name = mock_names_cache_fixture.get(target_key, "Someone" if lang=="en" else "Некто")
+    status_name = mock_names_cache_fixture.get(status_key, "a status effect" if lang=="en" else "эффект состояния")
+
+    msg_parts = [target_name]
+    is_now_affected_by = "is now affected by" if lang == "en" else "теперь под действием"
+    msg_parts.extend([is_now_affected_by, f"'{status_name}'"])
+
+    if duration is not None:
+        for_duration_fmt = "for {duration_turns} turns" if lang == "en" else "на {duration_turns} ходов"
+        msg_parts.append(for_duration_fmt.format(duration_turns=duration))
+
+    if source_info:
+        from_source_term = "from" if lang == "en" else "от"
+        msg_parts.append(from_source_term)
+        source_id = source_info.get("id")
+        source_type = source_info.get("type")
+        source_name_direct = source_info.get("name")
+        
+        source_display_name_val = ""
+        if source_id and source_type:
+            sut_source_placeholder = f"[{str(source_type).capitalize()} ID: {source_id} (Cached?)]"
+            source_display_name_val = mock_names_cache_fixture.get((str(source_type).lower(), source_id), sut_source_placeholder)
+            msg_parts.append(f"'{source_display_name_val}'")
+        elif source_name_direct:
+            msg_parts.append(f"'{source_name_direct}'")
+        else:
+            msg_parts.append("an unknown source" if lang == "en" else "неизвестного источника")
+            
+    msg_parts.append(".")
+    expected_msg = " ".join(msg_parts)
+        
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+    assert result == expected_msg

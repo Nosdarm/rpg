@@ -42,11 +42,9 @@
 ---
 
 ## Текущий план
-**Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).**
-Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
-API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
-API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild (determined from log_entries or explicitly passed). Formats them using format_log_entry. Generates a report for each player in their language (0.1/0.2).
-Result: Logging and feedback formatting system generating localized reports.
+**Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped).**
+Description: Define the model for tracking the state of active combat within a guild.
+Implement the CombatEncounter model (0.2/7). With a guild_id field. Includes: id (PK), location_id (INTEGER FK), status (TEXT enum), current_turn_entity_id (INT), turn_order_json (JSONB), rules_config_snapshot_json (JSONB - snapshot of combat rules from RuleConfig at combat start?), participants_json (JSONB - {entity_id, entity_type, current_hp, ...}), combat_log_json (JSONB - log of this combat's events).
 
 ---
 ## Отложенные задачи
@@ -55,6 +53,25 @@ Result: Logging and feedback formatting system generating localized reports.
 ---
 
 ## Лог действий
+
+## Задача 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped) - Revisit
+- **Цель пересмотра**: Расширить поддержку форматирования для большего числа типов событий в `src/core/report_formatter.py`.
+- **Определение приоритетных типов событий**:
+    - На основе анализа `_collect_entity_refs_from_log_entry` и `_format_log_entry_with_names_cache` были определены следующие типы событий для добавления форматирования: `COMBAT_START`, `QUEST_ACCEPTED`, `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`, `LEVEL_UP`, `XP_GAINED`, `RELATIONSHIP_CHANGE`, `STATUS_APPLIED`.
+- **Реализация форматирования**:
+    - В функцию `_format_log_entry_with_names_cache` добавлены блоки `elif` для каждого из 8 приоритетных типов событий.
+    - Для каждого типа события реализована логика извлечения данных из `log_entry_details_json`, использования `get_name_from_cache` для имен сущностей и `get_term` для локализуемых строк и шаблонов сообщений.
+- **Добавление Unit-тестов**:
+    - В `tests/core/test_report_formatter.py` добавлены новые параметризованные тесты для каждого из 8 новых форматов событий.
+    - Тесты проверяют корректность форматирования для языков `en` и `ru`, использование кеша имен и терминов из `RuleConfig` (через моки).
+- **Рассмотрение дополнительных типов событий (опционально)**:
+    - Были рассмотрены другие типы событий из `EventType`. Принято решение добавить форматирование для `DIALOGUE_LINE`, `STATUS_REMOVED` и `QUEST_FAILED` как наиболее критичных для полноты отчетов.
+    - Обновлена функция `_collect_entity_refs_from_log_entry` для корректного сбора ссылок на сущности для `DIALOGUE_LINE` и `QUEST_FAILED` (для `STATUS_REMOVED` существующая логика для `STATUS_APPLIED` подходит).
+    - В `_format_log_entry_with_names_cache` добавлена логика форматирования для `DIALOGUE_LINE`, `STATUS_REMOVED`, `QUEST_FAILED`.
+    - В `tests/core/test_report_formatter.py` добавлены соответствующие unit-тесты для этих трех дополнительных типов событий.
+- **Обзор и рефакторинг**:
+    - Проведен обзор внесенных изменений. Код соответствует существующим паттернам. Вопрос передачи сессии в `get_rule` через форматер остается известной особенностью, не требующей немедленного рефакторинга в рамках данной задачи.
+- **Результат**: Модуль форматирования отчетов теперь поддерживает значительно большее количество типов событий, улучшая детализацию и информативность логов для игроков.
 
 ## Текущая сессия: Анализ и доработка Задач 1.1 и 1.2
 - **Анализ Задачи 1.1 (Location Model)**:
