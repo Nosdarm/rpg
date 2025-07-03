@@ -1018,3 +1018,29 @@ Result: Logging and feedback formatting system generating localized reports.
     - Проверена логика обновления связей и логирования событий.
 - **Обновление `ai_orchestrator.py`**:
     - Принято решение не изменять `ai_orchestrator.py` для поддержки сохранения локаций из `PendingGeneration` на данном этапе, так как текущая задача сфокусирована на прямой генерации через `generate_location`.
+
+## Задача 35: Пользовательская задача: Проверка и исправление тестов (Текущая сессия)
+- **Цель:** Убедиться, что все тесты проходят, и исправить любые ошибки.
+- **Выполненные действия:**
+    - **Анализ покрытия тестами:** Проанализирован `AGENTS.md` и структура директории `tests/`. Выявлено хорошее общее покрытие для `src/core/`, но отмечены потенциальные пробелы в тестировании некоторых моделей SQLAlchemy и Discord команд (cogs).
+    - **Запуск тестов и первоначальные ошибки:**
+        - `ModuleNotFoundError: No module named 'pytest'`: Установлены зависимости из `requirements.txt`.
+        - `ModuleNotFoundError: No module named 'aiosqlite'`: Добавлен `aiosqlite` в `requirements.txt` и переустановлены зависимости. Эта ошибка приводила к 7 сбоям в `tests/core/test_locations_utils.py`.
+        - 11 тестов падали в `tests/core/test_report_formatter.py` для функции `_collect_entity_refs_from_log_entry` (AssertionError).
+        - 6 тестов падали в `tests/core/test_report_formatter.py` с `AttributeError` из-за `patch` для `get_rule`.
+    - **Исправление `_collect_entity_refs_from_log_entry`:**
+        - В `src/core/report_formatter.py` функция `_collect_entity_refs_from_log_entry` была дополнена для корректного извлечения ID сущностей для всех типов событий, проверяемых в тестах (включая `ABILITY_USED`, `STATUS_APPLIED`, `LEVEL_UP`, `XP_GAINED`, `RELATIONSHIP_CHANGE`, `COMBAT_START`, `COMBAT_END`, `QUEST_ACCEPTED`, `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`). Также добавлен псевдоним `MOVEMENT` для `PLAYER_MOVE`.
+    - **Исправление `patch` для `get_rule` и использования `get_term`:**
+        - В `src/core/report_formatter.py` добавлен прямой импорт `from .rules import get_rule`.
+        - В `_format_log_entry_with_names_cache` реализована внутренняя асинхронная функция `get_term` для получения локализованных строк с использованием `get_rule`.
+        - Обновлены обработчики событий (`PLAYER_ACTION`, `PLAYER_MOVE`, `ITEM_ACQUIRED`, `ABILITY_USED`, `COMBAT_ACTION`, `COMBAT_END`) в `_format_log_entry_with_names_cache` для использования `get_term`.
+        - В тестах `tests/core/test_report_formatter.py` вызовы `_format_log_entry_with_names_cache` были обновлены (удален лишний аргумент `mock_session`).
+        - Фикстура `mock_get_rule_fixture` в `tests/core/test_report_formatter.py` была переработана для использования замыкания для `captured_custom_rules_map_for_fixture` и добавлен метод `set_map_for_test` для ее установки. Тесты обновлены для использования этого метода.
+        - Исправлена логика в `get_term` для корректной обработки случаев, когда `rule_value_obj` является словарем, но не содержит запрошенного языка.
+    - **Исправление `MissingGreenlet` в `tests/core/test_locations_utils.py`:**
+        - В методе `asyncSetUp` класса `TestLocationDBUtils` добавлена строка `await self.session.refresh(loc1)` после `await self.session.commit()` для явной загрузки атрибутов объекта `Location` и предотвращения ошибки `MissingGreenlet` при доступе к `loc1.id`.
+    - **Исправление `IndentationError` в `tests/core/test_report_formatter.py`:**
+        - Несколько раз исправлялись отступы в тесте `test_format_ability_used_with_terms` (в районе строки 271), что в итоге устранило ошибку сбора тестов.
+    - **Итоговый результат:**
+        - Все 307 тестов успешно пройдены (`307 passed`).
+        - Осталось 17 предупреждений (DeprecationWarning и RuntimeWarning), которые не вызывают падения тестов и могут быть рассмотрены отдельно.

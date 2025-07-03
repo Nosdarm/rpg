@@ -123,6 +123,7 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
             loc1 = Location(**self.loc1_data)
             self.session.add(loc1)
             await self.session.commit()
+            await self.session.refresh(loc1) # Refresh to load ID
             self.loc1_id = loc1.id
         else:
             self.loc1_id = scalar_existing_loc.id # type: ignore

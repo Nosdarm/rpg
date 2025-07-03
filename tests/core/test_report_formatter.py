@@ -30,24 +30,24 @@ def mock_names_cache_fixture() -> Dict[Tuple[str, int], str]: # Renamed to avoid
 @pytest.fixture
 def mock_get_rule_fixture(): # Renamed
     """Мок для функции get_rule. По умолчанию возвращает default."""
-    async def _mock_get_rule(session, guild_id, key, default=None):
-        # Эта логика позволяет моку быть более гибким в тестах
-        # Можно установить 'custom_rules_map' на моке в тесте для имитации разных правил
-        if hasattr(_mock_get_rule, 'custom_rules_map') and key in _mock_get_rule.custom_rules_map:
-            rule_value = _mock_get_rule.custom_rules_map[key]
-            # Если правило это словарь (для i18n), и default тоже словарь (с ключом языка)
-            if isinstance(rule_value, dict) and isinstance(default, dict):
-                lang_key = list(default.keys())[0] # Предполагаем, что default содержит язык как ключ
-                return rule_value.get(lang_key, list(default.values())[0])
-            return rule_value # Возвращаем как есть, если не i18n или default не словарь
+    # Эта карта будет изменяться каждым тестом перед использованием фикстуры
+    captured_custom_rules_map_for_fixture = {}
 
-        # Если default - это словарь, предполагаем i18n и возвращаем его значение для первого ключа
-        if isinstance(default, dict):
-            return list(default.values())[0]
+    async def _mock_get_rule(session, guild_id, key, default=None):
+        # logger.debug(f"Mock get_rule called with key: {key}")
+        # logger.debug(f"Captured custom_rules_map: {captured_custom_rules_map_for_fixture}")
+        if key in captured_custom_rules_map_for_fixture:
+            return captured_custom_rules_map_for_fixture[key]
         return default
 
     mock_fn = AsyncMock(side_effect=_mock_get_rule)
-    mock_fn.custom_rules_map = {} # Можно заполнить в тестах
+
+    def set_custom_map(new_map: dict):
+        nonlocal captured_custom_rules_map_for_fixture
+        captured_custom_rules_map_for_fixture.clear()
+        captured_custom_rules_map_for_fixture.update(new_map)
+
+    mock_fn.set_map_for_test = set_custom_map
     return mock_fn
 
 
@@ -171,11 +171,11 @@ def test_collect_refs_quest_completed():
 # Тесты для _format_log_entry_with_names_cache
 @pytest.mark.asyncio
 async def test_format_player_action_examine_en_with_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
-    mock_get_rule_fixture.custom_rules_map = {
+    mock_get_rule_fixture.set_map_for_test({
         "terms.actions.examine.verb_en": {"en": "inspects"},
         "terms.actions.examine.sees_en": {"en": "Observations"},
         "terms.results.nothing_special_en": {"en": "it is empty"}
-    }
+    })
     log_details = {
         "guild_id": 1, "event_type": EventType.PLAYER_ACTION.value,
         "actor": {"type": "player", "id": 1},
@@ -184,7 +184,7 @@ async def test_format_player_action_examine_en_with_terms(mock_session, mock_nam
     }
     # Patch get_rule within the scope of this test using the fixture
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(mock_session, log_details, "en", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(log_details, "en", mock_names_cache_fixture)
     assert "TestPlayer inspects 'a Dusty Box'. Observations: it is empty" in result
 
 @pytest.mark.asyncio
@@ -197,24 +197,24 @@ async def test_format_player_action_examine_ru_default_terms(mock_session, mock_
         "result": {"description": "внутри пыльно"}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
     assert "TestPlayer осматривает 'Старый сундук'. Вы видите: внутри пыльно" in result
 
 
 @pytest.mark.asyncio
 async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
-    mock_get_rule_fixture.custom_rules_map = {
+    mock_get_rule_fixture.set_map_for_test({
         "terms.combat.outcomes.victory_players_ru": {"ru": "победа игроков"},
         "terms.combat.ended_ru": {"ru": "Схватка в '{location_name}' окончена. Результат: {outcome_readable}."},
         "terms.combat.survivors_ru": {"ru": " Уцелевшие: {survivors_str}."}
-    }
+    })
     log_details = {
         "guild_id": 1, "event_type": EventType.COMBAT_END.value,
         "location_id": 101, "outcome": "victory_players",
         "survivors": [{"type": "player", "id": 1}, {"type": "npc", "id": 602}]
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
     assert "Схватка в 'Old Location' окончена. Результат: победа игроков. Уцелевшие: TestPlayer, Ogre." in result
 
 
@@ -263,11 +263,11 @@ async def test_format_turn_report_with_logs_integration(mock_session, mock_get_r
     ("ru", "использует способность", "на")
 ])
 async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, expected_verb, expected_particle):
-    mock_get_rule_fixture.custom_rules_map = {
+    mock_get_rule_fixture.set_map_for_test({
         f"terms.abilities.verb_uses_{lang}": {lang: expected_verb},
         f"terms.abilities.particle_on_{lang}": {lang: expected_particle},
         f"terms.general.no_target_{lang}": {lang: "nobody" if lang == "en" else "ни на кого"}
-    }
+    })
     log_details = {
         "guild_id": 1, "event_type": EventType.ABILITY_USED.value,
         "actor_entity": {"type": "player", "id": 1},
@@ -276,7 +276,7 @@ async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fix
         "outcome": {"description": "The air crackles." if lang == "en" else "Воздух трещит."}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
 
     actor_name = mock_names_cache_fixture[("player", 1)]
     ability_name = mock_names_cache_fixture[("ability", 301)]
