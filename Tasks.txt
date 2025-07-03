@@ -52,28 +52,12 @@ This block presents tasks related to defining and using abilities, statuses, and
 
 {Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped) - Moved to Done.txt}
 
-Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped).
-Description: Implement the logic for characters using abilities and applying/removing statuses.
-API function activate_ability(guild_id: int, entity_id: int, entity_type: str, ability_id: int, target_ids: Optional[List[int]] = None) -> AbilityOutcomeDetails. Accepts guild_id.
-Loads Ability (20) and Entity (1.2/5) by guild_id. Checks ability availability (Entity has it), costs (Entity resources), target validity.
-Executes the ability logic (dealing damage, applying status). Uses rules FROM RULECONFIG FOR THIS GUILD (13/0.3) for calculations and effects.
-Updates the Entity's state (HP, resources, adds status entry). Within the action's transaction (0.3). Logs (19) WITH THIS guild_id.
-
-
-API functions for applying/removing statuses: apply_status(guild_id: int, entity_id: int, status_id: int, duration: int, source_ability_id=None).
-Result: Logic for using abilities and statuses within a guild implemented.
+{Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - Moved to Done.txt}
 
 Task Block: Phase 4: World and Location Model
 This block presents tasks related to defining and managing locations and the world map.
 
-Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped).
-* Description: API for handling player/party movement action between locations. (Moved from 6. Partially overlaps with 1.3).
-* API function handle_move_action(guild_id: int, session: Session, player_id: int, target_location_identifier: str) -> dict. Called from 15 (Central Action Processing Module). Accepts guild_id and DB session.
-* Loads Player (with guild_id) and their current location (23). Matches target_location_identifier with the name/static_id of locations in this guild.
-* Checks location connections (static 4.1 and generated 23).
-* If player is in a party: Checks PARTY MOVEMENT RULES (from RuleConfig 13/0.3) FOR THIS GUILD.
-* If movement is allowed: Updates current_location_id for Player (and Party). Logs (19) WITH THIS guild_id.
-* After successful commit of the action transaction (performed in 15): Asynchronously calls on_enter_location(guild_id, entity_id, entity_type, location_id) (14).
+{Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped) - Moved to Done.txt}
 
 Task Block: Phase 5: Combat System
 This block presents tasks related to combat mechanics.
@@ -276,14 +260,6 @@ Utility get_npc_memory(guild_id: int, player_id/party_id, npc_id) -> List[Memory
 Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped).
 Description: Processing player input in dialogue mode. This is part of module 13 (NLU) logic.
 If player status is 'dialogue', NLU (13) does not save the action to collected_actions_json, but passes it directly to the Dialogue Management Module (46) via the handle_dialogue_input API (46). NLU (13) still recognizes Intents/Entities and passes them to 46.
-
-Task Block: Feedback Formatting System
-This block presents tasks related to transforming structured event data into readable textual feedback for users.
-
-Task 54: ⚙️ 6.7.1 Log and Feedback Formatting System (Full, Multy-i18n, Guild-Scoped).
-Description: Transforming structured event data into readable textual feedback. (Renamed from 49).
-API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names and RuleConfig terms FOR THIS GUILD to format the text in the required language.
-API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild.
 
 Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.

@@ -385,17 +385,37 @@ async def execute_move_for_player_action(
                 logger.error(f"Data integrity issue: Player's party {party.id} does not belong to guild {guild_id}.")
                 party = None # Treat as solo
 
-        # TODO (Task 25): Integrate RuleConfig check for party_movement_policy.
-        # Example:
-        # party_movement_rule = await get_rule(session, guild_id, "party_movement_policy", default_value="all_move")
-        # if party_movement_rule == "leader_only" and (not party or party.leader_id != player.id):
-        #     # Logic to prevent movement or handle accordingly
-        #     pass
-        # if party_movement_rule == "majority_vote":
-        #     # Complex logic for voting needed
-        #     pass
-        # For current MVP (Task 1.3 / Task 25), if player is in a party, the whole party moves.
-        # This matches the "all_move" implicit policy.
+            if party:
+                # Check party movement rules
+                party_movement_policy_key = "rules:party:movement:policy"
+                # Default to "any_member" if rule not set, allowing current behavior.
+                movement_policy = await get_rule(session, guild_id, party_movement_policy_key, default_value="any_member")
+
+                if movement_policy == "leader_only":
+                    # Player model needs a way to determine if they are the leader of their current party.
+                    # Assuming Party model has a leader_id field.
+                    if not hasattr(party, 'leader_player_id') or party.leader_player_id != player.id:
+                        # Try to get party leader name for message
+                        leader_name_msg = "the party leader"
+                        if hasattr(party, 'leader_player_id') and party.leader_player_id:
+                            try:
+                                leader_player = await player_crud.get(session, id=party.leader_player_id)
+                                if leader_player:
+                                    leader_name_msg = leader_player.name
+                            except Exception: # pragma: no cover
+                                logger.warning(f"Could not fetch leader name for party {party.id}")
+
+                        return {
+                            "status": "error",
+                            "message": f"Only {leader_name_msg} can move the party. You are not the leader."
+                        }
+                elif movement_policy == "any_member":
+                    # Any member can move the party, current behavior.
+                    pass
+                # Add other policies like "all_must_be_present" or "vote_based" in the future.
+                else: # pragma: no cover
+                    logger.warning(f"Unknown party movement policy '{movement_policy}' for guild {guild_id}. Defaulting to 'any_member'.")
+
 
         await _update_entities_location(
             guild_id=guild_id,

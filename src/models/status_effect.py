@@ -67,6 +67,8 @@ class ActiveStatusEffect(Base):
     duration_turns: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     remaining_turns: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     source_ability_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # ID of the ability that applied this status
+    source_entity_id: Mapped[Optional[int]] = mapped_column(Integer, index=True, nullable=True) # ID of the entity (Player, NPC) that caused this status
+    source_entity_type: Mapped[Optional[str]] = mapped_column(Text, index=True, nullable=True) # "player", "npc" - type of the source entity
     custom_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JsonBForSQLite, nullable=True
     ) # For overriding or adding properties to this specific instance
