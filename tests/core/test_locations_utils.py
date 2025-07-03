@@ -1,8 +1,10 @@
 import unittest
+import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy import create_engine, event, JSON
 from sqlalchemy.orm import sessionmaker, Session as SqlAlchemySession # Renamed to avoid conflict
+from sqlalchemy.ext.asyncio import AsyncSession # Import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,25 +16,47 @@ from src.models.location import Location, LocationType
 from src.core.locations_utils import get_localized_text, get_location, get_location_by_static_id
 from src.core.crud.crud_location import location_crud # To potentially mock its methods
 
-# JSON/JSONB compatibility for SQLite (same as in test_location.py)
-class JsonCompat(TypeDecorator):
-    impl = TEXT
-    cache_ok = True
-    def load_dialect_impl(self, dialect):
-        return dialect.type_descriptor(JSONB) if dialect.name == 'postgresql' else dialect.type_descriptor(JSON)
-    def process_bind_param(self, value, dialect):
-        if value is None: return None
-        return value if dialect.name == 'postgresql' else __import__('json').dumps(value)
-    def process_result_value(self, value, dialect):
-        if value is None: return None
-        if dialect.name == 'postgresql': return value
-        try: return __import__('json').loads(value)
-        except (__import__('json').JSONDecodeError, TypeError): return value
+# JSON/JSONB compatibility for SQLite (same as in test_location.py) - Удалено
+# class JsonCompat(TypeDecorator):
+#     impl = TEXT
+#     cache_ok = True
 
-@event.listens_for(Location.__table__, "column_reflect")
-def receive_column_reflect(inspector, table, column_info):
-    if isinstance(column_info['type'], JSONB):
-        column_info['type'] = JsonCompat()
+#     def load_dialect_impl(self, dialect):
+#         # Import here to avoid issues if postgresql dialect isn't installed
+#         # though for JSONB type itself, it must be.
+#         from sqlalchemy.dialects.postgresql import JSONB as PGJSONB
+#         if dialect.name == 'postgresql':
+#             return dialect.type_descriptor(PGJSONB)
+#         else:
+#             # For SQLite, use standard JSON which typically maps to TEXT
+#             # and handles serialization/deserialization.
+#             return dialect.type_descriptor(JSON)
+
+#     def process_bind_param(self, value, dialect):
+#         if value is None:
+#             return None
+#         # For SQLite, SQLAlchemy's JSON type handles serialization to string.
+#         # If we were using TEXT directly, we'd do json.dumps here.
+#         # For PostgreSQL, JSONB handles Python dicts directly.
+#         return value
+
+#     def process_result_value(self, value, dialect):
+#         if value is None:
+#             return None
+#         # For SQLite, SQLAlchemy's JSON type handles deserialization from string.
+#         # If we were using TEXT directly, we'd do json.loads here.
+#         # For PostgreSQL, JSONB returns Python dicts.
+#         return value
+
+# @event.listens_for(Location.__table__, "column_reflect") # Удалено
+# def receive_column_reflect_location(inspector, table, column_info):
+#     # This listener is to ensure that when SQLAlchemy reflects columns
+#     # for a table (e.g. Location.__table__), if it encounters a column
+#     # that was defined as postgresql.JSONB in the model,
+#     # it replaces its type with our JsonCompat wrapper for SQLite.
+#     from sqlalchemy.dialects.postgresql import JSONB as PGJSONB
+#     if isinstance(column_info['type'], PGJSONB):
+#         column_info['type'] = JsonCompat()
 
 
 class TestGetLocalizedText(unittest.TestCase):
