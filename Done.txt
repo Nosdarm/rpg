@@ -12,6 +12,10 @@
 - Task 2.2: AI Prompt Preparation Module (MVP)
 - Task 2.3: AI Response Parsing and Validation Module (MVP)
 - Task 2.6: AI Generation, Moderation, and Saving Logic (MVP, Guild-Scoped)
+## Phase 5: Combat System
+- Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped).
+Description: Defined the CombatEncounter model in `src/models/combat_encounter.py` with fields for id, guild_id, location_id, status (using `CombatStatus` enum from `src/models/enums.py`), current_turn_entity_id, current_turn_entity_type, turn_order_json, rules_config_snapshot_json, participants_json, and combat_log_json. Added relationships to GuildConfig and Location. Created Alembic migration `0002_create_combat_encounter_table.py` (down_revision `fcb2e6d12a18`). Wrote basic unit tests in `tests/models/test_combat_encounter.py` which passed after installing dependencies.
+Result: Model for tracking active combat state defined, migrated, and basic tests pass.
 ## Phase 6: Action Resolution Systems (Core Mechanics)
 - Task ⚙️ 6.1.1: Intra-Location Interaction Handler Module
 - Task ⚙️ 6.3.1: Dice Roller Module (MVP)

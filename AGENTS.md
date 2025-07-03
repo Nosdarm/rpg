@@ -42,9 +42,18 @@
 ---
 
 ## Текущий план
-**Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped).**
-Description: Define the model for tracking the state of active combat within a guild.
-Implement the CombatEncounter model (0.2/7). With a guild_id field. Includes: id (PK), location_id (INTEGER FK), status (TEXT enum), current_turn_entity_id (INT), turn_order_json (JSONB), rules_config_snapshot_json (JSONB - snapshot of combat rules from RuleConfig at combat start?), participants_json (JSONB - {entity_id, entity_type, current_hp, ...}), combat_log_json (JSONB - log of this combat's events).
+**Task 27: ⚔️ 5.2 Combat Engine Module.**
+Description: Implement the central module for calculating action outcomes in combat.
+API `process_combat_action(guild_id: int, session: Session, combat_instance_id: int, actor_id: int, actor_type: str, action_data: dict) -> CombatActionResult`. Accepts `guild_id` and `session`.
+Called from Task 28 (Combat Cycle).
+- Loads `CombatEncounter` (Task 26, previously referred to as 24) and participants by `guild_id`. Uses `Effective_Stats` (Task related to Player/NPC model, previously 14).
+- Retrieves action rules (damage formulas, criticals, status effects) from `RuleConfig` for the guild, or from `combat_instance.rules_config_snapshot_json`.
+- If action requires a check (attack, save) -> calls Check Resolver Module (Task 6.3.2, previously 12) with `guild_id`.
+- Performs calculations (damage, statuses, costs) according to formulas/rules.
+- Updates combat participant states (HP, resources, statuses) in the DB.
+- Logs the action result (Task 19, Event Log) including calculation details and check outcomes.
+- Returns a `CombatActionResult` object (action result + details for log/feedback).
+Result: Detailed, reliable combat calculations based on configurable rules, with logging.
 
 ---
 ## Отложенные задачи
@@ -1061,3 +1070,48 @@ Implement the CombatEncounter model (0.2/7). With a guild_id field. Includes: id
     - **Итоговый результат:**
         - Все 307 тестов успешно пройдены (`307 passed`).
         - Осталось 17 предупреждений (DeprecationWarning и RuntimeWarning), которые не вызывают падения тестов и могут быть рассмотрены отдельно.
+
+## Задача 27: ⚔️ 5.2 Combat Engine Module
+- **Проверка завершения Задачи 26**:
+    - Проверены файлы модели `CombatEncounter`, `CombatStatus` enum, миграция `0002_create_combat_encounter_table.py` и тесты `tests/models/test_combat_encounter.py`.
+    - Установлены зависимости из `requirements.txt`.
+    - Тесты для `CombatEncounter` успешно пройдены.
+- **Административные действия**:
+    - Задача 26 удалена из `Tasks.txt`.
+    - Задача 26 добавлена в `Done.txt`.
+    - "Текущий план" в `AGENTS.md` обновлен на Задачу 27.
+- **Реализация Задачи 27**:
+    - **Определена Pydantic модель `CombatActionResult`**:
+        - Создан файл `src/models/combat_outcomes.py`.
+        - Модель включает поля для успеха, деталей действия, актора, цели, урона/исцеления, статусных эффектов, результата проверки, i18n описания, затраченных ресурсов и доп. деталей.
+        - `CombatActionResult` добавлен в `src/models/__init__.py`.
+    - **Реализован API `process_combat_action` в `src/core/combat_engine.py` (MVP)**:
+        - Создан файл `src/core/combat_engine.py`.
+        - Реализована функция `process_combat_action` с загрузкой `CombatEncounter`, актора (Player/NPC), цели.
+        - Доступ к данным участников боя осуществляется через `CombatEncounter.participants_json`.
+        - Реализован placeholder для загрузки правил боя (из `CombatEncounter.rules_config_snapshot_json` или `RuleConfig`).
+        - Реализована MVP-логика для действия "attack":
+            - Используется симулированный результат проверки (`simulated_check_success = True`, всегда попадание).
+            - Расчет фиксированного урона (5 единиц).
+            - Обновление `current_hp` в `participants_json` (в памяти).
+        - Обновление `CombatEncounter.participants_json` и `CombatEncounter.combat_log_json` (добавление записи о действии с временной меткой UTC).
+        - Вызов `game_events.log_event` для логирования действия боя.
+        - Возврат объекта `CombatActionResult`.
+        - Добавлена базовая обработка исключений.
+        - Исправлен доступ к именам актора/цели для корректной работы с `Player.name` и `GeneratedNpc.name_i18n`.
+        - Использование `datetime.datetime.now(datetime.UTC)` вместо `utcnow()`.
+    - **Настроены CRUD-зависимости**:
+        - Создан `src/core/crud/crud_combat_encounter.py` с классом `CRUDCombatEncounter` и экземпляром `combat_encounter_crud`.
+        - В `src/core/crud/crud_npc.py` (класс `CRUDNpc`) добавлен метод `get_by_id_and_guild`.
+        - В `src/core/crud/crud_player.py` (класс `CRUDPlayer`) добавлен метод `get_by_id_and_guild`.
+        - `combat_encounter_crud` добавлен в импорты и `__all__` в `src/core/crud/__init__.py`.
+    - **Placeholder для `Effective_Stats`**:
+        - В `src/core/combat_engine.py` добавлен комментарий TODO, указывающий, что получение статов из `participants_json` является временным решением.
+    - **Обновлен `src/core/__init__.py`**:
+        - Импортированы и добавлены в `__all__` `combat_engine`, `process_combat_action` и `CombatActionResult`.
+    - **Написаны Unit-тесты для `process_combat_action`**:
+        - Создан файл `tests/core/test_combat_engine.py`.
+        - Замокированы зависимости (`AsyncSession`, CRUD-операции, `get_rule`, `resolve_check`, `log_event`).
+        - Протестированы сценарии: успешная атака, ошибки (не найден бой, актор, цель), неизвестный тип действия.
+        - Исправлены ошибки в тестах, связанные с инстанцированием `GeneratedNpc` (использование `name_i18n` и `properties_json`), некорректным доступом к имени NPC в строке ожидания ассерта, и ошибками отступов.
+        - Все 7 тестов в `tests/core/test_combat_engine.py` успешно пройдены.

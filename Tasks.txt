@@ -95,10 +95,6 @@ Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped).
 Task Block: Phase 5: Combat System
 This block presents tasks related to combat mechanics.
 
-Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped).
-Description: Define the model for tracking the state of active combat within a guild.
-Implement the CombatEncounter model (0.2/7). With a guild_id field. Includes: id (PK), location_id (INTEGER FK), status (TEXT enum), current_turn_entity_id (INT), turn_order_json (JSONB), rules_config_snapshot_json (JSONB - snapshot of combat rules from RuleConfig at combat start?), participants_json (JSONB - {entity_id, entity_type, current_hp, ...}), combat_log_json (JSONB - log of this combat's events).
-
 Task 27: ⚔️ 5.2 Combat Engine Module.
 Description: Implement the central module for calculating action outcomes in combat.
 API process_combat_action(guild_id: int, session: Session, combat_instance_id: int, actor_id: int, actor_type: str, action_data: dict) -> CombatActionResult. Accepts guild_id and session.

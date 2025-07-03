@@ -326,7 +326,7 @@ async def test_format_dialogue_line(mock_session, mock_names_cache_fixture, mock
         else: # Other un-cached speakers might use a term or a simpler placeholder
              speaker_name = "Someone" if lang == "en" else "Некто" # Fallback if not player 99 and not in cache
 
-    expected_msg = f"{speaker_name}: {line_text}"
+    expected_msg = f'{speaker_name}: "{line_text}"' # Added quotes around line_text
 
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
