@@ -28,6 +28,7 @@ def _safe_get(data: Dict, path: List[Union[str, int]], default: Any = None) -> A
     return current
 
 async def _format_log_entry_with_names_cache(
+    session: AsyncSession, # Added session parameter
     log_entry_details_json: Dict[str, Any],
     language: str,
     names_cache: Dict[Tuple[str, int], str]
@@ -54,29 +55,41 @@ async def _format_log_entry_with_names_cache(
         # Полный ключ для RuleConfig, например, "terms.actions.examine.verb_en"
         full_term_key = f"{term_key_base}_{language}"
         # default_text_map должен содержать ключ для текущего языка
-        default_for_lang = default_text_map.get(language, list(default_text_map.values())[0] if default_text_map else "")
+        primary_fallback_language = "en" # Define a primary fallback
 
         # Пытаемся получить правило из RuleConfig
-        # get_rule ожидает session, но мы в _format_log_entry_with_names_cache ее не имеем напрямую.
-        # Это серьезное упущение в дизайне этой функции, если она должна использовать get_rule.
-        # Для прохождения тестов, которые мокают get_rule, нам нужно, чтобы он вызывался.
-        # Временно будем передавать None как session, тесты должны это мокать.
-        # В реальной системе это потребует рефакторинга для передачи сессии.
-        # Однако, фикстура mock_get_rule_fixture в тестах сама по себе является AsyncMock
-        # и не требует сессии в своей реализации. Патчинг должен перехватить вызов.
-
-        rule_value_obj = await get_rule(None, guild_id, full_term_key, default=None) # type: ignore
+        # Теперь session передается корректно
+        rule_value_obj = await get_rule(session, guild_id, full_term_key, default=None)
 
         if rule_value_obj:
             if isinstance(rule_value_obj, dict):
-                if language in rule_value_obj:
+                if language in rule_value_obj and rule_value_obj[language]:
                     return str(rule_value_obj[language])
-                # Если это словарь, но нужного языка нет, используем default_for_lang
-                # (или можно было бы попробовать fallback язык из словаря, если есть)
-            else: # Если это не словарь (например, строка напрямую)
-                return str(rule_value_obj)
+                # Try primary fallback language from rule_value_obj
+                if primary_fallback_language in rule_value_obj and rule_value_obj[primary_fallback_language]:
+                    logger.debug(f"Term '{term_key_base}' found in RuleConfig using primary fallback '{primary_fallback_language}'.")
+                    return str(rule_value_obj[primary_fallback_language])
+            elif isinstance(rule_value_obj, str) and rule_value_obj: # If it's a non-empty string directly
+                return rule_value_obj
 
-        return default_for_lang
+        # Fallback to default_text_map
+        if language in default_text_map and default_text_map[language]:
+            logger.debug(f"Term '{term_key_base}' not in RuleConfig or specific lang, using default_text_map for '{language}'.")
+            return default_text_map[language]
+
+        if primary_fallback_language in default_text_map and default_text_map[primary_fallback_language]:
+            logger.debug(f"Term '{term_key_base}' not in RuleConfig/default_text_map for '{language}', using default_text_map for primary fallback '{primary_fallback_language}'.")
+            return default_text_map[primary_fallback_language]
+
+        # Final fallback to the first value in default_text_map if any
+        if default_text_map:
+            first_value = next(iter(default_text_map.values()), None)
+            if first_value:
+                logger.debug(f"Term '{term_key_base}' falling back to first available value in default_text_map.")
+                return first_value
+
+        logger.warning(f"Term '{term_key_base}' could not be resolved for language '{language}' or fallbacks.")
+        return "" # Return empty string if no term can be found
 
 
     fallback_message = ""
@@ -656,7 +669,7 @@ async def format_turn_report(
     for entry_details in prepared_log_entries: # Iterate over prepared_log_entries
         # guild_id is guaranteed to be in entry_details here due to preparation step
         formatted_line = await _format_log_entry_with_names_cache(
-            entry_details, language, names_cache
+            session, entry_details, language, names_cache  # Pass session here
         )
         formatted_parts.append(formatted_line)
 
