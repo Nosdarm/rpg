@@ -1,9 +1,9 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING # Added TYPE_CHECKING
 from pydantic import BaseModel
 
-# Forward reference for CheckResult if it's defined elsewhere and creates circular imports
-# For now, we can use Dict[str, Any] as a placeholder if CheckResult is complex
-# from src.core.check_resolver import CheckResult # Assuming CheckResult is Pydantic too
+# if TYPE_CHECKING: # No longer needed for CheckResult with direct import
+#     from src.core.check_resolver import CheckResult # Old location
+from .check_results import CheckResult # New location
 
 class CombatActionResult(BaseModel):
     """
@@ -25,9 +25,7 @@ class CombatActionResult(BaseModel):
     status_effects_applied: Optional[List[Dict[str, Any]]] = None
     status_effects_removed: Optional[List[Dict[str, Any]]] = None # For future use
 
-    # Placeholder for CheckResult, assuming it will be a Pydantic model from check_resolver
-    # Replace Dict[str, Any] with actual CheckResult type hint when available.
-    check_result: Optional[Dict[str, Any]] = None
+    check_result: Optional['CheckResult'] = None # Used string literal
 
     description_i18n: Optional[Dict[str, str]] = None # Human-readable summary of the action outcome
 
@@ -42,6 +40,8 @@ class CombatActionResult(BaseModel):
     # To ensure model can be used in ORM context if needed (though primarily for API responses)
     class Config:
         from_attributes = True
+
+# CombatActionResult.model_rebuild() # May not be needed with direct import of CheckResult
 
 # Example usage (for testing or understanding):
 # if __name__ == "__main__":
