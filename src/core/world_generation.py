@@ -48,10 +48,12 @@ async def generate_location(
         prompt = await prepare_ai_prompt(
             session=session,
             guild_id=guild_id,
-            location_id=location_id_context,
-            player_id=player_id_context,
-            party_id=party_id_context,
-            context_params=prompt_context_params
+            location_id=location_id_context, # This context is used by prepare_ai_prompt
+            player_id=player_id_context,   # This context is used by prepare_ai_prompt
+            party_id=party_id_context      # This context is used by prepare_ai_prompt
+            # context_params is not an accepted parameter for prepare_ai_prompt.
+            # Information like "generation_type" or "parent_location_id" (from prompt_context_params)
+            # would need to be handled by prepare_ai_prompt itself or by adding new specific parameters to it.
         )
         logger.debug(f"Generated AI prompt for new location in guild {guild_id}:\n{prompt[:500]}...") # Log snippet
 
@@ -105,7 +107,19 @@ async def generate_location(
         logger.info(f"New location '{generated_location_data.name_i18n.get('en', 'N/A')}' (ID: {new_location_db.id}) data created by AI for guild {guild_id}.")
 
         # 5. Update connections with neighbors
-        current_neighbor_links_for_new_loc: List[Dict[str, Any]] = list(new_location_db.neighbor_locations_json or []) # Ensure it's a mutable list
+        # Initialize current_neighbor_links_for_new_loc robustly
+        raw_initial_neighbors = new_location_db.neighbor_locations_json
+        current_neighbor_links_for_new_loc: List[Dict[str, Any]] = []
+        if isinstance(raw_initial_neighbors, list):
+            for item in raw_initial_neighbors:
+                if isinstance(item, dict):
+                    current_neighbor_links_for_new_loc.append(item)
+                else:
+                    logger.warning(f"Malformed neighbor item in new_location_db {new_location_db.id} initial data: {item}. Skipping.")
+        elif raw_initial_neighbors is not None: # It could be a Dict or other non-list type
+            logger.warning(f"New location {new_location_db.id} had non-list neighbor_locations_json: {type(raw_initial_neighbors)}. Initializing links as empty list.")
+        # If raw_initial_neighbors is None, current_neighbor_links_for_new_loc remains []
+
 
         # 5a. Explicit parent linking
         if parent_location_id:

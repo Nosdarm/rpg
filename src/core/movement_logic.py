@@ -176,8 +176,8 @@ async def handle_move_action(
 
             # We need to call the transactional function.
             # The @transactional decorator on _update_entities_location will inject the session.
-            await _update_entities_location(
-                # session=session, # DO NOT pass session explicitly, @transactional handles it
+            await _update_entities_location( # type: ignore [call-arg]
+                # session is injected by @transactional on _update_entities_location
                 guild_id=guild_id,
                 player=player,
                 target_location=target_location,
@@ -276,9 +276,9 @@ async def _find_location_by_identifier(
         # Let's assume results.scalars() returns something that has .all() directly after await
         # However, the error "'coroutine' object has no attribute 'all'" means results.scalars() IS the coroutine.
         # So, we need to await it first.
-        scalar_results = await results.scalars()
-        # Runtime errors indicate .all() on this ScalarResult is also awaitable
-        found_locations = await scalar_results.all()
+        # Both .scalars() and .all() on its result are ASYNC
+        scalar_results_obj = await results.scalars()
+        found_locations = await scalar_results_obj.all()
 
         if found_locations:
             if len(found_locations) > 1:

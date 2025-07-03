@@ -28,7 +28,8 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
         guild_id = interaction.guild_id
         discord_id = interaction.user.id
-        player_name = interaction.user.display_name
+        # Ensure player_name is always a str, falling back to global name or a default if necessary
+        player_name: str = interaction.user.display_name or interaction.user.name or "Adventurer"
         player_locale = str(interaction.locale) if interaction.locale else 'en'
 
         existing_player = await player_crud.get_by_discord_id(db=session, guild_id=guild_id, discord_id=discord_id)

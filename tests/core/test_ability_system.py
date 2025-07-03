@@ -256,9 +256,9 @@ async def test_remove_status_success(mock_log_event, mock_session, mock_player):
     mock_active_status.id = active_status_id_to_remove
     mock_active_status.guild_id = guild_id
     mock_active_status.entity_id = mock_player.id
-    mock_active_status.entity_type = RelationshipEntityType.PLAYER
+    mock_active_status.entity_type = RelationshipEntityType.PLAYER.value # Set as string value from DB
     mock_active_status.status_effect_id = 20 # Example
-    mock_active_status.static_id = "some_status_static_id" # Though not directly used, good for mock completeness
+    # mock_active_status.static_id is not an attribute of ActiveStatusEffect
 
     # Mock for the StatusEffect model that will be fetched
     mock_original_status_effect_model = MagicMock(spec=StatusEffect)
@@ -436,3 +436,65 @@ async def test_apply_status_target_entity_not_found(mock_session, mock_status_ef
         )
         assert success is False
         mock_get_target.assert_called_once_with(mock_session, 100, 999, RelationshipEntityType.PLAYER.value)
+
+# --- Test original apply_status ---
+@pytest.mark.asyncio
+@patch('src.core.ability_system.log_event', new_callable=AsyncMock) # Assuming apply_status might also log
+async def test_original_apply_status_on_player(
+    mock_log_event, mock_session, mock_player, mock_status_effect_burning
+):
+    guild_id = mock_player.guild_id
+    status_static_id_to_apply = mock_status_effect_burning.static_id
+    duration_to_apply = 3
+
+    # Mock _get_entity (used by apply_status)
+    async def mock_internal_get_entity(session, g_id, e_id, e_type_str):
+        if e_id == mock_player.id and e_type_str.lower() == "player":
+            return mock_player
+        return None
+
+    # Mock session.execute for StatusEffect lookup in apply_status
+    mock_execute_result = AsyncMock()
+    mock_scalars_result = MagicMock()
+
+    mock_status_effect_burning.guild_id = None
+    mock_scalars_result.all.return_value = [mock_status_effect_burning]
+    mock_execute_result.scalars.return_value = mock_scalars_result
+    mock_session.execute.return_value = mock_execute_result
+
+    # Import the original apply_status
+    from src.core.ability_system import apply_status
+
+    with patch('src.core.ability_system._get_entity', side_effect=mock_internal_get_entity):
+        success = await apply_status(
+            session=mock_session,
+            guild_id=guild_id,
+            entity_id=mock_player.id,
+            entity_type=RelationshipEntityType.PLAYER.value,
+            status_static_id=status_static_id_to_apply,
+            duration=duration_to_apply,
+            source_ability_id=123,
+            source_entity_id=456,
+            source_entity_type=RelationshipEntityType.GENERATED_NPC.value # Corrected enum member
+        )
+
+        assert success is True
+
+        mock_session.execute.assert_called_once()
+        mock_session.add.assert_called_once()
+        added_obj = mock_session.add.call_args[0][0]
+        assert isinstance(added_obj, ActiveStatusEffect)
+        assert added_obj.entity_id == mock_player.id
+        assert added_obj.entity_type == RelationshipEntityType.PLAYER.value
+        assert added_obj.status_effect_id == mock_status_effect_burning.id
+        assert added_obj.guild_id == guild_id
+        assert added_obj.duration_turns == duration_to_apply
+        assert added_obj.source_ability_id == 123
+
+        assert not hasattr(added_obj, 'source_entity_id')
+        assert not hasattr(added_obj, 'source_entity_type_value')
+        assert not hasattr(added_obj, 'owner_id')
+        assert not hasattr(added_obj, 'owner_type')
+        assert not hasattr(added_obj, 'duration')
+
+        mock_log_event.assert_not_called()

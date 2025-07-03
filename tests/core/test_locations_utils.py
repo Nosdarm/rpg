@@ -1,10 +1,11 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Optional # Added Optional
 
 # Используем create_async_engine для асинхронного движка
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine # Added AsyncEngine
 from sqlalchemy import event, JSON, select # Добавлен select
-from sqlalchemy.orm import sessionmaker
+# from sqlalchemy.orm import sessionmaker # Replaced by async_sessionmaker
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 
@@ -20,7 +21,7 @@ class JsonCompat(TypeDecorator):
     impl = TEXT
     cache_ok = True
     def load_dialect_impl(self, dialect):
-        return dialect.type_descriptor(JSONB) if dialect.name == 'postgresql' else dialect.type_descriptor(JSON)
+        return dialect.type_descriptor(JSONB()) if dialect.name == 'postgresql' else dialect.type_descriptor(JSON())
     def process_bind_param(self, value, dialect):
         if value is None: return None
         return value if dialect.name == 'postgresql' else __import__('json').dumps(value)
@@ -78,26 +79,29 @@ class TestGetLocalizedText(unittest.TestCase):
 
 
 class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
-    engine = None
-    SessionLocal = None
+    engine: Optional[AsyncEngine] = None # type hint for clarity
+    SessionLocal: Optional[async_sessionmaker[AsyncSession]] = None # type hint for clarity
     test_guild_id = 1
 
     @classmethod
     def setUpClass(cls):
         cls.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-        cls.SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=cls.engine, class_=AsyncSession
+        # Use async_sessionmaker for AsyncSession
+        cls.SessionLocal = async_sessionmaker(
+            bind=cls.engine, class_=AsyncSession, expire_on_commit=False
         )
 
     @classmethod
-    async def tearDownClass(cls): # Хоть и не вызывается автоматически, лучше иметь для справки
+    async def tearDownClass(cls): # type: ignore[override]
         if cls.engine:
             await cls.engine.dispose()
 
     async def asyncSetUp(self):
+        assert self.SessionLocal is not None, "SessionLocal not initialized"
         self.session: AsyncSession = self.SessionLocal()
 
-        async with self.engine.begin() as conn: # type: ignore
+        assert self.engine is not None, "Engine not initialized"
+        async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
@@ -126,20 +130,20 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
             await self.session.refresh(loc1) # Refresh to load ID
             self.loc1_id = loc1.id
         else:
-            self.loc1_id = scalar_existing_loc.id # type: ignore
-
+            self.loc1_id = scalar_existing_loc.id
         await self.session.commit()
 
     async def asyncTearDown(self):
-        if self.session:
-            await self.session.rollback()
+        if hasattr(self, 'session') and self.session:
+            await self.session.rollback() # Rollback any pending transaction
             await self.session.close()
 
     async def test_get_location_existing(self):
         location = await get_location(self.session, guild_id=self.test_guild_id, location_id=self.loc1_id)
         self.assertIsNotNone(location)
-        self.assertEqual(location.id, self.loc1_id) # type: ignore
-        self.assertEqual(location.name_i18n["en"], "Test Location 1") # type: ignore
+        assert location is not None # for type checker
+        self.assertEqual(location.id, self.loc1_id)
+        self.assertEqual(location.name_i18n["en"], "Test Location 1")
 
     async def test_get_location_not_existing(self):
         location = await get_location(self.session, guild_id=self.test_guild_id, location_id=999)
@@ -152,8 +156,9 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
     async def test_get_location_by_static_id_existing(self):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id, static_id="loc_001")
         self.assertIsNotNone(location)
-        self.assertEqual(location.static_id, "loc_001") # type: ignore
-        self.assertEqual(location.name_i18n["en"], "Test Location 1") # type: ignore
+        assert location is not None # for type checker
+        self.assertEqual(location.static_id, "loc_001")
+        self.assertEqual(location.name_i18n["en"], "Test Location 1")
 
     async def test_get_location_by_static_id_not_existing(self):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id, static_id="non_existent_static_id")

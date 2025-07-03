@@ -25,8 +25,9 @@ async def load_rules_config_for_guild(db: AsyncSession, guild_id: int) -> Dict[s
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
     result = await db.execute(statement)
-    scalar_rules = await result.scalars() # .scalars() itself can be awaitable if the execute result is streamed
-    rules_from_db = await scalar_rules.all() # Reverting to await, as runtime error suggests it's a coroutine
+    # Both .scalars() and .all() on its result are ASYNC
+    scalar_results_obj = await result.scalars()
+    rules_from_db = await scalar_results_obj.all()
 
     guild_rules: Dict[str, Any] = {}
     for rule in rules_from_db:

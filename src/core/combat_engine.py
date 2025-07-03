@@ -246,7 +246,7 @@ async def process_combat_action(
         await log_event(
             session=session,
             guild_id=guild_id,
-            event_type=EventType.COMBAT_ACTION, # Or a more specific type if available
+            event_type=EventType.COMBAT_ACTION.name, # Pass the string name of the enum member
             details_json=event_details,
             location_id=combat_encounter.location_id,
             # Entity IDs involved in this specific action

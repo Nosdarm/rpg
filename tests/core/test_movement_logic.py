@@ -823,145 +823,208 @@ async def test_find_location_by_static_id_success(
     mock_session_execute.assert_not_called() # Should not search by name if static_id matches
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-async def test_find_location_by_name_player_language(
-    mock_find_loc_helper: AsyncMock,
-    mock_session: AsyncMock,      # Keep for signature consistency if other parts use it
-    mock_target_location: Location
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+# Patch the execute method on the mock_session instance that will be passed to the function
+async def test_find_location_by_name_player_language_actual_logic(
+    mock_get_by_static_id: AsyncMock,
+    mock_session: AsyncMock, # This mock_session's .execute will be configured
+    mock_target_location: Location # Target location to be "found"
 ):
-    identifier = "лес"
+    identifier = "лес" # Russian name
     player_lang = "ru"
     guild_lang = "en"
 
-    # Configure the patched helper directly
-    mock_find_loc_helper.return_value = mock_target_location
+    mock_target_location.name_i18n = {"ru": "лес", "en": "Forest"} # Ensure target has the name
 
-    # Call the patched helper
-    # The parameters like mock_session, DEFAULT_GUILD_ID are passed to satisfy the original signature,
-    # but the mock_find_loc_helper will just return its configured return_value.
-    found_location = await mock_find_loc_helper(
+    # 1. Static ID search fails
+    mock_get_by_static_id.return_value = None
+
+    # 2. Name search succeeds (mocking the session.execute call chain)
+    mock_execute_result = AsyncMock() # This is the result of await session.execute()
+
+    # This is the object returned by awaiting result.scalars()
+    # It should have an awaitable .all() method
+    mock_scalar_result_object_for_name_search = MagicMock()
+    mock_scalar_result_object_for_name_search.all = AsyncMock(return_value=[mock_target_location])
+
+    # result.scalars() itself is an AsyncMock that returns the above object
+    mock_execute_result.scalars = AsyncMock(return_value=mock_scalar_result_object_for_name_search)
+
+    # session.execute() is an AsyncMock that returns mock_execute_result
+    mock_session.execute = AsyncMock(return_value=mock_execute_result)
+
+    found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
     )
 
-    # Assert that the helper was called with the correct parameters
-    mock_find_loc_helper.assert_called_once_with(
-        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
-    )
-    # Assert that the result from the mocked helper is as expected
     assert found_location == mock_target_location
+    mock_get_by_static_id.assert_called_once_with(
+        mock_session, guild_id=DEFAULT_GUILD_ID, static_id=identifier
+    )
+    # Check that session.execute was called (for the name search in 'ru')
+    mock_session.execute.assert_called_once()
+    # We could add more detailed assertions about the SQL statement passed to execute if needed.
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-async def test_find_location_by_name_guild_language_fallback(
-    mock_find_loc_helper: AsyncMock,
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+async def test_find_location_by_name_guild_language_fallback_actual_logic(
+    mock_get_by_static_id: AsyncMock,
+    mock_session: AsyncMock,
+    mock_target_location: Location
+):
+    identifier = "Forest" # English name
+    player_lang = "de"    # Player prefers German
+    guild_lang = "en"     # Guild main language is English
+
+    mock_target_location.name_i18n = {"en": "Forest", "de": "Wald"}
+
+    mock_get_by_static_id.return_value = None # Static ID search fails
+
+    # Mock session.execute for name search
+    # First call (for 'de') will find nothing
+    mock_scalars_de_obj = MagicMock()
+    mock_scalars_de_obj.all = AsyncMock(return_value=[])
+    mock_execute_result_de = AsyncMock()
+    mock_execute_result_de.scalars = AsyncMock(return_value=mock_scalars_de_obj)
+
+    # Second call (for 'en' - guild language) will find the location
+    mock_scalars_en_obj = MagicMock()
+    mock_scalars_en_obj.all = AsyncMock(return_value=[mock_target_location])
+    mock_execute_result_en = AsyncMock()
+    mock_execute_result_en.scalars = AsyncMock(return_value=mock_scalars_en_obj)
+
+    mock_session.execute = AsyncMock(side_effect=[mock_execute_result_de, mock_execute_result_en])
+
+    found_location = await _find_location_by_identifier(
+        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
+    )
+
+    assert found_location == mock_target_location
+    assert mock_session.execute.call_count == 2 # Called for 'de', then 'en'
+
+@pytest.mark.asyncio
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+async def test_find_location_by_name_english_fallback_actual_logic(
+    mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock,
     mock_target_location: Location
 ):
     identifier = "Forest"
     player_lang = "de"
+    guild_lang = "fr" # Neither player nor guild lang is 'en'
+
+    mock_target_location.name_i18n = {"en": "Forest"}
+
+    mock_get_by_static_id.return_value = None
+
+    # Mock session.execute for name search
+    mock_scalars_de_obj = MagicMock(); mock_scalars_de_obj.all = AsyncMock(return_value=[])
+    mock_execute_result_de = AsyncMock(); mock_execute_result_de.scalars = AsyncMock(return_value=mock_scalars_de_obj)
+
+    mock_scalars_fr_obj = MagicMock(); mock_scalars_fr_obj.all = AsyncMock(return_value=[])
+    mock_execute_result_fr = AsyncMock(); mock_execute_result_fr.scalars = AsyncMock(return_value=mock_scalars_fr_obj)
+
+    mock_scalars_en_obj = MagicMock(); mock_scalars_en_obj.all = AsyncMock(return_value=[mock_target_location])
+    mock_execute_result_en = AsyncMock(); mock_execute_result_en.scalars = AsyncMock(return_value=mock_scalars_en_obj)
+
+    mock_session.execute = AsyncMock(side_effect=[mock_execute_result_de, mock_execute_result_fr, mock_execute_result_en])
+
+    found_location = await _find_location_by_identifier(
+        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
+    )
+    assert found_location == mock_target_location
+    assert mock_session.execute.call_count == 3 # de, fr, en
+
+@pytest.mark.asyncio
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+async def test_find_location_by_name_case_insensitive_actual_logic(
+    mock_get_by_static_id: AsyncMock,
+    mock_session: AsyncMock,
+    mock_target_location: Location
+):
+    identifier = "fOrEsT" # Mixed case
+    player_lang = "en"
     guild_lang = "en"
+    mock_target_location.name_i18n = {"en": "Forest"} # DB stores "Forest"
 
-    mock_find_loc_helper.return_value = mock_target_location
+    mock_get_by_static_id.return_value = None
 
-    found_location = await mock_find_loc_helper(
-        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
-    )
+    mock_execute_result = AsyncMock()
+    mock_scalar_result_object = MagicMock()
+    mock_scalar_result_object.all = AsyncMock(return_value=[mock_target_location]) # Simulates DB finding it case-insensitively
+    mock_execute_result.scalars = AsyncMock(return_value=mock_scalar_result_object)
+    mock_session.execute = AsyncMock(return_value=mock_execute_result)
 
-    mock_find_loc_helper.assert_called_once_with(
-        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
-    )
-    assert found_location == mock_target_location
-
-
-@pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-async def test_find_location_by_name_english_fallback(
-    mock_find_loc_helper: AsyncMock,
-    mock_session: AsyncMock,
-    mock_target_location: Location
-):
-    identifier = "Forest"
-    player_lang = "de"
-    guild_lang = "fr"
-
-    mock_find_loc_helper.return_value = mock_target_location
-
-    found_location = await mock_find_loc_helper(
-        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
-    )
-    mock_find_loc_helper.assert_called_once_with(
+    found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
     )
     assert found_location == mock_target_location
-
-@pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-async def test_find_location_by_name_case_insensitive(
-    mock_find_loc_helper: AsyncMock,
-    mock_session: AsyncMock,
-    mock_target_location: Location
-):
-    identifier = "fOrEsT"
-
-    mock_find_loc_helper.return_value = mock_target_location
-
-    found_location = await mock_find_loc_helper(
-        mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
-    )
-    mock_find_loc_helper.assert_called_once_with(
-        mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
-    )
-    assert found_location == mock_target_location
+    mock_session.execute.assert_called_once() # Should be called for 'en'
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-async def test_find_location_not_found(
-    mock_find_loc_helper: AsyncMock,
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+async def test_find_location_not_found_actual_logic(
+    mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock
 ):
     identifier = "non_existent_place"
+    player_lang = "de"
+    guild_lang = "fr"
 
-    mock_find_loc_helper.return_value = None # Helper returns None when not found
+    mock_get_by_static_id.return_value = None # Static ID search fails
 
-    found_location = await mock_find_loc_helper(
-        mock_session, DEFAULT_GUILD_ID, identifier, "de", "fr"
-    )
-    mock_find_loc_helper.assert_called_once_with(
-        mock_session, DEFAULT_GUILD_ID, identifier, "de", "fr"
+    # Name search also fails for all priority languages
+    mock_execute_result_de = AsyncMock(); mock_scalars_de = MagicMock(); mock_scalars_de.all = AsyncMock(return_value=[]); mock_execute_result_de.scalars.return_value = mock_scalars_de
+    mock_execute_result_fr = AsyncMock(); mock_scalars_fr = MagicMock(); mock_scalars_fr.all = AsyncMock(return_value=[]); mock_execute_result_fr.scalars.return_value = mock_scalars_fr
+    mock_execute_result_en = AsyncMock(); mock_scalars_en = MagicMock(); mock_scalars_en.all = AsyncMock(return_value=[]); mock_execute_result_en.scalars.return_value = mock_scalars_en
+
+    mock_session.execute = AsyncMock(side_effect=[mock_execute_result_de, mock_execute_result_fr, mock_execute_result_en])
+
+    found_location = await _find_location_by_identifier(
+        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
     )
     assert found_location is None
+    assert mock_session.execute.call_count == 3
+
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-@patch("src.core.movement_logic.logger.warning") # Keep this to check log
-async def test_find_location_by_name_ambiguous_returns_first_and_logs(
-    mock_logger_warning: MagicMock, # Original mock for logger
-    mock_find_loc_helper: AsyncMock, # Patched _find_location_by_identifier
+@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.movement_logic.logger.warning")
+async def test_find_location_by_name_ambiguous_returns_first_and_logs_actual_logic(
+    mock_logger_warning: MagicMock,
+    mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock,
-    mock_start_location: Location,
-    mock_target_location: Location
+    mock_start_location: Location, # Will be the first returned
+    mock_target_location: Location  # Another location with the same name for ambiguity
 ):
     identifier = "Ambiguous Tavern"
+    player_lang = "en"
+    guild_lang = "en"
 
-    # If we were testing the *real* _find_location_by_identifier, its internal logger call would be checked.
-    # Since we are patching _find_location_by_identifier, we can't directly test its internal log call here.
-    # This test would now primarily verify that if _find_location_by_identifier *were* to return the first
-    # of multiple items, the calling code would receive it.
-    # The logging aspect of the original test is lost with this patching strategy for this specific unit.
+    mock_start_location.name_i18n = {"en": "Ambiguous Tavern"}
+    mock_target_location.name_i18n = {"en": "Ambiguous Tavern"} # Same name
 
-    mock_find_loc_helper.return_value = mock_start_location # Simulate it returns the first
+    mock_get_by_static_id.return_value = None # Static ID search fails
 
-    found_location = await mock_find_loc_helper(
-        mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
+    # Name search returns multiple locations
+    mock_execute_result = AsyncMock()
+    mock_scalars_obj = MagicMock()
+    # IMPORTANT: Order matters if the function just takes the first one.
+    mock_scalars_obj.all = AsyncMock(return_value=[mock_start_location, mock_target_location])
+    mock_execute_result.scalars.return_value = mock_scalars_obj
+    mock_session.execute = AsyncMock(return_value=mock_execute_result)
+
+    found_location = await _find_location_by_identifier(
+        mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
     )
 
-    mock_find_loc_helper.assert_called_once_with(
-        mock_session, DEFAULT_GUILD_ID, identifier, "en", "en"
-    )
-    assert found_location == mock_start_location
-    # mock_logger_warning.assert_called_once() # This can no longer be asserted as the patched func won't log
+    assert found_location == mock_start_location # Should return the first one
+    mock_logger_warning.assert_called_once()
+    args, kwargs = mock_logger_warning.call_args
+    assert f"Ambiguous location name '{identifier}' (lang: {player_lang})" in args[0]
+    assert f"Found 2 locations" in args[0]
 
 
 # --- Update tests for execute_move_for_player_action to use _find_location_by_identifier ---
