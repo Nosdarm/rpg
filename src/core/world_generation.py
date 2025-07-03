@@ -20,21 +20,30 @@ logger = logging.getLogger(__name__)
 async def generate_location(
     session: AsyncSession,
     guild_id: int,
-    generation_params: Optional[Dict[str, Any]] = None,
-    location_id_context: Optional[int] = None,
+    context: Optional[Dict[str, Any]] = None, # Renamed from generation_params
+    parent_location_id: Optional[int] = None,
+    connection_details_i18n: Optional[Dict[str, str]] = None,
+    location_id_context: Optional[int] = None, # This can still be used for broader AI context
     player_id_context: Optional[int] = None,
     party_id_context: Optional[int] = None
 ) -> Tuple[Optional[Location], Optional[str]]:
     """
     Generates a new location using AI, saves it to the DB, and updates connections.
+    Can explicitly link to a parent_location_id.
     This is the primary API function for AI-driven location generation.
     Returns (created location, None) or (None, error message).
     """
     try:
         # 1. Prepare prompt for AI
-        prompt_context_params = generation_params or {}
-        # Ensure the AI knows we want a location. This might be part of generation_params or a specific instruction.
+        prompt_context_params = context or {}
+        # Ensure the AI knows we want a location. This might be part of context or a specific instruction.
         prompt_context_params["generation_type"] = "location"
+        if parent_location_id:
+            prompt_context_params["parent_location_id"] = parent_location_id
+            # Optionally add more context about the parent if needed for the prompt
+            # parent_loc_for_prompt = await location_crud.get(session, id=parent_location_id, guild_id=guild_id)
+            # if parent_loc_for_prompt:
+            #     prompt_context_params["parent_location_name"] = parent_loc_for_prompt.name_i18n.get('en', 'Unknown')
 
         prompt = await prepare_ai_prompt(
             session=session,
@@ -96,9 +105,28 @@ async def generate_location(
         logger.info(f"New location '{generated_location_data.name_i18n.get('en', 'N/A')}' (ID: {new_location_db.id}) data created by AI for guild {guild_id}.")
 
         # 5. Update connections with neighbors
-        current_neighbor_links_for_new_loc = []
+        current_neighbor_links_for_new_loc: List[Dict[str, Any]] = list(new_location_db.neighbor_locations_json or []) # Ensure it's a mutable list
+
+        # 5a. Explicit parent linking
+        if parent_location_id:
+            parent_loc = await location_crud.get(session, id=parent_location_id, guild_id=guild_id)
+            if parent_loc:
+                default_connection_desc = {"en": "a path", "ru": "тропа"}
+                actual_connection_details = connection_details_i18n or default_connection_desc
+
+                # Link new location to parent
+                if not any(n.get("id") == parent_location_id for n in current_neighbor_links_for_new_loc):
+                    current_neighbor_links_for_new_loc.append({"id": parent_location_id, "type_i18n": actual_connection_details})
+
+                # Link parent to new location
+                await update_location_neighbors(session, parent_loc, new_location_db.id, actual_connection_details, add_connection=True)
+                logger.info(f"Explicitly linked new location {new_location_db.id} to parent {parent_loc.id}.")
+            else:
+                logger.warning(f"Parent location ID {parent_location_id} not found or not in guild {guild_id} when linking new AI location {new_location_db.id}.")
+
+        # 5b. AI suggested potential_neighbors
         if generated_location_data.potential_neighbors:
-            logger.info(f"Processing potential neighbors for location ID {new_location_db.id}: {generated_location_data.potential_neighbors}")
+            logger.info(f"Processing AI-suggested potential neighbors for location ID {new_location_db.id}: {generated_location_data.potential_neighbors}")
             for neighbor_info in generated_location_data.potential_neighbors:
                 neighbor_identifier = neighbor_info.get("static_id_or_name")
                 conn_desc_i18n = neighbor_info.get("connection_description_i18n", {"en": "a path", "ru": "тропа"})
@@ -124,23 +152,30 @@ async def generate_location(
                     # TODO: Handle case where AI suggests creating *another* new location as a neighbor.
                     # This would involve a recursive call or queueing, which is complex for MVP.
 
-            if current_neighbor_links_for_new_loc:
-                new_location_db.neighbor_locations_json = current_neighbor_links_for_new_loc
-                # session.add(new_location_db) # SQLAlchemy 2.0+ tracks changes
-                await session.flush([new_location_db]) # Ensure this change is also flushed
-                logger.info(f"Finalized neighbor links for new location {new_location_db.id}: {current_neighbor_links_for_new_loc}")
+        # Update the new location's neighbor list if it has changed
+        # This check is to avoid unnecessary DB write if list is identical (though SQLAlchemy might optimize anyway)
+        if new_location_db.neighbor_locations_json is None or list(new_location_db.neighbor_locations_json) != current_neighbor_links_for_new_loc:
+             new_location_db.neighbor_locations_json = current_neighbor_links_for_new_loc
+             await session.flush([new_location_db]) # Ensure this change is also flushed
+             logger.info(f"Finalized neighbor links for new location {new_location_db.id}: {current_neighbor_links_for_new_loc}")
+
 
         # 6. Log event
+        log_details = {
+            "location_id": new_location_db.id,
+            "name_i18n": new_location_db.name_i18n,
+            "generated_by": "ai",
+            "generation_context": context, # Log original context
+        }
+        if parent_location_id:
+            log_details["parent_location_id"] = parent_location_id
+            log_details["connection_details_i18n"] = connection_details_i18n
+
         await log_event(
             session=session,
             guild_id=guild_id,
             event_type=EventType.WORLD_EVENT_LOCATION_GENERATED.value,
-            details_json={
-                "location_id": new_location_db.id,
-                "name_i18n": new_location_db.name_i18n,
-                "generated_by": "ai",
-                "generation_params": generation_params # Log params used for generation
-            },
+            details_json=log_details,
             location_id=new_location_db.id # The new location itself
         )
 
