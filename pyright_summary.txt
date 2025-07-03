@@ -1,119 +1,88 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_action_processor.py] — 15 issue(s):
-  Line 655  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 673  [ERROR] Function declaration "test_handle_move_action_wrapper_extracts_target_from_location_name_entity" is obscured by a declaration of the same name
-  Line 681  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 694  [ERROR] Function declaration "test_handle_move_action_wrapper_extracts_target_from_single_untyped_entity" is obscured by a declaration of the same name
-  Line 702  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 716  [ERROR] Function declaration "test_handle_move_action_wrapper_no_target_identifier" is obscured by a declaration of the same name
-  Line 722  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 730  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 740  [ERROR] Function declaration "test_handle_move_action_wrapper_execute_move_raises_exception" is obscured by a declaration of the same name
-  Line 748  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 770  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 791  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 811  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 819  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
-  Line 837  [ERROR] Argument of type "str" cannot be assigned to parameter "timestamp" of type "datetime" in function "__init__"
-┬а┬а"str" is not assignable to "datetime"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_combat_engine.py] — 23 issue(s):
+  Line 22   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 22   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 27   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 27   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 41   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 41   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 46   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 46   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 51   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 51   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 58   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 58   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 67   [ERROR] Argument of type "() -> Generator[MagicMock | AsyncMock, Any, None]" cannot be assigned to parameter "fixture_function" of type "None" in function "fixture"
+┬а┬а"FunctionType" is not assignable to "None"
+  Line 67   [ERROR] No overloads for "fixture" match the provided arguments
+  Line 139  [ERROR] Object of type "None" is not subscriptable
+  Line 142  [ERROR] Object of type "None" is not subscriptable
+  Line 146  [ERROR] Object of type "None" is not subscriptable
+  Line 147  [ERROR] Object of type "None" is not subscriptable
+  Line 228  [ERROR] Object of type "None" is not subscriptable
+  Line 241  [ERROR] Object of type "None" is not subscriptable
+  Line 258  [ERROR] Object of type "None" is not subscriptable
+  Line 287  [ERROR] Object of type "None" is not subscriptable
+  Line 306  [ERROR] Object of type "None" is not subscriptable
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_base_definitions.py] — 13 issue(s):
-  Line 52   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
-┬а┬аAttribute "return_value" is unknown
-  Line 60   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 73   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
-┬а┬аAttribute "return_value" is unknown
-  Line 86   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 97   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
-┬а┬аAttribute "return_value" is unknown
-  Line 104  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 112  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
-┬а┬аAttribute "return_value" is unknown
-  Line 118  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 128  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
-┬а┬аAttribute "assert_not_called" is unknown
-  Line 162  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
-┬а┬аAttribute "return_value" is unknown
-  Line 169  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
-  Line 175  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
-┬а┬аAttribute "reset_mock" is unknown
-  Line 185  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
-┬а┬аAttribute "assert_called_once" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_locations_utils.py] — 7 issue(s):
+  Line 23   [ERROR] Argument of type "type[JSONB]" cannot be assigned to parameter "typeobj" of type "TypeEngine[_T@type_descriptor]" in function "type_descriptor"
+┬а┬аType "type[JSONB]" is not assignable to type "TypeEngine[_T@type_descriptor]"
+  Line 23   [ERROR] Argument of type "type[JSON]" cannot be assigned to parameter "typeobj" of type "TypeEngine[_T@type_descriptor]" in function "type_descriptor"
+┬а┬аType "type[JSON]" is not assignable to type "TypeEngine[_T@type_descriptor]"
+  Line 88   [ERROR] No overloads for "__init__" match the provided arguments
+  Line 89   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
+┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
+  Line 93   [ERROR] Method "tearDownClass" overrides class "TestCase" in an incompatible manner
+┬а┬аReturn type mismatch: base method returns type "None", override returns type "CoroutineType[Any, Any, None]"
+┬а┬а┬а┬а"CoroutineType[Any, Any, None]" is not assignable to "None"
+  Line 98   [ERROR] Cannot assign to attribute "session" for class "TestLocationDBUtils*"
+┬а┬а"Session" is not assignable to "AsyncSession"
+  Line 98   [ERROR] Object of type "None" cannot be called
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 12 issue(s):
-  Line 153  [ERROR] Cannot access attribute "NPC" for class "type[RelationshipEntityType]"
-┬а┬аAttribute "NPC" is unknown
-  Line 167  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 4 issue(s):
+  Line 168  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 170  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
+  Line 171  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
 ┬а┬аAttribute "source_entity_type" is unknown
-  Line 224  [ERROR] Cannot access attribute "value" for class "str"
+  Line 235  [ERROR] Cannot access attribute "value" for class "str"
 ┬а┬аAttribute "value" is unknown
-  Line 233  [ERROR] Cannot access attribute "value" for class "str"
+  Line 242  [ERROR] Cannot access attribute "value" for class "str"
 ┬а┬аAttribute "value" is unknown
-  Line 240  [ERROR] Cannot access attribute "value" for class "str"
-┬а┬аAttribute "value" is unknown
-  Line 251  [ERROR] Cannot access attribute "value" for class "str"
-┬а┬аAttribute "value" is unknown
-  Line 461  [ERROR] Cannot assign to attribute "entity_type" for class "ActiveStatusEffect"
-┬а┬аType "RelationshipEntityType" is not assignable to type "SQLCoreOperations[str] | str"
-┬а┬а┬а┬а"RelationshipEntityType" is not assignable to "SQLCoreOperations[str]"
-┬а┬а┬а┬а"RelationshipEntityType" is not assignable to "str"
-  Line 467  [ERROR] Cannot assign to attribute "source_entity_id" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_entity_id" is unknown
-  Line 470  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_entity_type" is unknown
-  Line 472  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_entity_type" is unknown
-  Line 475  [ERROR] Cannot assign to attribute "source_entity_type" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_entity_type" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_status_effect.py] — 11 issue(s):
-  Line 68   [ERROR] "name_i18n" is not a known attribute of "None"
-  Line 69   [ERROR] "properties_json" is not a known attribute of "None"
-  Line 70   [ERROR] "guild_id" is not a known attribute of "None"
-  Line 101  [ERROR] "status_effect_id" is not a known attribute of "None"
-  Line 102  [ERROR] "entity_type" is not a known attribute of "None"
-  Line 103  [ERROR] "duration_turns" is not a known attribute of "None"
-  Line 104  [ERROR] "applied_at" is not a known attribute of "None"
-  Line 105  [ERROR] "applied_at" is not a known attribute of "None"
-  Line 106  [ERROR] "custom_properties_json" is not a known attribute of "None"
-  Line 106  [ERROR] Object of type "None" is not subscriptable
-  Line 107  [ERROR] "guild_id" is not a known attribute of "None"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_location.py] — 4 issue(s):
+  Line 73   [ERROR] Argument of type "Engine | None" cannot be assigned to parameter "bind" of type "_CreateDropBind" in function "drop_all"
+┬а┬аType "Engine | None" is not assignable to type "_CreateDropBind"
+┬а┬а┬а┬аType "None" is not assignable to type "_CreateDropBind"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Engine"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Connection"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "MockConnection"
+  Line 74   [ERROR] "dispose" is not a known attribute of "None"
+  Line 77   [ERROR] Object of type "None" cannot be called
+  Line 134  [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 3 issue(s):
+  Line 167  [ERROR] Argument of type "GuildConfig" cannot be assigned to parameter "obj_in" of type "Dict[str, Any]" in function "create"
+┬а┬а"GuildConfig" is not assignable to "Dict[str, Any]"
+  Line 170  [ERROR] Argument missing for parameter "value"
+  Line 174  [ERROR] No parameter named "value_json"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 3 issue(s):
   Line 85   [ERROR] Argument missing for parameter "entity_type"
   Line 198  [ERROR] Argument missing for parameter "entity_type"
   Line 325  [ERROR] Argument missing for parameter "entity_type"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\map_commands.py] — 2 issue(s):
-  Line 31   [ERROR] Method "interaction_check" overrides class "Cog" in an incompatible manner
-┬а┬аReturn type mismatch: base method returns type "bool", override returns type "CoroutineType[Any, Any, bool]"
-┬а┬а┬а┬а"CoroutineType[Any, Any, bool]" is not assignable to "bool"
-  Line 35   [ERROR] Type "User | Member" is not assignable to declared type "Member"
-┬а┬аType "User | Member" is not assignable to type "Member"
-┬а┬а┬а┬а"User" is not assignable to "Member"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\map_management.py] — 2 issue(s):
-  Line 63   [ERROR] Cannot access attribute "get" for class "str"
-┬а┬аAttribute "get" is unknown
-  Line 64   [ERROR] Cannot access attribute "get" for class "str"
-┬а┬аAttribute "get" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\movement_logic.py] — 2 issue(s):
   Line 179  [ERROR] Argument missing for parameter "session"
@@ -122,26 +91,32 @@
 ┬а┬а┬а┬а"__await__" is not present
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 2 issue(s):
-  Line 56   [ERROR] No parameter named "generation_params"
-  Line 237  [ERROR] Type "list[str | Dict[str, Any]]" is not assignable to declared type "List[Dict[str, Any]]"
+  Line 54   [ERROR] No parameter named "context_params"
+  Line 108  [ERROR] Type "list[str | Dict[str, Any]]" is not assignable to declared type "List[Dict[str, Any]]"
 ┬а┬а"list[str | Dict[str, Any]]" is not assignable to "List[Dict[str, Any]]"
 ┬а┬а┬а┬аType parameter "_T@list" is invariant, but "str | Dict[str, Any]" is not the same as "Dict[str, Any]"
 ┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_combat_encounter.py] — 2 issue(s):
-  Line 33   [ERROR] Argument of type "Engine | None" cannot be assigned to parameter "bind" of type "_CreateDropBind" in function "drop_all"
-┬а┬аType "Engine | None" is not assignable to type "_CreateDropBind"
-┬а┬а┬а┬аType "None" is not assignable to type "_CreateDropBind"
-┬а┬а┬а┬а┬а┬а"None" is not assignable to "Engine"
-┬а┬а┬а┬а┬а┬а"None" is not assignable to "Connection"
-┬а┬а┬а┬а┬а┬а"None" is not assignable to "MockConnection"
-  Line 38   [ERROR] Object of type "None" cannot be called
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\general_commands.py] — 1 issue(s):
+  Line 55   [ERROR] Type "str | None" is not assignable to declared type "str"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\combat_engine.py] — 1 issue(s):
+  Line 249  [ERROR] Argument of type "Literal[EventType.COMBAT_ACTION]" cannot be assigned to parameter "event_type" of type "str" in function "log_event"
+┬а┬а"Literal[EventType.COMBAT_ACTION]" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_combat_encounter.py] — 1 issue(s):
+  Line 12   [ERROR] Function with declared return type "list[CombatEncounter]" must return value on all code paths
+┬а┬а"None" is not assignable to "list[CombatEncounter]"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\rules.py] — 1 issue(s):
   Line 28   [ERROR] "ScalarResult[RuleConfig]" is not awaitable
 ┬а┬а"ScalarResult[RuleConfig]" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
 ┬а┬а┬а┬а"__await__" is not present
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 1 issue(s):
-  Line 516  [ERROR] Argument of type "None" cannot be assigned to parameter "location_data" of type "Dict[str, Any]" in function "_find_target_in_location"
-┬а┬а"None" is not assignable to "Dict[str, Any]"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_combat_encounter.py] — 1 issue(s):
+  Line 38   [ERROR] Object of type "None" cannot be called
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_status_effect.py] — 1 issue(s):
+  Line 114  [ERROR] Object of type "None" is not subscriptable
