@@ -501,6 +501,148 @@ async def _format_log_entry_with_names_cache(
             })
             return template.format(player_name=player_name, quest_name=quest_name)
 
+    elif event_type_str == "NPC_ACTION":
+        actor_id = _safe_get(log_entry_details_json, ["actor", "id"])
+        # actor_type = _safe_get(log_entry_details_json, ["actor", "type"], "npc") # Assuming type is npc
+        actor_name = get_name_from_cache("npc", actor_id, "NPC") if actor_id else \
+                     await get_term("terms.general.an_npc", {"en": "An NPC", "ru": "НИП"})
+
+        action_intent = _safe_get(log_entry_details_json, ["action", "intent"], "unknown_action")
+        target_name_str = _safe_get(log_entry_details_json, ["action", "entities", 0, "name"], "something") # Simplified target
+        result_message = _safe_get(log_entry_details_json, ["result", "message"], "")
+
+        verb = await get_term(f"terms.actions.{action_intent}.verb_npc", {"en": f"performs '{action_intent}' on", "ru": f"совершает '{action_intent}' над"})
+
+        # If target_name_str is an entity ID, try to resolve its name
+        # For MVP, assuming target_name_str is descriptive enough or a direct name.
+        # More complex target resolution would involve checking action.entities for type and id.
+
+        base_msg = f"{actor_name} {verb} '{target_name_str}'."
+        if result_message:
+            base_msg += f" {result_message}"
+        return base_msg.strip()
+
+    elif event_type_str == "ITEM_USED":
+        player_id = log_entry_details_json.get("player_id")
+        item_id = log_entry_details_json.get("item_id")
+        outcome_description = log_entry_details_json.get("outcome_description", "")
+
+        player_name = get_name_from_cache("player", player_id, "Player") if player_id else \
+                      await get_term("terms.general.someone", {"en": "Someone", "ru": "Некто"})
+        item_name = get_name_from_cache("item", item_id, "Item") if item_id else \
+                    await get_term("terms.general.an_item", {"en": "an item", "ru": "предмет"})
+
+        verb_uses = await get_term("terms.items.uses", {"en": "uses", "ru": "использует"})
+
+        # Optional target
+        target_id = _safe_get(log_entry_details_json, ["target", "id"])
+        target_type = _safe_get(log_entry_details_json, ["target", "type"])
+        target_str = ""
+        if target_id and target_type:
+            target_name = get_name_from_cache(str(target_type), target_id, str(target_type).capitalize())
+            on_particle = await get_term("terms.items.on", {"en": "on", "ru": "на"})
+            target_str = f" {on_particle} '{target_name}'"
+
+        msg = f"{player_name} {verb_uses} '{item_name}'{target_str}."
+        if outcome_description:
+            msg += f" {outcome_description}"
+        return msg.strip()
+
+    elif event_type_str == "ITEM_DROPPED":
+        player_id = log_entry_details_json.get("player_id")
+        item_id = log_entry_details_json.get("item_id")
+        quantity = log_entry_details_json.get("quantity", 1)
+
+        player_name = get_name_from_cache("player", player_id, "Player") if player_id else \
+                      await get_term("terms.general.someone", {"en": "Someone", "ru": "Некто"})
+        item_name = get_name_from_cache("item", item_id, "Item") if item_id else \
+                    await get_term("terms.general.an_item", {"en": "an item", "ru": "предмет"})
+
+        verb_drops = await get_term("terms.items.drops", {"en": "drops", "ru": "выбрасывает"})
+        return f"{player_name} {verb_drops} '{item_name}' (x{quantity})."
+
+    elif event_type_str == "DIALOGUE_START":
+        player_id = _safe_get(log_entry_details_json, ["player_entity", "id"])
+        npc_id = _safe_get(log_entry_details_json, ["npc_entity", "id"])
+
+        player_name = get_name_from_cache("player", player_id, "Player") if player_id else \
+                      await get_term("terms.general.someone", {"en": "Someone", "ru": "Некто"})
+        npc_name = get_name_from_cache("npc", npc_id, "NPC") if npc_id else \
+                   await get_term("terms.general.an_npc", {"en": "an NPC", "ru": "НИП"})
+
+        template = await get_term("terms.dialogue.starts_conversation_with", {
+            "en": "{player_name} starts a conversation with {npc_name}.",
+            "ru": "{player_name} начинает разговор с {npc_name}."
+        })
+        return template.format(player_name=player_name, npc_name=npc_name)
+
+    elif event_type_str == "DIALOGUE_END":
+        player_id = _safe_get(log_entry_details_json, ["player_entity", "id"])
+        npc_id = _safe_get(log_entry_details_json, ["npc_entity", "id"])
+
+        player_name = get_name_from_cache("player", player_id, "Player") if player_id else \
+                      await get_term("terms.general.someone", {"en": "Someone", "ru": "Некто"})
+        npc_name = get_name_from_cache("npc", npc_id, "NPC") if npc_id else \
+                   await get_term("terms.general.an_npc", {"en": "an NPC", "ru": "НИП"})
+
+        template = await get_term("terms.dialogue.ends_conversation_with", {
+            "en": "{player_name} ends the conversation with {npc_name}.",
+            "ru": "{player_name} заканчивает разговор с {npc_name}."
+        })
+        return template.format(player_name=player_name, npc_name=npc_name)
+
+    elif event_type_str == "FACTION_CHANGE":
+        entity_info = log_entry_details_json.get("entity", {}) # player or party
+        faction_id = log_entry_details_json.get("faction_id")
+        old_standing = log_entry_details_json.get("old_standing")
+        new_standing = log_entry_details_json.get("new_standing")
+        reason = log_entry_details_json.get("reason", "")
+
+        entity_id = entity_info.get("id")
+        entity_type = entity_info.get("type", "entity")
+        entity_name = get_name_from_cache(str(entity_type), entity_id, str(entity_type).capitalize()) if entity_id else \
+                      await get_term("terms.general.an_entity", {"en": "An entity", "ru": "Сущность"})
+
+        faction_name = get_name_from_cache("faction", faction_id, "Faction") if faction_id else \
+                       await get_term("terms.factions.a_faction", {"en": "a faction", "ru": "фракцией"})
+
+        reputation_of = await get_term("terms.factions.reputation_of", {"en": "Reputation of", "ru": "Репутация"})
+        with_faction = await get_term("terms.factions.with_faction", {"en": "with", "ru": "с"})
+        changed_from = await get_term("terms.factions.changed_from", {"en": "changed from", "ru": "изменилась с"})
+        to_standing = await get_term("terms.factions.to_standing", {"en": "to", "ru": "на"})
+
+        msg = f"{reputation_of} {entity_name} {with_faction} {faction_name} {changed_from} {old_standing} {to_standing} {new_standing}."
+        if reason:
+            reason_term = await get_term("terms.general.reason", {"en": "Reason", "ru": "Причина"})
+            msg += f" ({reason_term}: {reason})"
+        return msg
+
+    # Generic formatters for less player-facing events or as fallbacks
+    elif event_type_str in [
+        "SYSTEM_EVENT", "WORLD_STATE_CHANGE", "MASTER_COMMAND", "ERROR_EVENT",
+        "AI_GENERATION_TRIGGERED", "AI_RESPONSE_RECEIVED", "AI_CONTENT_VALIDATION_SUCCESS",
+        "AI_CONTENT_VALIDATION_FAILED", "AI_CONTENT_APPROVED", "AI_CONTENT_REJECTED",
+        "AI_CONTENT_EDITED", "AI_CONTENT_SAVED", "WORLD_EVENT_LOCATION_GENERATED",
+        "MASTER_ACTION_LOCATION_ADDED", "MASTER_ACTION_LOCATION_REMOVED",
+        "MASTER_ACTION_LOCATIONS_CONNECTED", "MASTER_ACTION_LOCATIONS_DISCONNECTED",
+        "TRADE_INITIATED", "TRADE_COMPLETED" # Added trade events here for now
+    ]:
+        description = log_entry_details_json.get("description", "")
+        if description:
+            return f"[{event_type_str.replace('_', ' ').title()}]: {description}"
+        else:
+            # Try to create a summary from details_json keys if no description
+            summary_parts = []
+            for key, value in log_entry_details_json.items():
+                if key not in ["guild_id", "event_type"]:
+                    summary_parts.append(f"{key}: {str(value)[:50]}") # Truncate long values
+            summary = "; ".join(summary_parts)
+            if summary:
+                 return f"[{event_type_str.replace('_', ' ').title()}]: {summary}"
+            else:
+                 return f"Event: {event_type_str.replace('_', ' ').title()} occurred."
+
+
     logger.warning(f"Unhandled event_type '{event_type_str}' in _format_log_entry_with_names_cache for guild {guild_id}. Returning fallback.")
     return fallback_message
 
@@ -609,6 +751,72 @@ def _collect_entity_refs_from_log_entry(log_entry_details: Dict[str, Any]) -> Se
     # If the fields are identical ('target_entity', 'status_effect'), it's covered by STATUS_APPLIED's block
     # Let's assume for now they are, if not, a specific block for STATUS_REMOVED would be needed here.
     # Based on current STATUS_APPLIED collection, it should be fine.
+    elif event_type_str == "NPC_ACTION":
+        actor_id = _safe_get(log_entry_details, ["actor", "id"])
+        if actor_id: refs.add(("npc", actor_id)) # Assuming actor is always npc for NPC_ACTION
+        # Target is often a string name, not an ID, so not collected here unless structure changes
+
+    elif event_type_str == "ITEM_USED":
+        player_id = log_entry_details.get("player_id")
+        item_id = log_entry_details.get("item_id")
+        if player_id: refs.add(("player", player_id))
+        if item_id: refs.add(("item", item_id))
+        target_id = _safe_get(log_entry_details, ["target", "id"])
+        target_type = _safe_get(log_entry_details, ["target", "type"])
+        if target_id and target_type: refs.add((str(target_type).lower(), target_id))
+
+    elif event_type_str == "ITEM_DROPPED":
+        player_id = log_entry_details.get("player_id")
+        item_id = log_entry_details.get("item_id")
+        if player_id: refs.add(("player", player_id))
+        if item_id: refs.add(("item", item_id))
+
+    elif event_type_str == "DIALOGUE_START":
+        player_id = _safe_get(log_entry_details, ["player_entity", "id"])
+        npc_id = _safe_get(log_entry_details, ["npc_entity", "id"])
+        if player_id: refs.add(("player", player_id))
+        if npc_id: refs.add(("npc", npc_id))
+
+    elif event_type_str == "DIALOGUE_END":
+        player_id = _safe_get(log_entry_details, ["player_entity", "id"])
+        npc_id = _safe_get(log_entry_details, ["npc_entity", "id"])
+        if player_id: refs.add(("player", player_id))
+        if npc_id: refs.add(("npc", npc_id))
+
+    elif event_type_str == "FACTION_CHANGE":
+        entity_id = _safe_get(log_entry_details, ["entity", "id"])
+        entity_type = _safe_get(log_entry_details, ["entity", "type"])
+        faction_id = log_entry_details.get("faction_id")
+        if entity_id and entity_type: refs.add((str(entity_type).lower(), entity_id))
+        if faction_id: refs.add(("faction", faction_id)) # Assuming "faction" is a valid type for names_cache
+
+    # For generic events, try to find common ID fields if they exist
+    # This is a simple check, could be expanded if generic events have more structured entity refs
+    elif event_type_str in [
+        "SYSTEM_EVENT", "WORLD_STATE_CHANGE", "MASTER_COMMAND", "ERROR_EVENT",
+        "AI_GENERATION_TRIGGERED", "AI_RESPONSE_RECEIVED", "AI_CONTENT_VALIDATION_SUCCESS",
+        "AI_CONTENT_VALIDATION_FAILED", "AI_CONTENT_APPROVED", "AI_CONTENT_REJECTED",
+        "AI_CONTENT_EDITED", "AI_CONTENT_SAVED", "WORLD_EVENT_LOCATION_GENERATED",
+        "MASTER_ACTION_LOCATION_ADDED", "MASTER_ACTION_LOCATION_REMOVED",
+        "MASTER_ACTION_LOCATIONS_CONNECTED", "MASTER_ACTION_LOCATIONS_DISCONNECTED",
+        "TRADE_INITIATED", "TRADE_COMPLETED"
+    ]:
+        # Example: if details_json contains "player_id", "target_npc_id", "location_id"
+        p_id = log_entry_details.get("player_id")
+        if p_id: refs.add(("player", p_id))
+
+        involved_player_id = log_entry_details.get("involved_player_id") # Another common pattern
+        if involved_player_id: refs.add(("player", involved_player_id))
+
+        npc_id_generic = log_entry_details.get("npc_id") # Common in trade, dialogue etc.
+        if npc_id_generic: refs.add(("npc", npc_id_generic))
+
+        loc_id_generic = log_entry_details.get("location_id")
+        if loc_id_generic: refs.add(("location", loc_id_generic))
+
+        # If these generic events have more structured entity lists like other events,
+        # those specific paths should be added (e.g., _safe_get(log_entry_details, ["entities_involved"]))
+
 
     return refs
 

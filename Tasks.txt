@@ -45,16 +45,6 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 {Task ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41) - Moved to Done.txt}
 
 
-
-Task Block: Phase 7: Narrative Generation and Event Log
-This block presents tasks related to maintaining an event log and generating narrative text, including turn reports.
-
-Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).
-Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
-API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
-API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild (determined from log_entries or explicitly passed). Formats them using format_log_entry. Generates a report for each player in their language (0.1/0.2).
-Result: Logging and feedback formatting system generating localized reports.
-
 Task Block: Phase 3: Abilities and Checks Mechanics
 This block presents tasks related to defining and using abilities, statuses, and attribute/skill check mechanics.
 
