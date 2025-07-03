@@ -34,14 +34,18 @@ class MasterMapCog(commands.Cog):
 
     @master_map_group.command(name="generate_ai_location", description="Generate a new location using AI.")
     @app_commands.describe(
-        generation_params_json="Optional JSON string for AI generation parameters (e.g., {\"theme\": \"dark_forest\"}).",
-        context_location_id="Optional ID of a nearby location to provide context to AI.",
+        context_json="Optional JSON string for AI generation context (e.g., {\"theme\": \"dark_forest\"}). Renamed from generation_params_json.",
+        parent_location_id="Optional ID of the parent location to connect the new location to.",
+        connection_details_i18n_json="Optional JSON for connection type to parent (e.g., {\"en\": \"a hidden passage\"}).",
+        context_location_id="Optional ID of a nearby location to provide broader context to AI.",
         context_player_id="Optional Player ID for context.",
         context_party_id="Optional Party ID for context."
     )
     @is_administrator()
     async def generate_ai_location_cmd(self, interaction: discord.Interaction,
-                                       generation_params_json: Optional[str] = None,
+                                       context_json: Optional[str] = None, # Renamed
+                                       parent_location_id: Optional[int] = None,
+                                       connection_details_i18n_json: Optional[str] = None,
                                        context_location_id: Optional[int] = None,
                                        context_player_id: Optional[int] = None,
                                        context_party_id: Optional[int] = None):
@@ -50,19 +54,31 @@ class MasterMapCog(commands.Cog):
             await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
             return
 
-        gen_params = None
-        if generation_params_json:
+        gen_context = None
+        if context_json:
             try:
-                gen_params = json.loads(generation_params_json)
+                gen_context = json.loads(context_json)
             except json.JSONDecodeError:
-                await interaction.followup.send("Invalid JSON string for generation parameters.", ephemeral=True)
+                await interaction.followup.send("Invalid JSON string for generation context.", ephemeral=True)
+                return
+
+        conn_details = None
+        if connection_details_i18n_json:
+            try:
+                conn_details = json.loads(connection_details_i18n_json)
+                if not isinstance(conn_details, dict):
+                    raise json.JSONDecodeError("Connection details must be a JSON object.", connection_details_i18n_json, 0)
+            except json.JSONDecodeError as e:
+                await interaction.followup.send(f"Invalid JSON for connection_details_i18n: {e}", ephemeral=True)
                 return
 
         async with get_db_session() as session:
             location, error = await generate_location(
                 session=session,
                 guild_id=interaction.guild_id,
-                generation_params=gen_params,
+                context=gen_context, # Pass renamed context
+                parent_location_id=parent_location_id,
+                connection_details_i18n=conn_details,
                 location_id_context=context_location_id,
                 player_id_context=context_player_id,
                 party_id_context=context_party_id
