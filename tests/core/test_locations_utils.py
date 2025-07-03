@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy import create_engine, event, JSON
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker, Session as SqlAlchemySession # Renamed to avoid conflict
 from sqlalchemy.ext.asyncio import AsyncSession # Import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
