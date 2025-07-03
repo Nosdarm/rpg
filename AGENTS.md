@@ -42,7 +42,11 @@
 ---
 
 ## Текущий план
-*(Этот раздел очищен)*
+**Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).**
+Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
+API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
+API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild (determined from log_entries or explicitly passed). Formats them using format_log_entry. Generates a report for each player in their language (0.1/0.2).
+Result: Logging and feedback formatting system generating localized reports.
 
 ---
 ## Отложенные задачи
@@ -51,6 +55,53 @@
 ---
 
 ## Лог действий
+
+## Текущая сессия: Анализ и доработка Задач 1.1 и 1.2
+- **Анализ Задачи 1.1 (Location Model)**:
+    - Изучены файлы: `src/models/location.py`, `src/models/guild.py`, `src/bot/events.py`, `src/core/locations_utils.py`, `src/core/crud/crud_location.py`.
+    - Сравнение с `Tasks.txt` показало, что модель `Location`, утилиты (`get_location`, `get_location_by_static_id`, `get_localized_text`) и логика `on_guild_join` в целом соответствуют требованиям.
+    - Вывод: Задача 1.1 в достаточной мере реализована.
+- **Анализ Задачи 1.2 (Player and Party System)**:
+    - Изучены файлы: `src/models/player.py`, `src/models/party.py`, `src/models/enums.py`, `src/bot/commands/party_commands.py`, `src/core/player_utils.py`, `src/core/party_utils.py`, `src/core/crud/crud_player.py`, `src/core/crud/crud_party.py`. Файл `src/bot/commands/general_commands.py` отсутствовал.
+    - Сравнение с `Tasks.txt` показало, что модели `Player` и `Party`, большинство команд `/party` и утилиты реализованы.
+    - Выявлены недоработки: отсутствие/непроверенность команды `/start` и отсутствие команды `/party join`.
+- **Доработка Задачи 1.2 (Player and Party System)**:
+    - **Команда `/start`**:
+        - Создан файл `src/bot/commands/general_commands.py`.
+        - Реализована команда `/start` как slash-команда в `GeneralCog` внутри `general_commands.py`.
+            - Логика включает проверку существующего игрока, создание нового через `player_crud.create_with_defaults` (имя из `interaction.user.display_name`, язык из `interaction.locale`).
+            - Статус нового игрока устанавливается в `PlayerStatus.EXPLORING`.
+            - Реализовано присвоение стартовой локации из `DEFAULT_STATIC_LOCATIONS` из `src/bot/events.py`.
+    - **Регистрация `GeneralCog`**:
+        - `GeneralCog` (из `src.bot.commands.general_commands`) добавлен в `BOT_COGS` в `src/config/settings.py`.
+        - `src/bot/core.py` обновлен для динамической загрузки когов из списка `BOT_COGS` в `settings.py`.
+    - **Команда `/party join`**:
+        - Реализована команда `/party join <имя_группы_или_ID>` в `PartyCog` (`src/bot/commands/party_commands.py`).
+        - Команда позволяет игроку присоединиться к существующей группе, выполняет поиск по ID или имени, обновляет `party.player_ids_json` и `player.current_party_id`.
+        - Локация игрока синхронизируется с локацией группы при присоединении.
+
+## Задача 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped)
+- **Анализ существующей реализации**:
+    - Изучены `src/core/report_formatter.py` и `src/core/localization_utils.py`.
+    - Выявлено, что базовая структура существует, но требует расширения поддержки типов событий и интеграции `RuleConfig` для терминов.
+- **Доработка `_format_log_entry_with_names_cache` и `format_turn_report`**:
+    - Модифицированы сигнатуры для передачи `AsyncSession`, что позволяет использовать `get_rule`.
+    - Реализован хелпер `get_term` в `_format_log_entry_with_names_cache` для загрузки терминов из `RuleConfig`.
+    - Расширена поддержка `event_type`:
+        - Добавлены и/или обновлены обработчики для: `PLAYER_ACTION` (examine, interact, go_to), `PLAYER_MOVE`, `ITEM_ACQUIRED`, `COMBAT_ACTION`, `ABILITY_USED`, `STATUS_APPLIED`, `LEVEL_UP`, `XP_GAINED`, `RELATIONSHIP_CHANGE`, `COMBAT_START`, `COMBAT_END`, `QUEST_ACCEPTED`, `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`.
+        - В форматирование этих событий интегрировано использование `get_term` для локализуемых строк и терминов.
+- **Обновление `_collect_entity_refs_from_log_entry`**:
+    - Добавлено извлечение ID сущностей для всех новых поддерживаемых типов событий (`ABILITY_USED`, `STATUS_APPLIED`, `LEVEL_UP`, `XP_GAINED`, `RELATIONSHIP_CHANGE`, `COMBAT_START`, `COMBAT_END`, `QUEST_ACCEPTED`, `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`).
+- **Обновление `src/core/localization_utils.py`**:
+    - Создан `src/core/crud/crud_quest.py` с CRUD-классами для `GeneratedQuest`, `QuestStep`, `PlayerQuestProgress`, `Questline`.
+    - Соответствующие CRUD-инстансы (`generated_quest_crud`, и т.д.) экспортированы из `src/core/crud/__init__.py`.
+    - `ENTITY_TYPE_MODEL_MAP`, `ENTITY_TYPE_GETTER_MAP`, `ENTITY_TYPE_CRUD_MAP` обновлены для поддержки типа `"quest"` (для `GeneratedQuest`), а также `"ability"` и `"status_effect"`.
+- **Тестирование**:
+    - Создан и обновлен файл `tests/core/test_report_formatter.py`.
+    - Добавлены фикстуры для мокирования `AsyncSession`, `get_rule`, `get_batch_localized_entity_names`.
+    - Написаны тесты для `_collect_entity_refs_from_log_entry` для всех поддерживаемых типов событий.
+    - Написаны тесты для `_format_log_entry_with_names_cache`, проверяющие использование `RuleConfig` (через `get_term`) и форматирование для разных языков.
+    - Обновлены тесты для `format_turn_report`.
 
 ## Задача 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped)
 - **Проверка текущей реализации:**

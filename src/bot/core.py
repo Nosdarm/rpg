@@ -29,15 +29,21 @@ class BotCore(commands.Bot):
         # Project root (parent of 'src') is added to sys.path by main.py.
         # Therefore, we should use 'src.module.submodule' for clarity and correctness.
 
-        extensions_to_load = [
-            'src.bot.events',  # Was 'bot.events'
-            'src.bot.general_commands', # Was 'bot.commands', and file was renamed
-            'src.bot.commands.party_commands', # Was 'bot.commands.party_commands'
-            'src.bot.commands.movement_commands', # Was 'bot.commands.movement_commands'
-            # Add other specific command modules from the src/bot/commands/ directory if they exist and need loading
-            'src.bot.commands.master_ai_commands', # Assuming this should be loaded
-            'src.bot.commands.turn_commands',      # Assuming this should be loaded
-        ]
+        # Загрузка когов из settings.py
+        try:
+            from src.config.settings import BOT_COGS
+            extensions_to_load = BOT_COGS
+            if not extensions_to_load:
+                logger.warning("Список BOT_COGS в settings.py пуст. Расширения не будут загружены.")
+                return
+            logger.info(f"Будут загружены следующие расширения из BOT_COGS: {extensions_to_load}")
+        except ImportError:
+            logger.error("Не удалось импортировать BOT_COGS из src.config.settings. Расширения не будут загружены.")
+            return
+        except AttributeError:
+            logger.error("Переменная BOT_COGS не найдена в src.config.settings. Расширения не будут загружены.")
+            return
+
 
         for extension in extensions_to_load:
             try:

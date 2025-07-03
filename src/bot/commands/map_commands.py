@@ -15,7 +15,7 @@ from src.core.map_management import (
     connect_locations_master,
     disconnect_locations_master
 )
-from src.core.world_generation import generate_new_location_via_ai
+from src.core.world_generation import generate_location # Исправлено
 from src.config import settings # Для проверки ID Мастера/Админа
 
 logger = logging.getLogger(__name__)
@@ -76,10 +76,10 @@ class MapMasterCog(commands.GroupCog, name="master_map", description="Master com
                 return
 
         async with get_db_session() as session:
-            location, error = await generate_new_location_via_ai(
+            location, error = await generate_location( # Исправлено
                 session=session,
                 guild_id=guild_id_int,
-                generation_params=gen_params,
+                context=gen_params, # Переименовано в generate_location
                 location_id_context=context_location_id,
                 player_id_context=context_player_id
             )

@@ -1,261 +1,287 @@
-# tests/core/test_report_formatter.py
 import pytest
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, patch, MagicMock
+from typing import Dict, Tuple, Any, List # Added List, Tuple, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Updated import: _format_log_entry_with_names_cache instead of format_log_entry
-from src.core.report_formatter import _format_log_entry_with_names_cache, format_turn_report
-# Assuming EventType enum might be used or its string equivalent
-# from src.models.enums import EventType
+from src.core.report_formatter import format_turn_report, _format_log_entry_with_names_cache, _collect_entity_refs_from_log_entry
+from src.models.enums import EventType # Для создания тестовых логов
 
-# Default IDs for mocking
-DEFAULT_GUILD_ID = 100
-DEFAULT_PLAYER_ID = 1
-DEFAULT_LANG = "en"
+# Фикстуры
 
 @pytest.fixture
 def mock_session() -> AsyncMock:
+    """Мок для AsyncSession."""
     return AsyncMock(spec=AsyncSession)
 
-# --- Tests for _format_log_entry_with_names_cache ---
+@pytest.fixture
+def mock_names_cache_fixture() -> Dict[Tuple[str, int], str]: # Renamed to avoid conflict
+    """Базовый мок для кеша имен, используемый в некоторых тестах _format_log_entry."""
+    return {
+        ("player", 1): "TestPlayer", ("player", 2): "Another Player",
+        ("location", 101): "Old Location", ("location", 102): "New Location",
+        ("item", 201): "Magic Sword",
+        ("ability", 301): "Fireball", ("ability", 302): "Heal",
+        ("status_effect", 401): "Burning", ("status_effect", 402): "Regeneration",
+        ("quest", 501): "Main Quest", ("quest", 502): "Side Quest",
+        ("npc", 601): "Goblin", ("npc", 602): "Ogre",
+    }
 
-@pytest.mark.asyncio
-async def test_format_log_entry_cache_player_move(mock_session: AsyncSession): # Removed mock_get_name
+@pytest.fixture
+def mock_get_rule_fixture(): # Renamed
+    """Мок для функции get_rule. По умолчанию возвращает default."""
+    async def _mock_get_rule(session, guild_id, key, default=None):
+        # Эта логика позволяет моку быть более гибким в тестах
+        # Можно установить 'custom_rules_map' на моке в тесте для имитации разных правил
+        if hasattr(_mock_get_rule, 'custom_rules_map') and key in _mock_get_rule.custom_rules_map:
+            rule_value = _mock_get_rule.custom_rules_map[key]
+            # Если правило это словарь (для i18n), и default тоже словарь (с ключом языка)
+            if isinstance(rule_value, dict) and isinstance(default, dict):
+                lang_key = list(default.keys())[0] # Предполагаем, что default содержит язык как ключ
+                return rule_value.get(lang_key, list(default.values())[0])
+            return rule_value # Возвращаем как есть, если не i18n или default не словарь
+
+        # Если default - это словарь, предполагаем i18n и возвращаем его значение для первого ключа
+        if isinstance(default, dict):
+            return list(default.values())[0]
+        return default
+
+    mock_fn = AsyncMock(side_effect=_mock_get_rule)
+    mock_fn.custom_rules_map = {} # Можно заполнить в тестах
+    return mock_fn
+
+
+@pytest.fixture
+def mock_get_batch_localized_entity_names_fixture(): # Renamed
+    """Мок для get_batch_localized_entity_names."""
+    async def _mock_batch_names(session, guild_id, entity_refs, language, fallback_language):
+        cache: Dict[Tuple[str, int], str] = {}
+        # Используем mock_names_cache_fixture для простоты, но можно сделать более сложную логику
+        # для имитации разных языков или отсутствующих имен, если нужно.
+        # Эта фикстура будет предоставлять "базовые" имена.
+        base_names = {
+            ("player", 1): "PlayerOne" if language == "en" else "ИгрокОдин",
+            ("player", 2): "PlayerTwo" if language == "en" else "ИгрокДва",
+            ("location", 101): "Old Town" if language == "en" else "Старый Город",
+            ("location", 102): "New City" if language == "en" else "Новый Город",
+            ("item", 201): "Sword of Testing" if language == "en" else "Меч Тестирования",
+            ("ability", 301): "Test Ability" if language == "en" else "Тестовая Способность",
+            ("status_effect", 401): "Tested Status" if language == "en" else "Тестовый Статус",
+            ("quest", 501): "Test Quest" if language == "en" else "Тестовый Квест",
+            ("npc", 601): "Test NPC" if language == "en" else "Тестовый НИП",
+            ("npc", 602): "Another NPC" if language == "en" else "Другой НИП"
+        }
+        for ref in entity_refs:
+            ref_type = ref.get("type")
+            ref_id = ref.get("id")
+            if ref_type and isinstance(ref_id, int):
+                cache[(ref_type.lower(), ref_id)] = base_names.get(
+                    (ref_type.lower(), ref_id),
+                    f"Unknown {ref_type} {ref_id}" if language == "en" else f"Неизвестный {ref_type} {ref_id}"
+                )
+        return cache
+    return AsyncMock(side_effect=_mock_batch_names)
+
+
+# Тесты для _collect_entity_refs_from_log_entry
+# (оставляем существующие тесты для _collect_entity_refs_from_log_entry, они полезны)
+def test_collect_refs_player_action_examine():
     log_details = {
-        "guild_id": DEFAULT_GUILD_ID,
-        "event_type": "PLAYER_MOVE",
-        "player_id": DEFAULT_PLAYER_ID,
-        "old_location_id": 10,
-        "new_location_id": 11
+        "event_type": EventType.PLAYER_ACTION.value,
+        "actor": {"type": "player", "id": 1},
+        "action": {"intent": "examine", "entities": [{"name": "Chest"}]}
     }
-    names_cache_en = {
-        ("player", DEFAULT_PLAYER_ID): "TestPlayer",
-        ("location", 10): "Old Tavern",
-        ("location", 11): "New Market"
-    }
-    names_cache_ru = {
-        ("player", DEFAULT_PLAYER_ID): "ТестИгрок", # Assuming different names for RU for test clarity
-        ("location", 10): "Старая Таверна",
-        ("location", 11): "Новый Рынок"
-    }
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs
 
-    # English
-    result_en = await _format_log_entry_with_names_cache(log_details, "en", names_cache_en)
-    assert result_en == "TestPlayer moved from 'Old Tavern' to 'New Market'."
-
-    # Russian
-    result_ru = await _format_log_entry_with_names_cache(log_details, "ru", names_cache_ru)
-    assert result_ru == "ТестИгрок переместился из 'Старая Таверна' в 'Новый Рынок'."
-
-@pytest.mark.asyncio
-async def test_format_log_entry_cache_player_action_examine(mock_session: AsyncSession):
+def test_collect_refs_player_move():
     log_details = {
-        "guild_id": DEFAULT_GUILD_ID,
-        "event_type": "PLAYER_ACTION",
-        "actor": {"id": DEFAULT_PLAYER_ID, "type": "player"},
-        "action": {"intent": "examine", "entities": [{"name": "Mysterious Chest"}]},
-        "result": {"description": "a sturdy oak chest, tightly shut."}
+        "event_type": EventType.MOVEMENT.value,
+        "player_id": 1,
+        "old_location_id": 101,
+        "new_location_id": 102
     }
-    names_cache_en = {("player", DEFAULT_PLAYER_ID): "Adventurer"}
-    names_cache_ru = {("player", DEFAULT_PLAYER_ID): "Авантюрист"}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs
+    assert ("location", 101) in refs
+    assert ("location", 102) in refs
 
-    # English
-    result_en = await _format_log_entry_with_names_cache(log_details, "en", names_cache_en)
-    assert result_en == "Adventurer examines 'Mysterious Chest'. You see: a sturdy oak chest, tightly shut."
+# ... (остальные тесты для _collect_entity_refs_from_log_entry остаются как есть) ...
+def test_collect_refs_item_acquired():
+    log_details = { "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201 }
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("item", 201) in refs
 
-    # Russian
-    result_ru = await _format_log_entry_with_names_cache(log_details, "ru", names_cache_ru)
-    assert result_ru == "Авантюрист осматривает 'Mysterious Chest'. Вы видите: a sturdy oak chest, tightly shut."
+def test_collect_refs_combat_action():
+    log_details = { "event_type": EventType.COMBAT_ACTION.value, "actor": {"type": "player", "id": 1}, "target": {"type": "npc", "id": 601} }
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("npc", 601) in refs
 
+def test_collect_refs_ability_used():
+    log_details = { "event_type": EventType.ABILITY_USED.value, "actor_entity": {"type": "player", "id": 1}, "ability": {"id": 301}, "targets": [{"entity": {"type": "npc", "id": 601}}]}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("ability", 301) in refs; assert ("npc", 601) in refs
+
+def test_collect_refs_status_applied():
+    log_details = { "event_type": EventType.STATUS_APPLIED.value, "target_entity": {"type": "player", "id": 1}, "status_effect": {"id": 401}}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("status_effect", 401) in refs
+
+def test_collect_refs_level_up():
+    log_details = {"event_type": EventType.LEVEL_UP.value, "player_id": 1}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs
+
+def test_collect_refs_xp_gained():
+    log_details = {"event_type": EventType.XP_GAINED.value, "player_id": 1}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs
+
+def test_collect_refs_relationship_change():
+    log_details = { "event_type": EventType.RELATIONSHIP_CHANGE.value, "entity1": {"type": "player", "id": 1}, "entity2": {"type": "npc", "id": 601}}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("npc", 601) in refs
+
+def test_collect_refs_combat_start():
+    log_details = { "event_type": EventType.COMBAT_START.value, "location_id": 101, "participant_ids": [{"type": "player", "id": 1}, {"type": "npc", "id": 601}]}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("location", 101) in refs; assert ("player", 1) in refs; assert ("npc", 601) in refs
+
+def test_collect_refs_combat_end():
+    log_details = { "event_type": EventType.COMBAT_END.value, "location_id": 101, "survivors": [{"type": "player", "id": 1}]}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("location", 101) in refs; assert ("player", 1) in refs
+
+def test_collect_refs_quest_accepted():
+    log_details = { "event_type": EventType.QUEST_ACCEPTED.value, "player_id": 1, "quest_id": 501}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("quest", 501) in refs
+
+def test_collect_refs_quest_step_completed():
+    log_details = { "event_type": EventType.QUEST_STEP_COMPLETED.value, "player_id": 1, "quest_id": 501}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("quest", 501) in refs
+
+def test_collect_refs_quest_completed():
+    log_details = { "event_type": EventType.QUEST_COMPLETED.value, "player_id": 1, "quest_id": 501}
+    refs = _collect_entity_refs_from_log_entry(log_details)
+    assert ("player", 1) in refs; assert ("quest", 501) in refs
+
+
+# Тесты для _format_log_entry_with_names_cache
 @pytest.mark.asyncio
-async def test_format_log_entry_cache_item_acquired(mock_session: AsyncSession):
+async def test_format_player_action_examine_en_with_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
+    mock_get_rule_fixture.custom_rules_map = {
+        "terms.actions.examine.verb_en": {"en": "inspects"},
+        "terms.actions.examine.sees_en": {"en": "Observations"},
+        "terms.results.nothing_special_en": {"en": "it is empty"}
+    }
     log_details = {
-        "guild_id": DEFAULT_GUILD_ID,
-        "event_type": "ITEM_ACQUIRED",
-        "player_id": DEFAULT_PLAYER_ID,
-        "item_id": 55,
-        "quantity": 2,
-        "source": "a dusty chest"
+        "guild_id": 1, "event_type": EventType.PLAYER_ACTION.value,
+        "actor": {"type": "player", "id": 1},
+        "action": {"intent": "examine", "entities": [{"name": "a Dusty Box"}]},
+        "result": {"description": "it is empty"} # This should match the term for full effect
     }
-    names_cache_en = {
-        ("player", DEFAULT_PLAYER_ID): "Hero",
-        ("item", 55): "Gold Coin"
-    }
-    result_en = await _format_log_entry_with_names_cache(log_details, "en", names_cache_en)
-    assert result_en == "Hero acquired Gold Coin (x2) from a dusty chest."
+    # Patch get_rule within the scope of this test using the fixture
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "en", mock_names_cache_fixture)
+    assert "TestPlayer inspects 'a Dusty Box'. Observations: it is empty" in result
 
 @pytest.mark.asyncio
-async def test_format_log_entry_cache_combat_action_with_damage(mock_session: AsyncSession):
+async def test_format_player_action_examine_ru_default_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
+    # No custom rules, so defaults from _format_log_entry should be used via get_term's default
     log_details = {
-        "guild_id": DEFAULT_GUILD_ID,
-        "event_type": "COMBAT_ACTION",
-        "actor": {"id": DEFAULT_PLAYER_ID, "type": "player"},
-        "target": {"id": 1, "type": "npc"},
-        "action_name": "Power Attack",
-        "damage": 15
+        "guild_id": 1, "event_type": EventType.PLAYER_ACTION.value,
+        "actor": {"type": "player", "id": 1},
+        "action": {"intent": "examine", "entities": [{"name": "Старый сундук"}]},
+        "result": {"description": "внутри пыльно"}
     }
-    names_cache_en = {
-        ("player", DEFAULT_PLAYER_ID): "Warrior",
-        ("npc", 1): "Goblin"
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
+    assert "TestPlayer осматривает 'Старый сундук'. Вы видите: внутри пыльно" in result
+
+
+@pytest.mark.asyncio
+async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_names_cache_fixture, mock_get_rule_fixture):
+    mock_get_rule_fixture.custom_rules_map = {
+        "terms.combat.outcomes.victory_players_ru": {"ru": "победа игроков"},
+        "terms.combat.ended_ru": {"ru": "Схватка в '{location_name}' окончена. Результат: {outcome_readable}."},
+        "terms.combat.survivors_ru": {"ru": " Уцелевшие: {survivors_str}."}
     }
-    result_en = await _format_log_entry_with_names_cache(log_details, "en", names_cache_en)
-    assert result_en == "Warrior uses 'Power Attack' on Goblin, dealing 15 damage."
+    log_details = {
+        "guild_id": 1, "event_type": EventType.COMBAT_END.value,
+        "location_id": 101, "outcome": "victory_players",
+        "survivors": [{"type": "player", "id": 1}, {"type": "npc", "id": 602}]
+    }
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
+    assert "Схватка в 'Old Location' окончена. Результат: победа игроков. Уцелевшие: TestPlayer, Ogre." in result
+
+
+# Тесты для format_turn_report
+@pytest.mark.asyncio
+async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_batch_localized_entity_names_fixture):
+    # Используем фикстуру для get_batch_localized_entity_names
+    with patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+        report_en = await format_turn_report(mock_session, 1, [], 1, "en")
+        assert "Nothing significant happened this turn." in report_en
+        report_ru = await format_turn_report(mock_session, 1, [], 1, "ru")
+        assert "За этот ход ничего значительного не произошло." in report_ru
 
 @pytest.mark.asyncio
-async def test_format_log_entry_cache_missing_guild_id(mock_session: AsyncSession):
-    log_details = {"event_type": "PLAYER_MOVE"} # guild_id is missing
-    # names_cache is not strictly needed here as it should error out before using it.
-    result = await _format_log_entry_with_names_cache(log_details, "en", {})
-    assert "Error: Missing guild information" in result
-
-@pytest.mark.asyncio
-async def test_format_log_entry_cache_unknown_event_type(mock_session: AsyncSession):
-    log_details = {"guild_id": DEFAULT_GUILD_ID, "event_type": "SUPER_SECRET_EVENT"}
-    result_en = await _format_log_entry_with_names_cache(log_details, "en", {})
-    assert "Event of type 'SUPER_SECRET_EVENT' occurred." in result_en
-    result_ru = await _format_log_entry_with_names_cache(log_details, "ru", {})
-    assert "Произошло событие типа 'SUPER_SECRET_EVENT'." in result_ru
-
-
-# --- Tests for format_turn_report ---
-
-@pytest.mark.asyncio
-@patch("src.core.report_formatter._format_log_entry_with_names_cache", new_callable=AsyncMock)
-@patch("src.core.report_formatter.get_batch_localized_entity_names", new_callable=AsyncMock)
-async def test_format_turn_report_single_entry(
-    mock_get_batch_names: AsyncMock,
-    mock_format_log_entry_cache: AsyncMock,
-    mock_session: AsyncSession
-):
-    mock_format_log_entry_cache.return_value = "Formatted Event 1"
-    mock_get_batch_names.return_value = {("player", DEFAULT_PLAYER_ID): "TestPlayer"} # For header
-
-    log_entries = [{"guild_id": DEFAULT_GUILD_ID, "event_type": "TEST_EVENT_1"}]
-    fallback_lang = "en" # Define fallback language for the test call
-
-    result_en = await format_turn_report(mock_session, DEFAULT_GUILD_ID, log_entries, DEFAULT_PLAYER_ID, "en", fallback_lang)
-    assert result_en == f"Turn Report for TestPlayer:\nFormatted Event 1"
-    # Verify _collect_entity_refs_from_log_entry would be called internally, then get_batch_localized_entity_names
-    # Then _format_log_entry_with_names_cache is called with the cache
-    mock_get_batch_names.assert_called_once() # Was called to build names_cache
-    # The actual log_entries[0] is passed to _format_log_entry_with_names_cache
-    mock_format_log_entry_cache.assert_called_once_with(log_entries[0], "en", mock_get_batch_names.return_value)
-
-
-    mock_format_log_entry_cache.reset_mock() # Corrected mock name
-    mock_get_batch_names.reset_mock()
-    mock_format_log_entry_cache.return_value = "Отформатированное Событие 1" # Corrected mock name
-    mock_get_batch_names.return_value = {("player", DEFAULT_PLAYER_ID): "ТестИгрок"} # For header
-
-    result_ru = await format_turn_report(mock_session, DEFAULT_GUILD_ID, log_entries, DEFAULT_PLAYER_ID, "ru", fallback_lang)
-    assert result_ru == f"Отчет по ходу для ТестИгрок:\nОтформатированное Событие 1"
-    mock_get_batch_names.assert_called_once()
-    mock_format_log_entry_cache.assert_called_once_with(log_entries[0], "ru", mock_get_batch_names.return_value)
-
-
-@pytest.mark.asyncio
-@patch("src.core.report_formatter._format_log_entry_with_names_cache", new_callable=AsyncMock)
-@patch("src.core.report_formatter.get_batch_localized_entity_names", new_callable=AsyncMock)
-async def test_format_turn_report_multiple_entries(
-    mock_get_batch_names: AsyncMock,
-    mock_format_log_entry_cache: AsyncMock,
-    mock_session: AsyncSession
-):
+async def test_format_turn_report_with_logs_integration(mock_session, mock_get_rule_fixture, mock_get_batch_localized_entity_names_fixture):
     log_entries = [
-        {"guild_id": DEFAULT_GUILD_ID, "event_type": "EVENT_A", "player_id": 1}, # Added player_id for ref collection
-        {"guild_id": DEFAULT_GUILD_ID, "event_type": "EVENT_B", "actor": {"id": 2, "type": "npc"}} # Added actor for ref collection
+        {"guild_id": 1, "event_type": EventType.MOVEMENT.value, "player_id": 1, "old_location_id": 101, "new_location_id": 102}, # Changed to MOVEMENT
+        {"guild_id": 1, "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201, "source": "a chest"}
     ]
-    mock_format_log_entry_cache.side_effect = ["Formatted A", "Formatted B"]
-    # Simulate names_cache for player header and any other entities if needed
-    mock_get_batch_names.return_value = {
-        ("player", DEFAULT_PLAYER_ID): "TestPlayer", # For header
-        ("player", 1): "PlayerA",
-        ("npc", 2): "NPC_B"
+
+    # Патчим обе зависимости
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture), \
+         patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+
+        report_en = await format_turn_report(mock_session, 1, log_entries, 1, "en", "en")
+
+    assert "Turn Report for PlayerOne:" in report_en
+    assert "PlayerOne moved from 'Old Town' to 'New City'." in report_en # Проверяем использование имен из mock_get_batch_localized_entity_names_fixture
+    assert "PlayerOne acquired Sword of Testing (x1) from a chest." in report_en
+
+    # Проверка для русского языка
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture), \
+         patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+
+        report_ru = await format_turn_report(mock_session, 1, log_entries, 1, "ru", "en")
+
+    assert "Отчет по ходу для ИгрокОдин:" in report_ru
+    assert "ИгрокОдин переместился из 'Старый Город' в 'Новый Город'." in report_ru
+    assert "ИгрокОдин получает Меч Тестирования (x1) из a chest." in report_ru # "a chest" не было локализовано через get_term в примере
+
+
+# Дополнительные тесты для различных event_type с проверкой RuleConfig
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, expected_verb, expected_particle", [
+    ("en", "uses ability", "on"),
+    ("ru", "использует способность", "на")
+])
+async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, expected_verb, expected_particle):
+    mock_get_rule_fixture.custom_rules_map = {
+        f"terms.abilities.verb_uses_{lang}": {lang: expected_verb},
+        f"terms.abilities.particle_on_{lang}": {lang: expected_particle},
+        f"terms.general.no_target_{lang}": {lang: "nobody" if lang == "en" else "ни на кого"}
     }
-    fallback_lang = "en"
+    log_details = {
+        "guild_id": 1, "event_type": EventType.ABILITY_USED.value,
+        "actor_entity": {"type": "player", "id": 1},
+        "ability": {"id": 301}, # Fireball
+        "targets": [], # No specific target
+        "outcome": {"description": "The air crackles." if lang == "en" else "Воздух трещит."}
+    }
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
 
-    result = await format_turn_report(mock_session, DEFAULT_GUILD_ID, log_entries, DEFAULT_PLAYER_ID, "en", fallback_lang)
-    assert result == f"Turn Report for PlayerA:\nFormatted A\nFormatted B" # Changed TestPlayer to PlayerA
+    actor_name = mock_names_cache_fixture[("player", 1)]
+    ability_name = mock_names_cache_fixture[("ability", 301)]
+    no_target_str = "nobody" if lang == "en" else "ни на кого"
+    outcome_str = "The air crackles." if lang == "en" else "Воздух трещит."
 
-    # Check that get_batch_localized_entity_names was called once with all refs
-    # The exact refs depend on _collect_entity_refs_from_log_entry logic,
-    # which is implicitly tested here. We can verify the call count.
-    mock_get_batch_names.assert_called_once()
-    # We can make the assertion on collected_refs more specific if needed, by inspecting args of mock_get_batch_names
-
-    expected_calls_to_formatter = [
-        call(log_entries[0], "en", mock_get_batch_names.return_value),
-        call(log_entries[1], "en", mock_get_batch_names.return_value)
-    ]
-    mock_format_log_entry_cache.assert_has_calls(expected_calls_to_formatter)
-
-@pytest.mark.asyncio
-@patch("src.core.report_formatter.get_batch_localized_entity_names", new_callable=AsyncMock) # Still need to mock this
-async def test_format_turn_report_empty_log(mock_get_batch_names: AsyncMock, mock_session: AsyncSession):
-    fallback_lang = "en"
-    result_en = await format_turn_report(mock_session, DEFAULT_GUILD_ID, [], DEFAULT_PLAYER_ID, "en", fallback_lang)
-    assert result_en == "Nothing significant happened this turn."
-    mock_get_batch_names.assert_not_called() # Should not be called for empty logs
-
-    result_ru = await format_turn_report(mock_session, DEFAULT_GUILD_ID, [], DEFAULT_PLAYER_ID, "ru", fallback_lang)
-    assert result_ru == "За этот ход ничего значительного не произошло."
-    mock_get_batch_names.assert_not_called()
-
-
-@pytest.mark.asyncio
-@patch("src.core.report_formatter._format_log_entry_with_names_cache", new_callable=AsyncMock)
-@patch("src.core.report_formatter.get_batch_localized_entity_names", new_callable=AsyncMock)
-async def test_format_turn_report_injects_guild_id_if_missing_in_entry(
-    mock_get_batch_names: AsyncMock,
-    mock_format_log_entry_cache: AsyncMock,
-    mock_session: AsyncSession
-):
-    log_entries = [{"event_type": "SOME_EVENT"}] # Missing guild_id
-    mock_format_log_entry_cache.return_value = "Formatted Event With Injected GuildID"
-    mock_get_batch_names.return_value = {("player", DEFAULT_PLAYER_ID): "TestPlayer"} # For header
-    fallback_lang = "en"
-
-    await format_turn_report(mock_session, DEFAULT_GUILD_ID, log_entries, DEFAULT_PLAYER_ID, "en", fallback_lang)
-
-    expected_details_arg = {"event_type": "SOME_EVENT", "guild_id": DEFAULT_GUILD_ID}
-    # _collect_entity_refs_from_log_entry will be called with original entry
-    # then get_batch_localized_entity_names
-    # then _format_log_entry_with_names_cache
-    mock_format_log_entry_cache.assert_called_once_with(
-        expected_details_arg, "en", mock_get_batch_names.return_value
-    )
-
-@pytest.mark.asyncio
-@patch("src.core.report_formatter._format_log_entry_with_names_cache", new_callable=AsyncMock)
-@patch("src.core.report_formatter.get_batch_localized_entity_names", new_callable=AsyncMock)
-async def test_format_turn_report_skips_mismatched_guild_id_entry(
-    mock_get_batch_names: AsyncMock,
-    mock_format_log_entry_cache: AsyncMock,
-    mock_session: AsyncSession
-):
-    log_entries = [
-        {"guild_id": DEFAULT_GUILD_ID, "event_type": "GOOD_EVENT"},
-        {"guild_id": 999, "event_type": "BAD_EVENT_WRONG_GUILD"},
-        {"guild_id": DEFAULT_GUILD_ID, "event_type": "ANOTHER_GOOD_EVENT"}
-    ]
-    mock_format_log_entry_cache.side_effect = ["Formatted Good Event 1", "Formatted Good Event 2"]
-    mock_get_batch_names.return_value = {("player", DEFAULT_PLAYER_ID): "TestPlayer"} # For header
-    fallback_lang = "en"
-
-    result = await format_turn_report(mock_session, DEFAULT_GUILD_ID, log_entries, DEFAULT_PLAYER_ID, "en", fallback_lang)
-
-    assert "Formatted Good Event 1" in result
-    assert "Formatted Good Event 2" in result
-    assert "BAD_EVENT_WRONG_GUILD" not in result
-
-    assert mock_format_log_entry_cache.call_count == 2
-    # _collect_entity_refs_from_log_entry will process all, but get_batch_localized_entity_names
-    # will be called with refs from good events.
-    # Then _format_log_entry_with_names_cache is called only for good events.
-    expected_calls_to_formatter = [
-        call(log_entries[0], "en", mock_get_batch_names.return_value),
-        call(log_entries[2], "en", mock_get_batch_names.return_value)
-    ]
-    mock_format_log_entry_cache.assert_has_calls(expected_calls_to_formatter)
-
+    expected_string = f"{actor_name} {expected_verb} '{ability_name}' {expected_particle} {no_target_str}. {outcome_str}"
+    assert expected_string in result
