@@ -38,6 +38,7 @@ from .ability_outcomes import ( # Import Ability Outcome models
     HealingDetail,
     CasterUpdateDetail
 )
+from .combat_outcomes import CombatActionResult # Import CombatActionResult model
 # ... и так далее для всех остальных моделей
 
 # Можно также определить __all__ для контроля над тем, что импортируется с `from models import *`
@@ -85,5 +86,5 @@ logger.info(
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
-    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail."
+    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult."
 )

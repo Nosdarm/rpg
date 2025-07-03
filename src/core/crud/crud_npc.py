@@ -16,6 +16,14 @@ class CRUDNpc(CRUDBase[GeneratedNpc]):
         """
         return await self.get_by_attribute(db, attribute="static_id", value=static_id, guild_id=guild_id)
 
+    async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[GeneratedNpc]:
+        """
+        Retrieves an NPC by its ID and Guild ID.
+        Ensures the NPC belongs to the specified guild.
+        """
+        return await self.get(db, id=id, guild_id=guild_id)
+
+
 # Placeholder for the actual get_npc function if it needs more complex logic than generic get
 async def get_npc(session: AsyncSession, npc_id: int, guild_id: int) -> Optional[GeneratedNpc]:
     """Placeholder for fetching an NPC. For now, uses the generic get."""

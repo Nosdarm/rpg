@@ -78,4 +78,11 @@ class CRUDPlayer(CRUDBase[Player]):
         }
         return await super().create(db, obj_in=player_data) # guild_id is in player_data, CRUDBase.create will use it.
 
+    async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[Player]:
+        """
+        Retrieves a player by their ID and Guild ID.
+        Ensures the player belongs to the specified guild.
+        """
+        return await self.get(db, id=id, guild_id=guild_id)
+
 player_crud = CRUDPlayer(Player)

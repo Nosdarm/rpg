@@ -51,10 +51,13 @@ from . import world_generation # Added new module
 from .world_generation import generate_location # Updated function name
 from . import map_management # Import the map_management module
 from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
+from . import combat_engine # Import the new combat_engine module
+from .combat_engine import process_combat_action # Import the main function
+from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -107,5 +110,8 @@ __all__ = [
     "add_location_master", # Added
     "remove_location_master", # Added
     "connect_locations_master", # Added
-    "disconnect_locations_master" # Added
+    "disconnect_locations_master", # Added
+    "combat_engine",
+    "process_combat_action",
+    "CombatActionResult" # Export the Pydantic model as well
 ]
