@@ -9,11 +9,12 @@ from sqlalchemy import (
     UniqueConstraint,
     func
 )
-from sqlalchemy.dialects.postgresql import JSONB
+# from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from .base import Base
+from .custom_types import JsonBForSQLite # Added
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
@@ -28,13 +29,13 @@ class StatusEffect(Base):
     )
     static_id: Mapped[str] = mapped_column(Text, index=True, nullable=False)
     name_i18n: Mapped[Dict[str, str]] = mapped_column(
-        JSONB, nullable=False, default=dict
+        JsonBForSQLite, nullable=False, default=dict
     )
     description_i18n: Mapped[Dict[str, str]] = mapped_column(
-        JSONB, nullable=False, default=dict
+        JsonBForSQLite, nullable=False, default=dict
     )
     properties_json: Mapped[Dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default=dict
+        JsonBForSQLite, nullable=False, default=dict
     )  # e.g. {"modifiers": {"strength": -1}, "duration_turns": 5, "tick_effects": ["deal_damage_1d4_fire"]}
 
     # Relationships
@@ -67,7 +68,7 @@ class ActiveStatusEffect(Base):
     remaining_turns: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     source_ability_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # ID of the ability that applied this status
     custom_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB, nullable=True
+        JsonBForSQLite, nullable=True
     ) # For overriding or adding properties to this specific instance
 
     # Relationships
