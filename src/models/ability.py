@@ -20,9 +20,9 @@ class Ability(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=False, index=True) # Changed to nullable=False, added ondelete
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, server_default='{}')
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, server_default='{}')
-    properties_json: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default='{}')
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
+    properties_json: Mapped[Dict[str, Any]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
     # Example for properties_json:
     # {
     #   "cost": {"resource": "mana", "amount": 10},
