@@ -28,6 +28,7 @@ class GuildConfig(Base):
     notification_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     main_language: Mapped[str] = mapped_column(Text, default="en", nullable=False)
+    name: Mapped[str | None] = mapped_column(Text, nullable=True) # Added guild name
 
     # Relationships
     # Ensure "PendingConflict" is imported or use forward reference if needed.

@@ -8,6 +8,7 @@ from .crud_npc import npc_crud
 from .crud_item import item_crud
 from .crud_ability import ability_crud
 from .crud_status_effect import status_effect_crud, active_status_effect_crud
+from .crud_guild import guild_crud # Added guild_crud
 
 
 # You can also import base CRUD if needed to be exposed from here,
@@ -17,7 +18,7 @@ from .crud_status_effect import status_effect_crud, active_status_effect_crud
 import logging
 logger = logging.getLogger(__name__)
 logger.info(
-    "CRUD subpackage initialized. Loaded: location_crud, player_crud, party_crud, "
+    "CRUD subpackage initialized. Loaded: location_crud, player_crud, party_crud, guild_crud, "
     "pending_generation_crud, npc_crud, item_crud, ability_crud, "
     "status_effect_crud, active_status_effect_crud."
 )
@@ -32,4 +33,5 @@ __all__ = [
     "ability_crud",
     "status_effect_crud",
     "active_status_effect_crud",
+    "guild_crud", # Added guild_crud
 ]

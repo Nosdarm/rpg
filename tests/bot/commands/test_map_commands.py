@@ -7,7 +7,7 @@ import discord
 
 from src.bot.commands.map_commands import MapMasterCog
 from src.models import Location
-from src.core.world_generation import generate_new_location_via_ai # Для мокирования
+from src.core.world_generation import generate_location # Для мокирования
 from src.core.map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Для мокирования
 from src.config import settings
 
@@ -42,7 +42,7 @@ async def test_generate_location_command_success(
 ):
     generated_loc = Location(id=1, guild_id=mock_interaction.guild_id, name_i18n={"en": "AI Loc"})
 
-    with patch("src.bot.commands.map_commands.generate_new_location_via_ai", new_callable=AsyncMock, return_value=(generated_loc, None)) as mock_api_call:
+    with patch("src.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(generated_loc, None)) as mock_api_call:
         await map_master_cog.generate_location.callback(map_master_cog, mock_interaction) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -57,7 +57,7 @@ async def test_generate_location_command_api_error(
     map_master_cog: MapMasterCog,
     mock_interaction: MagicMock
 ):
-    with patch("src.bot.commands.map_commands.generate_new_location_via_ai", new_callable=AsyncMock, return_value=(None, "AI Error")) as mock_api_call:
+    with patch("src.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(None, "AI Error")) as mock_api_call:
         await map_master_cog.generate_location.callback(map_master_cog, mock_interaction) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
