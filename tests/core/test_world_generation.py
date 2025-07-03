@@ -4,7 +4,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.world_generation import generate_new_location_via_ai, update_location_neighbors
+from src.core.world_generation import generate_location, update_location_neighbors
 from src.core.ai_response_parser import ParsedLocationData, ParsedAiData, CustomValidationError
 from src.models import Location
 from src.models.location import LocationType # Исправленный импорт
@@ -63,7 +63,7 @@ async def test_generate_new_location_via_ai_success(
          patch("src.core.world_generation.location_crud", new=mock_location_crud), \
          patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
-        location, error = await generate_new_location_via_ai(
+        location, error = await generate_location(
             session=mock_db_session,
             guild_id=guild_id,
             location_id_context=context_location_id
@@ -100,7 +100,7 @@ async def test_generate_new_location_ai_validation_error(mock_db_session: AsyncS
          patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='invalid json'), \
          patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=validation_error):
 
-        location, error = await generate_new_location_via_ai(
+        location, error = await generate_location(
             session=mock_db_session,
             guild_id=guild_id
         )
@@ -120,7 +120,7 @@ async def test_generate_new_location_no_location_data_in_response(mock_db_sessio
          patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[]'), \
          patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data_empty):
 
-        location, error = await generate_new_location_via_ai(
+        location, error = await generate_location(
             session=mock_db_session,
             guild_id=guild_id
         )
@@ -206,7 +206,7 @@ async def test_generate_new_location_potential_neighbor_not_found(
          patch("src.core.world_generation.location_crud", new=mock_location_crud), \
          patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
-        location, error = await generate_new_location_via_ai(mock_db_session, guild_id)
+        location, error = await generate_location(mock_db_session, guild_id)
 
         assert error is None
         assert location is not None

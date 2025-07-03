@@ -27,6 +27,7 @@ def upgrade() -> None:
     sa.Column('system_channel_id', sa.BigInteger(), nullable=True),
     sa.Column('notification_channel_id', sa.BigInteger(), nullable=True),
     sa.Column('main_language', sa.Text(), nullable=False),
+    sa.Column('name', sa.Text(), nullable=True), # Added name column
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_guild_configs_id'), 'guild_configs', ['id'], unique=False)

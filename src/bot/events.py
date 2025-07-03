@@ -1,10 +1,41 @@
 import logging
 import discord
 from discord.ext import commands
-from sqlalchemy.ext.asyncio import AsyncSession # Added this
-from typing import Optional # Added this
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, List, Dict, Any
+
+from ..core.database import get_db_session, transactional
+from ..core.crud.crud_guild import guild_crud # Assuming guild_crud exists
+from ..core.crud.crud_location import location_crud
+from ..core.rules import update_rule_config # For setting default language
+from ..models.guild import GuildConfig
+from ..models.location import Location, LocationType
 
 logger = logging.getLogger(__name__)
+
+# Define default static locations to be created for new guilds
+DEFAULT_STATIC_LOCATIONS: List[Dict[str, Any]] = [
+    {
+        "static_id": "town_square",
+        "name_i18n": {"en": "Town Square", "ru": "Городская площадь"},
+        "descriptions_i18n": {
+            "en": "The bustling center of the town, always full of life.",
+            "ru": "Шумный центр города, всегда полный жизни."
+        },
+        "type": LocationType.TOWN,
+        "neighbor_locations_json": [], # Example: [{"target_static_id": "market_street", "connection_type_i18n": {"en": "path", "ru": "тропа"}}]
+    },
+    {
+        "static_id": "old_well",
+        "name_i18n": {"en": "Old Well", "ru": "Старый колодец"},
+        "descriptions_i18n": {
+            "en": "A moss-covered well, rumored to be ancient.",
+            "ru": "Покрытый мхом колодец, по слухам, очень древний."
+        },
+        "type": LocationType.GENERIC,
+        "neighbor_locations_json": [],
+    },
+]
 
 class EventCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -125,12 +156,57 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
             logger.error(f"Error during NLU processing in on_message for guild {message.guild.id}: {e}", exc_info=True)
 
 
+    async def _ensure_guild_config_exists(self, session: AsyncSession, guild_id: int, guild_name: str) -> GuildConfig:
+        """Ensures a GuildConfig record exists for the guild, creates if not."""
+        guild_config = await guild_crud.get(db=session, id=guild_id)
+        if not guild_config:
+            logger.info(f"Конфигурация для гильдии {guild_name} (ID: {guild_id}) не найдена, создаю новую.")
+            # Ensure guild_crud.create can handle id being passed directly or remove it if it's autogen by DB sequence
+            # For now, assuming GuildConfig.id is guild.id and should be set explicitly.
+            guild_config_in = GuildConfig(id=guild_id, main_language='en', name=guild_name) # Added name
+            guild_config = await guild_crud.create(db=session, obj_in=guild_config_in) # Pass GuildConfig instance
+
+            # Set default main language rule
+            await update_rule_config(
+                db=session,
+                guild_id=guild_id,
+                key="guild_main_language",
+                value_json={"language": "en"}
+            )
+            logger.info(f"Установлен язык по умолчанию 'en' для гильдии {guild_id} в RuleConfig.")
+        else:
+            logger.info(f"Найдена конфигурация для гильдии {guild_name} (ID: {guild_id}).")
+        return guild_config
+
+    async def _populate_default_locations(self, session: AsyncSession, guild_id: int):
+        """Populates default static locations for the guild if they don't exist."""
+        logger.info(f"Заполнение стандартными локациями для гильдии {guild_id}...")
+        created_count = 0
+        for loc_data in DEFAULT_STATIC_LOCATIONS:
+            existing_location = await location_crud.get_by_static_id(
+                db=session, guild_id=guild_id, static_id=loc_data["static_id"]
+            )
+            if not existing_location:
+                # Ensure obj_in matches the fields of Location model for creation
+                # guild_id will be added by create_with_guild or CRUDBase.create
+                await location_crud.create_with_guild(db=session, obj_in=loc_data, guild_id=guild_id)
+                created_count += 1
+                logger.info(f"Создана локация '{loc_data['static_id']}' для гильдии {guild_id}.")
+            else:
+                logger.info(f"Локация '{loc_data['static_id']}' уже существует для гильдии {guild_id}, пропуск.")
+        if created_count > 0:
+            logger.info(f"Создано {created_count} стандартных локаций для гильдии {guild_id}.")
+        else:
+            logger.info(f"Стандартные локации уже существуют или не определены для гильдии {guild_id}.")
+
     @commands.Cog.listener()
-    async def on_guild_join(self, guild: discord.Guild):
+    @transactional # Ensures the whole on_guild_join logic is one transaction
+    async def on_guild_join(self, guild: discord.Guild, *, session: AsyncSession): # session injected by @transactional
         logger.info(f"Бот был добавлен на сервер: {guild.name} (ID: {guild.id}). Владелец: {guild.owner_id}")
-        # Здесь можно добавить логику инициализации для нового сервера,
-        # например, создание стандартных каналов, ролей или запись в БД.
-        # (согласно задаче 0.1 - просто логирование)
+
+        # Ensure GuildConfig and default locations are created
+        await self._ensure_guild_config_exists(session=session, guild_id=guild.id, guild_name=guild.name)
+        await self._populate_default_locations(session=session, guild_id=guild.id)
 
         # Попытка найти системный канал или первый текстовый канал для приветственного сообщения
         system_channel = guild.system_channel

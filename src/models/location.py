@@ -1,5 +1,6 @@
 import enum
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, Enum as SQLAlchemyEnum
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Enum as SQLAlchemyEnum
+from sqlalchemy.dialects.postgresql import JSONB  # Import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, List, Any, Union
@@ -38,16 +39,16 @@ class Location(Base):
 
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
-    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, default=lambda: {})
+    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, default=lambda: {})
 
     type: Mapped[LocationType] = mapped_column(SQLAlchemyEnum(LocationType), nullable=False, default=LocationType.GENERIC)
 
-    coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     # Updated to allow either List or Dict for older format compatibility
-    neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JSON, nullable=True)
-    generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JSONB, nullable=True)
+    generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_locations_guild_id_static_id", "guild_id", "static_id", unique=True),

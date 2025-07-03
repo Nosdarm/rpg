@@ -52,6 +52,34 @@
 
 ## Лог действий
 
+## Задача 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped)
+- **Проверка текущей реализации:**
+    - Изучены `src/models/location.py`, `src/models/__init__.py`, `src/core/crud/crud_location.py`, `src/core/locations_utils.py` и начальная миграция Alembic `fcb2e6d12a18_initial_schema_setup.py`.
+    - Установлено, что модель `Location` и базовые утилиты уже существуют и в значительной степени покрывают требования.
+- **Сравнение с требованиями Task 23:**
+    - Подтверждено наличие всех полей (`id`, `guild_id`, `static_id`, `name_i18n`, `descriptions_i18n`, `type`, `coordinates_json`, `neighbor_locations_json`, `generated_details_json`, `ai_metadata_json`) с корректными типами и ограничениями.
+    - Отмечено использование `sa.JSON` вместо явного `postgresql.JSONB` в реализации. Поле `static_id` `nullable=True` признано допустимым.
+- **Проверка утилит:**
+    - Функции `get_location` (через `location_crud.get`), `get_location_by_static_id` и `get_localized_text` существуют и соответствуют требованиям.
+- **Проверка логики заполнения статичными данными:**
+    - Выявлено, что логика для создания `GuildConfig` и дефолтных локаций в `on_guild_join` отсутствовала в актуальной версии `src/bot/events.py`, несмотря на предыдущие логи в `AGENTS.md` (Задача 14).
+- **Доработка модели и утилит:**
+    - Модель `Location` в `src/models/location.py` обновлена для использования `postgresql.JSONB` вместо `sa.JSON` для полей `name_i18n`, `descriptions_i18n`, `coordinates_json`, `neighbor_locations_json`, `generated_details_json`, `ai_metadata_json`.
+    - Создана и заполнена новая миграция Alembic `alembic/versions/0005_use_jsonb_for_location_fields.py` для отражения изменений JSON -> JSONB. `down_revision` установлен на `0004`.
+    - В `src/models/guild.py` в модель `GuildConfig` добавлено поле `name: Mapped[str | None]`. Начальная миграция `fcb2e6d12a18_initial_schema_setup.py` обновлена для включения этого поля.
+    - Создан файл `src/core/crud/crud_guild.py` с классом `CRUDGuild(CRUDBase[GuildConfig])` и экземпляром `guild_crud`.
+    - `guild_crud` добавлен в импорты и `__all__` в `src/core/crud/__init__.py`.
+    - В `src/bot/events.py`:
+        - Добавлены необходимые импорты (`guild_crud`, `location_crud`, `update_rule_config`, `GuildConfig`, `Location`, `LocationType`).
+        - Определена константа `DEFAULT_STATIC_LOCATIONS` с примерами локаций.
+        - Реализованы вспомогательные методы `_ensure_guild_config_exists` (создает `GuildConfig` с `id`, `name`, `main_language='en'` и вызывает `update_rule_config` для `guild_main_language`) и `_populate_default_locations` (создает локации из `DEFAULT_STATIC_LOCATIONS`, если они не существуют).
+        - Метод `on_guild_join` обновлен для вызова `_ensure_guild_config_exists` и `_populate_default_locations` внутри транзакции (декоратор `@transactional`, сессия передается как `* , session: AsyncSession`).
+- **Написание/обновление Unit-тестов:**
+    - Создан файл `tests/models/test_location.py` с тестами для модели `Location` (создание, все поля, значения по умолчанию, `__repr__`), использующий SQLite с "заглушкой" для JSONB.
+    - Создан файл `tests/core/test_locations_utils.py` с тестами для `get_localized_text` (различные сценарии локализации) и тестами для `get_location`, `get_location_by_static_id` (с использованием SQLite in-memory).
+    - Исправлены ошибки импорта в `tests/bot/commands/test_map_commands.py` и `tests/core/test_world_generation.py` (переименование `generate_new_location_via_ai` на `generate_location`).
+    - Все 281 тестов успешно пройдены после исправлений и добавлений.
+
 ## Задача 21: 🧠 3.2 Entity Status Model (i18n, Guild-Scoped)
 - **Определена модель `StatusEffect` и `ActiveStatusEffect`** в `src/models/status_effect.py`.
     - `StatusEffect` включает поля: `id`, `guild_id` (FK, `nullable=False`), `static_id` (`nullable=False`), `name_i18n`, `description_i18n`, `properties_json`. Добавлено отношение к `GuildConfig` и `UniqueConstraint("guild_id", "static_id")`.
