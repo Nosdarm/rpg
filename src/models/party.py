@@ -23,6 +23,7 @@ class Party(Base):
 
     # Stores a list of Player primary key IDs.
     player_ids_json: Mapped[Optional[List[int]]] = mapped_column(JSON, nullable=True)
+    leader_player_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("players.id", name="fk_party_leader_player_id"), nullable=True, index=True)
 
     current_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)
 
@@ -41,6 +42,7 @@ class Party(Base):
     # or could be managed dynamically based on player_ids_json.
     # For now, defining it to match Player.party's back_populates.
     players: Mapped[List["Player"]] = relationship(back_populates="party", primaryjoin="Player.current_party_id == Party.id", lazy="selectin")
+    leader: Mapped[Optional["Player"]] = relationship(foreign_keys=[leader_player_id], lazy="selectin")
 
 
     def __repr__(self) -> str:
