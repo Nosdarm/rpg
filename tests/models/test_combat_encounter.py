@@ -35,6 +35,7 @@ class TestCombatEncounterModel(unittest.TestCase):
             cls.engine.dispose()
 
     def setUp(self):
+        assert self.SessionLocal is not None, "SessionLocal should be initialized by setUpClass"
         self.session = self.SessionLocal()
 
     def tearDown(self):

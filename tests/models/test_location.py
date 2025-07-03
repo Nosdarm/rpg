@@ -70,10 +70,12 @@ class TestLocationModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        assert cls.engine is not None, "Engine should be initialized"
         Base.metadata.drop_all(cls.engine)
         cls.engine.dispose()
 
     def setUp(self):
+        assert self.SessionLocal is not None, "SessionLocal should be initialized"
         self.session: Session = self.SessionLocal()
 
     def tearDown(self):
@@ -130,10 +132,17 @@ class TestLocationModel(unittest.TestCase):
             self.assertEqual(retrieved_loc.descriptions_i18n, {"en": "Shelves filled with ancient tomes.", "ru": "Полки, заполненные древними фолиантами."})
             self.assertEqual(retrieved_loc.type, LocationType.DUNGEON)
             self.assertEqual(retrieved_loc.coordinates_json, {"x": 10, "y": 20, "z": 0})
-            self.assertIsInstance(retrieved_loc.neighbor_locations_json, list) # Проверка типа после загрузки из SQLite
-            self.assertEqual(len(retrieved_loc.neighbor_locations_json), 1)
-            if retrieved_loc.neighbor_locations_json and isinstance(retrieved_loc.neighbor_locations_json, list): # type guard
-                 self.assertEqual(retrieved_loc.neighbor_locations_json[0].get("target_static_id"), "entrance_hall")
+
+            # Handle neighbor_locations_json carefully due to Optional[Union[List, Dict]]
+            neighbor_data = retrieved_loc.neighbor_locations_json
+            self.assertIsNotNone(neighbor_data, "neighbor_locations_json should not be None for this test case")
+            self.assertIsInstance(neighbor_data, list, "neighbor_locations_json should be a list for this test case")
+
+            # Pyright should now understand neighbor_data is a list
+            if isinstance(neighbor_data, list): # Additional check for safety / explicitness
+                self.assertEqual(len(neighbor_data), 1)
+                self.assertEqual(neighbor_data[0].get("target_static_id"), "entrance_hall")
+
             self.assertEqual(retrieved_loc.generated_details_json, {"weather": "always_misty", "special_feature": "echoing_silence"})
             self.assertEqual(retrieved_loc.ai_metadata_json, {"source_prompt_hash": "xyz123", "model_version": "gpt-4"})
 

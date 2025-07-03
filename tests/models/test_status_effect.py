@@ -111,6 +111,8 @@ class TestStatusEffectModels(unittest.TestCase):
         self.assertEqual(retrieved_active_status.duration_turns, 5)
         self.assertIsNotNone(retrieved_active_status.applied_at)
         self.assertTrue(isinstance(retrieved_active_status.applied_at, datetime))
+        self.assertIsNotNone(retrieved_active_status.custom_properties_json, "custom_properties_json should not be None")
+        assert retrieved_active_status.custom_properties_json is not None # For Pyright, though assertIsNotNone should be enough
         self.assertEqual(retrieved_active_status.custom_properties_json["intensity"], 2)
         self.assertEqual(retrieved_active_status.guild_id, self.guild.id)
         self.assertIn(f"status_effect_id={status_effect.id}", repr(retrieved_active_status))

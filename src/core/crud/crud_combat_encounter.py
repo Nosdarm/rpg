@@ -19,7 +19,7 @@ class CRUDCombatEncounter(CRUDBase[CombatEncounter]):
         # query = select(self.model).filter(self.model.guild_id == guild_id, self.model.status == CombatStatus.ACTIVE)
         # result = await db.execute(query)
         # return result.scalars().all()
-        pass # Placeholder for now
+        return [] # Return empty list to satisfy type hint
 
     async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[CombatEncounter]:
         """

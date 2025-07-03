@@ -126,7 +126,8 @@ async def apply_status(
     # Statuses can be global (guild_id is None) or guild-specific
     stmt = select(StatusEffect).where(StatusEffect.static_id == status_static_id)
     results = await session.execute(stmt)
-    possible_statuses = results.scalars().all()
+    possible_statuses_scalars = await results.scalars()  # .scalars() is ASYNC
+    possible_statuses = await possible_statuses_scalars.all() # .all() on its result is ASYNC
 
     db_status_effect: Optional[StatusEffect] = None
     if possible_statuses:
@@ -148,52 +149,23 @@ async def apply_status(
         return False
 
     # 3. Create ActiveStatusEffect record
-    # Check for existing non-stackable status, etc. (placeholder)
-
     owner_type_enum_val = RelationshipEntityType.PLAYER if entity_type.lower() == "player" else RelationshipEntityType.GENERATED_NPC
 
     active_status = ActiveStatusEffect(
-        owner_id=target_entity.id,
-        owner_type=owner_type_enum_val.value, # Ensure this matches your enum values
+        entity_id=target_entity.id,
+        entity_type=owner_type_enum_val.value,
         status_effect_id=db_status_effect.id,
-        guild_id=guild_id, # ActiveStatusEffect is always guild-scoped
-        duration=duration,
-        source_ability_id=source_ability_id,
-        source_entity_id=source_entity_id,
-        # source_entity_type needs to be RelationshipEntityType enum if that's what model expects
+        guild_id=guild_id,
+        duration_turns=duration,
+        source_ability_id=source_ability_id
     )
-    if source_entity_type:
-        try:
-            # Assuming ActiveStatusEffect.source_entity_type also expects a string value
-            active_status.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
-        except ValueError:
-            logger.warning(f"Invalid source_entity_type '{source_entity_type}' for ActiveStatusEffect. Setting to None.")
-            active_status.source_entity_type = None # This should be fine if the field is Optional[str]
-
 
     session.add(active_status)
-    await session.flush() # To get active_status.id for logging if needed immediately
+    await session.flush()
 
     logger.info(f"Status '{db_status_effect.static_id}' applied to {entity_type} ID {entity_id}.")
 
     # TODO: Call log_event
-    # await log_event(
-    #     session=session,
-    #     guild_id=guild_id,
-    #     event_type=EventType.STATUS_APPLIED, # Needs to be added
-    #     details_json={
-    #         "target_id": target_entity.id,
-    #         "target_type": entity_type,
-    #         "status_effect_id": db_status_effect.id,
-    #         "status_static_id": db_status_effect.static_id,
-    #         "duration": duration,
-    #         "source_ability_id": source_ability_id,
-    #         "active_status_id": active_status.id
-    #     },
-    #     player_id=target_entity.id if isinstance(target_entity, Player) else None,
-    #     # location_id=target_entity.current_location_id # If applicable
-    # )
-
     return True
 
 # TODO: Implement remove_status API
@@ -213,7 +185,7 @@ async def remove_status(
     # Store details before deleting for logging
     removed_entity_id = active_status_effect.entity_id
     # Assuming active_status_effect.entity_type stores the string value (e.g., "player", "generated_npc")
-    removed_entity_type_str = active_status_effect.entity_type
+    removed_entity_type_str = active_status_effect.entity_type # This is already a string like "player" or "generated_npc"
     removed_status_effect_id = active_status_effect.status_effect_id
 
     # Fetch the original StatusEffect to get its static_id for logging
@@ -229,22 +201,23 @@ async def remove_status(
     event_player_id: Optional[int] = None
     location_id_of_entity: Optional[int] = None
 
-    if removed_entity_type_str == RelationshipEntityType.PLAYER: # Compare enum member with enum member
+    # Compare the string from the DB with the enum's .value attribute
+    if removed_entity_type_str == RelationshipEntityType.PLAYER.value:
         event_player_id = removed_entity_id
         # Optionally fetch player to get location_id
-        player_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str.value) # Use .value for _get_entity
+        # Pass the string 'removed_entity_type_str' directly to _get_entity
+        player_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str)
         if player_entity and hasattr(player_entity, 'current_location_id'):
             location_id_of_entity = player_entity.current_location_id
-    elif removed_entity_type_str == RelationshipEntityType.GENERATED_NPC: # Compare enum member with enum member
+    elif removed_entity_type_str == RelationshipEntityType.GENERATED_NPC.value:
         # If an NPC, we might still want to log if a player was involved in causing this or is nearby.
         # For now, no direct player_id unless it's the entity itself.
         # Optionally fetch NPC to get location_id
-        npc_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str.value) # Use .value for _get_entity
-        if npc_entity and hasattr(npc_entity, 'current_location_id'): # GeneratedNpc might not have this directly
-            # Assuming GeneratedNpc model might store its location_id if it's independent
-            # This part depends on GeneratedNpc model structure. For now, assume it might have it.
-            if hasattr(npc_entity, 'current_location_id'): # Re-check for safety
-                 location_id_of_entity = getattr(npc_entity, 'current_location_id', None)
+        # Pass the string 'removed_entity_type_str' directly to _get_entity
+        npc_entity = await _get_entity(session, guild_id, removed_entity_id, removed_entity_type_str)
+        if npc_entity and hasattr(npc_entity, 'current_location_id'):
+            # This part depends on GeneratedNpc model structure.
+            location_id_of_entity = getattr(npc_entity, 'current_location_id', None)
 
 
     log_details_status_removed = {

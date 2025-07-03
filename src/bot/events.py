@@ -52,81 +52,11 @@ class EventCog(commands.Cog):
         else:
             logger.error("EventCog: on_ready called, but self.bot.user is None.")
 
-from ..core.database import get_db_session, transactional
-from ..core.crud.crud_player import player_crud
-from ..core.nlu_service import parse_player_input
-from ..models.player import PlayerStatus
-from ..models.actions import ParsedAction
-
-# Helper function for NLU processing to keep on_message clean
-# This function will handle fetching the player and updating them.
-@transactional
-async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Message, *, session: AsyncSession):
-    """
-    Processes a player's message for NLU, updates player's collected_actions_json.
-    Session is injected by @transactional as a keyword argument.
-    """
-    if not message.guild: # Should not happen if called from on_message with guild check
-        return
-
-    guild_id = message.guild.id
-    player_discord_id = message.author.id
-
-    player = await player_crud.get_by_discord_id(db=session, guild_id=guild_id, discord_id=player_discord_id)
-
-    if not player:
-        # logger.debug(f"Player not found for discord_id {player_discord_id} in guild {guild_id}. NLU skipped.")
-        return
-
-    # Define statuses where NLU should be skipped or handled differently
-    # For MVP, let's process if player is IDLE or EXPLORING.
-    # Other statuses like COMBAT, DIALOGUE, MENU, AWAITING_MODERATION might have their own input handlers
-    # or should explicitly not trigger general NLU.
-    skippable_statuses = [
-        PlayerStatus.COMBAT,
-        PlayerStatus.DIALOGUE,
-        # PlayerStatus.MENU, # Depends on if menu interaction is text-based
-        PlayerStatus.AWAITING_MODERATION,
-        PlayerStatus.PROCESSING_ACTION,
-        PlayerStatus.DEAD
-    ]
-    if player.current_status in skippable_statuses:
-        logger.debug(f"Player {player.name} (ID: {player.id}) in status {player.current_status.name}. NLU processing skipped for message: '{message.content}'")
-        return
-
-    parsed_action: Optional[ParsedAction] = await parse_player_input(
-        raw_text=message.content,
-        guild_id=guild_id,
-        player_id=player_discord_id
-    )
-
-    if parsed_action and parsed_action.intent != "unknown_intent": # Only save if intent is known for now
-        action_dict = parsed_action.model_dump(mode="json") # Convert Pydantic model to dict
-
-        current_actions = player.collected_actions_json or []
-        current_actions.append(action_dict)
-
-        update_data = {"collected_actions_json": current_actions}
-        await player_crud.update(db=session, db_obj=player, obj_in=update_data)
-        logger.info(f"Saved action for player {player.name} (ID: {player.id}): {parsed_action.intent}")
-
-        try:
-            # Optional: React to message to show it was "understood"
-            await message.add_reaction("✅") # Checkmark emoji
-        except discord.Forbidden:
-            logger.warning(f"Missing permissions to add reaction in guild {guild_id}, channel {message.channel.id}")
-        except discord.HTTPException as e:
-            logger.warning(f"Failed to add reaction: {e}")
-    elif parsed_action and parsed_action.intent == "unknown_intent":
-        logger.info(f"Intent for player {player.name} (ID: {player.id}) was 'unknown_intent' for message: '{message.content}'. Not saved to collected_actions.")
-        # Optionally, react with a question mark for unknown intents
-        # try:
-        #     await message.add_reaction("❓")
-        # except: pass # Ignore reaction errors
-
+    # All methods of EventCog should be defined here, before any module-level statements
+    # that are not part of the class.
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
+    async def on_message(self, message: discord.Message): # Moved to be part of EventCog
         if message.author == self.bot.user:
             return  # Игнорировать сообщения от самого себя
 
@@ -156,22 +86,24 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
             logger.error(f"Error during NLU processing in on_message for guild {message.guild.id}: {e}", exc_info=True)
 
 
-    async def _ensure_guild_config_exists(self, session: AsyncSession, guild_id: int, guild_name: str) -> GuildConfig:
+    async def _ensure_guild_config_exists(self, session: AsyncSession, guild_id: int, guild_name: str) -> GuildConfig: # Reverted name
         """Ensures a GuildConfig record exists for the guild, creates if not."""
         guild_config = await guild_crud.get(db=session, id=guild_id)
         if not guild_config:
             logger.info(f"Конфигурация для гильдии {guild_name} (ID: {guild_id}) не найдена, создаю новую.")
             # Ensure guild_crud.create can handle id being passed directly or remove it if it's autogen by DB sequence
             # For now, assuming GuildConfig.id is guild.id and should be set explicitly.
-            guild_config_in = GuildConfig(id=guild_id, main_language='en', name=guild_name) # Added name
-            guild_config = await guild_crud.create(db=session, obj_in=guild_config_in) # Pass GuildConfig instance
+            # CRUDBase.create expects obj_in as a Dict[str, Any]
+            guild_config_data = {"id": guild_id, "main_language": 'en', "name": guild_name}
+            guild_config = await guild_crud.create(db=session, obj_in=guild_config_data)
 
             # Set default main language rule
+            # update_rule_config expects 'value' as the parameter name for the JSON content
             await update_rule_config(
                 db=session,
                 guild_id=guild_id,
                 key="guild_main_language",
-                value_json={"language": "en"}
+                value={"language": "en"} # Parameter renamed from value_json to value
             )
             logger.info(f"Установлен язык по умолчанию 'en' для гильдии {guild_id} в RuleConfig.")
         else:
@@ -205,7 +137,7 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
         logger.info(f"Бот был добавлен на сервер: {guild.name} (ID: {guild.id}). Владелец: {guild.owner_id}")
 
         # Ensure GuildConfig and default locations are created
-        await self._ensure_guild_config_exists(session=session, guild_id=guild.id, guild_name=guild.name)
+        await self._ensure_guild_config_exists(session=session, guild_id=guild.id, guild_name=guild.name) # Reverted call
         await self._populate_default_locations(session=session, guild_id=guild.id)
 
         # Попытка найти системный канал или первый текстовый канал для приветственного сообщения
