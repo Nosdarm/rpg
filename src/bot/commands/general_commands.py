@@ -9,6 +9,7 @@ from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud
 from src.models.player import PlayerStatus
 from src.bot.events import DEFAULT_STATIC_LOCATIONS # Используем список дефолтных локаций
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
