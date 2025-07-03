@@ -42,14 +42,7 @@ Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_pl
 
 {Task ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 19, 20, 21, 25, 26, 27, 30, 31, 32, 35, 36, 37, 39, 40, 41, 42, 44, 46, 47, 48, 50, 52, 53, 54) - Moved to Done.txt}
 
-⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
-Description: Handles player actions directed at objects or sub-locations WITHIN the current location.
-API function handle_intra_location_action(guild_id: int, session: Session, player_id: int, action_data: dict) -> dict. Called from 15 (Central Turn Processor). Accepts guild_id and DB session from 15, as well as action data (intent/entity) from NLU (13).
-Determines interaction type (move_to_sublocation, interact_with_object, examine_object) based on action_data['intent'].
-Loads Player (with guild_id) and their current location (4.1). Finds the target entity (sub-location/object) in the DB (4.1, 7, 14) by guild_id and Entity ID from action_data.
-Uses rules FROM RULECONFIG (13/41) FOR THIS GUILD to determine how to interact: is a check required (12)? What are the consequences (WorldState change 36, item acquisition 15, quest trigger 35)?
-Executes the corresponding logic (updating player's "position within location" - a new field in Player?, calling 12 for a check, calling 15/35/36 for consequences). All within the provided transaction (session).
-Logs the event (19) for the guild. Provides feedback (47).
+{Task ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41) - Moved to Done.txt}
 
 
 

@@ -55,8 +55,9 @@ def mock_location_no_details() -> Location:
 
 @pytest.fixture
 def mock_location_with_details(request) -> Location:
+    import copy
     # Allow parameterization of details
-    details = getattr(request, "param", {
+    default_details = {
         "interactable_elements": [
             {
                 "name": "Old Chest",
@@ -85,14 +86,22 @@ def mock_location_with_details(request) -> Location:
                 "can_interact": False,
             }
         ]
-    })
+    }
+    # Use deepcopy to ensure tests don't interfere with each other's fixture state
+    # Always deepcopy default_details to prevent modification by reference if param is not set.
+    details_to_use = default_details
+    if hasattr(request, "param"):
+        details_to_use = request.param
+
+    final_details = copy.deepcopy(details_to_use)
+
     return Location(
         id=DEFAULT_LOCATION_ID,
         guild_id=DEFAULT_GUILD_ID,
         static_id=DEFAULT_LOCATION_STATIC_ID,
         name_i18n={"en": "Detailed Room"},
         type=LocationType.DUNGEON,
-        generated_details_json=details
+        generated_details_json=final_details
     )
 
 
@@ -199,69 +208,261 @@ async def test_examine_unexaminable_object(
 
 
 @pytest.mark.asyncio
+@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock) # Mock get_rule
+@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock) # Mock resolve_check
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
-async def test_interact_existing_object_with_rules_placeholder(
+async def test_interact_object_with_check_success(
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
+    mock_resolve_check: AsyncMock,
+    mock_get_rule: AsyncMock,
     mock_session: AsyncSession,
     mock_player: Player,
     mock_location_with_details: Location # Has "Old Chest" with interaction_rules_key
 ):
     mock_player_crud.get.return_value = mock_player
-    mock_location_crud.get.return_value = mock_location_with_details
+    mock_location_crud.get.return_value = mock_location_with_details # "Old Chest" has "interaction_rules_key": "chest_generic"
 
-    action_data = {
-        "intent": "interact",
-        "entities": [{"name": "Old Chest"}]
+    # Mock get_rule to return a rule that requires a check
+    mock_rule = {
+        "requires_check": True,
+        "check_type": "lockpicking",
+        "actor_attribute_key": "dexterity", # Assuming player has dexterity
+        "base_dc": 15,
+            "feedback_success": "interact_check_success", # Use existing key
+        "success_consequences_key": "chest_opens_reveals_loot",
+            "feedback_failure": "interact_check_failure", # Use existing key
+        "failure_consequences_key": "chest_remains_locked_trap_sprung"
     }
+    mock_get_rule.return_value = mock_rule
 
-    result = await handle_intra_location_action(
-        DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data
-    )
+    # Mock resolve_check to return a successful CheckResult
+    mock_successful_check_result = MagicMock() # Using MagicMock to set attributes directly
+    mock_successful_check_result.outcome = "SUCCESS"
+    # Add other CheckResult fields if your code uses them, e.g., roll_value, final_dc
+    mock_successful_check_result.model_dump.return_value = {"outcome": "SUCCESS", "roll_value": 18, "dc": 15} # For logging
+    mock_resolve_check.return_value = mock_successful_check_result
+
+    action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
 
     assert result["success"] is True
-    assert "You interact with Old Chest. (Interaction effects TBD)" in result["message"]
+    # Check if the custom feedback key from the rule is used
+    assert "You attempt to interact with Old Chest... Success! (success)" in result["message"] # Default format for "interact_check_success_custom_chest_open" if not in _format_feedback
+
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_resolve_check.assert_called_once()
+    resolve_args, resolve_kwargs = mock_resolve_check.call_args_list[0]
+
+    assert resolve_kwargs["guild_id"] == DEFAULT_GUILD_ID
+    assert resolve_kwargs["check_type"] == "lockpicking"
+    assert resolve_kwargs["dc"] == 15
+    assert resolve_kwargs["actor_id"] == DEFAULT_PLAYER_ID
+    assert resolve_kwargs["actor_attributes"]["dexterity"]["value"] == 10 # Default from getattr in SUT
+
     mock_log_event.assert_called_once()
     log_args, log_kwargs = mock_log_event.call_args_list[0]
     assert log_kwargs["event_type"] == "player_interact"
     assert log_kwargs["details_json"]["target"] == "Old Chest"
+    assert log_kwargs["details_json"]["rule_found"] is True
+    assert log_kwargs["details_json"]["check_required"] is True
+    assert log_kwargs["details_json"]["check_result"]["outcome"] == "SUCCESS"
+    assert log_kwargs["details_json"]["applied_consequences_key"] == "chest_opens_reveals_loot"
 
 @pytest.mark.asyncio
+@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
-async def test_interact_existing_object_no_rules(
+async def test_interact_object_with_check_failure(
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
+    mock_resolve_check: AsyncMock,
+    mock_get_rule: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+    mock_location_with_details: Location
+):
+    mock_player_crud.get.return_value = mock_player
+    mock_location_crud.get.return_value = mock_location_with_details
+
+    mock_rule = {
+        "requires_check": True, "check_type": "strength", "actor_attribute_key": "strength",
+        "base_dc": 18, "success_consequences_key": "lever_pulled",
+        "failure_consequences_key": "lever_stuck"
+    }
+    mock_get_rule.return_value = mock_rule
+
+    mock_failed_check_result = MagicMock()
+    mock_failed_check_result.outcome = "FAILURE"
+    mock_failed_check_result.model_dump.return_value = {"outcome": "FAILURE", "roll_value": 5, "dc": 18}
+    mock_resolve_check.return_value = mock_failed_check_result
+
+    action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]} # Target doesn't matter as much as rule
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is False # Interaction failed due to check
+    assert "You attempt to interact with Old Chest... Failure. (failure)" in result["message"]
+
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_resolve_check.assert_called_once()
+
+    mock_log_event.assert_called_once()
+    log_args, log_kwargs = mock_log_event.call_args_list[0]
+    assert log_kwargs["details_json"]["check_result"]["outcome"] == "FAILURE"
+    assert log_kwargs["details_json"]["applied_consequences_key"] == "lever_stuck"
+
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock) # Still need to mock it even if not called
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_interact_object_no_check_required(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_resolve_check: AsyncMock,
+    mock_get_rule: AsyncMock,
     mock_session: AsyncSession,
     mock_player: Player,
     mock_location_with_details: Location # Has "Hidden Lever" without interaction_rules_key
 ):
     mock_player_crud.get.return_value = mock_player
-    mock_location_crud.get.return_value = mock_location_with_details
+    mock_location_crud.get.return_value = mock_location_with_details # "Hidden Lever" interaction_rules_key is None in fixture
 
-    action_data = {
-        "intent": "interact",
-        "entities": [{"name": "Hidden Lever"}]
+    # Mock get_rule for "Hidden Lever" (assuming it has a rule, but no check)
+    # Let's assume "Hidden Lever" in fixture has "interaction_rules_key": "lever_simple"
+    # We need to update the fixture or mock _find_target_in_location to return this.
+    # For this test, let's assume "Hidden Lever" object in mock_location_with_details has:
+    # "interaction_rules_key": "lever_simple"
+    # And we update the fixture to reflect this.
+
+    # Find "Hidden Lever" and update its rule key for this test scenario
+    lever_data = None
+    for item in mock_location_with_details.generated_details_json["interactable_elements"]:
+        if item["name"] == "Hidden Lever":
+            item["interaction_rules_key"] = "lever_simple" # Assign a rule key
+            lever_data = item
+            break
+    assert lever_data is not None, "Test setup error: Hidden Lever not found in fixture"
+
+
+    mock_rule_no_check = {
+        "requires_check": False,
+        "direct_consequences_key": "lever_activates_passage",
+        "feedback_direct": "interact_direct_success" # Use existing key
     }
+    mock_get_rule.return_value = mock_rule_no_check
 
-    result = await handle_intra_location_action(
-        DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data
-    )
+    action_data = {"intent": "interact", "entities": [{"name": "Hidden Lever"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
 
-    assert result["success"] is True # Interaction is "successful" but does nothing
-    assert "You try to interact with Hidden Lever, but nothing interesting happens." in result["message"]
-    mock_log_event.assert_not_called() # Or called with a "nothing_happened" event if desired
+    assert result["success"] is True
+    assert "You interact with Hidden Lever. It seems to have worked." in result["message"] # Default for "interact_direct_lever_opens"
+
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:lever_simple")
+    mock_resolve_check.assert_not_called() # IMPORTANT: check resolver should not be called
+
+    mock_log_event.assert_called_once()
+    log_args, log_kwargs = mock_log_event.call_args_list[0]
+    assert log_kwargs["details_json"]["target"] == "Hidden Lever"
+    assert log_kwargs["details_json"]["rule_found"] is True
+    assert log_kwargs["details_json"]["check_required"] is False
+    assert "check_result" not in log_kwargs["details_json"] # No check result
+    assert log_kwargs["details_json"]["applied_consequences_key"] == "lever_activates_passage"
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_interact_object_rule_not_found(
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_get_rule: AsyncMock, # Added mock_get_rule
+    mock_session: AsyncSession,
+    mock_player: Player,
+    mock_location_with_details: Location
+):
+    mock_player_crud.get.return_value = mock_player
+    mock_location_crud.get.return_value = mock_location_with_details # "Old Chest" has "interaction_rules_key": "chest_generic"
+
+    mock_get_rule.return_value = None # Simulate rule not found in RuleConfig
+
+    action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True # Still true, but nothing happens
+    assert "You try to interact with Old Chest, but nothing interesting happens." in result["message"]
+
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_log_event.assert_called_once() # Log event should still be called
+    log_args, log_kwargs = mock_log_event.call_args_list[0]
+    assert log_kwargs["details_json"]["rule_found"] is False
+
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
-async def test_interact_non_existent_object(
+async def test_interact_object_no_interaction_key( # Renamed from test_interact_existing_object_no_rules
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player,
+    mock_location_with_details: Location
+):
+    mock_player_crud.get.return_value = mock_player
+
+    # Create a specific location setup for this test to avoid fixture state issues
+    location_for_test_details = {
+        "interactable_elements": [
+            {
+                "name": "Old Chest", # Keep one other item to ensure list structure
+                "description_i18n": {"en": "A dusty old chest."},
+                "interaction_rules_key": "chest_generic"
+            },
+            {
+                "name": "Hidden Lever", # This is our target
+                "description_i18n": {"en": "A small lever hidden in the shadows."},
+                # NO "interaction_rules_key"
+            }
+        ]
+    }
+    location_for_test = Location(
+        id=DEFAULT_LOCATION_ID,
+        guild_id=DEFAULT_GUILD_ID,
+        static_id="lever_room",
+        name_i18n={"en": "Lever Room"},
+        type=LocationType.DUNGEON,
+        generated_details_json=location_for_test_details
+    )
+    mock_location_crud.get.return_value = location_for_test
+
+    action_data = {"intent": "interact", "entities": [{"name": "Hidden Lever"}]}
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+
+    assert result["success"] is True # Should be true, as "nothing interesting happens" is a success
+    assert "You try to interact with Hidden Lever, but nothing interesting happens." in result["message"]
+    mock_log_event.assert_called_once()
+    log_args, log_kwargs = mock_log_event.call_args_list[0]
+    assert log_kwargs["details_json"]["interaction_rules_key"] is None
+
+
+@pytest.mark.asyncio
+@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+async def test_interact_non_existent_object( # Unchanged
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
