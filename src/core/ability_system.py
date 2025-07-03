@@ -15,7 +15,7 @@ from src.models import (
     RuleConfig
 )
 from src.models.ability_outcomes import AbilityOutcomeDetails, AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail
-from src.models.enums import RelationshipEntityType, EventType
+from src.models.enums import RelationshipEntityType, EventType, PlayerStatus
 # Removed CRUDBase import as it's not directly used here, but through specific cruds
 from src.core.crud.crud_ability import ability_crud
 from src.core.crud.crud_status_effect import status_effect_crud
@@ -216,8 +216,8 @@ async def activate_ability( # Signature updated to use ability_identifier
         if "caster_must_be_in_combat" in activation_conditions:
             caster_combat_status = None
             if isinstance(caster, Player):
-                # Assuming PlayerStatus.IN_COMBAT enum member exists and is comparable
-                caster_combat_status = caster.current_status == PlayerStatus.IN_COMBAT
+                # Assuming PlayerStatus.COMBAT enum member exists and is comparable
+                caster_combat_status = caster.current_status == PlayerStatus.COMBAT.value # Compare with the enum's value
             elif isinstance(caster, GeneratedNpc):
                 # Assuming NPC status is stored in properties_json['stats']['status']
                 npc_status_str = get_entity_stat(caster, "status")
