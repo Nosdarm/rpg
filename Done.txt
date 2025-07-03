@@ -28,7 +28,7 @@ Result: Model for tracking active combat state defined, migrated, and basic test
 - Task 18: 📚 7.2 AI Narrative Generation (Multilang)
 Description: Verified existing `generate_narrative` function in `src/core/ai_orchestrator.py`. Confirmed it meets requirements for language handling (player/guild/default), prompt construction from context, and error handling. Ensured it's correctly exported. Verified existing unit tests in `tests/core/test_ai_orchestrator.py` cover necessary scenarios. No code changes were required for the function itself.
 Result: API for generating narrative text on demand is confirmed to be in place and tested.
-- Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped) - *Initial MVP, needs revisit*
+- Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped)
 ## Phase 3: Abilities and Checks Mechanics
 - Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped)
 - Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped)

@@ -174,7 +174,7 @@ async def test_format_player_action_examine_en_with_terms(mock_session, mock_nam
         "result": {"description": "it is empty"}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, "en", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "en", mock_names_cache_fixture)
     assert "TestPlayer inspects 'a Dusty Box'. Observations: it is empty" in result
 
 @pytest.mark.asyncio
@@ -186,7 +186,7 @@ async def test_format_player_action_examine_ru_default_terms(mock_session, mock_
         "result": {"description": "внутри пыльно"}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
     assert "TestPlayer осматривает 'Старый сундук'. Вы видите: внутри пыльно" in result
 
 @pytest.mark.asyncio
@@ -202,7 +202,7 @@ async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_
         "survivors": [{"type": "player", "id": 1}, {"type": "npc", "id": 602}]
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, "ru", mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
     assert "Схватка в 'Old Location' окончена. Результат: победа игроков. Уцелевшие: TestPlayer, Ogre." in result
 
 # Tests for format_turn_report
@@ -255,7 +255,7 @@ async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fix
         "outcome": {"description": "The air crackles." if lang == "en" else "Воздух трещит."}
     }
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
 
     actor_name = mock_names_cache_fixture[("player", 1)]
     ability_name = mock_names_cache_fixture[("ability", 301)]
@@ -295,7 +295,7 @@ async def test_format_combat_start(mock_session, mock_names_cache_fixture, mock_
     expected_msg = default_template.format(location_name=location_name, participants_str=participants_str_rendered)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -330,7 +330,7 @@ async def test_format_dialogue_line(mock_session, mock_names_cache_fixture, mock
 
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -355,7 +355,7 @@ async def test_format_status_removed(mock_session, mock_names_cache_fixture, moc
     expected_msg = default_template.format(status_name=status_name, target_name=target_name)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -390,7 +390,7 @@ async def test_format_quest_failed(mock_session, mock_names_cache_fixture, mock_
         expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -410,7 +410,7 @@ async def test_format_quest_accepted(mock_session, mock_names_cache_fixture, moc
     expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -443,7 +443,7 @@ async def test_format_quest_step_completed(mock_session, mock_names_cache_fixtur
         expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -463,7 +463,7 @@ async def test_format_quest_completed(mock_session, mock_names_cache_fixture, mo
     expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -489,7 +489,7 @@ async def test_format_level_up(mock_session, mock_names_cache_fixture, mock_get_
     expected_msg = default_template.format(player_name=player_name, level_str=level_str)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -534,7 +534,7 @@ async def test_format_xp_gained(mock_session, mock_names_cache_fixture, mock_get
         expected_msg = default_template_format.format(player_name=player_name, amount_str=amount_str, xp_term=xp_term)
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -582,7 +582,7 @@ async def test_format_relationship_change(mock_session, mock_names_cache_fixture
         expected_msg += "."
         
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
 
@@ -650,5 +650,5 @@ async def test_format_status_applied(mock_session, mock_names_cache_fixture, moc
     expected_msg = " ".join(msg_parts)
         
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
-        result = await _format_log_entry_with_names_cache(log_details, lang, mock_names_cache_fixture)
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
