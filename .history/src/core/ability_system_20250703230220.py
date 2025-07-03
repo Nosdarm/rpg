@@ -211,7 +211,7 @@ async def remove_status(
 # Using CRUD operations now
 # Removed local get_ability_by_id_or_static_id and get_status_effect_by_static_id
 
-
+async def activate_ability(
 async def activate_ability(
     session: AsyncSession,
     guild_id: int,
