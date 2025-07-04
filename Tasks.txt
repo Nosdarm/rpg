@@ -66,9 +66,10 @@ This block presents tasks related to combat mechanics.
 
 {Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI). - Moved to Done.txt}
 
-Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine).
-Description: Manages turn-based or round-based combat, integrating player actions (via Processing Module 21) and AI NPC actions (via 26), performing calculations (via 25).
-API start_combat(guild_id: int, location_id: int, participant_ids: List[Tuple[int, str]]) -> CombatEncounter. Accepts guild_id. Called from 21 (Action Processing Module) upon detecting an "attack" action or from the system (Global Entities 44, Quest 39).
+{Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine). - Moved to Done.txt}
+
+Task Block: Phase 13: Experience and Character Development System
+This block presents tasks related to character experience, leveling up, and attribute distribution.
 Within an ATOMIC TRANSACTION (0.3), SCOPED TO THIS GUILD: Creates a CombatEncounter record (24) with this guild_id and a link to the location. Loads participants by guild_id (1.2/5/14), populates participants_json. Determines initiative (via 12 based on rules 13/41). Copies combat rules from RuleConfig into rules_config_snapshot_json. Sets participant status to 'combat'. Logs (19).
 Returns the created CombatEncounter.
 

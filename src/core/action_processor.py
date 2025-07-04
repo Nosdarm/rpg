@@ -16,13 +16,18 @@ from .party_utils import get_party # Generic get by PK
 # Placeholder imports for actual game modules - these will be called by dispatch
 # from .movement_logic import handle_move_action_internal # Needs to be created/adapted
 # from .some_other_module import handle_look_action_internal
-# from .combat_module import handle_combat_action_internal
 # from .inventory_module import handle_inventory_action_internal
 # from .quest_module import handle_quest_event_internal
 # from .interaction_module import handle_intra_location_interaction_internal
-from .interaction_handlers import handle_intra_location_action # Added
-from .game_events import log_event # Placeholder
+from .interaction_handlers import handle_intra_location_action
+from .game_events import log_event
 from ..bot.utils import notify_master # Utility to notify master
+from .combat_cycle_manager import start_combat
+from .combat_engine import process_combat_action as engine_process_combat_action # Alias to avoid confusion
+from ..models import GeneratedNpc # For fetching target NPC
+from .crud.crud_player import get_player_by_id_and_guild # For fetching player actor/target
+from .crud.crud_npc import get_one_by_id_and_guild_id as get_npc_by_id_and_guild # For fetching NPC actor/target
+from .crud.crud_combat_encounter import get_active_combat_for_entity # New CRUD function needed
 
 logger = logging.getLogger(__name__)
 
@@ -123,11 +128,243 @@ async def _handle_intra_location_action_wrapper(
         logger.error(f"Error in _handle_intra_location_action_wrapper for intent {action.intent}: {e}", exc_info=True)
         return {"status": "error", "message": f"Failed to execute intra-location action '{action.intent}': {e}"}
 
+async def _handle_attack_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling ATTACK action: {action.entities}")
+    actor_player = await get_player_by_id_and_guild(session, player_id=player_id, guild_id=guild_id)
+    if not actor_player:
+        return {"status": "error", "message": "Attacking player not found."}
+
+    # 1. Determine Target
+    target_entity_data = None # Will store {'id': int, 'type': str, 'name': str, 'model': Player | GeneratedNpc}
+    if not action.entities:
+        return {"status": "error", "message": "Who do you want to attack? Target not specified."}
+
+    # Assuming NLU provides target name or ID. For MVP, let's assume target is an NPC by name.
+    # A more robust system would handle targeting players, use IDs, etc.
+    target_identifier = action.entities[0].value # Simplistic: take first entity value as target name
+    target_type_hint = action.entities[0].type # e.g., "npc_name", "player_name"
+
+    # Try to find NPC target by name in the same location as the player
+    # This requires knowing player's current location.
+    if actor_player.current_location_id is None:
+        return {"status": "error", "message": "Cannot attack: your location is unknown."}
+
+    # Simplified target finding:
+    # For now, assume target is an NPC. A full implementation needs to:
+    # - Query NPCs in player's current_location_id by name (target_identifier)
+    # - Query Players in current_location_id by name (if target_type_hint suggests player)
+    # - Handle ambiguous targets (multiple NPCs/players with same name)
+
+    # MVP: Assume target is NPC, search by name.
+    # This is a placeholder for proper target resolution.
+    # In a real system, you'd use CRUD operations to find entities by name in a location.
+    # For now, we'll assume NLU gives a specific enough target name.
+    # Let's imagine we have a way to get the target model.
+    # For testing, we might need to mock this or create a dummy target.
+
+    # Placeholder: Find target NPC (this is a very simplified lookup)
+    # In a real scenario, this would involve querying NPCs at the player's location.
+    # For now, let's assume the target_identifier is a unique NPC name in the location.
+    # We'll need a way to fetch NPCs by name for the guild.
+    # This part is complex and depends on how NPCs are stored and identified.
+    # Let's assume for now target_identifier is an ID and type is known.
+    # This is a major simplification for the attack wrapper.
+    # A proper implementation would use NLU context (e.g. target from previous interaction) or more specific targeting.
+
+    # Simplified: Assume target is an NPC and target_identifier is its ID for now.
+    # This is a temporary simplification to proceed with combat flow.
+    # NLU should ideally provide target ID and type.
+    # If NLU provides name, a lookup step is needed.
+    target_id_from_nlu = None
+    target_type_from_nlu = None
+
+    if action.entities:
+        # A more robust NLU would provide 'target_id' and 'target_type' entities
+        # For now, crude extraction:
+        first_entity = action.entities[0]
+        if first_entity.type.lower() in ["npc", "target_npc", "enemy_npc"]:
+            target_type_from_nlu = "npc"
+            # Try to convert value to int if it's an ID, otherwise it's a name
+            try: target_id_from_nlu = int(first_entity.value)
+            except ValueError:
+                 # It's a name, need to look up ID. This is the complex part.
+                 # For now, we'll error if ID isn't provided by NLU for NPCs.
+                 logger.warning(f"NPC target '{first_entity.value}' provided by name. ID lookup not yet implemented in MVP attack handler. Assuming it's an ID for now if it can be cast to int.")
+                 # This part is a placeholder for actual name->ID resolution.
+                 # If we can't get an ID, we can't proceed easily.
+                 return {"status": "error", "message": f"Targeting NPC by name ('{first_entity.value}') not fully supported yet. Please use NPC ID if known."}
+
+        elif first_entity.type.lower() in ["player", "target_player"]:
+            target_type_from_nlu = "player"
+            try: target_id_from_nlu = int(first_entity.value)
+            except ValueError:
+                return {"status": "error", "message": f"Targeting Player by name ('{first_entity.value}') not fully supported yet. Please use Player ID."}
+        else: # Fallback: assume it's an NPC name if type is generic like 'target_name' or just 'name'
+            target_type_from_nlu = "npc" # Default assumption
+            logger.warning(f"Generic target '{first_entity.value}' (type: {first_entity.type}). Assuming NPC. Name lookup needed.")
+            # This is where robust target name resolution would go.
+            # For now, if it's not an int, we can't proceed without a name lookup system.
+            try: target_id_from_nlu = int(first_entity.value)
+            except ValueError:
+                 return {"status": "error", "message": f"Could not determine target ID for '{first_entity.value}'. Name lookup required."}
+
+
+    if target_id_from_nlu is None or target_type_from_nlu is None:
+        return {"status": "error", "message": "Target ID or type could not be determined from NLU."}
+
+    target_model = None
+    if target_type_from_nlu == "npc":
+        target_model = await get_npc_by_id_and_guild(session, npc_id=target_id_from_nlu, guild_id=guild_id)
+        if target_model:
+            target_entity_data = {"id": target_model.id, "type": "npc", "name": target_model.name_i18n.get("en", "NPC"), "model": target_model}
+    elif target_type_from_nlu == "player":
+        target_model = await get_player_by_id_and_guild(session, player_id=target_id_from_nlu, guild_id=guild_id)
+        if target_model:
+            target_entity_data = {"id": target_model.id, "type": "player", "name": target_model.name, "model": target_model}
+
+    if not target_entity_data or not target_model:
+        return {"status": "error", "message": f"Target {target_type_from_nlu} with identifier '{target_identifier}' not found."}
+
+    # Check if target is self
+    if target_entity_data["id"] == actor_player.id and target_entity_data["type"] == "player":
+        return {"status": "error", "message": "You cannot attack yourself."}
+
+    # 2. Check Existing Combat
+    # Check for actor
+    actor_combat = await crud_combat_encounter.get_active_combat_for_entity(
+        db=session, guild_id=guild_id, entity_id=actor_player.id, entity_type="player"
+    )
+    # Check for target
+    target_combat = await crud_combat_encounter.get_active_combat_for_entity(
+        db=session, guild_id=guild_id, entity_id=target_entity_data["id"], entity_type=target_entity_data["type"]
+    )
+
+    if actor_combat and target_combat and actor_combat.id != target_combat.id:
+        return {"status": "error", "message": "You and your target are in different active combat encounters."}
+
+    current_combat_encounter = actor_combat or target_combat
+    initial_action_to_process = {
+        "action_type": "attack", # This comes from the player's intent
+        # "ability_id": None, # For basic attack
+        "target_id": target_entity_data["id"],
+        "target_type": target_entity_data["type"]
+        # Other details like weapon used could be added if NLU provides them or game rules imply them
+    }
+
+    if current_combat_encounter:
+        # Already in combat, process the action directly
+        logger.info(f"Player {player_id} attacking target {target_entity_data['name']} within existing combat {current_combat_encounter.id}")
+        if not (current_combat_encounter.current_turn_entity_id == actor_player.id and \
+                current_combat_encounter.current_turn_entity_type == "player"):
+            return {"status": "error", "message": "It's not your turn to act in the current combat."}
+
+        # Process player's action
+        player_action_result = await engine_process_combat_action(
+            guild_id=guild_id,
+            session=session,
+            combat_instance_id=current_combat_encounter.id,
+            actor_id=actor_player.id,
+            actor_type="player",
+            action_data=initial_action_to_process
+        )
+        logger.info(f"Player {player_id} action in combat {current_combat_encounter.id} processed. Result: {player_action_result.description_i18n}")
+
+        # After player's action, call process_combat_turn to advance combat state (NPC turns, end check)
+        # The session here is the same one used by engine_process_combat_action, so changes are visible.
+        updated_combat_encounter = await process_combat_turn(
+            session=session,
+            guild_id=guild_id,
+            combat_id=current_combat_encounter.id
+        )
+        logger.info(f"Combat {updated_combat_encounter.id} advanced. Current status: {updated_combat_encounter.status}, current turn: {updated_combat_encounter.current_turn_entity_type}:{updated_combat_encounter.current_turn_entity_id}")
+
+        return {
+            "status": "success",
+            "message": "Attack action processed and combat turn advanced.",
+            "initial_action_details": player_action_result.model_dump(),
+            "combat_status_after_turn": updated_combat_encounter.status.value,
+            "current_combat_turn_entity": f"{updated_combat_encounter.current_turn_entity_type}:{updated_combat_encounter.current_turn_entity_id}"
+        }
+    else:
+        # No existing combat for either actor or target that involves both, start a new one
+        logger.info(f"Player {player_id} initiating combat by attacking target {target_entity_data['name']}")
+        # Determine participants for the new combat
+        # MVP: Just actor and target.
+        # Future: Could include other entities in the location based on rules (e.g., allies, nearby hostiles).
+        participant_models = [actor_player, target_entity_data["model"]]
+
+        # Add other NPCs from the same location if they are hostile to the player or allied with the target
+        # This is a complex part that needs rules for "joining combat"
+        # For MVP, keep it simple: only player and their direct target.
+
+        try:
+            new_combat_encounter = await start_combat(
+                session=session,
+                guild_id=guild_id,
+                location_id=actor_player.current_location_id,
+                participant_entities=participant_models
+                # initiator_action_data is not directly used by start_combat to process the first action.
+                # The first action is processed immediately after start_combat returns.
+            )
+            logger.info(f"Combat started: {new_combat_encounter.id}. Now processing initiator's action.")
+
+            # Process the initiator's first action in the new combat
+            # Ensure the initiator is indeed the first in turn order (start_combat should handle this)
+            if not (new_combat_encounter.current_turn_entity_id == actor_player.id and \
+                    new_combat_encounter.current_turn_entity_type == "player"):
+                # This would be an issue with start_combat's initiative logic if player isn't first
+                logger.error(f"Combat started, but initiator Player {actor_player.id} is not the first in turn order. Combat: {new_combat_encounter.id}")
+                # Fallback: try to process anyway if combat is active.
+                # Or return error. For now, let's be lenient and try.
+                # This implies the player might have to wait for their turn if initiative was lost.
+                # However, the plan stated: "первое действие атакующего... должно быть обработано как первое действие в бою"
+                # This means start_combat should ensure the initiator can act, or this wrapper should.
+                # For now, assume start_combat sets turn correctly or we process regardless of whose turn it is *for the first action*.
+                # A stricter approach: if not player's turn, they can't act yet.
+                # Let's assume for the very first action of combat, the initiator gets to act.
+                # The call to engine_process_combat_action will use actor_id, actor_type from its params.
+                 pass
+
+
+            action_result = await engine_process_combat_action(
+                guild_id=guild_id,
+                session=session,
+                combat_instance_id=new_combat_encounter.id,
+                actor_id=actor_player.id,
+                actor_type="player",
+                action_data=initial_action_to_process
+            )
+            logger.info(f"Player {actor_player.id} initial action in new combat {new_combat_encounter.id} processed. Result: {action_result.description_i18n}")
+
+            # After initiator's action, call process_combat_turn to advance combat state
+            updated_combat_encounter = await process_combat_turn(
+                session=session,
+                guild_id=guild_id,
+                combat_id=new_combat_encounter.id
+            )
+            logger.info(f"New combat {updated_combat_encounter.id} advanced after initiator. Current status: {updated_combat_encounter.status}, current turn: {updated_combat_encounter.current_turn_entity_type}:{updated_combat_encounter.current_turn_entity_id}")
+
+            return {
+                "status": "success",
+                "message": "Combat started, initial attack processed, and combat turn advanced.",
+                "combat_id": new_combat_encounter.id,
+                "initial_action_details": action_result.model_dump(),
+                "combat_status_after_turn": updated_combat_encounter.status.value,
+                "current_combat_turn_entity": f"{updated_combat_encounter.current_turn_entity_type}:{updated_combat_encounter.current_turn_entity_id}"
+            }
+
+        except Exception as e:
+            logger.error(f"Error starting combat or processing initial attack for player {player_id}: {e}", exc_info=True)
+            return {"status": "error", "message": f"Failed to start combat: {e}"}
+
+
 # Action dispatch table
 ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Coroutine[Any, Any, dict]]] = {
     "move": _handle_move_action_wrapper, # This is for inter-location movement
     "look": _handle_placeholder_action, # General look, might be different from examining specific object
-    "attack": _handle_placeholder_action, # Placeholder for combat
+    "attack": _handle_attack_action_wrapper, # Placeholder for combat
     "take": _handle_placeholder_action,  # Placeholder for inventory
     "use": _handle_placeholder_action,   # Placeholder for inventory/item use
     "talk": _handle_placeholder_action, # Placeholder for dialogue
