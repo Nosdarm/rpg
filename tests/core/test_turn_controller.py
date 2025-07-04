@@ -1,7 +1,13 @@
+import sys
+import os
 import pytest
 import asyncio
 import logging # For capturing logs in tests if needed
 
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 logger = logging.getLogger(__name__)
 from unittest.mock import AsyncMock, patch, MagicMock, call

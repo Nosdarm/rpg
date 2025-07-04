@@ -1,7 +1,14 @@
 # tests/bot/commands/test_map_commands.py
+import sys
+import os
 import json
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock, ANY # Добавлен ANY
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import discord
 

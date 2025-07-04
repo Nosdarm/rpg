@@ -1,6 +1,13 @@
+import sys
+import os
 import unittest
 import random
 from typing import List, Tuple
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # Adjust the import path based on your project structure
 # If src is a top-level package and your tests are run from the project root:

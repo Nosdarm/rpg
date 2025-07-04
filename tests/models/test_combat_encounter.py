@@ -1,7 +1,14 @@
+import sys
+import os
 import unittest
 from sqlalchemy import create_engine, BigInteger, Integer, Text, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import sessionmaker, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.types import JSON
 import datetime

@@ -1,5 +1,12 @@
+import sys
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession # For type hinting and spec
 from src.core.database import transactional, get_db_session # The decorator and session getter
@@ -30,7 +37,7 @@ def mock_async_session_instance() -> AsyncMock:
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
     session.close = AsyncMock() # Though get_db_session context manager handles close
-    session.add = AsyncMock()
+    session.add = MagicMock() # Should be a synchronous mock
     return session
 
 @pytest.fixture

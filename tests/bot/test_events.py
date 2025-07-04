@@ -1,6 +1,13 @@
+import sys
+import os
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 import discord # Import discord for Guild type hint if needed, or use MagicMock

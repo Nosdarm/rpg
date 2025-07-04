@@ -1,6 +1,13 @@
+import sys
+import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Optional # Added Optional
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import discord # type: ignore
 from discord.ext import commands # Added commands import
@@ -32,6 +39,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         # Патчим get_db_session, чтобы он возвращал мок сессии
         self.session_mock = AsyncMock()
+        self.session_mock.add = MagicMock() # Ensure .add is a sync mock
         self.patcher_get_db_session = patch('src.bot.commands.general_commands.get_db_session')
         self.mock_get_db_session = self.patcher_get_db_session.start()
         self.mock_get_db_session.return_value.__aenter__.return_value = self.session_mock

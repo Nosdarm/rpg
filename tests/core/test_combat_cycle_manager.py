@@ -1,5 +1,12 @@
+import sys
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -263,7 +270,7 @@ async def test_start_combat_no_participants(mock_session: AsyncMock):
 @patch('src.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
 @patch('src.core.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
 @patch('src.core.combat_engine.process_combat_action', new_callable=AsyncMock) # engine_process_combat_action
-@pytest.mark.skip(reason="Temporarily skipping due to RecursionError, needs detailed mock setup for turn progression.")
+# @pytest.mark.skip(reason="Temporarily skipping due to RecursionError, needs detailed mock setup for turn progression.") # Unskip
 async def test_process_combat_turn_npc_action(
     mock_engine_process_action: AsyncMock,
     mock_get_npc_action: AsyncMock,
@@ -315,6 +322,22 @@ async def test_process_combat_turn_npc_action(
 
     # Combat end check setup
     mock_check_combat_end.return_value = (False, None) # Combat does not end
+
+    # Define side_effect for mock_advance_turn to prevent infinite recursion
+    async def advance_turn_side_effect(session, encounter_obj):
+        # Simulate advancing to a player's turn to break recursion for this test
+        encounter_obj.current_turn_entity_type = "player"
+        encounter_obj.current_turn_entity_id = 999 # Some dummy player ID
+        if encounter_obj.turn_order_json and "order" in encounter_obj.turn_order_json:
+            current_idx = encounter_obj.turn_order_json.get("current_index", 0)
+            order_len = len(encounter_obj.turn_order_json.get("order", []))
+            if order_len > 0: # Avoid division by zero or modulo by zero
+                encounter_obj.turn_order_json["current_index"] = (current_idx + 1) % order_len
+                if encounter_obj.turn_order_json["current_index"] == 0: # New round
+                    encounter_obj.turn_order_json["current_turn_number"] = encounter_obj.turn_order_json.get("current_turn_number", 1) + 1
+        return None # _advance_turn doesn't return a value
+
+    mock_advance_turn.side_effect = advance_turn_side_effect
 
     # Call the function
     returned_encounter = await process_combat_turn(mock_session, guild_id, combat_id)

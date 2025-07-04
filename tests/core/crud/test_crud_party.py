@@ -1,5 +1,12 @@
+import sys
+import os
 import unittest
 from typing import Optional, List
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy import event, select
@@ -30,8 +37,18 @@ def _location_column_reflect_crud_party(inspector, table, column_info):
              column_info['type'] = JsonBForSQLite()
 @event.listens_for(Player.__table__, "column_reflect")
 def _player_column_reflect_crud_party(inspector, table, column_info):
-    if column_info['name'] == 'collected_actions_json' and isinstance(column_info['type'], JSON):
+    if column_info['name'] == 'collected_actions_json' and isinstance(column_info['type'], JSON): # Ensure it's JSON for SQLite
          pass
+
+# Need to import CraftingRecipe model to attach listener
+from src.models.crafting_recipe import CraftingRecipe
+
+@event.listens_for(CraftingRecipe.__table__, "column_reflect")
+def _crafting_recipe_column_reflect_crud_party(inspector, table, column_info):
+    jsonb_columns = ['name_i18n', 'description_i18n', 'ingredients_json', 'properties_json']
+    if column_info['name'] in jsonb_columns:
+        if not isinstance(column_info['type'], JsonBForSQLite):
+            column_info['type'] = JsonBForSQLite()
 
 
 class TestCRUDParty(unittest.IsolatedAsyncioTestCase):

@@ -1,6 +1,13 @@
+import sys
+import os
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch, call # Added call
 from sqlalchemy.ext.asyncio import AsyncSession # Added AsyncSession
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import discord # type: ignore
 from discord.ext import commands # type: ignore
