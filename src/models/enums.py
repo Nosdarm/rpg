@@ -86,6 +86,8 @@ class EventType(enum.Enum):
     AI_CONTENT_EDITED = "ai_content_edited"
     AI_CONTENT_SAVED = "ai_content_saved"
 
+    ATTRIBUTE_POINTS_SPENT = "attribute_points_spent" # Player spent points on attributes
+
     # World Generation / Map Management
     WORLD_EVENT_LOCATION_GENERATED = "world_event_location_generated" # AI generated
     MASTER_ACTION_LOCATION_ADDED = "master_action_location_added" # Master added

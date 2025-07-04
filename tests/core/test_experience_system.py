@@ -423,3 +423,206 @@ async def test_award_xp_party_xp_per_player_becomes_zero(
     assert player2.xp == 50
 
     mock_session_fixture.commit.assert_not_called()
+
+
+# --- Тесты для spend_attribute_points ---
+
+@pytest.fixture
+def mock_attribute_definitions_fixture():
+    return {
+        "strength": {"name_i18n": {"en": "Strength", "ru": "Сила"}},
+        "dexterity": {"name_i18n": {"en": "Dexterity", "ru": "Ловкость"}},
+    }
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_success(
+    mock_get_rule: AsyncMock,
+    mock_log_event: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    mock_attribute_definitions_fixture,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+    player_fixture.attributes_json = {"strength": 10}
+    player_fixture.selected_language = "en"
+
+    mock_get_rule.return_value = mock_attribute_definitions_fixture
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", 3, guild_id_fixture
+    )
+
+    assert success is True
+    assert msg_key == "levelup_success"
+    assert details["attribute_name"] == "Strength" # Локализованное имя
+    assert details["new_value"] == 13
+    assert details["remaining_xp"] == 2
+    assert details["spent_points"] == 3
+
+    assert player_fixture.unspent_xp == 2
+    assert player_fixture.attributes_json["strength"] == 13
+
+    mock_log_event.assert_called_once_with(
+        session=mock_session_fixture,
+        guild_id=guild_id_fixture,
+        event_type=EventType.ATTRIBUTE_POINTS_SPENT.name,
+        details_json={
+            "player_id": player_fixture.id,
+            "player_name": player_fixture.name,
+            "attribute_changed": "strength",
+            "points_spent": 3,
+            "stat_increase": 3,
+            "old_value": 10,
+            "new_value": 13,
+            "remaining_unspent_xp": 2,
+        },
+        entity_ids_json={"player_id": player_fixture.id}
+    )
+    # session.commit() и session.refresh() не должны вызываться внутри spend_attribute_points
+    mock_session_fixture.commit.assert_not_called()
+    mock_session_fixture.refresh.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_not_enough_xp(
+    mock_get_rule: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    mock_attribute_definitions_fixture,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 2
+    player_fixture.attributes_json = {"strength": 10}
+    mock_get_rule.return_value = mock_attribute_definitions_fixture
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", 3, guild_id_fixture
+    )
+
+    assert success is False
+    assert msg_key == "levelup_error_not_enough_xp"
+    assert details["unspent_xp"] == 2
+    assert details["requested"] == 3
+    assert player_fixture.unspent_xp == 2 # Не изменилось
+    assert player_fixture.attributes_json["strength"] == 10 # Не изменилось
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_invalid_attribute(
+    mock_get_rule: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    mock_attribute_definitions_fixture,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+    mock_get_rule.return_value = mock_attribute_definitions_fixture # "wisdom" не определен
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "wisdom", 1, guild_id_fixture
+    )
+
+    assert success is False
+    assert msg_key == "levelup_error_invalid_attribute"
+    assert details["attribute_name"] == "wisdom"
+    assert player_fixture.unspent_xp == 5 # Не изменилось
+
+@pytest.mark.asyncio
+async def test_spend_attribute_points_invalid_points_value(
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", 0, guild_id_fixture
+    )
+    assert success is False
+    assert msg_key == "levelup_error_invalid_points_value"
+    assert details["points"] == 0
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", -1, guild_id_fixture
+    )
+    assert success is False
+    assert msg_key == "levelup_error_invalid_points_value"
+    assert details["points"] == -1
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_new_attribute(
+    mock_get_rule: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    mock_attribute_definitions_fixture,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+    player_fixture.attributes_json = {} # Атрибутов еще нет
+    player_fixture.selected_language = "ru"
+    mock_get_rule.return_value = mock_attribute_definitions_fixture
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "dexterity", 2, guild_id_fixture
+    )
+
+    assert success is True
+    assert msg_key == "levelup_success"
+    assert details["attribute_name"] == "Ловкость" # Локализованное имя
+    assert details["new_value"] == 2
+    assert details["remaining_xp"] == 3
+    assert player_fixture.unspent_xp == 3
+    assert player_fixture.attributes_json["dexterity"] == 2
+
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_attribute_definitions_not_dict(
+    mock_get_rule: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+    mock_get_rule.return_value = "not_a_dict" # Некорректные правила
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", 1, guild_id_fixture
+    )
+
+    assert success is False
+    assert msg_key == "levelup_error_invalid_attribute"
+    assert details["attribute_name"] == "strength"
+    assert player_fixture.unspent_xp == 5
+
+@pytest.mark.asyncio
+@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+async def test_spend_attribute_points_no_attribute_definitions_rule(
+    mock_get_rule: AsyncMock,
+    mock_session_fixture: AsyncSession,
+    player_fixture: Player,
+    guild_id_fixture: int
+):
+    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    player_fixture.unspent_xp = 5
+    mock_get_rule.return_value = None # Правило не найдено
+
+    success, msg_key, details = await spend_attribute_points(
+        mock_session_fixture, player_fixture, "strength", 1, guild_id_fixture
+    )
+
+    assert success is False
+    assert msg_key == "levelup_error_invalid_attribute"
+    assert details["attribute_name"] == "strength"
+    assert player_fixture.unspent_xp == 5

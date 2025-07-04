@@ -58,7 +58,7 @@ from .npc_combat_strategy import get_npc_combat_action # Import the main functio
 from . import combat_cycle_manager # Import the new combat_cycle_manager module
 from .combat_cycle_manager import start_combat, process_combat_turn # Import the main function for Task 29
 from . import experience_system # Import the new experience_system module
-from .experience_system import award_xp # Import the main function for Task 31
+from .experience_system import award_xp, spend_attribute_points # Import functions for Task 31 & 32
 from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
 
 
@@ -127,4 +127,5 @@ __all__ = [
     "CombatActionResult", # Export the Pydantic model as well
     "experience_system", # Added
     "award_xp", # Added
+    "spend_attribute_points", # Added for Task 32
 ]
