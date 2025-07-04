@@ -1,7 +1,4 @@
 from typing import List, Optional, Dict, Any, Union
-# Pydantic models ModifierDetail, CheckOutcome, CheckResult are now in src.models.check_results
-# from pydantic import BaseModel, Field # No longer needed here if all Pydantic models are imported
-
 import logging
 
 # Import the Pydantic models from their new location
@@ -14,7 +11,8 @@ logger = logging.getLogger(__name__)
 # EntityModel = Any # Placeholder for actual entity models like Player, Npc etc.
 
 # Definitions of ModifierDetail, CheckOutcome, CheckResult have been moved.
-
+# Pydantic models ModifierDetail, CheckOutcome, CheckResult are now in src.models.check_results
+# (Original definitions were here and are now removed)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
