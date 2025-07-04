@@ -94,18 +94,22 @@ async def start_combat(
         if isinstance(entity, Player):
             # In a real scenario, fetch from player.stats, player.equipment etc.
             # For now, using placeholder values or direct model fields if available
-            player_stats = await rules.get_rule(session, guild_id, f"player:stats:default_max_hp", default_value=100)
-            max_hp = getattr(entity, 'max_hp', player_stats) # Assuming Player model might have max_hp
+            player_default_max_hp = await rules.get_rule(db=session, guild_id=guild_id, key="player:stats:default_max_hp", default=100)
+            max_hp = getattr(entity, 'max_hp', player_default_max_hp) # Assuming Player model might have max_hp
             current_hp = getattr(entity, 'current_hp', max_hp) # And current_hp
             armor_class = getattr(entity, 'armor_class', 10) # And armor_class
             dex_modifier = (getattr(entity, 'dexterity', 10) - 10) // 2 # Example dexterity modifier for initiative
 
         elif isinstance(entity, GeneratedNpc):
-            npc_stats_block = entity.properties_json.get("stats", {})
+            entity_props = entity.properties_json or {}
+            npc_stats_block = entity_props.get("stats", {})
             max_hp = npc_stats_block.get("hp", 50)
             current_hp = npc_stats_block.get("current_hp", max_hp) # NPCs might have current_hp if pre-damaged
             armor_class = npc_stats_block.get("armor_class", 10)
             dex_modifier = (npc_stats_block.get("dexterity", 10) - 10) // 2
+            # Example of using get_rule within start_combat if needed for an NPC default
+            # max_hp = npc_stats_block.get("hp", await rules.get_rule(session, guild_id, "npc:default_max_hp", default=50))
+
 
         participant_data = {
             "id": entity.id,
@@ -121,8 +125,8 @@ async def start_combat(
         participants_for_json.append(participant_data)
 
         # Roll initiative
-        initiative_dice = await rules.get_rule(session, guild_id, "combat:initiative:dice", default_value="1d20")
-        initiative_roll, _ = dice_roller.roll_dice(initiative_dice)
+        initiative_dice_rule = await rules.get_rule(db=session, guild_id=guild_id, key="combat:initiative:dice", default="1d20")
+        initiative_roll, _ = dice_roller.roll_dice(initiative_dice_rule)
         total_initiative = initiative_roll + dex_modifier
         initiative_rolls.append({"score": total_initiative, "participant_ref": participant_data}) # Link to the data
 
@@ -156,10 +160,10 @@ async def start_combat(
         # Add other relevant rule keys here
     ]
     rules_snapshot = {}
-    for key in combat_rules_keys:
-        rule_value = await rules.get_rule(session, guild_id, key, default_value=None)
+    for key_to_snap in combat_rules_keys: # Renamed 'key' to avoid conflict with 'key' parameter of get_rule
+        rule_value = await rules.get_rule(db=session, guild_id=guild_id, key=key_to_snap, default=None)
         if rule_value is not None:
-            rules_snapshot[key] = rule_value
+            rules_snapshot[key_to_snap] = rule_value
     combat_encounter.rules_config_snapshot_json = rules_snapshot
 
     # 4. Update CombatEncounter status and entity statuses
@@ -253,8 +257,18 @@ async def process_combat_turn(
 
     logger.info(f"Guild {guild_id}: Processing turn {combat_encounter.turn_order_json.get('current_turn_number', 0)} for combat {combat_id}. Current entity: {combat_encounter.current_turn_entity_type}:{combat_encounter.current_turn_entity_id}")
 
-    active_entity_id = combat_encounter.current_turn_entity_id
-    active_entity_type = combat_encounter.current_turn_entity_type
+    active_entity_id_optional = combat_encounter.current_turn_entity_id
+    active_entity_type_optional = combat_encounter.current_turn_entity_type
+
+    if active_entity_id_optional is None or active_entity_type_optional is None:
+        logger.error(f"Guild {guild_id}: Combat {combat_id} has no current active entity (ID or Type is None). Status: {combat_encounter.status}")
+        combat_encounter.status = CombatStatus.ERROR
+        session.add(combat_encounter)
+        return combat_encounter
+
+    # Now we know they are not None
+    active_entity_id: int = active_entity_id_optional
+    active_entity_type: str = active_entity_type_optional
 
     # Ensure participants_json and its 'entities' list exist
     if combat_encounter.participants_json is None: combat_encounter.participants_json = {"entities": []}
@@ -287,8 +301,8 @@ async def process_combat_turn(
                 guild_id=guild_id,
                 session=session,
                 combat_instance_id=combat_id,
-                actor_id=active_entity_id,
-                actor_type="npc",
+                actor_id=active_entity_id, # type: int
+                actor_type=active_entity_type, # type: str
                 action_data=npc_action_data
             )
             # combat_engine already logs COMBAT_ACTION and updates participants_json
@@ -450,27 +464,30 @@ async def _handle_combat_end_consequences(
     # Determine winners and losers
     winners = []
     losers = []
-    all_participants_for_rel_update = list(combat_encounter.participants_json.get("entities", []))
+
+    current_participants_json = combat_encounter.participants_json or {}
+    participant_entities_list = current_participants_json.get("entities", [])
+    all_participants_for_rel_update = list(participant_entities_list) # Create a copy for this specific use
 
 
     if winning_team:
-        for p_data in combat_encounter.participants_json["entities"]:
+        for p_data in participant_entities_list:
             entity_model = None
-            if p_data["type"] == "player":
-                entity_model = await session.get(Player, p_data["id"])
-            elif p_data["type"] == "npc":
-                entity_model = await session.get(GeneratedNpc, p_data["id"])
+            if p_data.get("type") == "player": # Use .get for safety
+                entity_model = await session.get(Player, p_data.get("id"))
+            elif p_data.get("type") == "npc":
+                entity_model = await session.get(GeneratedNpc, p_data.get("id"))
 
-            if entity_model:
+            if entity_model: # Ensure entity was found
                 if p_data.get("team") == winning_team and p_data.get("current_hp",0) > 0 : # Winners must be alive
                     winners.append(entity_model)
                 else: # Everyone else is a loser (defeated members of winning team, or all of losing team)
                     losers.append(entity_model)
     else: # Draw or mutual destruction, all are considered losers for XP/loot (or handle differently based on rules)
-        for p_data in combat_encounter.participants_json["entities"]:
+        for p_data in participant_entities_list:
             entity_model = None
-            if p_data["type"] == "player": entity_model = await session.get(Player, p_data["id"])
-            elif p_data["type"] == "npc": entity_model = await session.get(GeneratedNpc, p_data["id"])
+            if p_data.get("type") == "player": entity_model = await session.get(Player, p_data.get("id")) # Safe with .get("id")
+            elif p_data.get("type") == "npc": entity_model = await session.get(GeneratedNpc, p_data.get("id")) # Safe with .get("id")
             if entity_model: losers.append(entity_model)
 
 
@@ -491,9 +508,10 @@ async def _handle_combat_end_consequences(
     await quest_system.handle_combat_event_for_quests(session, guild_id, combat_encounter, {"type": "combat_end", "winning_team": winning_team})
 
     # 6. Reset player/party statuses
-    for p_data in combat_encounter.participants_json["entities"]:
-        if p_data["type"] == "player":
-            player = await session.get(Player, p_data["id"])
+    # participant_entities_list is already defined and checked from current_participants_json above
+    for p_data in participant_entities_list:
+        if p_data.get("type") == "player":
+            player = await session.get(Player, p_data.get("id"))
             if player:
                 player.current_status = PlayerStatus.EXPLORING # Or other appropriate post-combat status
                 if hasattr(player, 'current_combat_id') and player.current_combat_id == combat_encounter.id:

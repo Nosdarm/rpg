@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 import discord # Import discord for Guild type hint if needed, or use MagicMock
+from discord.ext.commands import Bot as DiscordBot # Import Bot directly
 
 # Import the Cog and the function to test
 import src.bot.events # Changed import style
@@ -18,7 +19,7 @@ async def mock_session() -> AsyncSession:
 
 @pytest.fixture
 def mock_bot() -> MagicMock: # Using MagicMock for bot as its methods might not be async for this test
-    return MagicMock(spec=discord.ext.commands.Bot)
+    return MagicMock(spec=DiscordBot) # Use the imported DiscordBot
 
 @pytest.fixture
 def event_cog(mock_bot: MagicMock) -> src.bot.events.EventCog: # Use full path for type hint

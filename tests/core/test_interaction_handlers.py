@@ -253,15 +253,21 @@ async def test_interact_object_with_check_success(
     # Check if the custom feedback key from the rule is used
     assert "You attempt to interact with Old Chest... Success! (success)" in result["message"] # Default format for "interact_check_success_custom_chest_open" if not in _format_feedback
 
-    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
     mock_resolve_check.assert_called_once()
     resolve_args, resolve_kwargs = mock_resolve_check.call_args_list[0]
 
     assert resolve_kwargs["guild_id"] == DEFAULT_GUILD_ID
     assert resolve_kwargs["check_type"] == "lockpicking"
-    assert resolve_kwargs["dc"] == 15
-    assert resolve_kwargs["actor_id"] == DEFAULT_PLAYER_ID
-    assert resolve_kwargs["actor_attributes"]["dexterity"]["value"] == 10 # Default from getattr in SUT
+    assert resolve_kwargs["difficulty_dc"] == 15 # Changed from dc
+    assert resolve_kwargs["entity_doing_check_id"] == DEFAULT_PLAYER_ID # Changed from actor_id
+    # actor_attributes is now in check_context, check that instead if needed
+    # For this specific test, checking the context content:
+    assert "actor_attributes" in resolve_kwargs["check_context"]
+    assert resolve_kwargs["check_context"]["actor_attributes"]["dexterity"]["value"] == 10
+
+    # Example check for bonus_roll_modifier if it was set and passed
+    # assert resolve_kwargs["check_context"].get("bonus_roll_modifier") == expected_bonus_value
 
     mock_log_event.assert_called_once()
     log_args, log_kwargs = mock_log_event.call_args_list[0]
@@ -309,7 +315,7 @@ async def test_interact_object_with_check_failure(
     assert result["success"] is False # Interaction failed due to check
     assert "You attempt to interact with Old Chest... Failure. (failure)" in result["message"]
 
-    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
     mock_resolve_check.assert_called_once()
 
     mock_log_event.assert_called_once()
@@ -367,7 +373,7 @@ async def test_interact_object_no_check_required(
     assert result["success"] is True
     assert "You interact with Hidden Lever. It seems to have worked." in result["message"] # Default for "interact_direct_lever_opens"
 
-    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:lever_simple")
+    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:lever_simple")
     mock_resolve_check.assert_not_called() # IMPORTANT: check resolver should not be called
 
     mock_log_event.assert_called_once()
@@ -403,7 +409,7 @@ async def test_interact_object_rule_not_found(
     assert result["success"] is True # Still true, but nothing happens
     assert "You try to interact with Old Chest, but nothing interesting happens." in result["message"]
 
-    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
     mock_log_event.assert_called_once() # Log event should still be called
     log_args, log_kwargs = mock_log_event.call_args_list[0]
     assert log_kwargs["details_json"]["rule_found"] is False

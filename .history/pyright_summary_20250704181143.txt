@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\npc_combat_strategy.py] — 58 issue(s):
   Line 19   [ERROR] "get_one_by_id_and_guild_id" is not a known attribute of module ".crud_npc"
   Line 25   [ERROR] "get_one_by_id_and_guild_id" is not a known attribute of module ".crud_combat_encounter"
@@ -159,6 +160,63 @@
   Line 539  [ERROR] Object of type "None" is not subscriptable
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_combat_cycle_manager.py] — 14 issue(s):
+=======
+[/app/src/core/combat_cycle_manager.py] — 23 issue(s):
+  Line 123  [ERROR] "dex_modifier" is possibly unbound
+  Line 130  [ERROR] "dex_modifier" is possibly unbound
+  Line 137  [ERROR] Object of type "None" is not subscriptable
+  Line 138  [ERROR] Object of type "None" is not subscriptable
+  Line 142  [ERROR] Object of type "None" is not subscriptable
+  Line 143  [ERROR] Object of type "None" is not subscriptable
+  Line 172  [ERROR] Object of type "None" is not subscriptable
+  Line 179  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
+  Attribute "current_combat_id" is unknown
+  Line 189  [ERROR] Object of type "None" is not subscriptable
+  Line 200  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
+  Attribute "current_combat_id" is unknown
+  Line 207  [ERROR] Object of type "None" is not subscriptable
+  Line 208  [ERROR] Object of type "None" is not subscriptable
+  Line 220  [ERROR] Object of type "None" is not subscriptable
+  Line 221  [ERROR] Object of type "None" is not subscriptable
+  Line 227  [ERROR] Object of type "None" is not subscriptable
+  Line 258  [ERROR] "get" is not a known attribute of "None"
+  Line 339  [ERROR] Cannot access attribute "FINISHED" for class "type[CombatStatus]"
+  Attribute "FINISHED" is unknown
+  Line 349  [ERROR] "get" is not a known attribute of "None"
+  Line 438  [ERROR] Object of type "None" is not subscriptable
+  Line 517  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
+  Attribute "current_combat_id" is unknown
+  Line 518  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
+  Attribute "current_combat_id" is unknown
+  Line 539  [ERROR] Cannot access attribute "current_combat_id" for class "Party"
+  Attribute "current_combat_id" is unknown
+  Line 541  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
+  Attribute "current_combat_id" is unknown
+
+[/app/tests/core/test_combat_engine.py] — 20 issue(s):
+  Line 63   [ERROR] Object of type "None" is not subscriptable
+  Line 206  [ERROR] Object of type "None" is not subscriptable
+  Line 207  [ERROR] Object of type "None" is not subscriptable
+  Line 235  [ERROR] Object of type "None" is not subscriptable
+  Line 254  [ERROR] Object of type "None" is not subscriptable
+  Line 280  [ERROR] Object of type "None" is not subscriptable
+  Line 289  [ERROR] Object of type "None" is not subscriptable
+  Line 304  [ERROR] Object of type "None" is not subscriptable
+  Line 359  [ERROR] Object of type "None" is not subscriptable
+  Line 360  [ERROR] Object of type "None" is not subscriptable
+  Line 363  [ERROR] Object of type "None" is not subscriptable
+  Line 442  [ERROR] Object of type "None" is not subscriptable
+  Line 443  [ERROR] Object of type "None" is not subscriptable
+  Line 445  [ERROR] Object of type "None" is not subscriptable
+  Line 446  [ERROR] Object of type "None" is not subscriptable
+  Line 502  [ERROR] Object of type "None" is not subscriptable
+  Line 505  [ERROR] Object of type "None" is not subscriptable
+  Line 506  [ERROR] Object of type "None" is not subscriptable
+  Line 535  [ERROR] Object of type "None" is not subscriptable
+  Line 550  [ERROR] Object of type "None" is not subscriptable
+
+[/app/tests/core/test_combat_cycle_manager.py] — 14 issue(s):
+>>>>>>> 5e203ac0b9c2695dea79a4f2a409e943732ab617
   Line 134  [ERROR] Object of type "None" is not subscriptable
   Line 135  [ERROR] Object of type "None" is not subscriptable
   Line 136  [ERROR] Object of type "None" is not subscriptable
@@ -170,6 +228,7 @@
   Line 153  [ERROR] Object of type "None" is not subscriptable
   Line 154  [ERROR] Object of type "None" is not subscriptable
   Line 158  [ERROR] Operator "in" not supported for types "Literal['combat:initiative:dice']" and "dict[Unknown, Unknown] | None"
+<<<<<<< HEAD
 ┬а┬аOperator "in" not supported for types "Literal['combat:initiative:dice']" and "None"
   Line 159  [ERROR] Object of type "None" is not subscriptable
   Line 164  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
@@ -358,4 +417,167 @@
   Line 21   [ERROR] "ext" is not a known attribute of module "discord"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 1 issue(s):
+=======
+  Operator "in" not supported for types "Literal['combat:initiative:dice']" and "None"
+  Line 159  [ERROR] Object of type "None" is not subscriptable
+  Line 164  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
+  Attribute "current_combat_id" is unknown
+  Line 224  [ERROR] Object of type "None" is not subscriptable
+
+[/app/tests/core/test_experience_system.py] — 13 issue(s):
+  Line 112  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+  Attribute "assert_called_once" is unknown
+  Line 113  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+  Attribute "assert_called_once_with" is unknown
+  Line 165  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+  Attribute "assert_called_once" is unknown
+  Line 166  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+  Attribute "assert_called_once_with" is unknown
+  Line 244  [ERROR] Cannot access attribute "call_count" for class "MethodType"
+  Attribute "call_count" is unknown
+  Line 245  [ERROR] Cannot access attribute "call_count" for class "MethodType"
+  Attribute "call_count" is unknown
+  Line 246  [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+  Attribute "assert_any_call" is unknown
+  Line 247  [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+  Attribute "assert_any_call" is unknown
+  Line 291  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+  Attribute "assert_not_called" is unknown
+  Line 292  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+  Attribute "assert_not_called" is unknown
+  Line 341  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+  Attribute "assert_not_called" is unknown
+  Line 370  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+  Attribute "assert_not_called" is unknown
+  Line 425  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+  Attribute "assert_not_called" is unknown
+
+[/app/src/core/npc_combat_strategy.py] — 10 issue(s):
+  Line 63   [ERROR] Argument missing for parameter "db"
+  Line 64   [ERROR] No parameter named "session"
+  Line 650  [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+  Attribute "get" is unknown
+  Line 650  [ERROR] Cannot access attribute "get" for class "Player"
+  Attribute "get" is unknown
+  Line 851  [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+  Attribute "get" is unknown
+  Line 851  [ERROR] Cannot access attribute "get" for class "Player"
+  Attribute "get" is unknown
+  Line 853  [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+  Attribute "get" is unknown
+  Line 853  [ERROR] Cannot access attribute "get" for class "Player"
+  Attribute "get" is unknown
+  Line 853  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Attribute "id" is unknown
+  Line 853  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Attribute "id" is unknown
+
+[/app/tests/bot/commands/test_party_commands.py] — 8 issue(s):
+  Line 24   [ERROR] Argument of type "dict[str, Unknown]" cannot be assigned to parameter "data" of type "User | PartialUser" in function "__init__"
+  Type "dict[str, Unknown]" is not assignable to type "User | PartialUser"
+    "dict[str, Unknown]" is not assignable to "User"
+    "dict[str, Unknown]" is not assignable to "PartialUser"
+  Line 71   [ERROR] Cannot access attribute "en_US" for class "type[Locale]"
+  Attribute "en_US" is unknown
+  Line 90   [ERROR] Expected 1 positional argument
+  Line 109  [ERROR] Expected 1 positional argument
+  Line 127  [ERROR] Expected 1 positional argument
+  Line 145  [ERROR] Expected 1 positional argument
+  Line 173  [ERROR] Expected 1 positional argument
+  Line 202  [ERROR] Expected 1 positional argument
+
+[/app/tests/core/test_ai_orchestrator.py] — 7 issue(s):
+  Line 85   [ERROR] Argument missing for parameter "entity_type"
+  Line 106  [ERROR] No parameter named "entity_type"
+  Line 169  [ERROR] No parameter named "entity_type"
+  Line 204  [ERROR] Argument missing for parameter "entity_type"
+  Line 225  [ERROR] No parameter named "approver_user_id"
+  Line 336  [ERROR] Argument missing for parameter "entity_type"
+  Line 350  [ERROR] No parameter named "approver_user_id"
+
+[/app/tests/models/test_party.py] — 6 issue(s):
+  Line 165  [ERROR] "location" is not a known attribute of "None"
+  Line 166  [ERROR] "location" is not a known attribute of "None"
+  Line 167  [ERROR] "location" is not a known attribute of "None"
+  Line 169  [ERROR] "leader" is not a known attribute of "None"
+  Line 170  [ERROR] "leader" is not a known attribute of "None"
+  Line 171  [ERROR] "leader" is not a known attribute of "None"
+
+[/app/tests/models/test_player.py] — 6 issue(s):
+  Line 175  [ERROR] "location" is not a known attribute of "None"
+  Line 176  [ERROR] "location" is not a known attribute of "None"
+  Line 177  [ERROR] "location" is not a known attribute of "None"
+  Line 179  [ERROR] "party" is not a known attribute of "None"
+  Line 180  [ERROR] "party" is not a known attribute of "None"
+  Line 181  [ERROR] "party" is not a known attribute of "None"
+
+[/app/tests/core/test_ability_system.py] — 5 issue(s):
+  Line 27   [ERROR] "get" is not a known attribute of "None"
+  Line 207  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+  Attribute "assert_called_once" is unknown
+  Line 208  [ERROR] Cannot access attribute "call_args" for class "MethodType"
+  Attribute "call_args" is unknown
+  Line 213  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 263  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+  Attribute "assert_called_once_with" is unknown
+
+[/app/tests/core/test_npc_combat_strategy.py] — 4 issue(s):
+  Line 268  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Attribute "id" is unknown
+  Line 274  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Attribute "id" is unknown
+  Line 275  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 275  [ERROR] "__getitem__" method not defined on type "Player"
+
+[/app/src/core/interaction_handlers.py] — 2 issue(s):
+  Line 216  [ERROR] Cannot access attribute "lower" for class "CheckOutcome"
+  Attribute "lower" is unknown
+  Line 223  [ERROR] Cannot access attribute "lower" for class "CheckOutcome"
+  Attribute "lower" is unknown
+
+[/app/tests/bot/commands/test_general_commands.py] — 2 issue(s):
+  Line 57   [ERROR] Cannot access attribute "en_US" for class "type[Locale]"
+  Attribute "en_US" is unknown
+  Line 121  [ERROR] Expected 1 positional argument
+
+[/app/tests/core/crud/test_crud_player.py] — 2 issue(s):
+  Line 121  [ERROR] "name" is not a known attribute of "None"
+  Line 206  [ERROR] "name" is not a known attribute of "None"
+
+[/app/src/bot/commands/general_commands.py] — 1 issue(s):
+  Line 91   [ERROR] Argument missing for parameter "session"
+
+[/app/src/core/ability_system.py] — 1 issue(s):
+  Line 436  [ERROR] Cannot assign to attribute "applied_at" for class "ActiveStatusEffect"
+  Type "now" is not assignable to type "SQLCoreOperations[TIMESTAMP] | TIMESTAMP"
+    "now" is not assignable to "SQLCoreOperations[TIMESTAMP]"
+      Type parameter "_T_co@SQLCoreOperations" is covariant, but "datetime" is not a subtype of "TIMESTAMP"
+        "datetime" is not assignable to "TIMESTAMP"
+    "now" is not assignable to "TIMESTAMP"
+
+[/app/src/core/check_resolver.py] — 1 issue(s):
+  Line 258  [ERROR] No parameter named "difficulty_class"
+
+[/app/src/core/crud/crud_combat_encounter.py] — 1 issue(s):
+  Line 21   [ERROR] Type "Sequence[CombatEncounter]" is not assignable to return type "list[CombatEncounter]"
+  "Sequence[CombatEncounter]" is not assignable to "list[CombatEncounter]"
+
+[/app/src/core/movement_logic.py] — 1 issue(s):
+  Line 281  [ERROR] "Sequence[Location]" is not awaitable
+  "Sequence[Location]" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
+    "__await__" is not present
+
+[/app/src/core/rules.py] — 1 issue(s):
+  Line 29   [ERROR] "ScalarResult[RuleConfig]" is not awaitable
+  "ScalarResult[RuleConfig]" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
+    "__await__" is not present
+
+[/app/tests/bot/test_events.py] — 1 issue(s):
+  Line 21   [ERROR] "ext" is not a known attribute of module "discord"
+
+[/app/tests/core/crud/test_crud_party.py] — 1 issue(s):
+  Line 120  [ERROR] "name" is not a known attribute of "None"
+
+[/app/tests/core/test_interaction_handlers.py] — 1 issue(s):
+>>>>>>> 5e203ac0b9c2695dea79a4f2a409e943732ab617
   Line 349  [ERROR] Object of type "None" is not subscriptable

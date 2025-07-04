@@ -16,13 +16,13 @@ async def _get_npc_data(session: AsyncSession, npc_id: int, guild_id: int) -> Op
     """
     Loads NPC data from the database.
     """
-    return await crud_npc.get_one_by_id_and_guild_id(session=session, npc_id=npc_id, guild_id=guild_id)
+    return await crud_npc.npc_crud.get_by_id_and_guild(db=session, id=npc_id, guild_id=guild_id)
 
 async def _get_combat_encounter_data(session: AsyncSession, combat_instance_id: int, guild_id: int) -> Optional[CombatEncounter]:
     """
     Loads Combat Encounter data from the database.
     """
-    return await crud_combat_encounter.get_one_by_id_and_guild_id(session=session, combat_encounter_id=combat_instance_id, guild_id=guild_id)
+    return await crud_combat_encounter.combat_encounter_crud.get_by_id_and_guild(db=session, id=combat_instance_id, guild_id=guild_id)
 
 async def _get_participant_entity(session: AsyncSession, participant_info: Dict[str, Any], guild_id: int) -> Optional[Union[Player, GeneratedNpc]]:
     """
@@ -42,9 +42,9 @@ async def _get_participant_entity(session: AsyncSession, participant_info: Dict[
         return None # Unknown entity type
 
     if entity_type == EntityType.PLAYER:
-        return await crud_player.get_one_by_id_and_guild_id(session=session, player_id=entity_id, guild_id=guild_id)
+        return await crud_player.player_crud.get_by_id_and_guild(db=session, id=entity_id, guild_id=guild_id)
     elif entity_type == EntityType.NPC:
-        return await crud_npc.get_one_by_id_and_guild_id(session=session, npc_id=entity_id, guild_id=guild_id)
+        return await crud_npc.npc_crud.get_by_id_and_guild(db=session, id=entity_id, guild_id=guild_id)
 
     return None
 
@@ -81,7 +81,7 @@ async def _get_npc_ai_rules(
     This is a placeholder implementation. Detailed logic will depend on RuleConfig structure.
     """
     base_rules_key = "ai_behavior:npc_default_strategy"
-    npc_rules = await get_rule(session, guild_id, base_rules_key, default_value={})
+    npc_rules = await get_rule(db=session, guild_id=guild_id, key=base_rules_key, default={})
 
     default_strategy = {
         "target_selection": {
@@ -122,8 +122,10 @@ async def _get_npc_ai_rules(
             elif isinstance(npc_rules[key], list) and isinstance(value, list) and not npc_rules[key]: # only overwrite if current list is empty
                  npc_rules[key] = value
 
+    actor_props = actor_npc.properties_json or {}
+    actor_ai_meta = actor_npc.ai_metadata_json or {}
 
-    npc_personality = actor_npc.properties_json.get("personality", actor_npc.ai_metadata_json.get("personality"))
+    npc_personality = actor_props.get("personality", actor_ai_meta.get("personality"))
     if npc_personality and npc_personality in npc_rules.get("personality_modifiers", {}):
         mods = npc_rules["personality_modifiers"][npc_personality]
         current_bias = npc_rules.get("action_selection", {}).get("offensive_bias", default_strategy["action_selection"]["offensive_bias"])
@@ -166,10 +168,13 @@ async def _is_hostile(
     hostility_config = ai_rules.get("target_selection", {}).get("hostility_rules", {})
     default_hostility_rule = hostility_config.get("default", "attack_players_and_hostile_npcs")
 
-    actor_faction = actor_npc.properties_json.get("faction_id")
+    actor_props = actor_npc.properties_json or {}
+    actor_faction = actor_props.get("faction_id")
+
     target_faction = None
     if isinstance(target_entity, GeneratedNpc):
-        target_faction = target_entity.properties_json.get("faction_id")
+        target_props = target_entity.properties_json or {}
+        target_faction = target_props.get("faction_id")
 
     # 1. Check explicit relationship
     relationship_val = await _get_relationship_value(
@@ -214,18 +219,26 @@ async def _is_hostile(
 async def _get_potential_targets(
     session: AsyncSession,
     actor_npc: GeneratedNpc,
-    combat_encounter: CombatEncounter,
+    combat_encounter: CombatEncounter, # Still needed for context, though participants_json not directly used
     ai_rules: Dict[str, Any],
-    guild_id: int
+    guild_id: int,
+    participants_list: List[Dict[str, Any]] # Added parameter
 ) -> List[Dict[str, Union[Player, GeneratedNpc, Dict[str, Any]]]]:
     """
     Identifies potential hostile targets for the actor_npc from the combat encounter.
     Returns a list of dictionaries, each containing the entity object and its combat_data.
+    Uses the provided participants_list instead of accessing combat_encounter.participants_json directly.
     """
     potential_targets = []
-    for participant_info in combat_encounter.participants_json:
+    # participants_list is already checked to be a list in the caller
+    for participant_info in participants_list:
+        if not isinstance(participant_info, dict): # Ensure each item is a dict
+            # TODO: Log this malformed participant entry
+            continue
+
         # Skip self
-        if participant_info["id"] == actor_npc.id and participant_info["type"] == EntityType.NPC.value:
+        # Use .get for safety, though id and type should ideally always be present
+        if participant_info.get("id") == actor_npc.id and participant_info.get("type") == EntityType.NPC.value:
             continue
 
         # Skip defeated participants (current HP is in participant_info)
@@ -261,35 +274,46 @@ async def _calculate_target_score(
     This function will return values where "better" depends on the metric's nature.
     The caller (_select_target) will know whether to min or max.
     """
-    target_entity = target_info["entity"]
-    target_combat_data = target_info["combat_data"]
+    target_entity_model = target_info.get("entity")
+    target_combat_data = target_info.get("combat_data")
+
+    if not isinstance(target_entity_model, (Player, GeneratedNpc)):
+        # Log error or handle appropriately
+        # This addresses potential type confusion for target_entity_model
+        return 0.0 # Return a neutral score or handle error
+
+    if not isinstance(target_combat_data, dict):
+        return 0.0 # Return a neutral score or handle error
+
 
     score = 0.0
 
     if priority_metric == "lowest_hp_percentage":
-        # Max HP needs to be fetched from the base entity stats, current HP from combat_data
-        base_stats = {}
-        if isinstance(target_entity, Player):
-            base_stats = target_entity.properties_json.get("stats", {}) # Assuming stats are here
-        elif isinstance(target_entity, GeneratedNpc):
-            base_stats = target_entity.properties_json.get("stats", {})
-
-        max_hp = base_stats.get("hp", target_combat_data.get("hp", 1)) # Fallback to current HP if max_hp not found
-        if max_hp <= 0: max_hp = 1 # Avoid division by zero
         current_hp = target_combat_data.get("hp", 0)
-        score = (current_hp / max_hp) * 100
+        max_hp = 1 # Default to 1 to avoid division by zero if not found
+        if isinstance(target_entity_model, GeneratedNpc):
+            target_props = target_entity_model.properties_json or {}
+            base_stats = target_props.get("stats", {})
+            max_hp = base_stats.get("hp", current_hp if current_hp > 0 else 1)
+        elif isinstance(target_entity_model, Player):
+            max_hp = target_combat_data.get("max_hp", current_hp if current_hp > 0 else 1)
+
+        if max_hp <= 0: max_hp = 1
+        score = (current_hp / max_hp) * 100 if max_hp > 0 else 0
         return score # Lower is better
 
     elif priority_metric == "highest_hp_percentage":
-        base_stats = {}
-        if isinstance(target_entity, Player):
-            base_stats = target_entity.properties_json.get("stats", {})
-        elif isinstance(target_entity, GeneratedNpc):
-            base_stats = target_entity.properties_json.get("stats", {})
-        max_hp = base_stats.get("hp", target_combat_data.get("hp", 1))
-        if max_hp <= 0: max_hp = 1
         current_hp = target_combat_data.get("hp", 0)
-        score = (current_hp / max_hp) * 100
+        max_hp = 1
+        if isinstance(target_entity_model, GeneratedNpc):
+            target_props = target_entity_model.properties_json or {}
+            base_stats = target_props.get("stats", {})
+            max_hp = base_stats.get("hp", current_hp if current_hp > 0 else 1)
+        elif isinstance(target_entity_model, Player):
+            max_hp = target_combat_data.get("max_hp", current_hp if current_hp > 0 else 1)
+
+        if max_hp <= 0: max_hp = 1
+        score = (current_hp / max_hp) * 100 if max_hp > 0 else 0
         return score # Higher is better
 
     elif priority_metric == "lowest_absolute_hp":
@@ -301,29 +325,29 @@ async def _calculate_target_score(
         return score # Higher is better
 
     elif priority_metric == "highest_threat_score":
-        # Threat calculation can be complex.
-        # Example: sum of (damage dealt to actor_npc * factor) + (is_healer * factor)
         threat = 0.0
         threat_factors = ai_rules.get("target_selection", {}).get("threat_factors", {})
-
-        # Damage dealt to self (requires parsing combat_encounter.combat_log_json)
-        # This is a simplified placeholder for threat from damage
-        # A real implementation would parse the combat log for actions targeting actor_npc by target_entity
-        # For now, let's imagine target_combat_data might have a 'threat_level' field updated by CombatEngine
         threat += target_combat_data.get("threat_generated_towards_actor", 0.0) * threat_factors.get("damage_dealt_to_self_factor", 1.0)
 
-        # Check for roles like healer (e.g. from entity.properties_json.role or abilities)
-        # This is also a simplification.
-        target_roles = target_entity.properties_json.get("roles", [])
-        if "healer" in target_roles and threat_factors.get("is_healer_factor"):
-            threat += 100 * threat_factors.get("is_healer_factor") # Arbitrary base threat for being a healer
+        if isinstance(target_entity_model, GeneratedNpc):
+            target_props = target_entity_model.properties_json or {}
+            target_roles = target_props.get("roles", [])
+            if "healer" in target_roles and threat_factors.get("is_healer_factor"):
+                threat += 100 * threat_factors.get("is_healer_factor")
 
-        # Bonus if target has low HP (making them a killable threat)
         if threat_factors.get("low_hp_target_bonus"):
-            max_hp = target_entity.properties_json.get("stats", {}).get("hp", 1)
+            current_hp = target_combat_data.get("hp", 0)
+            max_hp = 1
+            if isinstance(target_entity_model, GeneratedNpc):
+                target_props = target_entity_model.properties_json or {}
+                target_stats = target_props.get("stats", {})
+                max_hp = target_stats.get("hp", current_hp if current_hp > 0 else 1)
+            elif isinstance(target_entity_model, Player):
+                max_hp = target_combat_data.get("max_hp", current_hp if current_hp > 0 else 1)
+
             if max_hp <=0: max_hp = 1
-            hp_percent = (target_combat_data.get("hp", 0) / max_hp)
-            if hp_percent < 0.3: # Example: if target is below 30% HP
+            hp_percent = (current_hp / max_hp) if max_hp > 0 else 0
+            if hp_percent < 0.3:
                 threat += 50 * threat_factors.get("low_hp_target_bonus")
 
         # Relationship influence on threat (negative relationship increases perceived threat)
@@ -431,8 +455,9 @@ def _get_available_abilities(
     Each ability in the list is a dictionary from actor_npc.properties_json['abilities'].
     """
     available_abilities = []
-    npc_abilities = actor_npc.properties_json.get("abilities", [])
-    if not npc_abilities:
+    actor_props = actor_npc.properties_json or {}
+    npc_abilities = actor_props.get("abilities", [])
+    if not npc_abilities: # npc_abilities will be [] if properties_json is None or "abilities" key is missing
         return []
 
     current_resources = actor_combat_data.get("resources", {}) # e.g., {"mana": 50, "stamina": 100}
@@ -500,10 +525,13 @@ async def _simulate_action_outcome(
     expected_damage = 0
     crit_chance = 0.05
 
+    actor_props = actor_npc.properties_json or {}
+    actor_stats = actor_props.get("stats", {})
+
     if action_details["type"] == "attack":
         # Simulate basic attack
-        # TODO: Get weapon damage from actor_npc.properties_json.equipment
-        expected_damage = actor_npc.properties_json.get("stats", {}).get("base_attack_damage", 5)
+        # TODO: Get weapon damage from actor_props.get("equipment", {})
+        expected_damage = actor_stats.get("base_attack_damage", 5)
     elif action_details["type"] == "ability":
         ability_props = action_details.get("ability_props", {})
         # TODO: Parse ability_props for effects (damage, healing, status)
@@ -605,7 +633,9 @@ async def _evaluate_action_effectiveness(
                 except: heal_amount = 5
 
                 # Value healing more if actor is low HP
-                actor_max_hp = actor_npc.properties_json.get("stats",{}).get("hp",1)
+                actor_props = actor_npc.properties_json or {}
+                actor_stats = actor_props.get("stats", {})
+                actor_max_hp = actor_stats.get("hp",1)
                 actor_current_hp = actor_combat_data.get("hp", actor_max_hp)
                 hp_deficit_ratio = 1 - (actor_current_hp / actor_max_hp if actor_max_hp > 0 else 1)
                 effectiveness_score += heal_amount * (1 + hp_deficit_ratio * ai_rules.get("action_selection",{}).get("low_hp_heal_urgency_multiplier", 2.0))
@@ -693,9 +723,11 @@ async def _choose_action(
     #     pass
 
     # TODO: Check for special conditions (e.g., NPC low HP -> prioritize healing ability if available and effective)
-    actor_max_hp = actor_npc.properties_json.get("stats",{}).get("hp",1)
+    actor_props = actor_npc.properties_json or {}
+    actor_stats = actor_props.get("stats", {})
+    actor_max_hp = actor_stats.get("hp",1)
     actor_current_hp = actor_combat_data.get("hp", actor_max_hp)
-    hp_percentage = actor_current_hp / actor_max_hp if actor_max_hp > 0 else 1.0
+    hp_percentage = (actor_current_hp / actor_max_hp) if actor_max_hp > 0 else 1.0
 
     heal_threshold = ai_rules.get("action_selection",{}).get("resource_thresholds",{}).get("self_hp_below_for_heal_ability")
     if heal_threshold and hp_percentage < heal_threshold:
@@ -729,11 +761,25 @@ def _format_action_result(
     # For now, assume CombatEngine can handle these strings.
     # combat_action_type = CombatActionType.ATTACK if action_type_str == "attack" else CombatActionType.USE_ABILITY
 
+    target_entity_model = target_info.get("entity") # Use .get for safety on target_info itself
+    target_combat_data = target_info.get("combat_data")
+
+    if not isinstance(target_entity_model, (Player, GeneratedNpc)):
+        # This case should ideally not be reached if upstream logic is correct.
+        # Consider logging an error or raising an exception.
+        # For now, return an error-like action or handle as per game design.
+        # This addresses Pyright's concern about target_info["entity"] potentially being a Dict.
+        return {"action_type": "error", "message": "Invalid target entity type in _format_action_result."}
+
+    if not isinstance(target_combat_data, dict):
+        return {"action_type": "error", "message": "Invalid target combat data in _format_action_result."}
+
+
     formatted_action = {
         "action_type": action_type_str,
-        "target_id": target_info["entity"].id,
+        "target_id": target_entity_model.id, # Now using the validated model instance
         # Ensure target_type is the string value from EntityType enum
-        "target_type": target_info["combat_data"]["type"] # This should already be the string like "player" or "npc"
+        "target_type": target_combat_data.get("type") # Use .get on the dict
     }
 
     if action_type_str == "ability":
@@ -773,7 +819,12 @@ async def get_npc_combat_action(
         return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} not found for guild {guild_id}."}
 
     # Find actor's current combat data (HP, resources, cooldowns, etc.)
-    actor_combat_data = next((p for p in combat_encounter.participants_json if p["id"] == actor_npc.id and p["type"] == EntityType.NPC.value), None)
+    participants_list = combat_encounter.participants_json
+    if not isinstance(participants_list, list):
+        # TODO: Log this error
+        return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} has invalid participants_json format."}
+
+    actor_combat_data = next((p for p in participants_list if isinstance(p, dict) and p.get("id") == actor_npc.id and p.get("type") == EntityType.NPC.value), None)
     if not actor_combat_data:
         # TODO: Log this error - actor NPC not found in participant list of the combat encounter
         return {"action_type": "error", "message": f"Actor NPC {npc_id} not found in combat {combat_instance_id} participants."}
@@ -786,7 +837,8 @@ async def get_npc_combat_action(
     ai_rules = await _get_npc_ai_rules(session, guild_id, actor_npc, combat_encounter)
 
     # 3. Get potential targets
-    potential_targets = await _get_potential_targets(session, actor_npc, combat_encounter, ai_rules, guild_id)
+    # Pass participants_list to _get_potential_targets to avoid re-accessing combat_encounter.participants_json
+    potential_targets = await _get_potential_targets(session, actor_npc, combat_encounter, ai_rules, guild_id, participants_list)
     if not potential_targets:
        return {"action_type": "idle", "reason": "No targets available."}
 
