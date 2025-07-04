@@ -173,7 +173,7 @@ BOT_COGS = [
     "src.bot.commands.movement_commands",
     "src.bot.commands.master_ai_commands", # New cog for AI moderation
     "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
-    "src.bot.commands.map_commands", # Added Map Master commands
+    # "src.bot.commands.map_commands", # Added Map Master commands - Disabled to prevent conflict with master_map_commands
     "src.bot.commands.master_map_commands", # Cog for Master Map Management
     # "src.bot.general_commands", # БЫЛ "src.bot.commands" - Закомментировано, так как general_commands.py добавляется ниже
 ]

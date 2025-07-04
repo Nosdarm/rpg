@@ -46,7 +46,7 @@ from . import report_formatter # Import new report formatter
 # format_log_entry is now internal, only format_turn_report is public
 from .report_formatter import format_turn_report
 from . import ability_system # Import the new ability_system module
-from .ability_system import activate_ability_v2, apply_status_v2, remove_status # Import public functions
+from .ability_system import activate_ability, apply_status, remove_status # Import public functions
 from . import world_generation # Added new module
 from .world_generation import generate_location # Updated function name
 from . import map_management # Import the map_management module
@@ -101,8 +101,8 @@ __all__ = [
     # "format_log_entry", # This is now an internal helper _format_log_entry_with_names_cache
     "format_turn_report",
     "ability_system",
-    "activate_ability_v2",
-    "apply_status_v2",
+    "activate_ability",
+    "apply_status",
     "remove_status",
     "world_generation",
     "generate_location", # Updated function name

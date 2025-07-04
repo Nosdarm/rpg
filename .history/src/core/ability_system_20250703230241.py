@@ -15,7 +15,7 @@ from src.models import (
     RuleConfig
 )
 from src.models.ability_outcomes import AbilityOutcomeDetails, AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail
-from src.models.enums import RelationshipEntityType, EventType, PlayerStatus
+from src.models.enums import RelationshipEntityType, EventType
 # Removed CRUDBase import as it's not directly used here, but through specific cruds
 from src.core.crud.crud_ability import ability_crud
 from src.core.crud.crud_status_effect import status_effect_crud
@@ -23,8 +23,6 @@ from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_npc import npc_crud
 from src.core.game_events import log_event
 from src.core.rules import get_rule
-from src.core.entity_stats_utils import get_entity_hp, set_entity_hp, change_entity_hp, get_entity_stat, set_entity_stat, change_entity_stat # Added
-from sqlalchemy.sql import func # Added
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +35,97 @@ async def _get_entity(session: AsyncSession, guild_id: int, entity_id: int, enti
         return await npc_crud.get(session, id=entity_id, guild_id=guild_id)
     logger.warning(f"Unsupported entity type for ability system: {entity_type}")
     return None
+
+async def activate_ability(
+    session: AsyncSession,
+    guild_id: int,
+    entity_id: int, # ID of the entity using the ability (Player or NPC)
+    entity_type: str, # "player" or "npc"
+    ability_id: int,
+    target_entity_ids: Optional[List[int]] = None,
+    target_entity_types: Optional[List[str]] = None # Parallel to target_entity_ids
+) -> AbilityOutcomeDetails:
+    """
+    Handles the activation of an ability by an entity.
+    """
+    outcome = AbilityOutcomeDetails(success=False, message="Ability activation failed.")
+
+    # 1. Load Ability
+    db_ability = await ability_crud.get(session, id=ability_id) # Abilities can be global or guild-specific
+    if not db_ability:
+        outcome.message = "Ability not found."
+        return outcome
+    if db_ability.guild_id is not None and db_ability.guild_id != guild_id:
+        outcome.message = "Ability not found for this guild."
+        return outcome
+
+    outcome.raw_ability_properties = db_ability.properties_json
+
+    # 2. Load Caster Entity
+    caster = await _get_entity(session, guild_id, entity_id, entity_type)
+    if not caster:
+        outcome.message = f"{entity_type.capitalize()} (caster) not found."
+        return outcome
+
+    # 3. Load Target Entities (if any)
+    targets: List[Union[Player, GeneratedNpc]] = []
+    if target_entity_ids and target_entity_types and len(target_entity_ids) == len(target_entity_types):
+        for i, target_id in enumerate(target_entity_ids):
+            target_type = target_entity_types[i]
+            target_entity = await _get_entity(session, guild_id, target_id, target_type)
+            if target_entity:
+                targets.append(target_entity)
+            else:
+                logger.warning(f"Target entity {target_type} ID {target_id} not found for ability {db_ability.static_id}.")
+
+    # Placeholder for actual ability logic
+    logger.info(f"Ability '{db_ability.static_id}' activated by {entity_type} ID {entity_id} on {len(targets)} targets.")
+    # TODO: Implement checks (resources, cooldowns, conditions based on RuleConfig)
+    # TODO: Implement effects (damage, healing, status application based on db_ability.properties_json and RuleConfig)
+    # TODO: Update caster and target states
+    # TODO: Call log_event
+
+    outcome.success = True # Placeholder
+    outcome.message = f"Ability '{db_ability.static_id}' activated successfully (MVP)." # Placeholder
+
+    # Example of logging (actual details would come from effect processing)
+    # await log_event(
+    #     session=session,
+    #     guild_id=guild_id,
+    #     event_type=EventType.ABILITY_USED, # Needs to be added to EventType enum
+    #     details_json={
+    #         "caster_id": caster.id,
+    #         "caster_type": entity_type,
+    #         "ability_id": db_ability.id,
+    #         "ability_static_id": db_ability.static_id,
+    #         "targets": [{"id": t.id, "type": t.__class__.__name__.lower()} for t in targets],
+    #         "outcome": outcome.model_dump()
+    #     },
+    #     player_id=caster.id if isinstance(caster, Player) else None,
+    #     # location_id=caster.current_location_id # If applicable
+    # )
+    # outcome.success = True # Placeholder
+    # outcome.message = f"Ability '{db_ability.static_id}' activated successfully (MVP)." # Placeholder
+
+    # Example of logging (actual details would come from effect processing)
+    # await log_event(
+    #     session=session,
+    #     guild_id=guild_id,
+    #     event_type=EventType.ABILITY_USED, # Needs to be added to EventType enum
+    #     details_json={
+    #         "caster_id": caster.id,
+    #         "caster_type": entity_type,
+    #         "ability_id": db_ability.id,
+    #         "ability_static_id": db_ability.static_id,
+    #         "targets": [{"id": t.id, "type": t.__class__.__name__.lower()} for t in targets],
+    #         "outcome": outcome.model_dump()
+    #     },
+    #     player_id=caster.id if isinstance(caster, Player) else None,
+    #     # location_id=caster.current_location_id # If applicable
+    # )
+
+    return outcome
+
 
 async def remove_status(
     session: AsyncSession,
@@ -122,7 +211,8 @@ async def remove_status(
 # Using CRUD operations now
 # Removed local get_ability_by_id_or_static_id and get_status_effect_by_static_id
 
-async def activate_ability( # Signature updated to use ability_identifier
+
+async def activate_ability(
     session: AsyncSession,
     guild_id: int,
     entity_id: int,
@@ -216,10 +306,12 @@ async def activate_ability( # Signature updated to use ability_identifier
         if "caster_must_be_in_combat" in activation_conditions:
             caster_combat_status = None
             if isinstance(caster, Player):
-                # Assuming PlayerStatus.COMBAT enum member exists and is comparable
-                caster_combat_status = caster.current_status == PlayerStatus.COMBAT.value # Compare with the enum's value
+                # Assuming PlayerStatus.IN_COMBAT enum member exists and is comparable
+                # For direct enum comparison, ensure PlayerStatus is imported or use its string value
+                from src.models.enums import PlayerStatus # Ensure this import is at the top if not already
+                caster_combat_status = caster.current_status == PlayerStatus.IN_COMBAT
             elif isinstance(caster, GeneratedNpc):
-                # Assuming NPC status is stored in properties_json['stats']['status']
+                # Assuming NPC status is stored in properties_json['status']
                 npc_status_str = get_entity_stat(caster, "status")
                 caster_combat_status = npc_status_str == "in_combat" # Or use an enum/constant
 
@@ -286,11 +378,11 @@ async def activate_ability( # Signature updated to use ability_identifier
 
                     # logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
                     # outcome.damage_dealt.append(DamageDetail( # This is now handled above
-                    #     target_entity_id=target_individual.id,
-                    #     target_entity_type=target_individual_type_str,
-                    #     amount=damage_amount,
-                    #     damage_type=effect_data.get("damage_type")
-                    # )) # Removed extra parenthesis if the block is commented
+                        target_entity_id=target_individual.id,
+                        target_entity_type=target_individual_type_str,
+                        amount=damage_amount,
+                        damage_type=effect_data.get("damage_type")
+                    ))
 
                 elif effect_type == "apply_status":
                     status_to_apply_static_id = effect_data.get("status_static_id")
