@@ -86,6 +86,15 @@ class GeneralCog(commands.Cog, name="General Commands"):
         # session будет автоматически передана _start_command_internal декоратором @transactional
         await self._start_command_internal(interaction)
 
+    @app_commands.command(name="ping", description="Проверяет задержку ответа бота.")
+    async def ping_command(self, interaction: discord.Interaction):
+        """
+        Отправляет задержку бота в миллисекундах.
+        """
+        latency_ms = round(self.bot.latency * 1000)
+        logger.info(f"Команда /ping вызвана {interaction.user} на сервере {interaction.guild.name if interaction.guild else 'DM'}. Задержка: {latency_ms}ms")
+        await interaction.response.send_message(f"Понг! Задержка: {latency_ms}ms", ephemeral=True)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(GeneralCog(bot))
     logger.info("GeneralCog успешно загружен.")
