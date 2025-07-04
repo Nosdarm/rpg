@@ -4,7 +4,7 @@ from typing import Optional, List, Union, Dict, Any, Tuple # Added Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Model imports
-from src.models import Player, GeneratedNpc, CombatEncounter
+from src.models import Player, GeneratedNpc, CombatEncounter, Party # Added Party
 from src.models.enums import CombatStatus, PlayerStatus, PartyTurnStatus, EventType
 
 # Core module imports

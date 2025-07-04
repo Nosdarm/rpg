@@ -4,6 +4,7 @@ from typing import Optional
 
 from src.core.crud_base_definitions import CRUDBase
 from src.models.combat_encounter import CombatEncounter
+from src.models.enums import CombatStatus # Added import for CombatStatus
 
 
 class CRUDCombatEncounter(CRUDBase[CombatEncounter]):
@@ -15,11 +16,10 @@ class CRUDCombatEncounter(CRUDBase[CombatEncounter]):
         (Example of a specific method, not strictly required by current combat_engine)
         """
         # Assuming CombatStatus has an 'ACTIVE' member or similar relevant statuses
-        # from src.models.enums import CombatStatus
-        # query = select(self.model).filter(self.model.guild_id == guild_id, self.model.status == CombatStatus.ACTIVE)
-        # result = await db.execute(query)
-        # return result.scalars().all()
-        return [] # Return empty list to satisfy type hint
+        query = select(self.model).filter(self.model.guild_id == guild_id, self.model.status == CombatStatus.ACTIVE)
+        result = await db.execute(query)
+        return result.scalars().all()
+        # return [] # Return empty list to satisfy type hint - Replaced with actual query
 
     async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[CombatEncounter]:
         """
