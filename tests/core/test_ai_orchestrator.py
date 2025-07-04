@@ -1,9 +1,16 @@
+import sys
+import os
 import pytest
 import json
 import discord
 import datetime # For PendingGeneration timestamps if needed for asserts
 from unittest.mock import AsyncMock, patch, MagicMock, call
 from typing import Optional, Union
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext import commands

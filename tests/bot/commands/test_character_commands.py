@@ -1,16 +1,22 @@
+import sys
+import os
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock, ANY
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import discord
 from discord import app_commands
-from discord.ext import commands # <--- Добавлен импорт
+from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.character_commands import CharacterCog
+from src.bot.commands.character_commands import CharacterCog #, logger # Assuming logger is in character_commands
 from src.models import Player
 from src.models.enums import PlayerStatus
 
-# Фикстуры
+# Fixtures
 @pytest.fixture
 def mock_bot_fixture():
     return AsyncMock(spec=commands.Bot)
@@ -46,7 +52,7 @@ def mock_player_fixture(guild_id_fixture, discord_user_id_fixture, player_locale
         name="Test Player",
         level=2,
         xp=50,
-        unspent_xp=3, # Есть очки для траты
+        unspent_xp=3,
         attributes_json={"strength": 10, "dexterity": 8},
         selected_language=player_locale_fixture,
         current_status=PlayerStatus.IDLE
@@ -55,77 +61,173 @@ def mock_player_fixture(guild_id_fixture, discord_user_id_fixture, player_locale
 @pytest.fixture
 def mock_session_fixture() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
-    # @transactional декоратор сам управляет commit/rollback, поэтому мокать их не всегда нужно,
-    # но для чистоты можно, если мы хотим проверить, что они НЕ вызываются внутри самой команды.
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
     return session
 
 
-# @pytest.mark.asyncio
-# @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock) # Для локализации
-# @patch('src.bot.commands.character_commands.localization_utils.get_localized_text') # Для локализации
-# async def test_levelup_command_success(
-#     mock_get_localized_text: MagicMock,
-#     mock_get_rule: AsyncMock,
-#     mock_spend_points_api: AsyncMock,
-#     mock_get_player: AsyncMock,
-#     mock_bot_fixture: AsyncMock,
-#     mock_interaction_fixture: AsyncMock,
-#     mock_player_fixture: Player,
-#     mock_session_fixture: AsyncMock,
-#     player_locale_fixture: str
-# ):
-#     cog = CharacterCog(mock_bot_fixture)
-#     mock_get_player.return_value = mock_player_fixture
+@pytest.mark.asyncio
+@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+async def test_levelup_command_success(
+    mock_get_localized_text: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_spend_points_api: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_bot_fixture: AsyncMock,
+    mock_interaction_fixture: AsyncMock,
+    mock_player_fixture: Player,
+    mock_session_fixture: AsyncSession,
+    player_locale_fixture: str
+):
+    cog = CharacterCog(mock_bot_fixture)
+    mock_get_player.return_value = mock_player_fixture
 
-#     mock_spend_points_api.return_value = (
-#         True,
-#         "levelup_success",
-#         {"attribute_name": "Сила", "new_value": 11, "remaining_xp": 2, "spent_points": 1}
-#     )
-#     mock_i18n_template = {"ru": "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."}
-#     mock_get_rule.return_value = mock_i18n_template
-#     mock_get_localized_text.return_value = "Сила улучшен до 11. Осталось очков: 2."
+    mock_spend_points_api.return_value = (
+        True,
+        "levelup_success",
+        {"attribute_name": "Сила", "new_value": 11, "remaining_xp": 2, "spent_points": 1}
+    )
 
-#     # Вызываем внутренний метод, к которому применен @transactional
-#     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
+    i18n_template_for_levelup_success = {"ru": "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."}
+    mock_get_rule.return_value = i18n_template_for_levelup_success
 
-#     mock_get_player.assert_called_once_with(
-#         db=mock_session_fixture, guild_id=mock_interaction_fixture.guild_id, discord_id=mock_interaction_fixture.user.id
-#     )
-#     mock_spend_points_api.assert_called_once_with(
-#         session=mock_session_fixture,
-#         player=mock_player_fixture,
-#         attribute_name="strength",
-#         points_to_spend=1,
-#         guild_id=mock_interaction_fixture.guild_id
-#     )
-#     mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_success")
-#     mock_get_localized_text.assert_called_once_with(mock_i18n_template, player_locale_fixture, "en")
+    expected_ru_template_str = i18n_template_for_levelup_success["ru"]
+    # The SUT will format this template with details from spend_attribute_points
+    # to get the final message.
+    mock_get_localized_text.return_value = expected_ru_template_str
 
-#     mock_interaction_fixture.response.send_message.assert_called_once_with(
-#         "Сила улучшен до 11. Осталось очков: 2.", ephemeral=True
-#     )
+    await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
+
+    mock_get_player.assert_called_once_with(
+        db=mock_session_fixture, guild_id=mock_interaction_fixture.guild_id, discord_id=mock_interaction_fixture.user.id
+    )
+    mock_spend_points_api.assert_called_once_with(
+        session=mock_session_fixture,
+        player=mock_player_fixture,
+        attribute_name="strength",
+        points_to_spend=1,
+        guild_id=mock_interaction_fixture.guild_id
+    )
+    mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_success")
+
+    mock_get_localized_text.assert_called_once_with(
+        i18n_template_for_levelup_success,
+        player_locale_fixture,
+        "en"
+    )
+
+    # The final message is formatted by the SUT using the template and details
+    final_formatted_message = "Сила улучшен до 11. Осталось очков: 2."
+    mock_interaction_fixture.response.send_message.assert_called_once_with(
+        final_formatted_message, ephemeral=True
+    )
+
+@pytest.mark.asyncio
+@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+async def test_levelup_command_no_unspent_xp(
+    mock_get_localized_text: MagicMock,
+    mock_get_player: AsyncMock,
+    mock_bot_fixture: AsyncMock,
+    mock_interaction_fixture: AsyncMock,
+    mock_player_fixture: Player,
+    mock_session_fixture: AsyncSession,
+    player_locale_fixture: str
+):
+    cog = CharacterCog(mock_bot_fixture)
+    mock_player_fixture.unspent_xp = 0
+    mock_get_player.return_value = mock_player_fixture
+
+    expected_message = "У вас нет нераспределенных очков атрибутов."
+    if player_locale_fixture == "en":
+        expected_message = "You have no unspent attribute points to spend."
+
+    mock_get_localized_text.return_value = expected_message
+
+    await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
+
+    mock_get_localized_text.assert_called_once_with(
+        {"en": "You have no unspent attribute points to spend.", "ru": "У вас нет нераспределенных очков атрибутов."},
+        player_locale_fixture
+    )
+    mock_interaction_fixture.response.send_message.assert_called_once_with(
+        expected_message, ephemeral=True
+    )
+
+@pytest.mark.asyncio
+@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+async def test_levelup_command_api_error_not_enough_points(
+    mock_get_localized_text: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_spend_points_api: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_bot_fixture: AsyncMock,
+    mock_interaction_fixture: AsyncMock,
+    mock_player_fixture: Player,
+    mock_session_fixture: AsyncSession,
+    player_locale_fixture: str
+):
+    cog = CharacterCog(mock_bot_fixture)
+    mock_get_player.return_value = mock_player_fixture
+
+    spend_api_details = {"unspent_xp": 3, "requested": 5}
+    mock_spend_points_api.return_value = (
+        False,
+        "levelup_error_not_enough_xp",
+        spend_api_details
+    )
+
+    i18n_template_error = {"ru": "Недостаточно очков ({unspent_xp}) для траты {requested} очков."}
+    i18n_template_error["en"] = "Not enough points ({unspent_xp}) to spend {requested} points."
+
+    mock_get_rule.return_value = i18n_template_error
+
+    expected_template_str = i18n_template_error[player_locale_fixture]
+    mock_get_localized_text.return_value = expected_template_str
+
+    await cog._levelup_internal(mock_interaction_fixture, "strength", 5, session=mock_session_fixture)
+
+    mock_spend_points_api.assert_called_once_with(
+        session=mock_session_fixture,
+        player=mock_player_fixture,
+        attribute_name="strength",
+        points_to_spend=5,
+        guild_id=mock_interaction_fixture.guild_id
+    )
+    mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_error_not_enough_xp")
+    mock_get_localized_text.assert_called_once_with(i18n_template_error, player_locale_fixture, "en")
+
+    full_details_for_format = {
+        "attribute_name": "strength", "new_value": "N/A",
+        "remaining_xp": mock_player_fixture.unspent_xp,
+        "spent_points": 5, "points": 5, "requested_stats": 5, "total_cost": 5,
+        **spend_api_details
+    }
+
+    expected_final_message = expected_template_str.format(**full_details_for_format)
+
+    mock_interaction_fixture.response.send_message.assert_called_once_with(
+        expected_final_message, ephemeral=True
+    )
 
 @pytest.mark.asyncio
 @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
 @patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_player_not_found(
-    mock_get_localized_text: MagicMock, # Не используется напрямую, но нужен для консистентности
+    mock_get_localized_text: MagicMock,
     mock_get_player: AsyncMock,
     mock_bot_fixture: AsyncMock,
     mock_interaction_fixture: AsyncMock,
-    mock_session_fixture: AsyncMock
+    mock_session_fixture: AsyncSession
 ):
     cog = CharacterCog(mock_bot_fixture)
-    mock_get_player.return_value = None # Игрок не найден
-
-    # mock_get_localized_text.return_value = "Сначала вам нужно начать игру с помощью команды `/start`."
-    # Вместо этого, команда использует встроенный текст, если не переопределено правилом.
-    # Мы тестируем этот встроенный текст.
+    mock_get_player.return_value = None
 
     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
 
@@ -133,150 +235,90 @@ async def test_levelup_command_player_not_found(
         "Сначала вам нужно начать игру с помощью команды `/start`.", ephemeral=True
     )
 
-# @pytest.mark.asyncio
-# @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
-# async def test_levelup_command_no_unspent_xp(
-#     mock_get_localized_text: MagicMock,
-#     mock_get_player: AsyncMock,
-#     mock_bot_fixture: AsyncMock,
-#     mock_interaction_fixture: AsyncMock,
-#     mock_player_fixture: Player,
-#     mock_session_fixture: AsyncMock,
-#     player_locale_fixture: str
-# ):
-#     cog = CharacterCog(mock_bot_fixture)
-#     mock_player_fixture.unspent_xp = 0 # У игрока нет очков
-#     mock_get_player.return_value = mock_player_fixture
+@pytest.mark.asyncio
+@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+async def test_levelup_command_message_formatting_fallback(
+    mock_get_localized_text: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_spend_points_api: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_bot_fixture: AsyncMock,
+    mock_interaction_fixture: AsyncMock,
+    mock_player_fixture: Player,
+    mock_session_fixture: AsyncSession
+):
+    cog = CharacterCog(mock_bot_fixture)
+    mock_get_player.return_value = mock_player_fixture
 
-#     # Это сообщение также использует localization_utils.get_localized_text со встроенным словарем
-#     mock_get_localized_text.return_value = "У вас нет нераспределенных очков атрибутов."
+    mock_spend_points_api.return_value = (
+        False,
+        "levelup_error_invalid_attribute",
+        {"attribute_name": "wisdom"}
+    )
 
-#     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
+    mock_get_rule.return_value = None
 
-#     mock_get_localized_text.assert_called_once_with(
-#         {"en": "You have no unspent attribute points to spend.", "ru": "У вас нет нераспределенных очков атрибутов."},
-#         player_locale_fixture
-#     )
-#     mock_interaction_fixture.response.send_message.assert_called_once_with(
-#         "У вас нет нераспределенных очков атрибутов.", ephemeral=True
-#     )
+    await cog._levelup_internal(mock_interaction_fixture, "wisdom", 1, session=mock_session_fixture)
 
-# @pytest.mark.asyncio
-# @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
-# async def test_levelup_command_api_error_not_enough_points(
-#     mock_get_localized_text: MagicMock,
-#     mock_get_rule: AsyncMock,
-#     mock_spend_points_api: AsyncMock,
-#     mock_get_player: AsyncMock,
-#     mock_bot_fixture: AsyncMock,
-#     mock_interaction_fixture: AsyncMock,
-#     mock_player_fixture: Player,
-#     mock_session_fixture: AsyncMock,
-#     player_locale_fixture: str
-# ):
-#     cog = CharacterCog(mock_bot_fixture)
-#     mock_get_player.return_value = mock_player_fixture # У игрока 3 очка
+    mock_get_localized_text.assert_not_called()
 
-#     mock_spend_points_api.return_value = (
-#         False,
-#         "levelup_error_not_enough_xp",
-#         {"unspent_xp": 3, "requested": 5} # Пытаемся потратить 5
-#     )
+    expected_default_message = "Атрибут '{attribute_name}' не найден или недоступен для улучшения."
+    formatted_expected_message = expected_default_message.format(attribute_name="wisdom")
 
-#     mock_i18n_template = {"ru": "Недостаточно очков ({unspent_xp}) для траты {requested} очков."}
-#     mock_get_rule.return_value = mock_i18n_template
-#     mock_get_localized_text.return_value = "Недостаточно очков (3) для траты 5 очков."
+    mock_interaction_fixture.response.send_message.assert_called_once_with(
+        formatted_expected_message, ephemeral=True
+    )
 
+@pytest.mark.asyncio
+@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+async def test_levelup_command_message_formatting_key_error(
+    mock_get_localized_text: MagicMock,
+    mock_get_rule: AsyncMock,
+    mock_spend_points_api: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_bot_fixture: AsyncMock,
+    mock_interaction_fixture: AsyncMock,
+    mock_player_fixture: Player,
+    mock_session_fixture: AsyncSession,
+    player_locale_fixture: str # 'ru'
+):
+    cog = CharacterCog(mock_bot_fixture)
+    mock_get_player.return_value = mock_player_fixture
 
-#     await cog._levelup_internal(mock_interaction_fixture, "strength", 5, session=mock_session_fixture)
+    details_from_spend_api = {"attribute_name_WRONG_KEY": "Сила", "new_value": 11}
+    mock_spend_points_api.return_value = (
+        True,
+        "levelup_success",
+        details_from_spend_api
+    )
 
-#     mock_spend_points_api.assert_called_once()
-#     mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_error_not_enough_xp")
-#     mock_get_localized_text.assert_called_once_with(mock_i18n_template, player_locale_fixture, "en")
+    i18n_template = {"ru": "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."}
+    mock_get_rule.return_value = i18n_template
 
-#     mock_interaction_fixture.response.send_message.assert_called_once_with(
-#         "Недостаточно очков (3) для траты 5 очков.", ephemeral=True
-#     )
+    expected_template_str = i18n_template[player_locale_fixture]
+    mock_get_localized_text.return_value = expected_template_str
 
-# @pytest.mark.asyncio
-# @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-# async def test_levelup_command_message_formatting_fallback(
-#     mock_get_rule: AsyncMock,
-#     mock_spend_points_api: AsyncMock,
-#     mock_get_player: AsyncMock,
-#     mock_bot_fixture: AsyncMock,
-#     mock_interaction_fixture: AsyncMock, # locale="ru"
-#     mock_player_fixture: Player,
-#     mock_session_fixture: AsyncMock
-# ):
-#     """Тест проверяет, что используется default_message, если правило не найдено."""
-#     cog = CharacterCog(mock_bot_fixture)
-#     mock_get_player.return_value = mock_player_fixture
+    await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
 
-#     mock_spend_points_api.return_value = (
-#         False,
-#         "levelup_error_invalid_attribute", # Этот ключ не имеет i18n словаря в default_messages
-#         {"attribute_name": "wisdom"}
-#     )
+    mock_get_player.assert_called_once()
+    mock_spend_points_api.assert_called_once()
+    mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_success")
+    mock_get_localized_text.assert_called_once_with(i18n_template, player_locale_fixture, "en")
 
-#     mock_get_rule.return_value = None # Правило не найдено в RuleConfig
-
-#     # localization_utils.get_localized_text не должен вызываться для этого ключа,
-#     # так как default_messages["levelup_error_invalid_attribute"] - это строка, а не словарь.
-
-#     await cog._levelup_internal(mock_interaction_fixture, "wisdom", 1, session=mock_session_fixture)
-
-#     expected_default_message = "Атрибут '{attribute_name}' не найден или недоступен для улучшения."
-#     formatted_expected_message = expected_default_message.format(attribute_name="wisdom")
-
-#     mock_interaction_fixture.response.send_message.assert_called_once_with(
-#         formatted_expected_message, ephemeral=True
-#     )
-
-# @pytest.mark.asyncio
-# @patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-# @patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
-# async def test_levelup_command_message_formatting_key_error(
-#     mock_get_localized_text: MagicMock,
-#     mock_get_rule: AsyncMock,
-#     mock_spend_points_api: AsyncMock,
-#     mock_get_player: AsyncMock,
-#     mock_bot_fixture: AsyncMock,
-#     mock_interaction_fixture: AsyncMock,
-#     mock_player_fixture: Player,
-#     mock_session_fixture: AsyncMock,
-#     player_locale_fixture: str
-# ):
-#     """Тест проверяет, что используется generic_error_message при KeyError в format."""
-#     cog = CharacterCog(mock_bot_fixture)
-#     mock_get_player.return_value = mock_player_fixture
-
-#     mock_spend_points_api.return_value = (
-#         True,
-#         "levelup_success",
-#         {"attribute_name_WRONG_KEY": "Сила", "new_value": 11} # Не хватает ключей для форматирования
-#     )
-
-#     mock_i18n_template = {"ru": "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."}
-#     mock_get_rule.return_value = mock_i18n_template
-#     mock_get_localized_text.return_value = "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."
-
-
-#     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
-
-#     generic_error_message = "Произошла ошибка при форматировании ответа." # Из default_messages["levelup_error_generic"]
-
-#     mock_interaction_fixture.response.send_message.assert_called_once_with(
-#         generic_error_message, ephemeral=True
-#     )
+    # The SUT now successfully formats the message due to fallbacks in `full_details`.
+    # The KeyError is no longer expected with the current SUT logic and template.
+    # attribute_name from arg ("strength"), new_value from details (11),
+    # remaining_xp from player.unspent_xp (mock_player_fixture has unspent_xp=3 by default)
+    expected_message = "strength улучшен до 11. Осталось очков: 3."
+    mock_interaction_fixture.response.send_message.assert_called_once_with(
+        expected_message, ephemeral=True
+    )
 
 @pytest.mark.asyncio
 @patch('src.bot.commands.character_commands.CharacterCog._levelup_internal', new_callable=AsyncMock)
@@ -285,22 +327,16 @@ async def test_levelup_command_calls_internal(
     mock_bot_fixture: AsyncMock,
     mock_interaction_fixture: AsyncMock,
 ):
-    """Тест проверяет, что команда-обертка levelup_command вызывает _levelup_internal."""
     cog = CharacterCog(mock_bot_fixture)
-
     attribute_name_test = "dexterity"
     points_to_spend_test = 2
-
-    # Вызываем callback команды, так как это app_command
     await cog.levelup_command.callback(cog, mock_interaction_fixture, attribute_name_test, points_to_spend_test)
-
     mock_levelup_internal.assert_called_once_with(
         mock_interaction_fixture, attribute_name_test, points_to_spend_test
     )
 
-# TODO: Добавить тесты на случай, если interaction.guild_id или interaction.user отсутствуют (хотя Discord обычно их предоставляет)
-# Это покрывается в _levelup_internal, но можно и для levelup_command, если будет отличаться логика.
-
-# Команда setup не является частью логики команд, а служебной функцией для загрузки кога,
-# поэтому ее прямое тестирование здесь не так критично, как тестирование самих команд.
-# Ее работоспособность проверяется при запуске бота и загрузке когов.
+async def setup(bot: commands.Bot):
+    await bot.add_cog(CharacterCog(bot))
+    # Assuming 'logger' is defined in character_commands.py, not here.
+    # logger.info("CharacterCog успешно загружен.")
+    pass

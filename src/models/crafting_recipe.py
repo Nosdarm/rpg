@@ -5,6 +5,7 @@ from sqlalchemy.schema import Index, UniqueConstraint
 from typing import Optional, Dict, Any, List
 
 from .base import Base
+from .custom_types import JsonBForSQLite # Import the custom type
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
 # if TYPE_CHECKING:
@@ -28,8 +29,8 @@ class CraftingRecipe(Base):
     # Unique identifier for the recipe, e.g., "potion_healing_basic", "sword_iron_common"
     # Uniqueness considerations similar to Ability/Skill models.
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False, default=lambda: {})
-    description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSONB, nullable=True, default=lambda: {})
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
 
     result_item_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("items.id", ondelete="CASCADE")
@@ -45,7 +46,7 @@ class CraftingRecipe(Base):
     # Example: [{"item_static_id": "herb_common", "quantity": 3}, {"item_static_id": "water_flask", "quantity": 1}]
     # Storing static_id might be more resilient to item ID changes if items are frequently recreated, but FK to items.id is cleaner for DB integrity.
     # Let's assume item_id is used here.
-    ingredients_json: Mapped[List[Dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=lambda: [])
+    ingredients_json: Mapped[List[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: [])
     # Example: [{"item_id": 123, "quantity": 3}, {"item_id": 456, "quantity": 1}]
 
 
@@ -57,7 +58,7 @@ class CraftingRecipe(Base):
     required_skill_level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Other properties, e.g., crafting station required, time to craft, blueprint item required to unlock.
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example:
     # {
     #   "crafting_station_type": "anvil", // "alchemy_lab", "workbench"
