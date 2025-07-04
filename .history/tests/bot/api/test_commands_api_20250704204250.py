@@ -3,8 +3,7 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi import HTTPException
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient, HTTPException
 from discord.ext import commands as ext_commands # Для мока типа бота
 
 # Add the project root to sys.path

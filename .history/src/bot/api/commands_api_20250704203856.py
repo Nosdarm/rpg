@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from discord.ext import commands as ext_commands
