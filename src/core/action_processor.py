@@ -233,11 +233,11 @@ async def _handle_attack_action_wrapper(
 
     # 2. Check Existing Combat
     # Check for actor
-    actor_combat = await crud_combat_encounter.get_active_combat_for_entity(
+    actor_combat = await combat_encounter_crud.get_active_combat_for_entity(
         db=session, guild_id=guild_id, entity_id=actor_player.id, entity_type="player"
     )
     # Check for target
-    target_combat = await crud_combat_encounter.get_active_combat_for_entity(
+    target_combat = await combat_encounter_crud.get_active_combat_for_entity(
         db=session, guild_id=guild_id, entity_id=target_entity_data["id"], entity_type=target_entity_data["type"]
     )
 
