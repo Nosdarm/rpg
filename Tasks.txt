@@ -88,9 +88,7 @@ This block presents tasks related to factions, relationships between entities, a
 
 {Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n). - Moved to Done.txt}
 
-Task 34: 🎭 8.2 Relationships Model (Guild-Scoped).
-Description: Define the model for storing relationships between entities within a guild. (Moved from 8.1).
-Implement the Relationship model (0.2/7). With a guild_id field. Fields: id (PK), entity1_type (TEXT, ENUM Player/Party/Npc/Faction), entity1_id (INT), entity2_type (TEXT), entity2_id (INT), type (TEXT enum), value (INT), source_log_id (INTEGER FK, Nullable). (Composite Unique Index: guild_id, entity1_type, entity1_id, entity2_type, entity2_id).
+{Task 34: 🎭 8.2 Relationships Model (Guild-Scoped). - Moved to Done.txt}
 
 Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild).
 Description: AI generates factions and their relationships for a guild according to rules. (Moved from 8.2).
