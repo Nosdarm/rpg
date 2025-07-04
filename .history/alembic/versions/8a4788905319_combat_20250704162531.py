@@ -10,7 +10,6 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-from src.models.custom_types import JsonBForSQLite # Added import
 
 # revision identifiers, used by Alembic.
 revision: str = '8a4788905319'
@@ -25,7 +24,7 @@ def upgrade() -> None:
     op.alter_column('abilities', 'guild_id',
                existing_type=sa.BIGINT(),
                nullable=False)
-    op.add_column('active_status_effects', sa.Column('custom_properties_json', JsonBForSQLite(), nullable=True)) # Changed
+    op.add_column('active_status_effects', sa.Column('custom_properties_json', src.models.custom_types.JsonBForSQLite(), nullable=True))
     op.alter_column('active_status_effects', 'entity_id',
                existing_type=sa.BIGINT(),
                type_=sa.Integer(),
@@ -57,32 +56,32 @@ def upgrade() -> None:
     op.add_column('guild_configs', sa.Column('name', sa.Text(), nullable=True))
     op.alter_column('locations', 'name_i18n',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=False)
     op.alter_column('locations', 'descriptions_i18n',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=False)
     op.alter_column('locations', 'coordinates_json',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=True)
     op.alter_column('locations', 'neighbor_locations_json',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=True)
     op.alter_column('locations', 'generated_details_json',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=True)
     op.alter_column('locations', 'ai_metadata_json',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
-               type_=JsonBForSQLite(), # Changed
+               type_=src.models.custom_types.JsonBForSQLite(),
                existing_nullable=True)
     op.add_column('parties', sa.Column('leader_player_id', sa.Integer(), nullable=True))
     op.create_index(op.f('ix_parties_leader_player_id'), 'parties', ['leader_player_id'], unique=False)
     op.create_foreign_key('fk_party_leader_player_id', 'parties', 'players', ['leader_player_id'], ['id'])
-    op.add_column('status_effects', sa.Column('properties_json', JsonBForSQLite(), nullable=False)) # Changed
+    op.add_column('status_effects', sa.Column('properties_json', src.models.custom_types.JsonBForSQLite(), nullable=False))
     op.alter_column('status_effects', 'guild_id',
                existing_type=sa.BIGINT(),
                nullable=False)
@@ -106,27 +105,27 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_parties_leader_player_id'), table_name='parties')
     op.drop_column('parties', 'leader_player_id')
     op.alter_column('locations', 'ai_metadata_json',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=True)
     op.alter_column('locations', 'generated_details_json',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=True)
     op.alter_column('locations', 'neighbor_locations_json',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=True)
     op.alter_column('locations', 'coordinates_json',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=True)
     op.alter_column('locations', 'descriptions_i18n',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=False)
     op.alter_column('locations', 'name_i18n',
-               existing_type=JsonBForSQLite(), # Changed
+               existing_type=src.models.custom_types.JsonBForSQLite(),
                type_=postgresql.JSON(astext_type=sa.Text()),
                existing_nullable=False)
     op.drop_column('guild_configs', 'name')
