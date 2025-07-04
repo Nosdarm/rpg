@@ -79,8 +79,7 @@ Quest Progress (36/39): Completion of combat-related steps.
 Task Block: Phase 13: Experience and Character Development System
 This block presents tasks related to character experience, leveling up, and attribute distribution.
 
-Task 30: ⚡️ 13.1 Experience System Structure (Rules).
-* Description: Rules for gaining XP, leveling up, distributing points are defined in RuleConfig FOR EACH GUILD. (See RuleConfig structure in 13).
+{Task 30: ⚡️ 13.1 Experience System Structure (Rules). - Moved to Done.txt}
 
 Task 31: ⚡️ 13.2 XP Awarding and Progress.
 * Description: Implement logic for awarding XP and checking for level up.
