@@ -30,8 +30,8 @@ def _location_column_reflect(inspector, table, column_info):
     # Ensure Location's JSONB fields are handled for SQLite if Location model itself doesn't use JsonBForSQLite
     # This is more of a safeguard for dependent models in tests
     if column_info['name'] in ['name_i18n', 'descriptions_i18n', 'coordinates_json', 'neighbor_locations_json', 'generated_details_json', 'ai_metadata_json']:
-        if not isinstance(column_info['type'], LocationJsonBForSQLite):
-             column_info['type'] = LocationJsonBForSQLite()
+        if not isinstance(column_info['type'], JsonBForSQLite): # Changed LocationJsonBForSQLite to JsonBForSQLite
+             column_info['type'] = JsonBForSQLite()
 
 
 @event.listens_for(Party.__table__, "column_reflect")
