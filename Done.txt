@@ -74,3 +74,14 @@ Result: API и команды для генерации локаций AI теп
 - Пользовательская задача: Исправление ошибок в тестах action_processor, general_commands, локализации ping
 - Пользовательская задача: Исправление ошибок Pyright (сессия 2)
 - Пользовательская задача: Исправление ошибок Pyright (сессия 3 - test_action_processor, localization_utils, test_interaction_handlers, ai_orchestrator, test_general_commands, events, game_events, movement_logic, report_formatter, test_localization_utils, test_movement_logic)
+
+## Phase 5: Combat System (Continued)
+- Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI).
+Description: Реализован модуль `src/core/npc_combat_strategy.py` с функцией `get_npc_combat_action` для определения действий NPC в бою. Модуль включает:
+  - Загрузку данных NPC, состояния боя, AI-правил из `RuleConfig` и отношений.
+  - Логику выбора цели (`_is_hostile`, `_get_potential_targets`, `_calculate_target_score`, `_select_target`) на основе правил (враждебность, фракции, отношения) и метрик (HP, угроза).
+  - Логику выбора действия (`_get_available_abilities`, `_simulate_action_outcome` (упрощенно), `_evaluate_action_effectiveness`, `_choose_action`) с учетом доступных способностей, их стоимости, кулдаунов, оценки эффективности и специальных условий (например, самолечение).
+  - Форматирование результата (`_format_action_result`) для `CombatEngine`.
+  - Модуль добавлен в `src/core/__init__.py`.
+  - Написаны Unit-тесты в `tests/core/test_npc_combat_strategy.py` с использованием моков, покрывающие ключевые функции и сценарии.
+Result: Реализован модуль стратегии NPC в бою, способный выбирать цели и действия на основе правил и состояния боя. Готов к интеграции с CombatEngine.

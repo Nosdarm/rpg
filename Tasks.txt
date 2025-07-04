@@ -64,13 +64,7 @@ This block presents tasks related to combat mechanics.
 
 {Task 27: ⚔️ 5.2 Combat Engine Module. - Moved to Done.txt}
 
-Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI).
-Description: Implement the logic governing NPC actions in combat.
-API get_npc_combat_action(guild_id: int, npc_id: int, combat_instance_id: int) -> dict. Accepts guild_id. Called from 27 (Combat Cycle).
-Loads the NPC (1.2/5/14), combat state (24), participating players/other NPCs by guild_id. Gets the NPC's relationships (32) to players/parties/other NPCs.
-Uses AI behavior rules FROM rules_config FOR THIS GUILD (13/0.3/41): How to choose targets (aggro system?), how to choose an action (based on stats 14, abilities 20, resources), how to evaluate action success chances (possibly by calling a check simulation via 12). Considers NPC character (from AI generation 16/17) and their relationships (35).
-AI behavior can scale according to rules 13/41 based on encounter difficulty or PARTY level in the location (see 27). Includes choosing types of creatures to spawn or adjusting their tactics.
-Returns a description of the chosen action (format understandable by 27).
+{Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI). - Moved to Done.txt}
 
 Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine).
 Description: Manages turn-based or round-based combat, integrating player actions (via Processing Module 21) and AI NPC actions (via 26), performing calculations (via 25).
