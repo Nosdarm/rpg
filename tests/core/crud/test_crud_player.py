@@ -10,12 +10,13 @@ from src.models.base import Base
 from src.models.guild import GuildConfig
 from src.models.location import Location, LocationType
 from src.models.party import Party, PartyTurnStatus
-from src.models.custom_types import JsonBForSQLite # Corrected import
+# JsonBForSQLite is already imported from custom_types below, so this specific alias for Location is not needed here.
+# from src.models.location import Location, LocationType, JsonBForSQLite as LocationJsonBForSQLite
 from src.models.player import Player, PlayerStatus
 from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud # For creating test locations
 from src.core.crud.crud_party import party_crud # For creating test parties
-from src.models.custom_types import JsonBForSQLite
+from src.models.custom_types import JsonBForSQLite # This is the one we need
 
 # Event listeners for SQLite compatibility (similar to model tests)
 @event.listens_for(Player.__table__, "column_reflect")
@@ -26,8 +27,8 @@ def _player_column_reflect_crud(inspector, table, column_info):
 @event.listens_for(Location.__table__, "column_reflect")
 def _location_column_reflect_crud(inspector, table, column_info):
     if column_info['name'] in ['name_i18n', 'descriptions_i18n', 'coordinates_json', 'neighbor_locations_json', 'generated_details_json', 'ai_metadata_json']:
-        if not isinstance(column_info['type'], LocationJsonBForSQLite):
-             column_info['type'] = LocationJsonBForSQLite()
+        if not isinstance(column_info['type'], JsonBForSQLite): # Changed LocationJsonBForSQLite to JsonBForSQLite
+             column_info['type'] = JsonBForSQLite()
 
 @event.listens_for(Party.__table__, "column_reflect")
 def _party_column_reflect_crud(inspector, table, column_info):

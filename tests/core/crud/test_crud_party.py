@@ -8,7 +8,7 @@ from sqlalchemy.types import TypeDecorator, TEXT, JSON
 
 from src.models.base import Base
 from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType, JsonBForSQLite as LocationJsonBForSQLite
+from src.models.location import Location, LocationType # Removed LocationJsonBForSQLite
 from src.models.player import Player # Needed for leader_player_id
 from src.models.party import Party, PartyTurnStatus
 from src.core.crud.crud_party import party_crud
@@ -26,8 +26,8 @@ def _party_column_reflect_crud_party(inspector, table, column_info):
 @event.listens_for(Location.__table__, "column_reflect")
 def _location_column_reflect_crud_party(inspector, table, column_info):
     if column_info['name'] in ['name_i18n', 'descriptions_i18n', 'coordinates_json', 'neighbor_locations_json', 'generated_details_json', 'ai_metadata_json']:
-        if not isinstance(column_info['type'], LocationJsonBForSQLite):
-             column_info['type'] = LocationJsonBForSQLite()
+        if not isinstance(column_info['type'], JsonBForSQLite): # Changed LocationJsonBForSQLite to JsonBForSQLite
+             column_info['type'] = JsonBForSQLite()
 @event.listens_for(Player.__table__, "column_reflect")
 def _player_column_reflect_crud_party(inspector, table, column_info):
     if column_info['name'] == 'collected_actions_json' and isinstance(column_info['type'], JSON):
