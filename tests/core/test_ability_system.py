@@ -68,22 +68,23 @@ def _create_mock_active_status(active_id: int, status_effect_id: int, entity_id:
 @pytest.fixture
 def mock_session_no_existing_status() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
-    mock_execute_result = AsyncMock()
+    # The result of session.execute() is a Result object, not awaitable itself.
+    mock_sql_alchemy_result = MagicMock()
     mock_scalars_result = MagicMock()
-    mock_scalars_result.first.return_value = None
-    mock_execute_result.scalars.return_value = mock_scalars_result
-    session.execute.return_value = mock_execute_result
+    mock_scalars_result.first.return_value = None # For .scalars().first()
+    mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
+    session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
     return session
 
 @pytest.fixture
 def mock_session_with_existing_status_factory():
     def _factory(existing_status_instance: Optional[ActiveStatusEffect]):
         session = AsyncMock(spec=AsyncSession)
-        mock_execute_result = AsyncMock()
+        mock_sql_alchemy_result = MagicMock() # Result of execute
         mock_scalars_result = MagicMock()
-        mock_scalars_result.first.return_value = existing_status_instance
-        mock_execute_result.scalars.return_value = mock_scalars_result
-        session.execute.return_value = mock_execute_result
+        mock_scalars_result.first.return_value = existing_status_instance # For .scalars().first()
+        mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
+        session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
         return session
     return _factory
 
@@ -91,13 +92,13 @@ COMMON_PATCH_BASE = 'src.core.ability_system.'
 PATCHES = {
     'log_event': patch(COMMON_PATCH_BASE + 'log_event', new_callable=AsyncMock),
     'get_rule': patch(COMMON_PATCH_BASE + 'get_rule', new_callable=AsyncMock),
-    'ability_crud': patch(COMMON_PATCH_BASE + 'ability_crud', new_callable=MagicMock),
+    'ability_crud': patch(COMMON_PATCH_BASE + 'ability_crud', new_callable=AsyncMock), # Changed to AsyncMock
     '_get_entity': patch(COMMON_PATCH_BASE + '_get_entity', new_callable=AsyncMock),
     'get_entity_stat': patch(COMMON_PATCH_BASE + 'get_entity_stat'),
     'change_entity_stat': patch(COMMON_PATCH_BASE + 'change_entity_stat'),
     'get_entity_hp': patch(COMMON_PATCH_BASE + 'get_entity_hp'),
     'change_entity_hp': patch(COMMON_PATCH_BASE + 'change_entity_hp'),
-    'status_effect_crud': patch(COMMON_PATCH_BASE + 'status_effect_crud', new_callable=MagicMock),
+    'status_effect_crud': patch(COMMON_PATCH_BASE + 'status_effect_crud', new_callable=AsyncMock), # Changed to AsyncMock
 }
 
 @pytest.mark.asyncio

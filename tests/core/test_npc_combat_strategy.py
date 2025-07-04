@@ -24,7 +24,7 @@ from src.core.npc_combat_strategy import (
 from src.models.generated_npc import GeneratedNpc
 from src.models.player import Player
 from src.models.combat_encounter import CombatEncounter
-from src.models.enums import EntityType
+from src.models.enums import CombatParticipantType as EntityType # Changed to CombatParticipantType
 
 # Pytest fixtures if needed, e.g. for mock session
 @pytest.fixture
@@ -71,10 +71,12 @@ def mock_target_player() -> Player:
         guild_id=100,
         discord_id=12345,
         name="HeroPlayer",
-        properties_json={
-            "stats": {"hp": 100, "defense": 2}
-        }
+        current_hp=100 # Set current_hp directly
+        # Removed properties_json, defense is not a direct Player model field
     )
+    # If tests require other stats like 'defense', they need to be mocked differently,
+    # as Player model doesn't have a generic 'properties_json' or 'defense' field.
+    # For example, a function that retrieves player defense could be patched.
     return player
 
 @pytest.fixture
@@ -119,7 +121,7 @@ def mock_combat_encounter(mock_actor_npc: GeneratedNpc, mock_target_player: Play
         ],
         combat_log_json=[],
         rules_config_snapshot_json={},
-        turn_info_json={}
+            turn_order_json={} # Changed turn_info_json to turn_order_json
     )
 
 @pytest.fixture

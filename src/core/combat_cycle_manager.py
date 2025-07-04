@@ -69,7 +69,7 @@ async def start_combat(
     combat_encounter = CombatEncounter(
         guild_id=guild_id,
         location_id=location_id,
-        status=CombatStatus.STARTING, # Initial status
+        status=CombatStatus.PENDING_START, # Changed from STARTING
         participants_json={"entities": []}, # Initialize participants list
         turn_order_json={"order": [], "current_index": 0, "current_turn_number": 1},
         rules_config_snapshot_json={},
@@ -169,7 +169,7 @@ async def start_combat(
         if p_data["type"] == "player":
             player = await session.get(Player, p_data["id"])
             if player:
-                player.current_status = PlayerStatus.IN_COMBAT
+                player.current_status = PlayerStatus.COMBAT # Changed IN_COMBAT to COMBAT
                 # Store current combat ID on player model if such a field exists
                 if hasattr(player, 'current_combat_id'):
                     player.current_combat_id = combat_encounter.id
@@ -191,7 +191,7 @@ async def start_combat(
             if player_obj and player_obj.current_party_id:
                 party = await session.get(Party, player_obj.current_party_id)
                 if party and party.turn_status != PartyTurnStatus.IN_COMBAT: # Check to avoid redundant updates
-                    party.turn_status = PartyTurnStatus.IN_COMBAT
+                    party.turn_status = PartyTurnStatus.IN_COMBAT # Now valid
                     if hasattr(party, 'current_combat_id'): # If party model tracks current combat
                          party.current_combat_id = combat_encounter.id
                     session.add(party)
@@ -209,7 +209,7 @@ async def start_combat(
     await game_events.log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.COMBAT_START,
+        event_type=EventType.COMBAT_START.name, # Changed to .name
         details_json={
             "combat_id": combat_encounter.id,
             "location_id": location_id,
@@ -300,8 +300,8 @@ async def process_combat_turn(
             logger.info(f"Guild {guild_id}: NPC {active_entity_id} in combat {combat_id} chose to be idle or an error occurred: {npc_action_data.get('reason', 'No action taken')}")
             # Log NPC idle action to StoryLog for completeness, if desired
             await game_events.log_event(
-                session=session, guild_id=guild_id, event_type=EventType.NPC_IDLE_IN_COMBAT,
-                details_json={"combat_id": combat_id, "npc_id": active_entity_id, "reason": npc_action_data.get('reason', 'No action taken')},
+                session=session, guild_id=guild_id, event_type=EventType.NPC_ACTION.name, # Changed to NPC_ACTION.name, or a more specific Enum like NPC_IDLE_IN_COMBAT
+                details_json={"combat_id": combat_id, "npc_id": active_entity_id, "action_type": "idle", "reason": npc_action_data.get('reason', 'No action taken')},
                 entity_ids_json={"npcs": [active_entity_id], "combat_encounter": combat_id},
                 location_id=combat_encounter.location_id
             )
@@ -541,7 +541,7 @@ async def _handle_combat_end_consequences(
     await game_events.log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.COMBAT_END,
+        event_type=EventType.COMBAT_END.name, # Changed to .name
         details_json={
             "combat_id": combat_encounter.id,
             "winning_team": winning_team,

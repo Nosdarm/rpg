@@ -389,7 +389,7 @@ async def execute_move_for_player_action(
                 # Check party movement rules
                 party_movement_policy_key = "rules:party:movement:policy"
                 # Default to "any_member" if rule not set, allowing current behavior.
-                movement_policy = await get_rule(session, guild_id, party_movement_policy_key, default_value="any_member")
+                movement_policy = await get_rule(session, guild_id, party_movement_policy_key, default="any_member") # Changed default_value to default
 
                 if movement_policy == "leader_only":
                     # Player model needs a way to determine if they are the leader of their current party.
