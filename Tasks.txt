@@ -86,9 +86,7 @@ This block presents tasks related to character experience, leveling up, and attr
 Task Block: Phase 8: Factions, Relationships, and Social Mechanics
 This block presents tasks related to factions, relationships between entities, and their influence on gameplay.
 
-Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n).
-Description: Define the model for storing faction data within a guild.
-Implement the GeneratedFaction model (0.2/7). With a guild_id field. Fields: id (PK), name_i18n (JSONB), ideology_i18n (JSONB), description_i18n (JSONB), resources_json (JSONB), leader_npc_id (INTEGER FK, Nullable), ai_metadata_json (JSONB).
+{Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n). - Moved to Done.txt}
 
 Task 34: 🎭 8.2 Relationships Model (Guild-Scoped).
 Description: Define the model for storing relationships between entities within a guild. (Moved from 8.1).
