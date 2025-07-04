@@ -62,18 +62,7 @@ This block presents tasks related to defining and managing locations and the wor
 Task Block: Phase 5: Combat System
 This block presents tasks related to combat mechanics.
 
-Task 27: ⚔️ 5.2 Combat Engine Module.
-Description: Implement the central module for calculating action outcomes in combat.
-API process_combat_action(guild_id: int, session: Session, combat_instance_id: int, actor_id: int, actor_type: str, action_data: dict) -> CombatActionResult. Accepts guild_id and session.
-Called from 28 (Combat Cycle).
-Loads CombatEncounter (24) and participants (by their ID and type) by guild_id from the DB (1.2/5/14) via the provided session. Uses Effective_Stats (14).
-Retrieves action rules (damage formulas, criticals, status effects) FROM rules_config FOR THIS GUILD (13/0.3/41), or from combat_instance.rules_config_snapshot_json (24).
-If the action requires a check (attack, save) -> call 12 (Check Resolver Module) with guild_id.
-Performs calculations (damage, statuses, costs) strictly according to formulas/rules.
-Updates combat participant states (HP, resources, statuses) in the DB (14/15) via the provided session.
-Logs (19) the action result, including calculation details, check outcomes (from 12).
-Returns a CombatActionResult object (action result + details for log 19/feedback 47).
-Result: Detailed, reliable combat calculations based on configurable rules, with logging.
+{Task 27: ⚔️ 5.2 Combat Engine Module. - Moved to Done.txt}
 
 Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI).
 Description: Implement the logic governing NPC actions in combat.
