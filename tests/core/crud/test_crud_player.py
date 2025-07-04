@@ -16,6 +16,9 @@ from src.models.player import Player, PlayerStatus
 from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud # For creating test locations
 from src.core.crud.crud_party import party_crud # For creating test parties
+from src.models.rule_config import RuleConfig # Added import
+from src.core.crud_base_definitions import CRUDBase # Corrected import path
+from src.core.rules import update_rule_config # For adding rules
 from src.models.custom_types import JsonBForSQLite # This is the one we need
 
 # Event listeners for SQLite compatibility (similar to model tests)
@@ -110,6 +113,43 @@ class TestCRUDPlayer(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(player.gold, 0)
         self.assertEqual(player.current_status, PlayerStatus.IDLE)
         self.assertEqual(player.current_location_id, self.test_loc_id)
+        # This specific check for empty attributes_json when no rule is set will be more explicitly
+        # covered in test_create_player_with_defaults_no_base_attributes_rule.
+        # Here, we just ensure it doesn't fail and has a dict.
+        self.assertIsInstance(player.attributes_json, dict)
+
+
+    async def test_create_player_with_defaults_no_base_attributes_rule(self):
+        """Tests that attributes_json is empty if no 'character_attributes:base_values' rule exists."""
+        # Ensure no rule exists (or it's empty) for this guild for the specific key
+        # This is the default state unless a rule is explicitly added in another test or setup
+        player = await player_crud.create_with_defaults(
+            self.session, guild_id=self.test_guild_id, discord_id=250, name="NoAttrRulePlayer"
+        )
+        self.assertEqual(player.attributes_json, {}, "attributes_json should be empty when no rule is present")
+
+    async def test_create_player_with_defaults_with_base_attributes_rule(self):
+        """Tests that attributes_json is populated from 'character_attributes:base_values' rule."""
+        base_attrs_rule = {"strength": 12, "dexterity": 10, "intelligence": 8}
+        await update_rule_config(
+            self.session,
+            guild_id=self.test_guild_id,
+            key="character_attributes:base_values",
+            value=base_attrs_rule
+        )
+        await self.session.commit() # Ensure rule is saved before creating player
+
+        player = await player_crud.create_with_defaults(
+            self.session, guild_id=self.test_guild_id, discord_id=251, name="AttrRulePlayer"
+        )
+        self.assertEqual(player.attributes_json, base_attrs_rule)
+
+        # Test with a different guild to ensure isolation
+        other_guild_player = await player_crud.create_with_defaults(
+            self.session, guild_id=self.other_guild_id, discord_id=252, name="OtherGuildAttrPlayer"
+        )
+        self.assertEqual(other_guild_player.attributes_json, {}, "Attributes rule for one guild should not affect another")
+
 
     async def test_get_player_by_discord_id(self):
         await player_crud.create_with_defaults(

@@ -17,16 +17,16 @@ _rules_cache: Dict[int, Dict[str, Any]] = {}
 # CRUD instance for RuleConfig
 rule_config_crud = CRUDBase(RuleConfig)
 
-async def load_rules_config_for_guild(db: AsyncSession, guild_id: int) -> Dict[str, Any]:
+async def load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> Dict[str, Any]: # Renamed db to session
     """
     Loads all RuleConfig entries for a specific guild from the DB and updates the cache.
     This function is intended to be called when a guild's rules need to be refreshed in the cache.
     """
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
-    result = await db.execute(statement)
-    # Corrected: result.scalars() is not awaitable, but result.scalars().all() is.
-    rules_from_db = await result.scalars().all()
+    result = await session.execute(statement) # Renamed db to session
+    # Corrected: result.scalars().all() is not awaitable.
+    rules_from_db = result.scalars().all()
 
     guild_rules: Dict[str, Any] = {}
     for rule in rules_from_db:
@@ -36,7 +36,7 @@ async def load_rules_config_for_guild(db: AsyncSession, guild_id: int) -> Dict[s
     logger.info(f"Loaded and cached {len(guild_rules)} rules for guild_id: {guild_id}")
     return guild_rules
 
-async def get_rule(db: AsyncSession, guild_id: int, key: str, default: Optional[Any] = None) -> Any:
+async def get_rule(session: AsyncSession, guild_id: int, key: str, default: Optional[Any] = None) -> Any: # Renamed db to session
     """
     Retrieves a specific rule value for a guild from the cache.
     If the guild is not in the cache, it loads all rules for that guild first.
@@ -50,7 +50,7 @@ async def get_rule(db: AsyncSession, guild_id: int, key: str, default: Optional[
     """
     if guild_id not in _rules_cache:
         logger.info(f"Guild {guild_id} not in rule cache. Loading from DB.")
-        await load_rules_config_for_guild(db, guild_id)
+        await load_rules_config_for_guild(session, guild_id) # Renamed db to session
 
     guild_cache = _rules_cache.get(guild_id, {})
     rule_value = guild_cache.get(key)
@@ -62,7 +62,7 @@ async def get_rule(db: AsyncSession, guild_id: int, key: str, default: Optional[
     return rule_value
 
 @transactional
-async def update_rule_config(db: AsyncSession, guild_id: int, key: str, value: Any) -> RuleConfig:
+async def update_rule_config(session: AsyncSession, guild_id: int, key: str, value: Any) -> RuleConfig: # Renamed db to session
     """
     Updates or creates a rule in the DB for the specified guild.
     After successful saving, it refreshes the cache for this guild.
@@ -77,25 +77,25 @@ async def update_rule_config(db: AsyncSession, guild_id: int, key: str, value: A
 
     # Check if rule exists
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id, RuleConfig.key == key)
-    result = await db.execute(statement)
+    result = await session.execute(statement) # Renamed db to session
     existing_rule = result.scalar_one_or_none()
 
     if existing_rule:
         logger.debug(f"Found existing rule ID {existing_rule.id}. Updating.")
-        updated_rule = await update_entity(db, entity=existing_rule, data={"value_json": value})
+        updated_rule = await update_entity(session, entity=existing_rule, data={"value_json": value}) # Renamed db to session
         # update_entity already does flush and refresh
     else:
         logger.debug(f"No existing rule found for key '{key}'. Creating new rule.")
-        updated_rule = await create_entity(db, RuleConfig, {"key": key, "value_json": value}, guild_id=guild_id)
+        updated_rule = await create_entity(session, RuleConfig, {"key": key, "value_json": value}, guild_id=guild_id) # Renamed db to session
         # create_entity already does flush and refresh
 
     # Refresh cache for the guild
-    await load_rules_config_for_guild(db, guild_id)
+    await load_rules_config_for_guild(session, guild_id) # Renamed db to session
     logger.info(f"Rule for guild_id: {guild_id}, key: '{key}' updated successfully. Cache refreshed.")
 
     return updated_rule
 
-async def get_all_rules_for_guild(db: AsyncSession, guild_id: int) -> Dict[str, Any]:
+async def get_all_rules_for_guild(session: AsyncSession, guild_id: int) -> Dict[str, Any]: # Renamed db to session
     """
     Retrieves all rules for a guild, utilizing the cache.
     If not in cache, loads from DB. This is an alias for ensuring cache is populated
@@ -103,7 +103,7 @@ async def get_all_rules_for_guild(db: AsyncSession, guild_id: int) -> Dict[str, 
     """
     if guild_id not in _rules_cache:
         logger.info(f"Guild {guild_id} rules not in cache. Loading for 'get_all_rules_for_guild'.")
-        await load_rules_config_for_guild(db, guild_id)
+        await load_rules_config_for_guild(session, guild_id) # Renamed db to session
     return _rules_cache.get(guild_id, {})
 
 # Example of how this might be used in bot command or event handler:

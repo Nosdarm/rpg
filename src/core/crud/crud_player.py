@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud_base_definitions import CRUDBase
 from ...models.player import Player, PlayerStatus
+from ..rules import get_rule # Added import for get_rule
 
 
 class CRUDPlayer(CRUDBase[Player]):
@@ -62,7 +63,7 @@ class CRUDPlayer(CRUDBase[Player]):
         selected_language: str = "en" # Default language
     ) -> Player:
         """
-        Create a new player with default values for level, xp, gold, status.
+        Create a new player with default values for level, xp, gold, status, and attributes.
         """
         player_data = {
             "guild_id": guild_id,
@@ -75,7 +76,17 @@ class CRUDPlayer(CRUDBase[Player]):
             "unspent_xp": 0,
             "gold": 0, # Or some starting gold if desired by game rules
             "current_status": PlayerStatus.IDLE, # Or EXPLORING
+            # attributes_json will be populated from rules
         }
+
+        base_attributes = await get_rule(
+            db,
+            guild_id=guild_id,
+            key="character_attributes:base_values",
+            default={}
+        )
+        player_data["attributes_json"] = base_attributes if base_attributes is not None else {}
+
         return await super().create(db, obj_in=player_data) # guild_id is in player_data, CRUDBase.create will use it.
 
     async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[Player]:

@@ -541,7 +541,7 @@ async def test_execute_move_successful_solo_player(
     mock_scalar_result_rules = MagicMock() # Result of execution_result.scalars()
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
 
-    mock_scalar_result_rules.all = AsyncMock(return_value=[]) # No rules found, get_rule returns default
+    mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found, get_rule returns default
 
     from src.core.movement_logic import execute_move_for_player_action # Import here
     result = await execute_move_for_player_action(
@@ -606,7 +606,7 @@ async def test_execute_move_successful_party_move(
     mock_session.execute.return_value = mock_execution_result_rules
     mock_scalar_result_rules = MagicMock()
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
-    mock_scalar_result_rules.all = AsyncMock(return_value=[]) # No rules found
+    mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found
 
     from src.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
@@ -691,16 +691,16 @@ async def test_execute_move_target_location_not_found_by_static_id(
     # Setup mock_session.execute for calls from load_rules_config_for_guild AND _find_location_by_identifier (name search)
 
     # Mock setup for rule fetching (first call to session.execute)
-    mock_exec_rules_result = MagicMock() # Correct: this is the direct return of session.execute
-    mock_rules_scalars_obj = MagicMock() # Correct: this is the return of .scalars()
-    mock_rules_scalars_obj.all = AsyncMock(return_value=[]) # Correct: .all() is async and returns list
-    mock_exec_rules_result.scalars.return_value = mock_rules_scalars_obj # Wiring it up
+    mock_exec_rules_result = MagicMock()
+    mock_rules_scalars_obj = MagicMock()
+    mock_rules_scalars_obj.all = MagicMock(return_value=[]) # Corrected
+    mock_exec_rules_result.scalars.return_value = mock_rules_scalars_obj
 
     # Mock setup for name searching (next 3 calls to session.execute)
-    mock_exec_name_search_result = MagicMock() # Correct
-    mock_name_search_scalars_obj = MagicMock() # Correct
-    mock_name_search_scalars_obj.all = AsyncMock(return_value=[]) # Correct
-    mock_exec_name_search_result.scalars.return_value = mock_name_search_scalars_obj # Wiring
+    mock_exec_name_search_result = MagicMock()
+    mock_name_search_scalars_obj = MagicMock()
+    mock_name_search_scalars_obj.all = MagicMock(return_value=[]) # Corrected
+    mock_exec_name_search_result.scalars.return_value = mock_name_search_scalars_obj
 
     mock_session.execute.side_effect = [
         mock_exec_rules_result, # For get_rule
@@ -739,7 +739,7 @@ async def test_execute_move_not_connected(
     mock_session.execute.return_value = mock_execution_result_rules
     mock_scalar_result_rules = MagicMock()
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
-    mock_scalar_result_rules.all = AsyncMock(return_value=[]) # No rules found
+    mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found
 
     # Ensure start_location does not list unconnected_location as a neighbor
     mock_start_location.neighbor_locations_json = [
@@ -829,8 +829,8 @@ async def test_find_location_by_name_player_language_actual_logic(
     mock_scalar_result = MagicMock() # Result of execution_result.scalars()
     mock_execution_result.scalars.return_value = mock_scalar_result
 
-    # Result of await scalar_result.all()
-    mock_scalar_result.all = AsyncMock(return_value=[mock_target_location])
+    # Result of scalar_result.all()
+    mock_scalar_result.all = MagicMock(return_value=[mock_target_location]) # Corrected
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
@@ -864,13 +864,13 @@ async def test_find_location_by_name_guild_language_fallback_actual_logic(
     # First call (for 'de') will find nothing
     mock_exec_result_de = MagicMock()
     mock_scalars_de = MagicMock()
-    mock_scalars_de.all = AsyncMock(return_value=[])
+    mock_scalars_de.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_de.scalars.return_value = mock_scalars_de
 
     # Second call (for 'en' - guild language) will find the location
     mock_exec_result_en = MagicMock()
     mock_scalars_en = MagicMock()
-    mock_scalars_en.all = AsyncMock(return_value=[mock_target_location])
+    mock_scalars_en.all = MagicMock(return_value=[mock_target_location]) # Corrected
     mock_exec_result_en.scalars.return_value = mock_scalars_en
 
     mock_session.execute.side_effect = [mock_exec_result_de, mock_exec_result_en]
@@ -901,17 +901,17 @@ async def test_find_location_by_name_english_fallback_actual_logic(
     # de
     mock_exec_result_de = MagicMock()
     mock_scalars_de = MagicMock()
-    mock_scalars_de.all = AsyncMock(return_value=[])
+    mock_scalars_de.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_de.scalars.return_value = mock_scalars_de
     # fr
     mock_exec_result_fr = MagicMock()
     mock_scalars_fr = MagicMock()
-    mock_scalars_fr.all = AsyncMock(return_value=[])
+    mock_scalars_fr.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_fr.scalars.return_value = mock_scalars_fr
     # en
     mock_exec_result_en = MagicMock()
     mock_scalars_en = MagicMock()
-    mock_scalars_en.all = AsyncMock(return_value=[mock_target_location])
+    mock_scalars_en.all = MagicMock(return_value=[mock_target_location]) # Corrected
     mock_exec_result_en.scalars.return_value = mock_scalars_en
 
     mock_session.execute.side_effect = [mock_exec_result_de, mock_exec_result_fr, mock_exec_result_en]
@@ -940,7 +940,7 @@ async def test_find_location_by_name_case_insensitive_actual_logic(
     mock_session.execute.return_value = mock_execution_result
     mock_scalar_result = MagicMock()
     mock_execution_result.scalars.return_value = mock_scalar_result
-    mock_scalar_result.all = AsyncMock(return_value=[mock_target_location]) # Simulates DB finding it case-insensitively
+    mock_scalar_result.all = MagicMock(return_value=[mock_target_location]) # Corrected: Simulates DB finding it case-insensitively
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang
@@ -964,15 +964,15 @@ async def test_find_location_not_found_actual_logic(
     # Name search also fails for all priority languages
     # de
     mock_exec_result_de = MagicMock()
-    mock_scalars_de = MagicMock(); mock_scalars_de.all = AsyncMock(return_value=[])
+    mock_scalars_de = MagicMock(); mock_scalars_de.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_de.scalars.return_value = mock_scalars_de
     # fr
     mock_exec_result_fr = MagicMock()
-    mock_scalars_fr = MagicMock(); mock_scalars_fr.all = AsyncMock(return_value=[])
+    mock_scalars_fr = MagicMock(); mock_scalars_fr.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_fr.scalars.return_value = mock_scalars_fr
     # en
     mock_exec_result_en = MagicMock()
-    mock_scalars_en = MagicMock(); mock_scalars_en.all = AsyncMock(return_value=[])
+    mock_scalars_en = MagicMock(); mock_scalars_en.all = MagicMock(return_value=[]) # Corrected
     mock_exec_result_en.scalars.return_value = mock_scalars_en
 
     mock_session.execute.side_effect = [mock_exec_result_de, mock_exec_result_fr, mock_exec_result_en]
@@ -1009,7 +1009,7 @@ async def test_find_location_by_name_ambiguous_returns_first_and_logs_actual_log
     mock_scalar_result = MagicMock()
     mock_execution_result.scalars.return_value = mock_scalar_result
     # IMPORTANT: Order matters if the function just takes the first one.
-    mock_scalar_result.all = AsyncMock(return_value=[mock_start_location, mock_target_location])
+    mock_scalar_result.all = MagicMock(return_value=[mock_start_location, mock_target_location]) # Corrected
 
     found_location = await _find_location_by_identifier(
         mock_session, DEFAULT_GUILD_ID, identifier, player_lang, guild_lang

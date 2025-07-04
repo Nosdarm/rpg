@@ -269,16 +269,8 @@ async def _find_location_by_identifier(
             )
         )
         results = await session.execute(stmt)
-        # Correctly await scalars() before calling all() if scalars() returns an awaitable that then has .all()
-        # Or, if scalars() itself is an async iterator that needs to be consumed.
-        # Assuming results.scalars() returns an awaitable that then provides .all()
-        # Based on common SQLAlchemy patterns, it's more likely results.scalars() is what needs to be iterated or .all() called on.
-        # Let's assume results.scalars() returns something that has .all() directly after await
-        # However, the error "'coroutine' object has no attribute 'all'" means results.scalars() IS the coroutine.
-        # So, we need to await it first.
-        # Corrected: results.scalars() returns an AsyncScalarResult, not awaitable itself.
-        # Methods like .all() or .first() on it are awaitable.
-        found_locations = await results.scalars().all()
+        # Corrected: results.scalars().all() is not awaitable.
+        found_locations = results.scalars().all()
 
         if found_locations:
             if len(found_locations) > 1:

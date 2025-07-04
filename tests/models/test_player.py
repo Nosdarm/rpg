@@ -3,7 +3,8 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy import event, JSON, select
-from sqlalchemy.orm import selectinload # Added selectinload
+from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified # Added flag_modified
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.exc import IntegrityError
@@ -135,6 +136,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(player.gold, 0)
         self.assertEqual(player.current_status, PlayerStatus.IDLE)
         self.assertIsNone(player.current_hp)
+        self.assertEqual(player.attributes_json, {}) # Check default for attributes_json
         self.assertIsNone(player.collected_actions_json)
         self.assertIsNone(player.current_party_id)
         self.assertIsNone(player.current_location_id) # Not provided, should be None
@@ -152,6 +154,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             "gold": 50,
             "current_hp": 95,
             "current_status": PlayerStatus.EXPLORING,
+            "attributes_json": {"strength": 10, "dexterity": 8}, # Added attributes_json
             "collected_actions_json": [{"action": "look", "target": "around"}],
             "current_party_id": self.test_party_id,
             "current_sublocation_name": "The Dusty Corner"
@@ -220,6 +223,44 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         expected_repr = (f"<Player(id={player.id}, name='ReprPlayer', guild_id={self.test_guild_id}, "
                          f"discord_id=1004, level=5)>")
         self.assertEqual(repr(player), expected_repr)
+
+    async def test_player_attributes_json_default_is_new_dict(self):
+        """Tests that the default for attributes_json is a new dict instance each time."""
+        player1_data = {
+            "guild_id": self.test_guild_id,
+            "discord_id": 2001,
+            "name": "AttrDefaultPlayer1"
+        }
+        player1 = Player(**player1_data)
+        self.session.add(player1)
+
+        player2_data = {
+            "guild_id": self.test_guild_id,
+            "discord_id": 2002,
+            "name": "AttrDefaultPlayer2"
+        }
+        player2 = Player(**player2_data)
+        self.session.add(player2)
+
+        await self.session.commit()
+        await self.session.refresh(player1)
+        await self.session.refresh(player2)
+
+        # Check initial state (should be empty dict for both)
+        self.assertEqual(player1.attributes_json, {})
+        self.assertEqual(player2.attributes_json, {})
+
+        # Modify player1's attributes
+        player1.attributes_json["strength"] = 12
+        flag_modified(player1, "attributes_json") # Mark as modified
+        await self.session.commit() # Save change
+        await self.session.refresh(player1)
+        await self.session.refresh(player2) # Re-fetch player2 to be sure
+
+        self.assertEqual(player1.attributes_json, {"strength": 12})
+        self.assertEqual(player2.attributes_json, {}, "Modifying p1.attributes_json should not affect p2.attributes_json")
+        self.assertIsNot(player1.attributes_json, player2.attributes_json, "attributes_json should be distinct objects")
+
 
 if __name__ == "__main__":
     unittest.main()

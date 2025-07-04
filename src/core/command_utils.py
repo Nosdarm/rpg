@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Dict, Any, Union # Added Union
 
 import discord
-from discord.app_commands import Command, Group, Choice, AppCommand, locale_str # Added locale_str and AppCommand
+from discord import app_commands as dc_app_commands # Changed import style
 from discord.ext import commands as ext_commands
 
 from src.models.command_info import CommandInfo, CommandParameterInfo
@@ -12,7 +12,7 @@ from src.models.command_info import CommandInfo, CommandParameterInfo
 logger = logging.getLogger(__name__)
 
 def _get_localized_string(
-    value: Union[str, locale_str, None],
+    value: Union[str, dc_app_commands.locale_str, None], # Changed locale_str
     lang_code: Optional[str],
     default_str: Optional[str] = None
 ) -> Optional[str]:
@@ -70,7 +70,7 @@ def _extract_parameter_details(
     )
 
 def _extract_command_details(
-    app_cmd: Union[Command, Group], # Command or Group
+    app_cmd: Union[dc_app_commands.Command, dc_app_commands.Group], # Command or Group
     language: Optional[str] = None, # Target language for descriptions
     base_name: Optional[str] = None
 ) -> List[CommandInfo]:
@@ -94,7 +94,7 @@ def _extract_command_details(
     if description and description.strip() == "-": # Handle placeholder descriptions
         description = None
 
-    if isinstance(app_cmd, Command):
+    if isinstance(app_cmd, dc_app_commands.Command):
         param_infos: List[CommandParameterInfo] = []
         # app_cmd.parameters for Command
         if hasattr(app_cmd, 'parameters') and app_cmd.parameters:
@@ -112,7 +112,7 @@ def _extract_command_details(
             description=description,
             parameters=param_infos
         ))
-    elif isinstance(app_cmd, Group):
+    elif isinstance(app_cmd, dc_app_commands.Group): # Ensuring this is correct
         # logger.debug(f"Processing command group: {current_qualified_name} with description: {description}")
         # Группа может иметь свое описание, но сама не является исполняемой командой с параметрами в том же смысле.
         # UI может захотеть отобразить описание группы. Пока мы его извлекаем, но не создаем CommandInfo для самой группы.
@@ -149,7 +149,7 @@ async def get_bot_commands(
     # logger.debug(f"Using language code for command extraction: {final_language_code}")
 
     # bot.tree.get_commands() возвращает список AppCommand объектов (Command или Group)
-    all_app_commands_in_tree: List[AppCommand] = bot.tree.get_commands()
+    all_app_commands_in_tree: List[dc_app_commands.AppCommand] = bot.tree.get_commands()
     # logger.debug(f"Found {len(all_app_commands_in_tree)} top-level app commands in bot.tree.")
 
     for app_cmd_or_group in all_app_commands_in_tree:

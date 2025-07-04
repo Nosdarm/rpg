@@ -49,6 +49,7 @@ def player_fixture(guild_id_fixture: int) -> Player:
         xp=0,
         level=1,
         unspent_xp=0,
+        attributes_json={}, # Added default attributes_json
         current_status=PlayerStatus.IDLE
     )
 
