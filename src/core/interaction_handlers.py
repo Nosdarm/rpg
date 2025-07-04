@@ -136,7 +136,7 @@ async def handle_intra_location_action(
 
             if interaction_rules_key_short:
                 rule_config_key = f"interactions:{interaction_rules_key_short}"
-                interaction_rule = await get_rule(session=session, guild_id=guild_id, key=rule_config_key)
+                interaction_rule = await get_rule(db=session, guild_id=guild_id, key=rule_config_key)
 
                 if interaction_rule:
                     log_details["rule_found"] = True
@@ -174,18 +174,31 @@ async def handle_intra_location_action(
 
                         check_result: Optional[CheckResult] = None
                         try:
-                             check_result = await resolve_check(
-                                db=session, # Added db param
+                            # Prepare check_context
+                            current_check_context = {
+                                "actor_attributes": actor_attributes, # Pass original actor_attributes here
+                                "bonus_roll_modifier": contextual_bonus - contextual_penalty # Pass modifier here
+                                # resolve_check can look for "bonus_roll_modifier" or similar from context
+                                # or specific rules for this check_type can define how to use actor_attributes
+                            }
+                            if target_object_data and target_object_data.get("id"):
+                                current_check_context["target_object_id_for_interaction"] = target_object_data.get("id")
+                            if target_object_data and target_object_data.get("type"):
+                                current_check_context["target_object_type_for_interaction"] = target_object_data.get("type")
+
+
+                            check_result = await resolve_check(
+                                db=session,
                                 guild_id=guild_id,
                                 check_type=check_type,
-                                dc=dc,
-                                actor_id=player.id,
-                                actor_type="player",
-                                actor_attributes=actor_attributes,
-                                # target_id and target_type could be relevant if DC depends on target
-                                # target_id=target_object_data.get("id"), # If target has an ID
-                                # target_type=target_object_data.get("type"),
-                                bonus_roll_dice_modifier= contextual_bonus - contextual_penalty
+                                entity_doing_check_id=player.id,
+                                entity_doing_check_type="player",
+                                difficulty_dc=dc,
+                                # target_entity_id and target_entity_type are for actual game entities,
+                                # not necessarily the 'target_object_data' from location details.
+                                # If the interaction target IS an entity, pass its ID/type here.
+                                # For now, assuming interaction target is not a separate Player/NPC entity unless specified.
+                                check_context=current_check_context
                             )
                         except Exception as e_resolve:
                             logger.error(f"Error during resolve_check for interaction: {e_resolve}", exc_info=True)

@@ -22,14 +22,7 @@ class MockUser:
         self.display_name = display_name or name
         self.locale = discord.Locale(locale_str) if locale_str else None # discord.Locale
 
-class MockInteraction:
-    def __init__(self, user: MockUser, guild: Optional[MockGuild] = None):
-        self.user = user
-        self.guild = guild
-        self.guild_id = guild.id if guild else None
-        self.response = AsyncMock(spec=discord.InteractionResponse)
-        self.locale = user.locale
-
+# Removed local MockInteraction class, using self._create_mock_interaction with AsyncMock(spec=discord.Interaction) instead.
 
 class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
@@ -54,6 +47,15 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.patcher_default_locs = patch('src.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
         self.mock_default_locs = self.patcher_default_locs.start()
 
+    def _create_mock_interaction(self, user: MockUser, guild: Optional[MockGuild] = None) -> AsyncMock:
+        interaction = AsyncMock(spec=discord.Interaction)
+        interaction.user = user
+        interaction.guild = guild
+        interaction.guild_id = guild.id if guild else None
+        interaction.response = AsyncMock(spec=discord.InteractionResponse)
+        interaction.response.send_message = AsyncMock() # Ensure this is also an AsyncMock
+        interaction.locale = user.locale if user.locale else discord.Locale.en_US # Default locale
+        return interaction
 
     def tearDown(self):
         self.patcher_get_db_session.stop()
@@ -64,7 +66,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
     async def test_start_command_new_player(self):
         mock_user = MockUser(id=123, name="TestUser", display_name="Test User Display", locale_str="ru")
         mock_guild = MockGuild(id=456)
-        mock_interaction = MockInteraction(user=mock_user, guild=mock_guild)
+        mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
 
         self.mock_player_crud.get_by_discord_id.return_value = None # Игрок не существует
 
@@ -97,7 +99,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
     async def test_start_command_existing_player(self):
         mock_user = MockUser(id=124, name="ExistingUser")
         mock_guild = MockGuild(id=457)
-        mock_interaction = MockInteraction(user=mock_user, guild=mock_guild)
+        mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
 
         existing_player = Player(id=2, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.name, level=5)
         self.mock_player_crud.get_by_discord_id.return_value = existing_player
@@ -113,7 +115,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
     async def test_start_command_no_guild(self):
         mock_user = MockUser(id=125, name="DMUser")
-        mock_interaction = MockInteraction(user=mock_user, guild=None) # No guild
+        mock_interaction = self._create_mock_interaction(user=mock_user, guild=None) # No guild
 
         # The wrapper `start_command` handles the no-guild case before calling internal
         await self.cog.start_command.callback(self.cog, mock_interaction)
@@ -126,7 +128,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
     async def test_start_command_no_default_start_location_found(self):
         mock_user = MockUser(id=126, name="NoLocUser", locale_str="de")
         mock_guild = MockGuild(id=458)
-        mock_interaction = MockInteraction(user=mock_user, guild=mock_guild)
+        mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
 
         self.mock_player_crud.get_by_discord_id.return_value = None
         self.mock_location_crud.get_by_static_id.return_value = None # Локация не найдена

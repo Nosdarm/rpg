@@ -99,10 +99,11 @@ async def test_trigger_ai_generation_flow_success(
         mock_guild_config_with_notification_channel
     ]
 
-    result = await trigger_ai_generation_flow( # type: ignore [call-arg]
+    result = await trigger_ai_generation_flow(
         session=mock_session,
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
+        # entity_type="location", # Removed, not in SUT signature
         location_id=DEFAULT_LOCATION_ID,
         player_id=DEFAULT_PLAYER_ID_PK
     )
@@ -162,7 +163,12 @@ async def test_trigger_ai_generation_validation_failed(
 
     with patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock, return_value=mock_guild_config_with_notification_channel):
         result = await trigger_ai_generation_flow(
-            session=mock_session, bot=mock_bot, guild_id=DEFAULT_GUILD_ID
+            session=mock_session,
+            bot=mock_bot,
+            guild_id=DEFAULT_GUILD_ID,
+            # entity_type="general_description", # Removed, not in SUT signature
+            location_id=DEFAULT_LOCATION_ID,
+            player_id=None
         )
 
     assert isinstance(result, PendingGeneration)
@@ -212,7 +218,12 @@ async def test_save_approved_generation_success(
         return instance
     mock_create_entity.side_effect = mock_create_entity_save_success
 
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore [call-arg]
+    success = await save_approved_generation(
+        session=mock_session,
+        pending_generation_id=PENDING_GEN_ID,
+        guild_id=DEFAULT_GUILD_ID
+        # approver_user_id=999 # Removed, not in SUT signature
+    )
 
     assert success is True
     mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID)
@@ -332,7 +343,12 @@ async def test_save_approved_generation_entity_creation_fails(
     mock_get_entity_by_id.return_value = mock_pending_gen
     mock_create_entity.side_effect = Exception("DB save error")
 
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore [call-arg]
+    success = await save_approved_generation(
+        session=mock_session,
+        pending_generation_id=PENDING_GEN_ID,
+        guild_id=DEFAULT_GUILD_ID
+        # approver_user_id=999 # Removed, not in SUT signature
+    )
 
     assert success is False
     assert mock_update_entity.call_count > 0

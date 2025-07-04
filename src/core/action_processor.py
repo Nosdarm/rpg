@@ -216,7 +216,7 @@ async def _handle_attack_action_wrapper(
 
     target_model = None
     if target_type_from_nlu == "npc":
-        target_model = await npc_crud.get_one_by_id_and_guild_id(session, npc_id=target_id_from_nlu, guild_id=guild_id) # Changed call
+        target_model = await npc_crud.get_by_id_and_guild(db=session, id=target_id_from_nlu, guild_id=guild_id)
         if target_model:
             target_entity_data = {"id": target_model.id, "type": "npc", "name": target_model.name_i18n.get("en", "NPC"), "model": target_model}
     elif target_type_from_nlu == "player":
