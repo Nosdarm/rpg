@@ -40,14 +40,18 @@ class GeneralCog(commands.Cog, name="General Commands"):
             return
 
         starting_location_id: Optional[int] = None
-        starting_location_name: str = "неизвестной локации (пожалуйста, сообщите Мастеру)"
+        starting_location_name: str = "неизвестной локации (пожалуйста, сообщите Мастеру)" # Default string
         if DEFAULT_STATIC_LOCATIONS:
-            first_default_loc_static_id = DEFAULT_STATIC_LOCATIONS[0].get("static_id")
-            if first_default_loc_static_id:
+            first_default_loc_static_id_optional: Optional[Any] = DEFAULT_STATIC_LOCATIONS[0].get("static_id")
+            if isinstance(first_default_loc_static_id_optional, str) and first_default_loc_static_id_optional:
+                first_default_loc_static_id: str = first_default_loc_static_id_optional # Now clearly a string
                 start_loc = await location_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=first_default_loc_static_id)
                 if start_loc:
                     starting_location_id = start_loc.id
-                    starting_location_name = start_loc.name_i18n.get(player_locale, start_loc.name_i18n.get('en', first_default_loc_static_id))
+                    loc_name_i18n = start_loc.name_i18n or {} # Location.name_i18n defaults to {}
+                    name_candidate = loc_name_i18n.get(player_locale, loc_name_i18n.get('en', first_default_loc_static_id))
+                    # name_candidate is guaranteed to be str because first_default_loc_static_id is str.
+                    starting_location_name = name_candidate
                 else:
                     logger.warning(f"Не удалось найти стартовую локацию по static_id '{first_default_loc_static_id}' для гильдии {guild_id} при создании игрока {discord_id}.")
             else:

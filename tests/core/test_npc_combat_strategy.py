@@ -253,7 +253,16 @@ async def test_get_potential_targets_basic(
 
     with patch('src.core.npc_combat_strategy._get_participant_entity', AsyncMock(side_effect=mock_get_entity_side_effect)):
         with patch('src.core.npc_combat_strategy._is_hostile', AsyncMock(side_effect=mock_is_hostile_side_effect)):
-            targets = await _get_potential_targets(mock_session, mock_actor_npc, mock_combat_encounter, mock_ai_rules, 100)
+            # Extract participants_list from the mock_combat_encounter fixture
+            participants_list_for_test = mock_combat_encounter.participants_json # This should be the list
+            if isinstance(mock_combat_encounter.participants_json, dict) and "entities" in mock_combat_encounter.participants_json:
+                 participants_list_for_test = mock_combat_encounter.participants_json["entities"]
+
+
+            targets = await _get_potential_targets(
+                mock_session, mock_actor_npc, mock_combat_encounter,
+                mock_ai_rules, 100, participants_list_for_test
+            )
 
             assert len(targets) == 2
             target_ids = {t["entity"].id for t in targets}
@@ -358,11 +367,21 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
 async def test_get_npc_combat_action_no_targets_available(mock_session, mock_actor_npc, mock_combat_encounter, mock_ai_rules):
     with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc)):
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
+            # The actual participants_list from mock_combat_encounter would be passed to the original _get_potential_targets
+            # but since we are mocking _get_potential_targets itself to return [], we don't need to pass the list to the mock.
+            # The original call inside get_npc_combat_action would construct it.
+            # The important part is that the mock for _get_potential_targets is what's being tested here.
             with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
-                with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])): # No targets
+                # _get_potential_targets is mocked directly, so its signature change doesn't affect this specific mock setup
+                with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])) as mock_get_targets:
                     action_result = await get_npc_combat_action(
                         mock_session, mock_actor_npc.guild_id, mock_actor_npc.id, mock_combat_encounter.id
                     )
+                    # We can assert that the mocked _get_potential_targets was called correctly
+                    # (though its internal logic is bypassed by the mock's return_value=[])
+                    mock_get_targets.assert_called_once()
+                    # We'd expect it to be called with session, actor_npc, combat_encounter, ai_rules, guild_id, and the list
+                    # For this test, the key is that it returns [] and causes the "No targets available" outcome.
                     assert action_result == {"action_type": "idle", "reason": "No targets available."}
 
 # (Add more comprehensive tests for other functions and edge cases)

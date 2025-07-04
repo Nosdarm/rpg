@@ -59,8 +59,18 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
 
         self.guild = MockGuild(id=789)
-        self.author = MockAuthor(id=321, name="TestPartyUser")
-        self.ctx = MockContext(author=self.author, guild=self.guild)
+        self.author = MockAuthor(id=321, name="TestPartyUser") # Reverted user to author
+
+        # Reverted to MockContext or a MagicMock for commands.Context
+        self.ctx = AsyncMock(spec=commands.Context) # Use AsyncMock for context as commands can be async
+        self.ctx.author = self.author
+        self.ctx.guild = self.guild
+        self.ctx.invoked_subcommand = True # Default assumption
+        self.ctx.send = AsyncMock() # ctx.send is an async method
+        # self.ctx.locale can be set if needed, commands.Context might not have it directly like Interaction.
+        # For prefixed commands, locale is usually handled differently or via bot.
+        # If SUT uses ctx.locale, ensure it's mocked:
+        # self.ctx.locale = discord.Locale("en-US") # Example, if PartyCog used ctx.locale
 
         self.player_location = Location(id=10, guild_id=self.guild.id, name_i18n={"en": "Player's Spot"}, descriptions_i18n={}, type=LocationType.GENERIC)
 

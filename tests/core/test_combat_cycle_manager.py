@@ -97,13 +97,15 @@ async def test_start_combat_successful_creation(
     mock_npc_entity: GeneratedNpc
 ):
     # Mock rule calls
-    mock_get_rule.side_effect = lambda _, __, key, default_value: {
-        "player:stats:default_max_hp": 100,
-        "combat:initiative:dice": "1d20",
-        # For snapshot
-        "combat:attack:check_type": "attack_roll_vs_ac",
-        "combat:attributes:modifier_formula": "(value - 10) // 2"
-    }.get(key, default_value)
+    # Lambda now uses keyword arguments matching the call to get_rule
+    def get_rule_mock_side_effect(*, db, guild_id, key, default): # Use actual param names
+        return {
+            "player:stats:default_max_hp": 100,
+            "combat:initiative:dice": "1d20",
+            "combat:attack:check_type": "attack_roll_vs_ac",
+            "combat:attributes:modifier_formula": "(value - 10) // 2"
+        }.get(key, default)
+    mock_get_rule.side_effect = get_rule_mock_side_effect
 
     # Mock dice rolls for initiative: Player (15 + 2 = 17), NPC (10 + 1 = 11)
     # roll_dice returns (total, list_of_dice_values)
@@ -211,7 +213,7 @@ async def test_start_combat_initiative_tie_break_order(
     # If rolls are P1=10 (score 12), NPC=11 (score 12), P2=12 (score 12)
     # Order should be P1, NPC, P2 (if input order was P1, NPC, P2)
 
-    mock_get_rule.side_effect = lambda _, __, key, default_value: {"combat:initiative:dice": "1d20"}.get(key, default_value)
+    mock_get_rule.side_effect = lambda *, db, guild_id, key, default: {"combat:initiative:dice": "1d20"}.get(key, default)
     mock_roll_dice.side_effect = [
         (10, [10]), # P1 (id 1, mod +2) -> total 12
         (11, [11]), # NPC (id 2, mod +1) -> total 12
@@ -461,10 +463,12 @@ async def test_start_combat_player_in_party_status_update(
     mock_party.current_combat_id = None # Assuming this attribute exists
 
     # Mock rule calls
-    mock_get_rule.side_effect = lambda _, __, key, default_value: {
-        "player:stats:default_max_hp": 100,
-        "combat:initiative:dice": "1d20",
-    }.get(key, default_value)
+    def get_rule_party_test_side_effect(*, db, guild_id, key, default):
+        return {
+            "player:stats:default_max_hp": 100,
+            "combat:initiative:dice": "1d20",
+        }.get(key, default)
+    mock_get_rule.side_effect = get_rule_party_test_side_effect
     mock_roll_dice.return_value = (10, [10]) # Single roll for simplicity
 
     participant_entities = [mock_player_entity, mock_npc_entity]

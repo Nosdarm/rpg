@@ -160,15 +160,29 @@ async def resolve_check(
     # 2.b. Contextual modifiers (from check_context)
     # RuleConfig should define which keys in check_context provide modifiers.
     # Example: "checks:{check_type}:context_modifiers" -> {"tool_bonus": "integer", "cover_penalty": "integer"}
-    # For now, a simple "situational_bonus" or "situational_penalty"
-    if "situational_bonus" in check_context and isinstance(check_context["situational_bonus"], int):
-        bonus = check_context["situational_bonus"]
-        modifier_details.append(ModifierDetail(source="context:situational_bonus", value=bonus, description="Situational bonus from context"))
-        total_modifier += bonus
-    if "situational_penalty" in check_context and isinstance(check_context["situational_penalty"], int):
-        penalty = check_context["situational_penalty"]
-        modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty), description="Situational penalty from context")) # Ensure penalty is negative
-        total_modifier -= abs(penalty)
+
+    # Look for a general bonus_roll_modifier first
+    if "bonus_roll_modifier" in check_context and isinstance(check_context["bonus_roll_modifier"], int):
+        bonus_mod = check_context["bonus_roll_modifier"]
+        modifier_details.append(ModifierDetail(source="context:bonus_roll_modifier", value=bonus_mod, description="Bonus/penalty from interaction context"))
+        total_modifier += bonus_mod
+    else: # Fallback to situational_bonus/penalty if bonus_roll_modifier not present
+        if "situational_bonus" in check_context and isinstance(check_context["situational_bonus"], int):
+            bonus = check_context["situational_bonus"]
+            modifier_details.append(ModifierDetail(source="context:situational_bonus", value=bonus, description="Situational bonus from context"))
+            total_modifier += bonus
+        if "situational_penalty" in check_context and isinstance(check_context["situational_penalty"], int):
+            penalty = check_context["situational_penalty"]
+            modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty), description="Situational penalty from context")) # Ensure penalty is negative
+            total_modifier -= abs(penalty)
+
+    # TODO: Add placeholders for other modifier sources (skills, items, statuses, relationships)
+    # These would also fetch rules from RuleConfig on how they apply to 'check_type'
+    # Example: actor_attributes from context could be parsed here based on rules for the check_type
+    # if "actor_attributes" in check_context and isinstance(check_context["actor_attributes"], dict):
+    #     # Logic to parse actor_attributes based on rules for this check_type
+    #     pass
+
 
     # TODO: Add placeholders for other modifier sources (skills, items, statuses, relationships)
     # These would also fetch rules from RuleConfig on how they apply to 'check_type'

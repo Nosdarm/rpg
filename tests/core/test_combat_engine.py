@@ -66,7 +66,18 @@ def mock_combat_encounter(mock_player: Player, mock_npc: GeneratedNpc) -> Combat
         rules_config_snapshot_json={
             "combat:attack:check_type": "attack_roll_snapshot",
             "combat:attributes:modifier_formula": "(value - 10) // 2"
-        }
+            # Ensure other keys accessed by SUT are present or handled by mocks for _get_combat_rule
+        },
+        turn_order_json={
+            "order": [
+                {"id": mock_player.id, "type": "player"},
+                {"id": mock_npc.id, "type": "npc"}
+            ],
+            "current_index": 0,
+            "current_turn_number": 1
+        },
+        # participants_json is already initialized in the fixture
+        combat_log_json={"entries": []} # Initialize combat_log_json
     )
 
 # Тесты для вспомогательных функций (должны проходить)
