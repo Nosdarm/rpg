@@ -325,7 +325,7 @@ async def _handle_attack_action_wrapper(
                 # A stricter approach: if not player's turn, they can't act yet.
                 # Let's assume for the very first action of combat, the initiator gets to act.
                 # The call to engine_process_combat_action will use actor_id, actor_type from its params.
-                 pass
+                pass
 
 
             action_result = await engine_process_combat_action(
