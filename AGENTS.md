@@ -42,7 +42,7 @@
 ---
 
 ## Текущий план
-*Этот раздел будет заполняться планом для следующей задачи*
+*(Этот раздел очищен после выполнения Task 29)*
 ---
 ## Отложенные задачи
 *(Этот раздел будет заполняться, если появятся задачи, требующие доработки в будущем)*
@@ -50,6 +50,49 @@
 ---
 
 ## Лог действий
+
+## Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine)
+- **Определение задачи**: Прочитан `Tasks.txt`, выбрана задача Task 29: Combat Cycle Refactoring.
+- **Планирование**: Составлен детальный план для реализации Task 29.
+- **Создание модуля `combat_cycle_manager.py`**:
+    - Создан файл `src/core/combat_cycle_manager.py` с базовыми импортами, логгером и заглушками для зависимых систем (XP, Loot, Relationships, WorldState, Quests).
+- **Реализация `start_combat` API**:
+    - В `src/core/combat_cycle_manager.py` реализована функция `start_combat`.
+    - Функция создает запись `CombatEncounter`, определяет участников (`participants_json`) и их начальные статы.
+    - Реализован расчет инициативы (dice roll + dex modifier) и формирование `turn_order_json`.
+    - Создается снимок релевантных боевых правил в `rules_config_snapshot_json`.
+    - Статус `CombatEncounter` устанавливается в `ACTIVE`. Статусы участвующих игроков (`PlayerStatus.IN_COMBAT`) и партий (`PartyTurnStatus.IN_COMBAT`) обновляются.
+    - Логируется событие `COMBAT_START`.
+    - Функция `start_combat` экспортирована из `src/core/__init__.py`.
+- **Интеграция `start_combat` с `action_processor.py`**:
+    - В `src/core/crud/crud_combat_encounter.py` добавлена функция `get_active_combat_for_entity` для проверки, не находится ли сущность уже в бою.
+    - В `src/core/action_processor.py` создан новый обработчик `_handle_attack_action_wrapper` для интента "attack".
+    - `_handle_attack_action_wrapper` определяет цель атаки, проверяет наличие существующего боя для актора или цели.
+    - Если бой не начат, вызывается `combat_cycle_manager.start_combat`. Затем первая атака инициатора обрабатывается через `combat_engine.process_combat_action`.
+    - Если бой уже идет, и это ход атакующего, атака обрабатывается через `combat_engine.process_combat_action`.
+- **Реализация `process_combat_turn` API и вспомогательных функций**:
+    - В `src/core/combat_cycle_manager.py` реализована функция `process_combat_turn`.
+    - Функция загружает `CombatEncounter`, проверяет его статус.
+    - Если ход NPC: вызывает `npc_combat_strategy.get_npc_combat_action`, затем `combat_engine.process_combat_action`.
+    - После действия (игрока или NPC) вызывается `session.refresh(combat_encounter)`.
+    - Реализована вспомогательная функция `_check_combat_end` для определения завершения боя и победившей команды на основе состояния здоровья участников в `participants_json`.
+    - Реализована вспомогательная функция `_advance_turn` для переключения хода на следующего живого участника, обновления `current_turn_entity_id/type`, `current_index` и `current_turn_number`.
+    - Если после продвижения хода наступает ход NPC, `process_combat_turn` рекурсивно вызывается для обработки хода этого NPC (и последующих, пока не наступит ход игрока или конец боя).
+    - Функция `process_combat_turn` экспортирована из `src/core/__init__.py`.
+- **Реализация `_handle_combat_end_consequences`**:
+    - В `src/core/combat_cycle_manager.py` реализована вспомогательная функция `_handle_combat_end_consequences`.
+    - Функция определяет победителей и проигравших.
+    - Вызывает заглушки для систем XP (`xp_awarder.award_xp`), лута (`loot_generator.distribute_loot`), отношений (`relationship_updater.update_relationships_post_combat`), состояния мира (`world_state_updater.update_world_state_post_combat`) и квестов (`quest_system.handle_combat_event_for_quests`).
+    - Сбрасывает боевые статусы игроков и партий.
+    - Логирует событие `COMBAT_END`.
+- **Обновление механизма вызова `process_combat_turn`**:
+    - В `src/core/action_processor.py` (в `_handle_attack_action_wrapper`) после обработки действия игрока в существующем бою или после первого действия в новом бою теперь вызывается `combat_cycle_manager.process_combat_turn` для продвижения состояния боя.
+- **Написание Unit-тестов**:
+    - Создан файл `tests/core/test_combat_cycle_manager.py`.
+    - Написаны базовые тесты для `start_combat` (успешное создание, расчет инициативы, обновление статусов, логирование).
+    - Написан скелет теста для `process_combat_turn` с моками для зависимостей.
+    - Добавлены концептуальные тесты для `_check_combat_end` и `_advance_turn`.
+    - Добавлен тест для проверки обновления статуса партии при начале боя.
 
 ## Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI)
 - **Определение задачи**: Прочитан `Tasks.txt`, выбрана задача Task 28: NPC Combat Strategy Module.

@@ -55,11 +55,13 @@ from . import combat_engine # Import the new combat_engine module
 from .combat_engine import process_combat_action # Import the main function
 from . import npc_combat_strategy # Import the new npc_combat_strategy module
 from .npc_combat_strategy import get_npc_combat_action # Import the main function
+from . import combat_cycle_manager # Import the new combat_cycle_manager module
+from .combat_cycle_manager import start_combat, process_combat_turn # Import the main function for Task 29
 from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -117,5 +119,8 @@ __all__ = [
     "process_combat_action",
     "npc_combat_strategy", # Added
     "get_npc_combat_action", # Added
+    "combat_cycle_manager", # Added
+    "start_combat", # Added
+    "process_combat_turn", # Added
     "CombatActionResult" # Export the Pydantic model as well
 ]

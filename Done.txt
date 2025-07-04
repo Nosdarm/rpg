@@ -85,3 +85,12 @@ Description: Реализован модуль `src/core/npc_combat_strategy.py`
   - Модуль добавлен в `src/core/__init__.py`.
   - Написаны Unit-тесты в `tests/core/test_npc_combat_strategy.py` с использованием моков, покрывающие ключевые функции и сценарии.
 Result: Реализован модуль стратегии NPC в бою, способный выбирать цели и действия на основе правил и состояния боя. Готов к интеграции с CombatEngine.
+
+- Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine).
+Description: Реализован модуль `src/core/combat_cycle_manager.py` с функциями `start_combat` и `process_combat_turn`.
+  - `start_combat`: Создает `CombatEncounter`, определяет участников и инициативу, сохраняет снимок правил, обновляет статусы сущностей, логирует `COMBAT_START`. Интегрирован с `action_processor.py` для вызова при атаке, инициирующей бой.
+  - `process_combat_turn`: Обрабатывает ход текущего активного участника. Для NPC вызывает `npc_combat_strategy` и `combat_engine`. Для игроков их действия обрабатываются напрямую `action_processor` -> `combat_engine`, после чего `action_processor` вызывает `process_combat_turn` для продвижения боя. Включает автоматическое последовательное выполнение ходов NPC.
+  - Вспомогательные функции `_check_combat_end`, `_advance_turn`, `_handle_combat_end_consequences` (с заглушками для XP, лута и т.д.) реализованы.
+  - Обновлен `action_processor.py` для корректного вызова `start_combat` и `process_combat_turn`.
+  - Созданы базовые Unit-тесты в `tests/core/test_combat_cycle_manager.py`.
+Result: Реализован основной цикл управления ходами в бою, включая начало боя, обработку ходов NPC и игроков, определение конца боя и обработку его последствий (с использованием заглушек для зависимых систем).
