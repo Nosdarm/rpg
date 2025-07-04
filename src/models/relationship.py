@@ -42,16 +42,17 @@ class Relationship(Base):
     entity2_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
 
     # Type of relationship, e.g., "personal_feeling", "faction_standing", "diplomatic_status"
-    # Could also be an Enum if predefined types are desired. For now, i18n JSON for flexibility.
-    relationship_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
-    # Example: {"en": "Friendly", "ru": "Дружественный"}, {"en": "Hostile", "ru": "Враждебный"}
-    # Or more specific: {"en": "Ally of Convenience", "ru": "Союзник по обстоятельствам"}
+    relationship_type: Mapped[str] = mapped_column(Text, nullable=False, default="neutral", index=True)
 
     value: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     # Numerical representation of the relationship strength/status.
     # E.g., -100 (arch-enemy) to +100 (best friend/ally), or 0-10 for faction reputation levels.
 
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    source_log_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("story_logs.id", name="fk_relationship_source_log_id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    # ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example: {"reason_for_change": "completed_quest_X", "last_interaction_event_id": 12345}
 
     __table_args__ = (
