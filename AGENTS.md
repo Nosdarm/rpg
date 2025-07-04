@@ -42,14 +42,45 @@
 ---
 
 ## Текущий план
-*(Этот раздел очищен после выполнения Task 31)*
+*(Этот раздел очищен после выполнения Task 32)*
 ---
 ## Отложенные задачи
-*(Этот раздел будет заполняться, если появятся задачи, требующие доработки в будущем)*
+- **Доработка Player.attributes_json для Task 32**:
+    - **Описание**: В рамках Task 32 была реализована логика команды `/levelup`, которая предполагает наличие у модели `Player` поля `attributes_json` для хранения атрибутов персонажа (сила, ловкость и т.д.). Однако само поле и соответствующая миграция не были созданы.
+    - **Необходимые действия**:
+        1. Добавить поле `attributes_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)` в модель `src/models/player.py`.
+        2. Создать и применить миграцию Alembic для добавления этого столбца в таблицу `players`.
+        3. Рассмотреть инициализацию базовых атрибутов в `player.attributes_json` при создании нового персонажа (например, в `player_crud.create_with_defaults`, используя значения из `RuleConfig` по ключу типа `character_attributes:base_values`).
+    - **Срок**: Выполнить перед полноценным тестированием и использованием функционала `/levelup`. Желательно как можно скорее.
 
 ---
 
 ## Лог действий
+
+## Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n)
+- **Определение задачи**: Реализовать команду для распределения очков повышения уровня (`unspent_xp`) на атрибуты персонажа.
+- **Анализ и предположения**:
+    - Атрибуты игрока (сила, ловкость и т.д.) будут храниться в поле `Player.attributes_json: JSONB`. (Поле `attributes_json` не было добавлено в модель `Player` в рамках этой задачи, так как план изменился и сначала была реализована команда, а работа с моделью вынесена на более ранний шаг).
+    - Определения атрибутов (имена, описания), их базовые значения и стоимость прокачки будут храниться в `RuleConfig`.
+- **Реализация API `spend_attribute_points`**:
+    - В `src/core/experience_system.py` добавлена функция `async def spend_attribute_points(session, player, attribute_name, points_to_spend, guild_id)`.
+    - Функция проверяет наличие `unspent_xp`, валидность атрибута (через `RuleConfig` ключ `character_attributes:definitions`), тратит очки, обновляет `player.unspent_xp` и `player.attributes_json`.
+    - Логирует событие `ATTRIBUTE_POINTS_SPENT` (новый тип в `EventType`).
+    - Экспортирована из `src/core/__init__.py`.
+- **Создание Cog `CharacterCog`**:
+    - Создан файл `src/bot/commands/character_commands.py`.
+    - Cog `CharacterCog` зарегистрирован в `src/config/settings.py`.
+- **Реализация команды `/levelup`**:
+    - В `CharacterCog` добавлена команда `/levelup <attribute_name: str> <points_to_spend: int>`.
+    - Команда получает игрока, проверяет наличие `unspent_xp`.
+    - Вызывает API `spend_attribute_points`.
+    - Формирует и отправляет локализованный ответ игроку, используя шаблоны из `RuleConfig` (ключи типа `levelup_success`, `levelup_error_not_enough_xp` и т.д.) и `localization_utils.get_localized_text`. Предусмотрены встроенные сообщения-заглушки.
+- **Определение структуры правил для `RuleConfig`**:
+    - Определены ключи для атрибутов: `character_attributes:definitions`, `character_attributes:base_values`, `character_attributes:cost_per_point`.
+    - Определены ключи для локализации сообщений команды: `levelup_success`, `levelup_error_no_unspent_xp`, `levelup_error_invalid_points_value`, `levelup_error_not_enough_xp`, `levelup_error_invalid_attribute`, `levelup_error_not_enough_xp_for_cost`, `levelup_error_generic`, `player_not_started_game`.
+- **Unit-тесты**:
+    - В `tests/core/test_experience_system.py` добавлены тесты для `spend_attribute_points`, покрывающие успешное выполнение, ошибки (недостаточно XP, неверный атрибут, неверное количество очков), обновление нового атрибута.
+    - Создан файл `tests/bot/commands/test_character_commands.py` с тестами для команды `/levelup`. Тесты покрывают успешное выполнение, обработку ошибок (игрок не найден, нет очков), взаимодействие с API и системой локализации.
 
 ## Task 30: ⚡️ 13.1 Experience System Structure (Rules)
 - **Определение задачи**: Определить структуру правил для системы опыта (получение XP, повышение уровня, распределение очков) в `RuleConfig` для каждой гильдии.

@@ -81,10 +81,7 @@ This block presents tasks related to character experience, leveling up, and attr
 
 {Task 30: ⚡️ 13.1 Experience System Structure (Rules). - Moved to Done.txt}
 {Task 31: ⚡️ 13.2 XP Awarding and Progress. - Moved to Done.txt}
-
-Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n).
-* Description: Distributing level points.
-* Player commands receive guild context. Update player stats/xp within the guild (1.2/5/14). Recalculate Effective_Stats (14). Provide feedback (47).
+{Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n). - Moved to Done.txt}
 
 Task Block: Phase 8: Factions, Relationships, and Social Mechanics
 This block presents tasks related to factions, relationships between entities, and their influence on gameplay.

@@ -156,3 +156,97 @@ async def _check_for_level_up(session: AsyncSession, guild_id: int, player: Play
             break
 
     return level_upped_once
+
+
+async def spend_attribute_points(
+    session: AsyncSession,
+    player: Player,
+    attribute_name: str,
+    points_to_spend: int,
+    guild_id: int
+) -> tuple[bool, str, dict]:
+    """
+    Позволяет игроку потратить unspent_xp на повышение атрибута.
+
+    Args:
+        session: SQLAlchemy AsyncSession.
+        player: Объект Player.
+        attribute_name: Имя атрибута для повышения (ключ из RuleConfig).
+        points_to_spend: Количество очков для траты.
+        guild_id: ID гильдии для загрузки правил.
+
+    Returns:
+        Кортеж (успех: bool, ключ_сообщения_для_локализации: str, детали_для_форматирования: dict).
+    """
+    if points_to_spend <= 0:
+        return False, "levelup_error_invalid_points_value", {"points": points_to_spend}
+
+    if player.unspent_xp < points_to_spend:
+        return False, "levelup_error_not_enough_xp", {"unspent_xp": player.unspent_xp, "requested": points_to_spend}
+
+    attribute_definitions = await rules.get_rule(session, guild_id, "character_attributes:definitions")
+    if not isinstance(attribute_definitions, dict) or attribute_name not in attribute_definitions:
+        return False, "levelup_error_invalid_attribute", {"attribute_name": attribute_name}
+
+    # Предполагаем, что стоимость повышения = 1 очко за +1 к стату.
+    # В будущем можно загружать стоимость из RuleConfig: character_attributes:cost_per_point
+    cost_per_stat_point = 1
+    total_cost = points_to_spend * cost_per_stat_point
+
+    if player.unspent_xp < total_cost:
+        # Эта проверка может быть избыточной, если cost_per_stat_point = 1, но полезна для будущего
+        return False, "levelup_error_not_enough_xp_for_cost", {
+            "unspent_xp": player.unspent_xp,
+            "requested_stats": points_to_spend,
+            "total_cost": total_cost,
+            "attribute_name": attribute_name
+        }
+
+    # Обновляем атрибут игрока
+    # Инициализируем player.attributes_json, если это None
+    if player.attributes_json is None:
+        player.attributes_json = {}
+
+    current_attribute_value = player.attributes_json.get(attribute_name, 0)
+    new_attribute_value = current_attribute_value + points_to_spend
+    player.attributes_json[attribute_name] = new_attribute_value
+    player.unspent_xp -= total_cost
+
+    await game_events.log_event(
+        session=session,
+        guild_id=guild_id,
+        event_type=EventType.ATTRIBUTE_POINTS_SPENT.name,
+        details_json={
+            "player_id": player.id,
+            "player_name": player.name,
+            "attribute_changed": attribute_name,
+            "points_spent": total_cost, # фактически потрачено unspent_xp
+            "stat_increase": points_to_spend, # на сколько увеличился стат
+            "old_value": current_attribute_value,
+            "new_value": new_attribute_value,
+            "remaining_unspent_xp": player.unspent_xp,
+        },
+        entity_ids_json={"player_id": player.id}
+    )
+
+    # Коммит сессии не делается здесь, он должен управляться вызывающей функцией (например, transactional декоратором команды)
+    # await session.commit()
+    # await session.refresh(player)
+
+
+    localized_attribute_name = attribute_name # По умолчанию
+    if isinstance(attribute_definitions[attribute_name], dict):
+        attr_def = attribute_definitions[attribute_name]
+        name_i18n = attr_def.get("name_i18n")
+        if isinstance(name_i18n, dict):
+            # Язык игрока нужно будет передать или получить здесь для полной локализации имени атрибута
+            # Пока используем ключ атрибута или первый доступный язык
+            localized_attribute_name = name_i18n.get(player.selected_language or "en", name_i18n.get("en", attribute_name))
+
+
+    return True, "levelup_success", {
+        "attribute_name": localized_attribute_name,
+        "new_value": new_attribute_value,
+        "remaining_xp": player.unspent_xp,
+        "spent_points": total_cost
+    }
