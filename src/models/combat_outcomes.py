@@ -1,9 +1,7 @@
 from typing import Optional, List, Dict, Any, TYPE_CHECKING # Added TYPE_CHECKING
 from pydantic import BaseModel
 
-# if TYPE_CHECKING: # No longer needed for CheckResult with direct import
-#     from src.core.check_resolver import CheckResult # Old location
-from .check_results import CheckResult # New location
+from .check_results import CheckResult # Old location, already correct
 
 class CombatActionResult(BaseModel):
     """
