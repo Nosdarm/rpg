@@ -40,6 +40,7 @@ from .ability_outcomes import ( # Import Ability Outcome models
 )
 from .combat_outcomes import CombatActionResult # Import CombatActionResult model
 from .check_results import CheckResult, CheckOutcome, ModifierDetail # Import CheckResult models
+from .command_info import CommandInfo, CommandParameterInfo, CommandListResponse # Import Command Info models
 # ... и так далее для всех остальных моделей
 
 # Вызов model_rebuild для моделей с ForwardRefs после того, как все модели импортированы
@@ -91,7 +92,8 @@ logger.info(
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
-    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail."
+    "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail, "
+    "CommandInfo, CommandParameterInfo, CommandListResponse."
 )
 
 # Perform model rebuilds here after all models are known

@@ -101,6 +101,10 @@ BOT_LANGUAGE = os.getenv("BOT_LANGUAGE", "en")
 # Secret Key
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+# API Server settings
+API_HOST = os.getenv("API_HOST", "127.0.0.1")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+
 
 # Проверка наличия токена и URL базы данных при импорте модуля
 if not DISCORD_BOT_TOKEN:
