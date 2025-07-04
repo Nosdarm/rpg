@@ -6,6 +6,8 @@
 ## Phase 1: Game World (Static & Generated)
 - Task 1.1: Location Model (i18n, Guild-Scoped)
 - Task 1.2: Player and Party System (ORM, Commands, Guild-Scoped)
+Description: Проведен анализ существующей реализации моделей Player, Party, CRUD-операций и команд Discord (/start, /party). Основная функциональность была реализована ранее. Добавлены Unit-тесты для моделей (`tests/models/test_player.py`, `tests/models/test_party.py`), CRUD-операций (`tests/core/crud/test_crud_player.py`, `tests/core/crud/test_crud_party.py`) и команд Discord (`tests/bot/commands/test_general_commands.py`, `tests/bot/commands/test_party_commands.py`). В процессе написания и запуска тестов исправлены различные ошибки импорта и логики в основном коде и тестах. Один сложный тест (`test_process_combat_turn_npc_action`) временно пропущен из-за RecursionError.
+Result: Система игроков и партий покрыта тестами, основные ошибки исправлены.
 - Task 1.3: Movement Logic (API, Command, Guild-Scoped, Basic Party Movement)
 ## Phase 2: AI Integration - Generation Core
 - Task 2.1: Finalize Definition of ALL DB Schemas (i18n, Guild ID)

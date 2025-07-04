@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional, Union
 from src.models.generated_npc import GeneratedNpc
 from src.models.combat_encounter import CombatEncounter
 from src.models.player import Player
-from src.models.enums import EntityType
+from src.models.enums import CombatParticipantType as EntityType # Changed to CombatParticipantType
 from src.core.crud import crud_npc, crud_combat_encounter, crud_player, crud_relationship
 from src.core.rules import get_rule
 

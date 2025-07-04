@@ -8,23 +8,8 @@ Phase 0: Architecture and Initialization (Foundation MVP)
 (Task 0.3 moved to Done.txt)
 
 🌍 Phase 1: Game World (Static & Generated)
-🌍 1.1 Location Model (i18n, Guild-Scoped). (0.2)
-Description: Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details.
-Implement the Location model (0.2) with fields: id (PK, INTEGER), guild_id (BIGINT, Indexed, FK to GuildConfig), static_id (TEXT, unique within the guild), name_i18n (JSONB - for static or primary generated name), descriptions_i18n (JSONB - for static or primary generated description), type (TEXT enum), coordinates_json (JSONB), neighbor_locations_json (JSONB - list of {location_id: connection_type_i18n}), generated_details_json (JSONB - additional generated descriptive details), ai_metadata_json (JSONB - for AI generation).
-Populate the DB with static data during on_guild_join (0.1). World Lore is also stored in the DB (e.g., in WorldState or a separate table), linked to the guild.
-Utilities get_location(guild_id, location_id), get_static_location_id(guild_id, static_id). A utility to get localized location/lore text (using _i18n fields and fallback languages 0.1).
-Result: Location model defined, static data accessible and isolated.
-
-
-🌍 1.2 Player and Party System (ORM, Commands, Guild-Scoped). (0.2, 0.3, 0.1)
-Description: Managing players and parties within a guild.
-Implement the Player model (0.2/7). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), discord_id (BIGINT, Indexed), name (TEXT), current_location_id (INTEGER FK), selected_language (TEXT), xp (INT), level (INT), unspent_xp (INT), gold (INT), current_status (TEXT - enum), collected_actions_json (JSONB), current_party_id (INTEGER FK Nullable). (Composite Unique Index: guild_id, discord_id).
-Implement the Party model (0.2). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), name (TEXT), player_ids_json (JSONB), current_location_id (INTEGER FK), turn_status (TEXT - enum).
-/start command: Get guild_id from Discord command context. Create Player with this guild_id using 0.3 utilities. Assign starting location (via 4). Set default stats, XP, level, 'exploring' status.
-/party create/join/leave/disband commands: Manage Party within the guild context. All Player/Party loading/modification MUST use guild_id (0.3).
-Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_players_in_location(guild_id, location_id).
-
-
+{Task 1.1 Location Model (i18n, Guild-Scoped) - Moved to Done.txt}
+{Task 1.2 Player and Party System (ORM, Commands, Guild-Scoped) - Moved to Done.txt}
 {Task 1.3 Movement Logic - Moved to Done.txt}
 
 🧠 Phase 2: AI Integration - Generation Core

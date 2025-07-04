@@ -25,9 +25,9 @@ from ..bot.utils import notify_master # Utility to notify master
 from .combat_cycle_manager import start_combat, process_combat_turn # Added process_combat_turn
 from .combat_engine import process_combat_action as engine_process_combat_action # Alias to avoid confusion
 from ..models import GeneratedNpc # For fetching target NPC
-from .crud.crud_player import get_player_by_id_and_guild # For fetching player actor/target
-from .crud.crud_npc import get_one_by_id_and_guild_id as get_npc_by_id_and_guild # For fetching NPC actor/target
-from .crud.crud_combat_encounter import get_active_combat_for_entity, combat_encounter_crud # Added combat_encounter_crud
+from .crud.crud_player import player_crud # Changed import
+from .crud.crud_npc import npc_crud # Changed import
+from .crud.crud_combat_encounter import combat_encounter_crud # Changed: Removed get_active_combat_for_entity
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ async def _handle_attack_action_wrapper(
     session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
 ) -> dict:
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling ATTACK action: {action.entities}")
-    actor_player = await get_player_by_id_and_guild(session, player_id=player_id, guild_id=guild_id)
+    actor_player = await player_crud.get_by_id_and_guild(session, id=player_id, guild_id=guild_id) # Changed call
     if not actor_player:
         return {"status": "error", "message": "Attacking player not found."}
 
@@ -216,11 +216,11 @@ async def _handle_attack_action_wrapper(
 
     target_model = None
     if target_type_from_nlu == "npc":
-        target_model = await get_npc_by_id_and_guild(session, npc_id=target_id_from_nlu, guild_id=guild_id)
+        target_model = await npc_crud.get_one_by_id_and_guild_id(session, npc_id=target_id_from_nlu, guild_id=guild_id) # Changed call
         if target_model:
             target_entity_data = {"id": target_model.id, "type": "npc", "name": target_model.name_i18n.get("en", "NPC"), "model": target_model}
     elif target_type_from_nlu == "player":
-        target_model = await get_player_by_id_and_guild(session, player_id=target_id_from_nlu, guild_id=guild_id)
+        target_model = await player_crud.get_by_id_and_guild(session, id=target_id_from_nlu, guild_id=guild_id) # Changed call
         if target_model:
             target_entity_data = {"id": target_model.id, "type": "player", "name": target_model.name, "model": target_model}
 
@@ -233,11 +233,11 @@ async def _handle_attack_action_wrapper(
 
     # 2. Check Existing Combat
     # Check for actor
-    actor_combat = await combat_encounter_crud.get_active_combat_for_entity(
+    actor_combat = await combat_encounter_crud.get_active_combat_for_entity( # Changed call
         db=session, guild_id=guild_id, entity_id=actor_player.id, entity_type="player"
     )
     # Check for target
-    target_combat = await combat_encounter_crud.get_active_combat_for_entity(
+    target_combat = await combat_encounter_crud.get_active_combat_for_entity( # Changed call
         db=session, guild_id=guild_id, entity_id=target_entity_data["id"], entity_type=target_entity_data["type"]
     )
 

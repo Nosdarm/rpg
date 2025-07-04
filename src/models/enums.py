@@ -24,6 +24,7 @@ class PartyTurnStatus(enum.Enum):
     """
     UNKNOWN = "unknown"            # Default or error state
     IDLE = "idle"                  # Party is not in active turn-based gameplay (e.g., exploring together)
+    IN_COMBAT = "in_combat"          # Party is actively involved in a combat encounter
     AWAITING_PARTY_ACTION = "awaiting_party_action" # Party's turn, members deciding or leader to submit /end_party_turn
     TURN_ENDED_PENDING_RESOLUTION = "turn_ended_pending_resolution" # Party has submitted turn, waiting for guild-wide processing
     PROCESSING_GUILD_TURN = "processing_guild_turn" # Party's actions are part of active guild turn processing
@@ -156,6 +157,11 @@ class CombatStatus(enum.Enum):
     ENDED_STALEMATE = "ended_stalemate"      # Combat ended without a clear victor (e.g., all fled, or by other rules)
     ENDED_ESCAPED = "ended_escaped"          # One or more sides escaped
     ERROR = "error"                    # An error occurred in combat processing
+
+class CombatParticipantType(enum.Enum): # Added new Enum
+    """Represents the type of a participant in combat."""
+    PLAYER = "player"
+    NPC = "npc"
 
 class ConflictStatus(enum.Enum):
     """

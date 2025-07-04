@@ -36,11 +36,13 @@ __all__ = [
     "active_status_effect_crud",
     "guild_crud",
     "combat_encounter_crud",
+    "crud_relationship", # Added crud_relationship
     "generated_quest_crud",
     "quest_step_crud",
     "player_quest_progress_crud",
     "questline_crud",
 ]
+from .crud_relationship import crud_relationship # Added crud_relationship
 from .crud_quest import ( # Added
     generated_quest_crud,
     quest_step_crud,
