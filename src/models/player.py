@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Any, List, TYPE_CHECKING # Consolidated imports
 
 from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, Enum as SQLAlchemyEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -36,6 +36,7 @@ class Player(Base):
         default=PlayerStatus.IDLE,
         nullable=False
     )
+    attributes_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)
 
     collected_actions_json: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSON, nullable=True) # Stores queued actions
 

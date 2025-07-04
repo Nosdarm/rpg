@@ -21,34 +21,20 @@ import discord # Added import for discord
 # Главное, чтобы src.main был доступен.
 
 from src.main import app # Импортируем FastAPI app из src.main
+from src.main import app # Импортируем FastAPI app из src.main
 from src.models.command_info import CommandInfo, CommandListResponse
+from src.bot.core import BotCore # Импортируем BotCore для спека
 
-# Фикстура для TestClient
+from src.bot.api.commands_api import get_bot_instance as actual_get_bot_instance # Импортируем реальную зависимость
+
+# Мок для экземпляра бота, который будет использоваться в тестах
+mock_bot_instance = AsyncMock(spec=BotCore)
+mock_bot_instance.tree = AsyncMock(spec=discord.app_commands.CommandTree)
+
 @pytest.fixture(scope="module")
 def client():
-    # Можно было бы создать TestClient здесь, но чтобы мокнуть get_bot_instance до создания клиента,
-    # лучше делать это в каждом тесте или через фикстуру, которая патчит до yield.
-    # Но для FastAPI TestClient обычно создается один раз.
-    # Мы можем мокнуть зависимость глобально для всех тестов в этом модуле, если это необходимо.
-    # Или передавать app в TestClient в каждом тесте после патчинга.
-    # Простой вариант:
     with TestClient(app) as c:
         yield c
-
-# Мок для экземпляра бота, который будет возвращаться зависимостью get_bot_instance
-mock_bot_instance = AsyncMock(spec=ext_commands.Bot)
-mock_bot_instance.tree = AsyncMock(spec=discord.app_commands.CommandTree) # Добавляем атрибут tree
-
-# Мокаем get_bot_instance в src.bot.api.commands_api
-# Это нужно делать до того, как TestClient сделает первый запрос к эндпоинту, который использует эту зависимость.
-# Лучше всего использовать pytest-mock для этого или делать это в фикстуре.
-
-@pytest.fixture(autouse=True) # autouse=True чтобы применялось ко всем тестам в модуле
-def mock_bot_dependency(mocker): # Используем mocker из pytest-mock
-    # Патчим функцию get_bot_instance там, где она используется (в commands_api)
-    # mocker.patch сам позаботится о восстановлении после теста
-    mocker.patch("src.bot.api.commands_api.get_bot_instance", return_value=mock_bot_instance)
-
 
 # Тесты для API эндпоинта /commands/
 def test_list_bot_commands_success_empty(client: TestClient, mocker):
@@ -60,8 +46,9 @@ def test_list_bot_commands_success_empty(client: TestClient, mocker):
     assert response.status_code == 200
     data = response.json()
     assert data["commands"] == []
-    assert data["language_code"] is None # Так как lang не передавался
-    mocked_get_commands.assert_called_once_with(bot=mock_bot_instance, guild_id=None, language=None)
+    from src.config import settings # Импорт для доступа к BOT_LANGUAGE
+    assert data["language_code"] == settings.BOT_LANGUAGE # Ожидаем язык по умолчанию
+    mocked_get_commands.assert_called_once_with(bot=mock_bot_instance, guild_id=None, language=settings.BOT_LANGUAGE) # И в вызове тоже
 
 def test_list_bot_commands_success_with_data_and_lang(client: TestClient, mocker):
     sample_commands = [
@@ -109,6 +96,8 @@ def test_list_bot_commands_internal_error(client: TestClient, mocker):
     expected_lang = settings.BOT_LANGUAGE
     assert data["detail"] == "Failed to retrieve bot commands."
     mocked_get_commands.assert_called_once_with(bot=mock_bot_instance, guild_id=None, language=expected_lang)
+
+    del app.dependency_overrides[actual_get_bot_instance] # Очистка
 
 # Импорты ANY и HTTPException уже вверху файла, дубликаты не нужны.
 
