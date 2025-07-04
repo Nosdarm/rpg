@@ -167,7 +167,7 @@ SECRET_KEY=your_secret_key_here
 # Список когов для загрузки ботом
 # Пути указываются относительно корня проекта (где находится main.py или точка входа)
 BOT_COGS = [
-    "src.bot.general_commands", # БЫЛ "src.bot.commands" - содержит CommandCog с /ping etc.
+    "src.bot.commands.general_commands", # Consolidated general commands (ping, start, etc.)
     "src.bot.events",
     "src.bot.commands.party_commands",
     "src.bot.commands.movement_commands",
@@ -175,14 +175,7 @@ BOT_COGS = [
     "src.bot.commands.turn_commands", # Cog for /end_turn and /end_party_turn
     # "src.bot.commands.map_commands", # Added Map Master commands - Disabled to prevent conflict with master_map_commands
     "src.bot.commands.master_map_commands", # Cog for Master Map Management
-    # "src.bot.general_commands", # БЫЛ "src.bot.commands" - Закомментировано, так как general_commands.py добавляется ниже
 ]
-# Убедимся, что general_commands загружается. Если он уже был в src.bot.commands, то он был переименован.
-# Если его не было, то он добавляется.
-if "src.bot.commands" in BOT_COGS: # Старое имя кога с основными командами
-    BOT_COGS.remove("src.bot.commands")
-if "src.bot.general_commands" not in BOT_COGS:
-    BOT_COGS.append("src.bot.general_commands")
 
 # Master User IDs - comma-separated string in .env, parsed into a list here
 MASTER_IDS_STR = os.getenv("MASTER_IDS", "")
