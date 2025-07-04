@@ -11,6 +11,7 @@ from src.core.dice_roller import roll_dice # For mocking
 from src.core.game_events import log_event # For mocking
 from src.core.npc_combat_strategy import get_npc_combat_action
 from src.core.combat_engine import process_combat_action as engine_process_combat_action
+from src.models.combat_outcomes import CombatActionResult # Added import
 
 
 # --- Fixtures ---

@@ -22,12 +22,12 @@ from .party_utils import get_party # Generic get by PK
 from .interaction_handlers import handle_intra_location_action
 from .game_events import log_event
 from ..bot.utils import notify_master # Utility to notify master
-from .combat_cycle_manager import start_combat
+from .combat_cycle_manager import start_combat, process_combat_turn # Added process_combat_turn
 from .combat_engine import process_combat_action as engine_process_combat_action # Alias to avoid confusion
 from ..models import GeneratedNpc # For fetching target NPC
 from .crud.crud_player import get_player_by_id_and_guild # For fetching player actor/target
 from .crud.crud_npc import get_one_by_id_and_guild_id as get_npc_by_id_and_guild # For fetching NPC actor/target
-from .crud.crud_combat_encounter import get_active_combat_for_entity # New CRUD function needed
+from .crud.crud_combat_encounter import get_active_combat_for_entity, combat_encounter_crud # Added combat_encounter_crud
 
 logger = logging.getLogger(__name__)
 
