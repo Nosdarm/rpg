@@ -54,9 +54,10 @@ class TestCRUDParty(unittest.IsolatedAsyncioTestCase):
         )
 
     @classmethod
-    async def tearDownClass(cls):
+    def tearDownClass(cls): # Changed to sync
         if cls.engine:
-            await cls.engine.dispose()
+            import asyncio
+            asyncio.run(cls.engine.dispose()) # Run async dispose
 
     async def asyncSetUp(self):
         assert self.SessionLocal is not None
