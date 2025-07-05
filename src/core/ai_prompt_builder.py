@@ -684,7 +684,7 @@ async def _get_hidden_relationships_context_for_dialogue(
     from ..models.enums import RelationshipEntityType # Ensure this is the correct Enum
 
     npc_all_relationships = await actual_crud_relationship.get_relationships_for_entity(
-        db=session, # crud_relationship.py uses 'db' as session parameter name
+        session=session, # crud_relationship.py uses 'db' as session parameter name
         guild_id=guild_id,
         entity_id=npc_id,
             entity_type=RelationshipEntityType.GENERATED_NPC # Use the imported Enum

@@ -11,7 +11,7 @@ from ...models.relationship import Relationship, RelationshipEntityType
 class CRUDRelationship(CRUDBase[Relationship]):
     async def get_relationship_between_entities(
         self,
-        db: AsyncSession,
+        session: AsyncSession,
         *,
         guild_id: int,
         entity1_type: RelationshipEntityType,
@@ -58,12 +58,12 @@ class CRUDRelationship(CRUDBase[Relationship]):
                 )
             )
         )
-        result = await db.execute(stmt)
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_relationships_for_entity(
         self,
-        db: AsyncSession,
+        session: AsyncSession,
         *,
         guild_id: int,
         entity_type: RelationshipEntityType,
@@ -81,7 +81,7 @@ class CRUDRelationship(CRUDBase[Relationship]):
                 (self.model.entity2_type == entity_type) & (self.model.entity2_id == entity_id)
             )
         ).offset(skip).limit(limit)
-        result = await db.execute(stmt)
+        result = await session.execute(stmt)
         return result.scalars().all()
 
 

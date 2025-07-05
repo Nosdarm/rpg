@@ -44,8 +44,8 @@ def test_get_localized_string_with_mock_locale_str():
     assert _get_localized_string(ls, None) == "hello" # type: ignore # Fallback to default message
 
 def test_get_localized_string_with_none_value():
-    assert _get_localized_string(None, "en") is None
-    assert _get_localized_string(None, "en", "default") == "default"
+    assert _get_localized_string(value=None, lang_code="en") is None
+    assert _get_localized_string(value=None, lang_code="en", default_str="default") == "default"
 
 
 # Tests for _extract_parameter_details

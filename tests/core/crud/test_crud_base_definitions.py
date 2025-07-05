@@ -63,7 +63,7 @@ async def test_get_many_by_ids_success_no_guild(
     mock_result.scalars.return_value.all.return_value = [user1, user2]
     mock_db_session.execute.return_value = mock_result # type: ignore
     ids_to_fetch = [1, 2]
-    fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
+    fetched_users = await user_crud.get_many_by_ids(session=mock_db_session, ids=ids_to_fetch)
     assert len(fetched_users) == 2
     assert user1 in fetched_users
     assert user2 in fetched_users
@@ -81,7 +81,7 @@ async def test_get_many_by_ids_success_with_guild(
     ids_to_fetch = [1, 2, 3]
     guild_id_filter = 100
     fetched_users = await user_crud.get_many_by_ids(
-        db=mock_db_session, ids=ids_to_fetch, guild_id=guild_id_filter
+        session=mock_db_session, ids=ids_to_fetch, guild_id=guild_id_filter
     )
     assert len(fetched_users) == 2
     assert user_guild1_1 in fetched_users
@@ -98,7 +98,7 @@ async def test_get_many_by_ids_some_not_found(
     mock_result.scalars.return_value.all.return_value = [user1]
     mock_db_session.execute.return_value = mock_result # type: ignore
     ids_to_fetch = [1, 3]
-    fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
+    fetched_users = await user_crud.get_many_by_ids(session=mock_db_session, ids=ids_to_fetch)
     assert len(fetched_users) == 1
     assert user1 in fetched_users
     mock_db_session.execute.assert_called_once() # type: ignore
@@ -111,7 +111,7 @@ async def test_get_many_by_ids_all_not_found(
     mock_result.scalars.return_value.all.return_value = []
     mock_db_session.execute.return_value = mock_result # type: ignore
     ids_to_fetch = [4, 5]
-    fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
+    fetched_users = await user_crud.get_many_by_ids(session=mock_db_session, ids=ids_to_fetch)
     assert len(fetched_users) == 0
     mock_db_session.execute.assert_called_once() # type: ignore
 
@@ -120,7 +120,7 @@ async def test_get_many_by_ids_empty_list_input(
     user_crud: CRUDBase[MockUser], mock_db_session: AsyncSession
 ):
     ids_to_fetch: List[int] = []
-    fetched_users = await user_crud.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
+    fetched_users = await user_crud.get_many_by_ids(session=mock_db_session, ids=ids_to_fetch)
     assert len(fetched_users) == 0
     mock_db_session.execute.assert_not_called() # type: ignore
 
@@ -131,7 +131,7 @@ async def test_get_many_by_ids_model_no_pk_logs_error(
     # MockNoPK is now defined at module level
     crud_no_pk = CRUDBase(MockNoPK)
     with patch('src.core.crud_base_definitions.logger.error') as mock_logger_error:
-        result = await crud_no_pk.get_many_by_ids(db=mock_db_session, ids=[1])
+        result = await crud_no_pk.get_many_by_ids(session=mock_db_session, ids=[1])
         assert result == []
         mock_logger_error.assert_called_once_with( # type: ignore
             "Model MockNoPK does not have a recognized PK attribute ('id' or 'static_id') for get_many_by_ids operation."
@@ -146,7 +146,7 @@ async def test_get_many_by_ids_with_static_id_pk(mock_db_session: AsyncSession):
     mock_result.scalars.return_value.all.return_value = [item1]
     mock_db_session.execute.return_value = mock_result # type: ignore
     ids_to_fetch = ["item_a", "item_b"]
-    fetched_items = await crud_static_pk.get_many_by_ids(db=mock_db_session, ids=ids_to_fetch)
+    fetched_items = await crud_static_pk.get_many_by_ids(session=mock_db_session, ids=ids_to_fetch)
     assert len(fetched_items) == 1
     assert fetched_items[0].static_id == "item_a"
     mock_db_session.execute.assert_called_once() # type: ignore
@@ -155,7 +155,7 @@ async def test_get_many_by_ids_with_static_id_pk(mock_db_session: AsyncSession):
     item_guild = MockStaticIdPK(static_id="item_g", name="Item Guild", guild_id=100)
     mock_result.scalars.return_value.all.return_value = [item_guild] # Already a mock, return_value assignment is fine
     fetched_items_guild = await crud_static_pk.get_many_by_ids(
-        db=mock_db_session, ids=["item_g", "item_x"], guild_id=100
+        session=mock_db_session, ids=["item_g", "item_x"], guild_id=100
     )
     assert len(fetched_items_guild) == 1
     assert fetched_items_guild[0].static_id == "item_g"

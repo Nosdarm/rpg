@@ -50,7 +50,7 @@ async def _get_entity_attribute(entity_model: Optional[Any], attribute_name: str
 
 
 async def resolve_check(
-    db: AsyncSession,
+    session: AsyncSession,
     guild_id: int,
     check_type: str,
     # Actor context (entity performing the check)
@@ -88,8 +88,8 @@ async def resolve_check(
     crit_success_rule_key = f"checks:{check_type}:critical_success_threshold"
     crit_failure_rule_key = f"checks:{check_type}:critical_failure_threshold"
 
-    dice_notation = await get_rule(db, guild_id=guild_id, key=dice_notation_rule_key) or DEFAULT_RULE_VALUES["checks:dice_notation"]
-    base_attribute_name = await get_rule(db, guild_id=guild_id, key=base_attribute_rule_key)
+    dice_notation = await get_rule(session, guild_id=guild_id, key=dice_notation_rule_key) or DEFAULT_RULE_VALUES["checks:dice_notation"]
+    base_attribute_name = await get_rule(session, guild_id=guild_id, key=base_attribute_rule_key)
 
     rules_snapshot = {
         dice_notation_rule_key: dice_notation,
@@ -99,11 +99,11 @@ async def resolve_check(
     # 2. Calculate Modifiers
     if not actor_entity_model and actor_entity_id and actor_entity_type:
         actor_entity_model = await get_entity_by_id_and_type_str(
-            db, entity_type_str=actor_entity_type.value, entity_id=actor_entity_id, guild_id=guild_id
+            session, entity_type_str=actor_entity_type.value, entity_id=actor_entity_id, guild_id=guild_id
         )
     if not target_entity_model and target_entity_id and target_entity_type:
         target_entity_model = await get_entity_by_id_and_type_str(
-            db, entity_type_str=target_entity_type.value, entity_id=target_entity_id, guild_id=guild_id
+            session, entity_type_str=target_entity_type.value, entity_id=target_entity_id, guild_id=guild_id
         )
 
     current_actor_name = actor_name_override
@@ -167,7 +167,7 @@ async def resolve_check(
 
     if relevant_npc_id_local is not None and relevant_npc_type_enum_local is not None:
         npc_all_relationships = await crud_relationship.get_relationships_for_entity(
-            db=db, guild_id=guild_id, entity_id=relevant_npc_id_local, entity_type=relevant_npc_type_enum_local
+            session=session, guild_id=guild_id, entity_id=relevant_npc_id_local, entity_type=relevant_npc_type_enum_local
         )
         hidden_prefixes = ("secret_", "internal_", "personal_debt", "hidden_fear", "betrayal_")
         for rel in npc_all_relationships:
@@ -194,8 +194,8 @@ async def resolve_check(
             base_rel_type_for_rule = rel.relationship_type.split(':')[0]
             rule_key_exact = f"hidden_relationship_effects:checks:{rel.relationship_type}"
             rule_key_generic = f"hidden_relationship_effects:checks:{base_rel_type_for_rule}"
-            specific_rule_conf = await get_rule(db, guild_id, rule_key_exact, default=None)
-            generic_rule_conf = await get_rule(db, guild_id, rule_key_generic, default=None)
+            specific_rule_conf = await get_rule(session, guild_id, rule_key_exact, default=None)
+            generic_rule_conf = await get_rule(session, guild_id, rule_key_generic, default=None)
             rule_conf = None
             if specific_rule_conf and isinstance(specific_rule_conf, dict) and specific_rule_conf.get("enabled", False):
                 rule_conf = specific_rule_conf
@@ -259,7 +259,7 @@ async def resolve_check(
                         })
 
     relationship_influence_rule_key = f"relationship_influence:checks:{check_type}"
-    relationship_rule = await get_rule(db, guild_id, relationship_influence_rule_key)
+    relationship_rule = await get_rule(session, guild_id, relationship_influence_rule_key)
     if relationship_rule and isinstance(relationship_rule, dict) and relationship_rule.get("enabled"):
         rules_snapshot[relationship_influence_rule_key] = relationship_rule
         rel_target_entity_id: Optional[int] = None
@@ -273,7 +273,7 @@ async def resolve_check(
                 # target_entity_type is already the Enum member if not None
                 target_rel_type_enum = target_entity_type
                 relationships = await crud_relationship.get_relationships_for_entity(
-                    db=db,
+                    session=session,
                     guild_id=guild_id,
                     entity_type=actor_rel_type_enum,
                     entity_id=actor_entity_id
@@ -315,7 +315,7 @@ async def resolve_check(
                                 modifier_val = mod_def.get("modifier", 0)
                                 total_modifier += modifier_val
                                 desc_key = mod_def.get("description_key", f"Relationship value {rel_value}")
-                                term_desc = await get_rule(db, guild_id, desc_key, default=desc_key) if "terms." in desc_key else desc_key
+                                term_desc = await get_rule(session, guild_id, desc_key, default=desc_key) if "terms." in desc_key else desc_key
                                 modifier_details.append(ModifierDetail(
                                     source=f"relationship:{relationship_type_pattern_str}",
                                     value=modifier_val,
@@ -346,8 +346,8 @@ async def resolve_check(
     final_value = roll_used + total_modifier
     outcome_status = "failure"
     outcome_description = f"Check ({check_type}) failed with {final_value}."
-    crit_success_threshold = await get_rule(db, guild_id=guild_id, key=crit_success_rule_key) or DEFAULT_RULE_VALUES["checks:critical_success_threshold"]
-    crit_failure_threshold = await get_rule(db, guild_id=guild_id, key=crit_failure_rule_key) or DEFAULT_RULE_VALUES["checks:critical_failure_threshold"]
+    crit_success_threshold = await get_rule(session, guild_id=guild_id, key=crit_success_rule_key) or DEFAULT_RULE_VALUES["checks:critical_success_threshold"]
+    crit_failure_threshold = await get_rule(session, guild_id=guild_id, key=crit_failure_rule_key) or DEFAULT_RULE_VALUES["checks:critical_failure_threshold"]
     rules_snapshot[crit_success_rule_key] = crit_success_threshold
     rules_snapshot[crit_failure_rule_key] = crit_failure_threshold
     is_d20_roll = "d20" in dice_notation.lower()

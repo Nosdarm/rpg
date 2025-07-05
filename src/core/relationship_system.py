@@ -169,7 +169,11 @@ async def update_relationship( # noqa C901
             "source_log_id": event_details_log_id,
         }
         try:
-            created_rel = await crud_relationship.create_with_guild_id(db=session, obj_in=create_data, guild_id=guild_id)
+            # Use the standard CRUDBase.create method.
+            # CRUDBase.create handles guild_id if it's part of obj_in and model supports it,
+            # or if passed as a direct parameter to CRUDBase.create (which it is not here for obj_in,
+            # but guild_id is already in create_data which is good).
+            created_rel = await crud_relationship.create(session=session, obj_in=create_data)
             # create_with_guild_id might not be standard. Assuming it's like crud_relationship.create(db=session, obj_in=Relationship(**create_data))
             # Let's use the standard CRUDBase.create
             # new_rel_obj = Relationship(**create_data) # This would be if obj_in was a Pydantic model

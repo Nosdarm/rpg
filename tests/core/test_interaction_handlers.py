@@ -390,7 +390,8 @@ async def test_interact_object_no_check_required(
     mock_resolve_check.assert_not_called() # type: ignore # IMPORTANT: check resolver should not be called
 
     mock_log_event.assert_called_once() # type: ignore
-    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    assert mock_log_event.call_args is not None, "log_event was not called as expected"
+    log_kwargs = mock_log_event.call_args.kwargs
     details_json_val = log_kwargs.get("details_json")
     assert details_json_val is not None, "'details_json' key missing in log_event call"
     assert isinstance(details_json_val, dict), "'details_json' was not a dict"
@@ -428,7 +429,8 @@ async def test_interact_object_rule_not_found(
 
     mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic") # FIX: db to session
     mock_log_event.assert_called_once() # type: ignore # Log event should still be called
-    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    assert mock_log_event.call_args is not None, "log_event was not called as expected"
+    log_kwargs = mock_log_event.call_args.kwargs
     details_json_val = log_kwargs.get("details_json")
     assert details_json_val is not None
     assert isinstance(details_json_val, dict)
@@ -480,7 +482,8 @@ async def test_interact_object_no_interaction_key( # Renamed from test_interact_
     assert result["success"] is True # Should be true, as "nothing interesting happens" is a success
     assert "You try to interact with Hidden Lever, but nothing interesting happens." in result["message"]
     mock_log_event.assert_called_once() # type: ignore
-    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    assert mock_log_event.call_args is not None, "log_event was not called as expected"
+    log_kwargs = mock_log_event.call_args.kwargs
     details_json_val = log_kwargs.get("details_json")
     assert details_json_val is not None
     assert isinstance(details_json_val, dict)

@@ -24,7 +24,7 @@ class CharacterCog(commands.Cog, name="Character Commands"):
     )
     async def levelup_command(self, interaction: discord.Interaction, attribute_name: str, points_to_spend: int):
         # Вызываем внутренний метод, к которому применен @transactional
-        await self._levelup_internal(interaction, attribute_name, points_to_spend)
+        await self._levelup_internal(interaction, attribute_name, points_to_spend) # type: ignore
 
     @transactional
     async def _levelup_internal(self, interaction: discord.Interaction, attribute_name: str, points_to_spend: int, *, session: AsyncSession):

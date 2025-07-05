@@ -1222,13 +1222,17 @@ async def get_npc_combat_action(
     selected_target_entity: Union[Player, GeneratedNpc] = selected_target_entity_union
 
     if selected_target_combat_data.get("current_hp", 0) <= 0: # Changed "hp" to "current_hp"
-        remaining_targets = [
-            t for t in potential_targets
-            if isinstance(t.get("entity"), (Player, GeneratedNpc)) and \
-               t.get("entity").id != selected_target_entity.id and \
-               isinstance(t.get("combat_data"), dict) and \
-               t.get("combat_data", {}).get("current_hp", 0) > 0 # Changed "hp"
-        ]
+        remaining_targets = []
+        for t_info in potential_targets:
+            entity_in_t = t_info.get("entity")
+            combat_data_in_t = t_info.get("combat_data")
+            if isinstance(entity_in_t, (Player, GeneratedNpc)) and \
+               hasattr(entity_in_t, 'id') and \
+               entity_in_t.id != selected_target_entity.id and \
+               isinstance(combat_data_in_t, dict) and \
+               combat_data_in_t.get("current_hp", 0) > 0:
+                remaining_targets.append(t_info)
+
         if remaining_targets:
             selected_target_info = await _select_target(session, guild_id, actor_npc, remaining_targets, ai_rules, combat_encounter)
             if not selected_target_info:
