@@ -582,11 +582,15 @@ async def _calculate_target_score(
                            rel_details.get("target_entity_id") == current_target_id:
                             formula = rule_data.get("target_score_modifier_formula")
                             if formula and isinstance(formula, str):
-                                try:
+                                try: # INNER TRY
                                     adjustment = float(eval(formula, {"__builtins__": {}}, {"value": rel_details.get("value"), "current_score": threat}))
                                     threat += adjustment
-                                except Exception as e:
-                            pass
+                                except Exception as e: # Belongs to INNER TRY
+                                    pass # Body for inner except (e.g., log the error or ignore)
+                            # Removed misplaced 'pass' that was here
+                    except (ValueError, TypeError, Exception) as e: # For OUTER TRY
+                        # Catching ValueError from EntityType, TypeError if types are wrong, or other eval errors
+                        pass # Or log: logger.warning(f"Skipping hidden effect modifier due to error: {e}")
         return threat # Higher is better
 
     # TODO: Implement other metrics like "closest_target", "random", "specific_role_focus"
