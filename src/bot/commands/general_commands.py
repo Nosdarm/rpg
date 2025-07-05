@@ -2,14 +2,14 @@ import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
-from typing import Optional, Any # Added Any
+from typing import Optional, Any, List # Added Any and List
 
 from src.core.database import get_db_session, transactional
 import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
-from typing import Optional, Any
+from typing import Optional, Any, List # Added Any and List
 
 from src.core.database import get_db_session, transactional
 from src.core.crud.crud_player import player_crud
@@ -21,6 +21,9 @@ from src.models.location import LocationType # Needed for _populate_default_loca
 from src.core.rules import update_rule_config # For setting default language
 from src.bot.events import DEFAULT_STATIC_LOCATIONS # Используем список дефолтных локаций
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.command_utils import get_bot_commands
+from src.models.command_info import CommandInfo # CommandParameterInfo might be needed for detailed view
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +192,108 @@ class GeneralCog(commands.Cog, name="General Commands"):
         latency_ms = round(self.bot.latency * 1000)
         logger.info(f"Команда /ping вызвана {interaction.user} на сервере {interaction.guild.name if interaction.guild else 'DM'}. Задержка: {latency_ms}ms")
         await interaction.response.send_message(f"Понг! Задержка: {latency_ms}ms", ephemeral=True)
+
+    @app_commands.command(name="help", description="Shows a list of commands or details for a specific command.")
+    @app_commands.describe(command_name="The specific command to get help for (e.g., 'ping' or 'party create').")
+    async def help_command(self, interaction: discord.Interaction, command_name: Optional[str] = None):
+        """
+        Provides help information for bot commands.
+        Can list all commands or show details for a specific command.
+        """
+        Provides help information for bot commands.
+        Can list all commands or show details for a specific command.
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            # Determine language for command descriptions
+            lang_code = str(interaction.locale) if interaction.locale else 'en'
+
+            all_commands: List[CommandInfo] = await get_bot_commands(
+                bot=self.bot,
+                language=lang_code
+            )
+
+            if not all_commands:
+                await interaction.followup.send("No commands found or unable to retrieve command list.", ephemeral=True)
+                return
+
+            # Placeholder for actual formatting logic (next steps)
+            if command_name:
+                # Specific command help
+                target_command_name = command_name.lower()
+                found_cmd_info: Optional[CommandInfo] = None
+                for cmd_info in all_commands:
+                    if cmd_info.name.lower() == target_command_name:
+                        found_cmd_info = cmd_info
+                        break
+
+                if found_cmd_info:
+                    embed = discord.Embed(
+                        title=f"Help for `/{found_cmd_info.name}`",
+                        description=found_cmd_info.description or "No description available.",
+                        color=discord.Color.green() # Different color for specific help
+                    )
+                    if found_cmd_info.parameters:
+                        param_details = []
+                        for param in found_cmd_info.parameters:
+                            param_desc = param.description or "No specific description."
+                            required_text = "Yes" if param.required else "No"
+                            param_details.append(
+                                f"**{param.name}** (`{param.type}`)\n"
+                                f"Required: {required_text}\n"
+                                f"Description: {param_desc}"
+                            )
+                        embed.add_field(name="Parameters", value="\n\n".join(param_details), inline=False)
+                    else:
+                        embed.add_field(name="Parameters", value="This command takes no parameters.", inline=False)
+
+                    embed.set_footer(text=f"Language: {lang_code}")
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(f"Command `/{command_name}` not found. Use `/help` to see all available commands.", ephemeral=True)
+            else:
+                # General help
+                embed = discord.Embed(
+                    title="Bot Commands Help",
+                    description=f"Here's a list of available commands. Use `/help command_name` for more details on a specific command.\nLanguage: {lang_code}",
+                    color=discord.Color.blue()
+                )
+                embed.set_footer(text=f"Total commands: {len(all_commands)}")
+
+                # Simple list for now, can be improved with fields for better structure
+                # Discord embed description length limit is 4096 characters
+                # Discord embed field value limit is 1024 characters, 25 fields max
+
+                command_list_str = []
+                current_length = 0
+                for cmd_info in all_commands:
+                    desc = cmd_info.description or "No description available."
+                    entry = f"**/{cmd_info.name}** - {desc}"
+                    # Check length before adding to avoid exceeding limits
+                    # A more robust solution might paginate or use multiple fields/embeds
+                    if current_length + len(entry) + 2 < 4000: # +2 for \n
+                        command_list_str.append(entry)
+                        current_length += len(entry) + 2
+                    else:
+                        command_list_str.append("...") # Indicate truncation
+                        logger.warning(f"Help message truncated due to length limits. Displaying {len(command_list_str)-1} commands.")
+                        break
+
+                if command_list_str:
+                    embed.description += "\n\n" + "\n".join(command_list_str)
+                else: # Should not happen if all_commands is not empty
+                    embed.description += "\n\nNo commands to display."
+
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"Error in /help command: {e}", exc_info=True)
+            if interaction.is_expired():
+                logger.warning("Interaction expired before error message could be sent in /help.")
+            else:
+                await interaction.followup.send("An error occurred while fetching help information.", ephemeral=True)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GeneralCog(bot))
