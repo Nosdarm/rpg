@@ -546,71 +546,113 @@ async def _handle_combat_end_consequences(
     # 4. Update WorldState (using placeholder)
     await world_state_updater.update_world_state_post_combat(session, guild_id, combat_encounter)
 
-    # 5. Update Quest Progress (using placeholder)
-    # This might need more details about the outcome (e.g. specific NPCs defeated)
-    await quest_system.handle_combat_event_for_quests(session, guild_id, combat_encounter, {"type": "combat_end", "winning_team": winning_team})
+    # 5. Update Quest Progress (using placeholder) - Will be replaced by direct call after COMBAT_END log.
+    # await quest_system.handle_combat_event_for_quests(session, guild_id, combat_encounter, {"type": "combat_end", "winning_team": winning_team})
 
-    # 6. Reset player/party statuses
+    # 6. Reset player/party statuses (before logging COMBAT_END, so log reflects final state)
     # participant_entities_list is already defined and checked from current_participants_json above
+    involved_player_ids_for_quest_check: List[int] = []
+    involved_party_ids_for_quest_check: List[int] = [] # Though typically one party if any
+
     for p_data in participant_entities_list:
         p_data_id = p_data.get("id")
         if p_data.get("type") == "player" and p_data_id is not None:
             player = await session.get(Player, p_data_id)
             if player:
-                player.current_status = PlayerStatus.EXPLORING # Or other appropriate post-combat status
-                if hasattr(player, 'current_combat_id'):
-                    if player.current_combat_id == combat_encounter.id: # type: ignore
-                        player.current_combat_id = None # type: ignore
-                else:
-                    logger.warning(f"Player model (id: {player.id}) does not have 'current_combat_id' attribute for reset.")
+                if player.id not in involved_player_ids_for_quest_check:
+                    involved_player_ids_for_quest_check.append(player.id)
+                if player.current_party_id and player.current_party_id not in involved_party_ids_for_quest_check:
+                    involved_party_ids_for_quest_check.append(player.current_party_id)
+
+                player.current_status = PlayerStatus.EXPLORING
+                if hasattr(player, 'current_combat_id') and player.current_combat_id == combat_encounter.id:
+                    player.current_combat_id = None
                 session.add(player)
 
                 if player.current_party_id:
                     party = await session.get(Party, player.current_party_id)
                     if party and party.turn_status == PartyTurnStatus.IN_COMBAT:
-                        party_still_in_any_combat = False # Placeholder for more robust check
-
-                        if hasattr(party, 'current_combat_id'):
-                            if party.current_combat_id == combat_encounter.id: # type: ignore
-                                party.turn_status = PartyTurnStatus.IDLE
-                                party.current_combat_id = None # type: ignore
-                            # If party.current_combat_id is different, it means the party is in another combat, so don't change status.
-                            # This assumes party.current_combat_id accurately reflects the party's single combat engagement.
+                        # Check if any other member of this party is still in *this specific* combat
+                        # This is simplified; a robust check would see if other members are in *any* active combat.
+                        # For now, if this combat is ending, assume party can leave combat status if no other known combat.
+                        if hasattr(party, 'current_combat_id') and party.current_combat_id == combat_encounter.id:
+                            party.turn_status = PartyTurnStatus.IDLE
+                            party.current_combat_id = None
                         elif not hasattr(party, 'current_combat_id'):
-                             logger.warning(f"Party model (id: {party.id}) does not have 'current_combat_id' attribute. Resetting status generically.")
-                             party.turn_status = PartyTurnStatus.IDLE # Generic reset if attribute missing
-
-                        if party: # Re-check party as it might be None if current_party_id was invalid
-                           session.add(party)
+                             party.turn_status = PartyTurnStatus.IDLE
+                        if party: session.add(party)
 
 
     # 7. Log COMBAT_END event
-    log_entity_ids = {
+    log_entity_ids_for_combat_end = {
         "players": [p.id for p in winners if isinstance(p, Player)] + [p.id for p in losers if isinstance(p, Player)],
         "npcs": [p.id for p in winners if isinstance(p, GeneratedNpc)] + [p.id for p in losers if isinstance(p, GeneratedNpc)],
-        "location": combat_encounter.location_id,
-        "combat_encounter": combat_encounter.id
+        "location_id": combat_encounter.location_id, # Corrected key
+        "combat_encounter_id": combat_encounter.id # Corrected key
     }
-    # Remove duplicates if any entity was in both lists (should not happen with current logic)
-    log_entity_ids["players"] = list(set(log_entity_ids["players"]))
-    log_entity_ids["npcs"] = list(set(log_entity_ids["npcs"]))
+    log_entity_ids_for_combat_end["players"] = list(set(log_entity_ids_for_combat_end["players"]))
+    log_entity_ids_for_combat_end["npcs"] = list(set(log_entity_ids_for_combat_end["npcs"]))
 
-
-    await game_events.log_event(
+    combat_end_log_entry = await game_events.log_event(
         session=session,
         guild_id=guild_id,
-        event_type=EventType.COMBAT_END.name, # Changed to .name
+        event_type=EventType.COMBAT_END.name,
         details_json={
             "combat_id": combat_encounter.id,
             "winning_team": winning_team,
             "location_id": combat_encounter.location_id,
-            # "xp_awarded": ..., # Could be added if xp_awarder returns details
-            # "loot_details": ... # Could be added if loot_generator returns details
         },
-        entity_ids_json=log_entity_ids,
+        entity_ids_json=log_entity_ids_for_combat_end, # Use the corrected structure
         location_id=combat_encounter.location_id
     )
-    logger.info(f"Guild {guild_id}: Combat {combat_encounter.id} end consequences handled.")
+
+    logger.info(f"Guild {guild_id}: Combat {combat_encounter.id} end consequences handled, COMBAT_END event logged (ID: {combat_end_log_entry.id if combat_end_log_entry else 'N/A'}).")
+
+    # 8. Call Quest System after COMBAT_END event is logged
+    if combat_end_log_entry:
+        from src.core.quest_system import handle_player_event_for_quest
+        # Determine primary player/party context for quest check.
+        # If multiple players/parties were involved, this might need refinement
+        # or calling handle_player_event_for_quest for each relevant player/party.
+        # For now, use the first player/party found in the involved lists if any.
+
+        # This needs to consider all players and parties involved in the combat.
+        # involved_player_ids_for_quest_check and involved_party_ids_for_quest_check collected earlier can be used.
+
+        # If there are parties involved, process by party. If only individual players, process by player.
+        # This assumes a party context is primary if present.
+        # A more granular approach would be to iterate through all involved_player_ids_for_quest_check
+        # and pass their individual party_id if they are in one, or just their player_id.
+
+        if involved_party_ids_for_quest_check:
+            for p_party_id in involved_party_ids_for_quest_check:
+                # Find a representative player from this party who was in combat to pass as player_id hint, if needed by handle_player_event
+                # This is optional, handle_player_event_for_quest should derive players from party_id.
+                # representative_player_id = next((pid for pid in involved_player_ids_for_quest_check if (await session.get(Player, pid)).current_party_id == p_party_id), None)
+
+                logger.info(f"Calling quest system for party {p_party_id} after combat {combat_encounter.id}")
+                await handle_player_event_for_quest(
+                    session=session, # Use the same session as it's part of the same transaction
+                    guild_id=guild_id,
+                    event_log_entry=combat_end_log_entry,
+                    player_id=None, # Let party_id dictate the players
+                    party_id=p_party_id
+                )
+        elif involved_player_ids_for_quest_check: # No parties, but individual players
+             for p_player_id in involved_player_ids_for_quest_check:
+                logger.info(f"Calling quest system for player {p_player_id} after combat {combat_encounter.id}")
+                await handle_player_event_for_quest(
+                    session=session,
+                    guild_id=guild_id,
+                    event_log_entry=combat_end_log_entry,
+                    player_id=p_player_id,
+                    party_id=None
+                )
+        else:
+            logger.info(f"No specific players or parties identified for quest check after combat {combat_encounter.id}, though combat involved entities.")
+    else:
+        logger.error(f"Guild {guild_id}: COMBAT_END event was not logged for combat {combat_encounter.id}. Quest system trigger skipped.")
+
 
 
 logger.info("Combat Cycle Manager module structure initialized.")

@@ -117,7 +117,8 @@ class QuestStatus(enum.Enum):
     Represents the status of a player's progress on a quest.
     """
     NOT_STARTED = "not_started"    # Quest is available but not yet accepted by the player
-    ACTIVE = "active"              # Player has accepted the quest and is working on it
+    STARTED = "started"            # Player has accepted the quest, first step is active or about to be.
+    IN_PROGRESS = "in_progress"    # Player is actively working on a step beyond the first. (Replaces ACTIVE)
     COMPLETED = "completed"        # Player has successfully finished all steps of the quest
     FAILED = "failed"              # Player has failed the quest
     ABANDONED = "abandoned"        # Player chose to abandon the quest
