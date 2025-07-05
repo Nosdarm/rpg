@@ -61,18 +61,13 @@ class EventCog(commands.Cog):
         if message.author == self.bot.user:
             return  # Игнорировать сообщения от самого себя
 
-        # If the message is an application command (slash command), let discord.py handle it.
-        # Do not process it with NLU or custom prefix checks.
-        # Check if the message is associated with an interaction (e.g., a slash command)
-        # message.interaction is deprecated, use message.interaction_metadata
-        if message.interaction_metadata is not None: # type: ignore
-            # interaction_metadata is of type MessageInteractionMetadata
-            # It has .name (of command), .id (of interaction), .user (who invoked)
-            # For logging, we can use its presence or specific fields if needed.
-            logger.debug(f"Message (ID: {message.id}) has interaction metadata (type: {message.interaction_metadata.type.name}, name: {message.interaction_metadata.name}), NLU skipped.") # type: ignore
+        # If the message starts with '/', assume it's a slash command (or an attempt at one).
+        # Let discord.py's interaction handlers deal with it. Do not process with NLU.
+        if message.content.startswith('/'):
+            logger.debug(f"Message (ID: {message.id}) starts with '/', assuming slash command, NLU skipped. Content: \"{message.content[:50]}\"")
             return
 
-        if not message.guild: # Ignore DMs for NLU processing for now, after application command check
+        if not message.guild: # Ignore DMs for NLU processing for now, after slash command check
             return
 
         # Standard command processing will still happen due to how Cogs work.
