@@ -119,7 +119,26 @@
     *   Submit the changes with a descriptive commit message.
 ---
 ## Текущий план
-*(Этот раздел будет очищен после завершения текущей пользовательской задачи)*
+1.  **Investigate Bot Initialization for `command_prefix`**:
+    *   Await user to provide the file content where `discord.ext.commands.Bot` (or similar) is instantiated.
+    *   Read this file to understand how `command_prefix` is defined (string, list, or callable).
+
+2.  **Modify `on_message` in `src/bot/events.py`**:
+    *   Based on how `command_prefix` is initialized:
+        *   **If Callable**: Modify the `on_message` event handler to correctly call `self.bot.command_prefix(self.bot, message)` to get the actual prefix(es). Then, use the returned string or list of strings with `message.content.startswith()`. Handle cases where the callable might return no prefixes.
+        *   **If Static (string/list but error occurs)**: This would be unexpected given the error. If so, re-evaluate. The primary suspect is that it's a callable.
+    *   Ensure the logic correctly handles both single string prefixes and lists/tuples of prefixes returned by the callable.
+
+3.  **Review and Test**:
+    *   Manually review the implemented changes to ensure logical correctness.
+    *   Consider how this change interacts with messages that are not commands (the intended NLU processing path).
+
+4.  **Update `AGENTS.md`**:
+    *   Create a new entry in "Лог действий" for this `TypeError` fix.
+    *   Update "Текущий план" (this plan).
+
+5.  **Submit the Fix**:
+    *   Commit the changes with a descriptive commit message.
 
 ---
 ## Отложенные задачи
@@ -171,6 +190,20 @@
         - Если команда не найдена, отправляется соответствующее сообщение.
     - **Шаг 5**: Проверены и подтверждены все необходимые импорты.
     - **Шаг 6**: Обновлен `AGENTS.md` (этот лог) и очищен "Текущий план".
+
+## Пользовательская задача: Исправление TypeError в on_message (Сессия 2024-07-08)
+- **Определение задачи**: Устранить `TypeError: 'function' object is not iterable` в `src/bot/events.py` в обработчике `on_message`.
+- **План**:
+    1.  Проанализировать инициализацию бота (`src/main.py`, `src/bot/core.py`) для определения того, как устанавливается `command_prefix`.
+    2.  Изменить логику в `on_message` (`src/bot/events.py`) для корректного вызова `self.bot.command_prefix(self.bot, message)` и обработки результата (строка или список/кортеж).
+    3.  Проверить изменения.
+    4.  Обновить `AGENTS.md` (этот лог).
+    5.  Закоммитить исправление.
+- **Реализация**:
+    - **Шаг 1**: Анализ `src/main.py` показал, что `command_prefix` устанавливается как `commands.when_mentioned_or(BOT_PREFIX)`, что является callable.
+    - **Шаг 2**: В `src/bot/events.py` в `on_message` изменена логика для вызова `self.bot.command_prefix(self.bot, message)` и проверки результата на строку или список/кортеж для `startswith`.
+    - **Шаг 3**: Изменения проверены (логически).
+    - **Шаг 4**: Обновлен `AGENTS.md` (этот лог) и "Текущий план" очищен.
 
 ## Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild)
 - **Определение задачи**: AI generates quests for a specific guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
