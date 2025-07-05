@@ -63,8 +63,9 @@ class EventCog(commands.Cog):
 
         # If the message is an application command (slash command), let discord.py handle it.
         # Do not process it with NLU or custom prefix checks.
-        if message.type == discord.MessageType.application_command:
-            logger.debug(f"Message type is application_command (ID: {message.id}), NLU skipped.")
+        # Check if the message is associated with an interaction (e.g., a slash command)
+        if message.interaction is not None:
+            logger.debug(f"Message (ID: {message.id}) is an interaction ({message.interaction.name}), NLU skipped.")
             return
 
         if not message.guild: # Ignore DMs for NLU processing for now, after application command check
