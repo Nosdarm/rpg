@@ -12,11 +12,10 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.character_commands import CharacterCog #, logger # Assuming logger is in character_commands
+from src.bot.commands.character_commands import CharacterCog #, logger
 from src.models import Player
 from src.models.enums import PlayerStatus
 
-# Fixtures
 @pytest.fixture
 def mock_bot_fixture():
     return AsyncMock(spec=commands.Bot)
@@ -95,8 +94,6 @@ async def test_levelup_command_success(
     mock_get_rule.return_value = i18n_template_for_levelup_success
 
     expected_ru_template_str = i18n_template_for_levelup_success["ru"]
-    # The SUT will format this template with details from spend_attribute_points
-    # to get the final message.
     mock_get_localized_text.return_value = expected_ru_template_str
 
     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
@@ -119,7 +116,6 @@ async def test_levelup_command_success(
         "en"
     )
 
-    # The final message is formatted by the SUT using the template and details
     final_formatted_message = "Сила улучшен до 11. Осталось очков: 2."
     mock_interaction_fixture.response.send_message.assert_called_once_with(
         final_formatted_message, ephemeral=True
@@ -291,33 +287,27 @@ async def test_levelup_command_message_formatting_key_error(
     cog = CharacterCog(mock_bot_fixture)
     mock_get_player.return_value = mock_player_fixture
 
-    details_from_spend_api = {"attribute_name_WRONG_KEY": "Сила", "new_value": 11}
+    details_for_spend_api = {"new_value": 11}
     mock_spend_points_api.return_value = (
         True,
-        "levelup_success",
-        details_from_spend_api
+        "custom_error_template_key",
+        details_for_spend_api
     )
 
-    i18n_template = {"ru": "{attribute_name} улучшен до {new_value}. Осталось очков: {remaining_xp}."}
-    mock_get_rule.return_value = i18n_template
-
-    expected_template_str = i18n_template[player_locale_fixture]
-    mock_get_localized_text.return_value = expected_template_str
+    custom_template_string_causes_keyerror = "Атрибут {attribute_name} улучшен. Бонус: {non_existent_placeholder}."
+    mock_get_rule.return_value = custom_template_string_causes_keyerror
 
     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
 
     mock_get_player.assert_called_once()
     mock_spend_points_api.assert_called_once()
-    mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "levelup_success")
-    mock_get_localized_text.assert_called_once_with(i18n_template, player_locale_fixture, "en")
+    mock_get_rule.assert_called_once_with(mock_session_fixture, mock_interaction_fixture.guild_id, "custom_error_template_key")
+    mock_get_localized_text.assert_not_called()
 
-    # The SUT now successfully formats the message due to fallbacks in `full_details`.
-    # The KeyError is no longer expected with the current SUT logic and template.
-    # attribute_name from arg ("strength"), new_value from details (11),
-    # remaining_xp from player.unspent_xp (mock_player_fixture has unspent_xp=3 by default)
-    expected_message = "strength улучшен до 11. Осталось очков: 3."
+    # This message comes from default_messages["levelup_error_generic"] in _levelup_internal
+    generic_error_message = "Произошла ошибка при распределении очков."
     mock_interaction_fixture.response.send_message.assert_called_once_with(
-        expected_message, ephemeral=True
+        generic_error_message, ephemeral=True
     )
 
 @pytest.mark.asyncio

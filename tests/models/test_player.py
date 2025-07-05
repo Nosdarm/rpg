@@ -1,7 +1,7 @@
 import sys
 import os
 import unittest
-from typing import Optional
+from typing import Optional, List, Dict, Any # Added Dict, Any
 
 # Add the project root to sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -9,45 +9,22 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
-from sqlalchemy import event, JSON, select
+from sqlalchemy import event, JSON, select # Removed unused JSONB
 from sqlalchemy.orm import selectinload
-from sqlalchemy.orm.attributes import flag_modified # Added flag_modified
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm.attributes import flag_modified
+# from sqlalchemy.dialects.postgresql import JSONB # Not needed
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.exc import IntegrityError
 
 from src.models.base import Base
 from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType # Removed JsonBForSQLite alias
-from src.models.party import Party, PartyTurnStatus # Removed JsonBForSQLite alias
+from src.models.location import Location, LocationType
+from src.models.party import Party, PartyTurnStatus
 from src.models.player import Player, PlayerStatus
-from src.models.custom_types import JsonBForSQLite # General custom type for Player model
+# from src.models.custom_types import JsonBForSQLite # Not directly used here if models handle their types
 
-
-# Apply JsonBForSQLite to relevant columns for SQLite testing if not already handled by the model itself
-# This might be redundant if models correctly use JsonBForSQLite or if tests use PostgreSQL
-@event.listens_for(Player.__table__, "column_reflect")
-def _player_column_reflect(inspector, table, column_info):
-    if column_info['name'] == 'collected_actions_json' and isinstance(column_info['type'], JSON):
-         # In models, collected_actions_json is JSON, not JSONB. If it were JSONB:
-         # column_info['type'] = JsonBForSQLite()
-         pass # It's already JSON, compatible with SQLite's JSON type.
-
-@event.listens_for(Location.__table__, "column_reflect")
-def _location_column_reflect(inspector, table, column_info):
-    # Ensure Location's JSONB fields are handled for SQLite if Location model itself doesn't use JsonBForSQLite
-    # This is more of a safeguard for dependent models in tests
-    if column_info['name'] in ['name_i18n', 'descriptions_i18n', 'coordinates_json', 'neighbor_locations_json', 'generated_details_json', 'ai_metadata_json']:
-        if not isinstance(column_info['type'], JsonBForSQLite): # Changed LocationJsonBForSQLite to JsonBForSQLite
-             column_info['type'] = JsonBForSQLite()
-
-
-@event.listens_for(Party.__table__, "column_reflect")
-def _party_column_reflect(inspector, table, column_info):
-    if column_info['name'] == 'player_ids_json' and isinstance(column_info['type'], JSON):
-        # In models, player_ids_json is JSON, not JSONB.
-        pass
-
+# Redundant event listeners removed as models (Location, Player, Party)
+# now use JsonBForSQLite directly for JSONB-like fields or standard JSON.
 
 class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
     engine: Optional[AsyncEngine] = None
@@ -65,10 +42,10 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         )
 
     @classmethod
-    def tearDownClass(cls): # Changed to sync
+    def tearDownClass(cls):
         if cls.engine:
             import asyncio
-            asyncio.run(cls.engine.dispose()) # Run async dispose
+            asyncio.run(cls.engine.dispose())
 
     async def asyncSetUp(self):
         assert self.SessionLocal is not None, "SessionLocal not initialized"
@@ -79,14 +56,12 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-        # Setup GuildConfig
         guild_exists = await self.session.get(GuildConfig, self.test_guild_id)
         if not guild_exists:
             guild = GuildConfig(id=self.test_guild_id, main_language="en", name="Test Guild")
             self.session.add(guild)
             await self.session.commit()
 
-        # Setup Location
         loc_stmt = select(Location).filter_by(guild_id=self.test_guild_id, static_id="test_start_loc")
         existing_loc = await self.session.execute(loc_stmt)
         start_loc = existing_loc.scalar_one_or_none()
@@ -100,7 +75,6 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             await self.session.commit()
         self.test_location_id = start_loc.id
 
-        # Setup Party (Optional, for players who might be in a party)
         party_stmt = select(Party).filter_by(guild_id=self.test_guild_id, name="Initial Party")
         existing_party = await self.session.execute(party_stmt)
         party_obj = existing_party.scalar_one_or_none()
@@ -125,7 +99,6 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             "guild_id": self.test_guild_id,
             "discord_id": 1001,
             "name": "MinimalPlayer"
-            # selected_language, xp, level, etc., should use defaults
         }
         player = Player(**player_data)
         self.session.add(player)
@@ -143,10 +116,10 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(player.gold, 0)
         self.assertEqual(player.current_status, PlayerStatus.IDLE)
         self.assertIsNone(player.current_hp)
-        self.assertEqual(player.attributes_json, {}) # Check default for attributes_json
+        self.assertEqual(player.attributes_json, {})
         self.assertIsNone(player.collected_actions_json)
         self.assertIsNone(player.current_party_id)
-        self.assertIsNone(player.current_location_id) # Not provided, should be None
+        self.assertIsNone(player.current_location_id)
 
     async def test_create_player_all_fields(self):
         player_data = {
@@ -161,7 +134,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             "gold": 50,
             "current_hp": 95,
             "current_status": PlayerStatus.EXPLORING,
-            "attributes_json": {"strength": 10, "dexterity": 8}, # Added attributes_json
+            "attributes_json": {"strength": 10, "dexterity": 8},
             "collected_actions_json": [{"action": "look", "target": "around"}],
             "current_party_id": self.test_party_id,
             "current_sublocation_name": "The Dusty Corner"
@@ -181,13 +154,12 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         for key, value in player_data.items():
             self.assertEqual(getattr(retrieved_player, key), value)
 
-        # Check relationships
         self.assertIsNotNone(retrieved_player.location)
-        if retrieved_player.location: # type guard
+        if retrieved_player.location:
             self.assertEqual(retrieved_player.location.id, self.test_location_id)
 
         self.assertIsNotNone(retrieved_player.party)
-        if retrieved_player.party: # type guard
+        if retrieved_player.party:
              self.assertEqual(retrieved_player.party.id, self.test_party_id)
 
 
@@ -200,20 +172,20 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         player2_data = {"guild_id": self.test_guild_id, "discord_id": common_discord_id, "name": "Player2"}
         player2 = Player(**player2_data)
         self.session.add(player2)
-        with self.assertRaises(IntegrityError): # Specific to SQLAlchemy dialects, e.g. psycopg2.errors.UniqueViolation
+        with self.assertRaises(IntegrityError):
             await self.session.commit()
-        await self.session.rollback() # Important to rollback after expected error
+        await self.session.rollback()
 
-        # Should be able to add if guild_id is different
         player3_data = {"guild_id": self.test_guild_id + 1, "discord_id": common_discord_id, "name": "Player3"}
-         # Need to create the other guild first
-        other_guild = GuildConfig(id=self.test_guild_id + 1, main_language="de", name="Other Guild")
-        self.session.add(other_guild)
-        await self.session.commit()
+        other_guild = await self.session.get(GuildConfig, self.test_guild_id + 1)
+        if not other_guild:
+            other_guild = GuildConfig(id=self.test_guild_id + 1, main_language="de", name="Other Guild")
+            self.session.add(other_guild)
+            await self.session.commit()
 
         player3 = Player(**player3_data)
         self.session.add(player3)
-        await self.session.commit() # Should not raise error
+        await self.session.commit()
         self.assertIsNotNone(player3.id)
 
 
@@ -225,7 +197,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
             level=5
         )
         self.session.add(player)
-        await self.session.commit() # ID is assigned after commit
+        await self.session.commit()
 
         expected_repr = (f"<Player(id={player.id}, name='ReprPlayer', guild_id={self.test_guild_id}, "
                          f"discord_id=1004, level=5)>")
@@ -235,7 +207,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         """Tests that the default for attributes_json is a new dict instance each time."""
         player1_data = {
             "guild_id": self.test_guild_id,
-            "discord_id": 2001,
+            "discord_id": 2001, # Changed discord_id to avoid conflict if tests run in certain order
             "name": "AttrDefaultPlayer1"
         }
         player1 = Player(**player1_data)
@@ -243,7 +215,7 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
 
         player2_data = {
             "guild_id": self.test_guild_id,
-            "discord_id": 2002,
+            "discord_id": 2002, # Changed discord_id
             "name": "AttrDefaultPlayer2"
         }
         player2 = Player(**player2_data)
@@ -253,16 +225,14 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         await self.session.refresh(player1)
         await self.session.refresh(player2)
 
-        # Check initial state (should be empty dict for both)
         self.assertEqual(player1.attributes_json, {})
         self.assertEqual(player2.attributes_json, {})
 
-        # Modify player1's attributes
         player1.attributes_json["strength"] = 12
-        flag_modified(player1, "attributes_json") # Mark as modified
-        await self.session.commit() # Save change
+        flag_modified(player1, "attributes_json")
+        await self.session.commit()
         await self.session.refresh(player1)
-        await self.session.refresh(player2) # Re-fetch player2 to be sure
+        await self.session.refresh(player2)
 
         self.assertEqual(player1.attributes_json, {"strength": 12})
         self.assertEqual(player2.attributes_json, {}, "Modifying p1.attributes_json should not affect p2.attributes_json")

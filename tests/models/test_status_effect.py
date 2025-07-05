@@ -20,16 +20,10 @@ from src.models.status_effect import ActiveStatusEffect, StatusEffect
 # Use an in-memory SQLite database for testing
 engine = create_engine("sqlite:///:memory:")
 
-# HACK: Override JSONB to JSON for SQLite as it does not support JSONB
-@event.listens_for(Base.metadata, "before_create")
-def _json_as_text(target, connection, **kw):
-    if connection.dialect.name == 'sqlite':
-        for table in target.tables.values():
-            for column in table.columns:
-                if isinstance(column.type, (JSONB, JSON)):
-                    # Create a new type object with the new type
-                    column.type = JSON()
-
+# The models StatusEffect and ActiveStatusEffect now use JsonBForSQLite directly,
+# which handles SQLite compatibility by mapping to the standard JSON type (backed by TEXT).
+# Therefore, a global event listener to convert JSONB to JSON for all tables in Base.metadata
+# is no longer needed for these specific models in this test file.
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
