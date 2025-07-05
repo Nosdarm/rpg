@@ -1,5 +1,4 @@
 import logging
-import discord
 from discord.ext import commands
 # Импорты для событий и команд будут добавлены на шаге setup_hook
 # import bot.events as bot_events # Неправильно, нужно импортировать модуль для load_extension
