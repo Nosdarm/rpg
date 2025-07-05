@@ -10,6 +10,7 @@ from ..core.crud.crud_location import location_crud
 from ..core.rules import update_rule_config # For setting default language
 from ..models.guild import GuildConfig
 from ..models.location import Location, LocationType
+from ..core.action_processor import process_player_message_for_nlu # Import the new function
 
 logger = logging.getLogger(__name__)
 

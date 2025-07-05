@@ -3,7 +3,10 @@ import json
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Any, Coroutine, Callable, Dict, List, Tuple, AsyncContextManager
+from typing import Any, Coroutine, Callable, Dict, List, Tuple, AsyncContextManager, Optional
+
+import discord # For discord.Message in process_player_message_for_nlu
+from discord.ext import commands # For commands.Bot in process_player_message_for_nlu
 
 from .database import get_db_session, transactional
 from ..models import Player, Party, PendingConflict
@@ -632,6 +635,83 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
 
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Turn processing complete. Processed {len(processed_actions_results)} individual action results.")
     # TODO: Send feedback reports to players/master based on processed_actions_results
+
+
+@transactional
+async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Message, *, session: AsyncSession):
+    """
+    Processes a raw player message: parses it via NLU and queues the resulting action.
+    This function is called from the on_message event.
+    """
+    if not message.guild: # Should already be checked by caller, but good for safety
+        logger.warning("process_player_message_for_nlu called without guild context.")
+        return
+
+    try:
+        # Ensure nlu_service is imported correctly
+        from .nlu_service import parse_player_input # Ensure this path is correct
+
+        parsed_action: Optional[ParsedAction] = await parse_player_input(
+            raw_text=message.content,
+            guild_id=message.guild.id,
+            player_id=message.author.id
+        )
+
+        if parsed_action and parsed_action.intent != "unknown_intent":
+            player = await player_crud.get_by_discord_id(
+                session=session,
+                guild_id=message.guild.id,
+                discord_id=message.author.id
+            )
+
+            if player:
+                current_actions = []
+                if player.collected_actions_json:
+                    if isinstance(player.collected_actions_json, str):
+                        try:
+                            current_actions = json.loads(player.collected_actions_json)
+                            if not isinstance(current_actions, list): # Ensure it's a list
+                                logger.warning(f"Player {player.id} collected_actions_json was a string but not a JSON list. Resetting. Data: {player.collected_actions_json}")
+                                current_actions = []
+                        except json.JSONDecodeError:
+                            logger.error(f"Failed to decode collected_actions_json for player {player.id}. Content: {player.collected_actions_json}", exc_info=True)
+                            current_actions = [] # Reset if malformed
+                    elif isinstance(player.collected_actions_json, list):
+                        current_actions = player.collected_actions_json
+                    else: # Should not happen if model types are correct
+                        logger.warning(f"Player {player.id} collected_actions_json is of unexpected type: {type(player.collected_actions_json)}. Resetting.")
+                        current_actions = []
+
+                # Ensure all items in current_actions are dicts, filter out non-dicts if any corruption occurred
+                current_actions = [action_item for action_item in current_actions if isinstance(action_item, dict)]
+
+                current_actions.append(parsed_action.model_dump(mode='json'))
+                player.collected_actions_json = current_actions # SQLAlchemy's JSONB type handles Python dict/list directly
+
+                session.add(player)
+                # No explicit commit here, @transactional handles it on success
+                logger.info(f"Queued action '{parsed_action.intent}' for player {player.id} (Discord: {message.author.id}) in guild {message.guild.id}. Total queued: {len(current_actions)}")
+
+                # Optionally, send a confirmation to the player (e.g., "Action understood: ...")
+                # This might be too verbose for every message.
+                # await message.channel.send(f"Action received: {parsed_action.intent}", delete_after=5)
+
+            else:
+                logger.warning(f"Player not found for Discord ID {message.author.id} in guild {message.guild.id}. Cannot queue NLU action.")
+        elif parsed_action and parsed_action.intent == "unknown_intent":
+            logger.info(f"NLU processed message from {message.author.id} as 'unknown_intent'. Not queued. Original: '{message.content}'")
+            # Optionally, provide feedback for unknown intent
+            # await message.channel.send("I didn't understand that.", delete_after=5)
+        else: # parsed_action is None
+            logger.info(f"NLU did not return an action for message from {message.author.id}. Original: '{message.content}'")
+
+    except Exception as e:
+        logger.error(f"Error in process_player_message_for_nlu for message '{message.content}' by {message.author.id}: {e}", exc_info=True)
+        # Depending on policy, might want to notify user of NLU processing error.
+        # For now, just log. Do not reraise if @transactional is to commit other things.
+        # If this is the main operation of the transaction, reraising might be desired to rollback.
+        # Given it's called from on_message, probably best not to interrupt bot flow with exceptions.
+
 
 logger.info("Action Processor module loaded.")
 
