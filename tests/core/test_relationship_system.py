@@ -141,7 +141,7 @@ async def test_update_relationship_existing_relationship_updated(
         mock_get_rule.assert_called_once_with(mock_session, guild_id, f"relationship_rules:{event_type.upper()}")
 
         mock_crud_relationship.get_relationship_between_entities.assert_called_once_with(
-            db=mock_session, guild_id=guild_id,
+            session=mock_session, guild_id=guild_id, # Changed db to session
             entity1_id=expected_c_e1_id, entity1_type=expected_c_e1_type,
             entity2_id=expected_c_e2_id, entity2_type=expected_c_e2_type
         )

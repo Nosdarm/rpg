@@ -88,10 +88,10 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         # Вызываем внутренний метод, который принимает session
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
-        self.mock_player_crud.get_by_discord_id.assert_called_once_with(db=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
-        self.mock_location_crud.get_by_static_id.assert_called_once_with(db=self.session_mock, guild_id=mock_guild.id, static_id="start")
+        self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
+        self.mock_location_crud.get_by_static_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, static_id="start")
         self.mock_player_crud.create_with_defaults.assert_called_once_with(
-            db=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
+            session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=mock_start_loc.id, selected_language="ru"
         )
         self.session_mock.add.assert_called_once_with(created_player) # Проверка, что new_player.current_status обновлен и добавлен в сессию
@@ -114,7 +114,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
-        self.mock_player_crud.get_by_discord_id.assert_called_once_with(db=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
+        self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
         self.mock_player_crud.create_with_defaults.assert_not_called()
         mock_interaction.response.send_message.assert_called_once_with(
             f"Привет, {mock_user.name}! Ты уже в игре. Твой персонаж уровня 5.",
@@ -148,7 +148,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
         self.mock_player_crud.create_with_defaults.assert_called_once_with(
-            db=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
+            session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=None, selected_language="de"
         )
         mock_interaction.response.send_message.assert_called_once()

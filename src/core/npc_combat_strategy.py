@@ -1168,18 +1168,26 @@ async def get_npc_combat_action(
     if not combat_encounter:
         return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} not found for guild {guild_id}."}
 
-    # Ensure participants_json from combat_encounter is a dict, and its 'entities' key holds a list
-    participants_data_outer = combat_encounter.participants_json
-    participants_list_raw = []
-    if isinstance(participants_data_outer, dict):
-        participants_list_raw = participants_data_outer.get("entities", [])
+    # Ensure participants_json from combat_encounter is correctly processed.
+    # It can be a List[Dict] directly, or a Dict containing an "entities": List[Dict].
+    participants_json_data = combat_encounter.participants_json
+    participants_list_raw: List[Dict[str, Any]] = []
 
-    if not isinstance(participants_list_raw, list):
-        return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} has invalid participants_json['entities'] format."}
+    if isinstance(participants_json_data, list):
+        participants_list_raw = participants_json_data
+    elif isinstance(participants_json_data, dict):
+        entities_value = participants_json_data.get("entities")
+        if isinstance(entities_value, list):
+            participants_list_raw = entities_value
+        else:
+            return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} has participants_json as dict but 'entities' key is not a list."}
+    elif participants_json_data is None:
+         return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} participants_json is null."}
+    else:
+        return {"action_type": "error", "message": f"Combat encounter {combat_instance_id} has invalid participants_json format (not a list or recognized dict)."}
 
     # Filter out non-dict items from participants_list_raw before processing
     participants_list = [p for p in participants_list_raw if isinstance(p, dict)]
-
 
     actor_combat_data = next((p for p in participants_list if p.get("id") == actor_npc.id and p.get("type") == EntityType.NPC.value), None)
     if not actor_combat_data: # actor_combat_data could be None

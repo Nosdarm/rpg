@@ -54,6 +54,8 @@ class EventType(enum.Enum):
     DIALOGUE_START = "dialogue_start"
     DIALOGUE_LINE = "dialogue_line"         # A line of dialogue spoken
     DIALOGUE_END = "dialogue_end"
+    # Quest System Events (Task 39+)
+    WORLD_EVENT_QUESTS_GENERATED = "world_event_quests_generated" # For Task 40
     QUEST_ACCEPTED = "quest_accepted"
     QUEST_STEP_COMPLETED = "quest_step_completed"
     QUEST_COMPLETED = "quest_completed"

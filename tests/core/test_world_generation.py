@@ -602,6 +602,159 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_log_event.assert_called_once() # type: ignore
         self.session_commit_mock.assert_called_once() # type: ignore
 
+    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.generated_quest_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.quest_step_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.questline_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_quests_for_guild_success(
+        self, mock_log_event, mock_ql_crud, mock_qs_crud, mock_gq_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_quests_for_guild # SUT
+        from src.models.quest import GeneratedQuest, QuestStep, Questline # DB Models
+        from src.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData # Pydantic Parsers
+
+        guild_id_test = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        self.session_rollback_mock.reset_mock()
+
+        mock_prepare_prompt.return_value = "Test quest prompt"
+        ai_response_quests_json_str = json.dumps([
+            {
+                "entity_type": "quest", "static_id": "quest_alpha",
+                "title_i18n": {"en": "Alpha Quest"}, "summary_i18n": {"en": "First one."},
+                "steps": [
+                    {"title_i18n": {"en": "Alpha Step 1"}, "description_i18n": {"en": "Do alpha."}, "step_order": 0, "required_mechanics_json": {"type":"explore"}}
+                ], "questline_static_id": "main_plot"
+            }
+        ])
+        mock_ai_call.return_value = ai_response_quests_json_str
+
+        parsed_quest_alpha_step1 = ParsedQuestStepData(title_i18n={"en": "Alpha Step 1"}, description_i18n={"en": "Do alpha."}, step_order=0, required_mechanics_json={"type":"explore"})
+        parsed_quest_alpha = ParsedQuestData(
+            entity_type="quest", static_id="quest_alpha",
+            title_i18n={"en": "Alpha Quest"}, summary_i18n={"en": "First one."},
+            steps=[parsed_quest_alpha_step1], questline_static_id="main_plot"
+        )
+        mock_parse_validate.return_value = ParsedAiData(
+            generated_entities=[parsed_quest_alpha], raw_ai_output=ai_response_quests_json_str
+        )
+
+        # Ensure mocked CRUD methods are AsyncMock if they are awaited
+        mock_gq_crud.get_by_static_id = AsyncMock(return_value=None) # Quest does not exist
+
+        # Mock Questline CRUD
+        mock_existing_questline = Questline(id=5, guild_id=guild_id_test, static_id="main_plot", name_i18n={"en":"Main Plot"})
+        mock_ql_crud.get_by_static_id = AsyncMock(return_value=mock_existing_questline) # Questline exists
+
+        mock_db_quest_alpha = GeneratedQuest(id=301, guild_id=guild_id_test, static_id="quest_alpha", title_i18n={"en": "Alpha Quest"}, questline_id=5)
+        # We need to mock the 'steps' attribute for the refresh call and logging
+        mock_db_quest_alpha.steps = [QuestStep(id=401, quest_id=301, title_i18n={"en": "Alpha Step 1"}, step_order=0)]
+
+        mock_gq_crud.create = AsyncMock(return_value=mock_db_quest_alpha)
+        mock_qs_crud.create = AsyncMock(return_value=MagicMock(spec=QuestStep)) # Step creation mock
+
+        # Mock session.refresh to avoid "not persistent" error with mock_db_quest_alpha
+        self.session.refresh = AsyncMock()
+
+        created_quests_list, error_msg = await generate_quests_for_guild(self.session, guild_id_test)
+
+        self.assertIsNone(error_msg)
+        self.assertIsNotNone(created_quests_list)
+        self.assertEqual(len(created_quests_list), 1)
+        if created_quests_list: # Guard for Pyright
+            self.assertEqual(created_quests_list[0].static_id, "quest_alpha")
+            self.assertEqual(created_quests_list[0].questline_id, 5) # Check linked to questline
+
+        mock_gq_crud.create.assert_called_once()
+        mock_qs_crud.create.assert_called_once() # One step
+        mock_ql_crud.get_by_static_id.assert_called_once_with(self.session, guild_id=guild_id_test, static_id="main_plot")
+
+        mock_log_event.assert_called_once()
+        log_args = mock_log_event.call_args.kwargs
+        self.assertEqual(log_args['event_type'], EventType.WORLD_EVENT_QUESTS_GENERATED.value)
+        self.assertEqual(log_args['details_json']['generated_quests_count'], 1)
+        self.session_commit_mock.assert_called_once()
+
+    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    async def test_generate_quests_for_guild_parse_error(
+        self, mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_quests_for_guild # SUT
+        guild_id_test = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        self.session_rollback_mock.reset_mock()
+
+        mock_prepare_prompt.return_value = "Test quest prompt for parse error"
+        mock_ai_call.return_value = "This is not valid JSON"
+
+        validation_error = CustomValidationError(error_type="JSONParsingError", message="Bad JSON")
+        mock_parse_validate.return_value = validation_error
+
+        created_quests_list, error_msg = await generate_quests_for_guild(self.session, guild_id_test)
+
+        self.assertIsNone(created_quests_list)
+        self.assertIsNotNone(error_msg)
+        self.assertIn("AI response validation failed for quests: Bad JSON", error_msg)
+        self.session_rollback_mock.assert_not_called() # Rollback is not called for early returns
+
+    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.generated_quest_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_quests_for_guild_skips_duplicate_quest_static_id(
+        self, mock_log_event, mock_gq_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_quests_for_guild # SUT
+        from src.models.quest import GeneratedQuest
+        from src.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData
+
+        guild_id_test = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+
+        mock_prepare_prompt.return_value = "Prompt for duplicate quest static_id test"
+        ai_response_json_str = json.dumps([
+            {
+                "entity_type": "quest", "static_id": "existing_quest_007",
+                "title_i18n": {"en": "Existing Quest"}, "summary_i18n": {"en": "This one exists."},
+                "steps": [{"title_i18n": {"en": "Step Ex"}, "description_i18n": {"en": "Do Ex."}, "step_order": 0}]
+            }
+        ])
+        mock_ai_call.return_value = ai_response_json_str
+
+        parsed_quest_existing = ParsedQuestData(
+            entity_type="quest", static_id="existing_quest_007",
+            title_i18n={"en": "Existing Quest"}, summary_i18n={"en": "This one exists."},
+            steps=[ParsedQuestStepData(title_i18n={"en": "Step Ex"}, description_i18n={"en": "Do Ex."}, step_order=0)]
+        )
+        mock_parse_validate.return_value = ParsedAiData(
+            generated_entities=[parsed_quest_existing], raw_ai_output=ai_response_json_str
+        )
+
+        # Mock get_by_static_id to return an existing quest
+        db_mock_existing_quest = GeneratedQuest(id=707, guild_id=guild_id_test, static_id="existing_quest_007", title_i18n={"en":"DB Version"})
+        mock_gq_crud.get_by_static_id = AsyncMock(return_value=db_mock_existing_quest) # Make it AsyncMock
+        mock_gq_crud.create = AsyncMock() # Ensure create is a mock
+
+        created_quests_list, error_msg = await generate_quests_for_guild(self.session, guild_id_test)
+
+        self.assertIsNone(error_msg)
+        self.assertIsNotNone(created_quests_list)
+        self.assertEqual(len(created_quests_list), 1)
+        if created_quests_list: # Guard for Pyright
+            self.assertEqual(created_quests_list[0].id, 707) # Should be the existing DB object
+
+        mock_gq_crud.create.assert_not_called() # Create should not be called
+        mock_log_event.assert_called_once() # Log event should still be called
+        self.session_commit_mock.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main() # Changed from pytest execution

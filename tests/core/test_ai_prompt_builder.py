@@ -290,7 +290,7 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rel1_ctx["value"], 70)
         self.assertEqual(rel1_ctx["target_entity_id"], player_id)
         self.assertEqual(rel1_ctx["target_entity_type"], RelationshipEntityType.PLAYER.value)
-        self.assertIn("This NPC secretly likes you (value: 70).", rel1_ctx["prompt_hints"])
+        self.assertEqual(rel1_ctx["prompt_hints"], "This NPC secretly likes you (value: 70).") # Changed to assertEqual
         self.assertIn("secret_help", rel1_ctx["unlocks_tags"])
         self.assertEqual(rel1_ctx["options_availability_formula"], "value > 50")
 
@@ -311,8 +311,8 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(neg_rel_ctx["value"], 90)
             self.assertEqual(neg_rel_ctx["target_entity_id"], 5) # Faction ID
             self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_FACTION.value)
-            # Description for "secret_negative_to_faction" is "secret_negative_to_faction" due to simple replace
-            self.assertIn("This NPC secretly despises the secret_negative_to_faction (value: 90).", neg_rel_ctx["prompt_hints"])
+            # Description for "secret_negative_to_faction:faction_evil" becomes "negative to faction:faction evil"
+            self.assertIn("This NPC secretly despises the negative to faction:faction evil (value: 90).", neg_rel_ctx["prompt_hints"])
 
         # Check "personal_debt_to_entity" - should have no hints as no rule was mocked for it
         debt_rel_ctx = next((r for r in context_list_no_player if r["relationship_type"] == "personal_debt_to_entity"), None)
@@ -323,6 +323,116 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_NPC.value)
             self.assertEqual(debt_rel_ctx["prompt_hints"], "") # No rule, so no hints
             self.assertEqual(debt_rel_ctx["unlocks_tags"], [])
+
+
+class TestAIQuestPromptBuilder(unittest.IsolatedAsyncioTestCase):
+
+    def setUp(self):
+        self.entity_schemas = _get_entity_schema_terms()
+        # Schemas relevant for quest generation
+        self.quest_schema_json = json.dumps(self.entity_schemas.get("quest_schema"), indent=2)
+        self.quest_step_schema_json = json.dumps(self.entity_schemas.get("quest_step_schema"), indent=2)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_player_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    async def test_prepare_quest_generation_prompt_basic_structure_and_content(
+        self, mock_get_loc_ctx, mock_get_player_ctx, mock_get_all_rules, mock_get_lang
+    ):
+        """Test basic structure and content of prepare_quest_generation_prompt."""
+        from src.core.ai_prompt_builder import prepare_quest_generation_prompt # Import SUT
+
+        mock_get_lang.return_value = "en"
+        mock_get_all_rules.return_value = {
+            "ai:quest_generation:target_count": 2,
+            "ai:quest_generation:themes_i18n": {"en": ["exploration", "mystery"], "ru": ["исследование", "тайна"]},
+            "ai:quest_generation:complexity": "simple",
+            "world_description": "A peaceful testing kingdom.",
+            "ai:quest_generation:example_mechanics_json": {"type": "test_mech"},
+            "ai:quest_generation:example_abstract_goal_json": {"desc_i18n": {"en": "Test Goal"}},
+            "ai:quest_generation:example_consequences_json": {"effect": "test_consequence"}
+        }
+        mock_get_player_ctx.return_value = {"name": "Sir TestALot", "level": 7}
+        mock_get_loc_ctx.return_value = {"name": "Testington Village", "type": "village"}
+
+        session_mock = MockAsyncSession() # Using the defined mock session
+        guild_id_test = 101
+
+        result_prompt = await prepare_quest_generation_prompt(
+            session_mock, guild_id_test, player_id_context=1, location_id_context=1
+        )
+
+        self.assertIsInstance(result_prompt, str)
+        self.assertNotIn("Error generating quest AI prompt", result_prompt)
+
+        self.assertIn("## AI Quest Generation Request", result_prompt)
+        self.assertIn(f"Target Guild ID: {guild_id_test}", result_prompt)
+        self.assertIn("Primary Language for Generation: en", result_prompt)
+
+        # Check context inclusion
+        self.assertIn("World Description: A peaceful testing kingdom.", result_prompt)
+        self.assertIn("Player Context: Name: Sir TestALot, Level: 7", result_prompt)
+        self.assertIn("Location Context: Name: Testington Village, Type: village", result_prompt)
+
+        # Check rule-based instructions
+        self.assertIn("Target Number of Quests to Generate: 2", result_prompt)
+        self.assertIn("Suggested Quest Themes: exploration, mystery", result_prompt) # Checks English version
+        self.assertIn("Desired Quest Complexity: simple", result_prompt)
+
+        # Check schema inclusion (by checking for key parts of the schema descriptions)
+        self.assertIn("Schema for Generated Quests.", result_prompt)
+        self.assertIn("Schema for individual Quest Steps.", result_prompt)
+
+        expected_schema_dump = json.dumps({
+            "quest_schema": self.entity_schemas.get("quest_schema"),
+            "quest_step_schema": self.entity_schemas.get("quest_step_schema")
+        }, indent=2)
+        self.assertIn(expected_schema_dump, result_prompt)
+
+        # Check for example JSON field guidance
+        self.assertIn("Example for 'required_mechanics_json': {\"type\": \"test_mech\"}", result_prompt)
+        self.assertIn("Example for 'abstract_goal_json': {\"desc_i18n\": {\"en\": \"Test Goal\"}}", result_prompt)
+        self.assertIn("Example for 'consequences_json': {\"effect\": \"test_consequence\"}", result_prompt)
+
+        # Check output format instructions
+        self.assertIn("Provide your response as a single JSON array", result_prompt)
+        self.assertIn("where each element is a quest object conforming to 'quest_schema'", result_prompt)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    async def test_prepare_quest_generation_prompt_uses_defaults_for_missing_rules(
+        self, mock_get_all_rules, mock_get_lang
+    ):
+        """Test that the prompt builder uses default values if RuleConfig entries are missing."""
+        from src.core.ai_prompt_builder import prepare_quest_generation_prompt # Import SUT
+
+        mock_get_lang.return_value = "ru" # Test with a different primary language
+        mock_get_all_rules.return_value = {
+            # Missing: target_count, themes, complexity, examples, world_description
+        }
+
+        session_mock = MockAsyncSession()
+        guild_id_test = 102
+
+        result_prompt = await prepare_quest_generation_prompt(session_mock, guild_id_test) # No player/location context
+
+        self.assertIsInstance(result_prompt, str)
+        self.assertNotIn("Error generating quest AI prompt", result_prompt)
+        self.assertIn("Primary Language for Generation: ru", result_prompt)
+
+        # Check for default values (as defined in prepare_quest_generation_prompt)
+        self.assertIn("Target Number of Quests to Generate: 1", result_prompt) # Default
+        self.assertIn("Suggested Quest Themes: поиск артефакта, охота на монстра, местная тайна", result_prompt) # Default, Russian
+        self.assertIn("Desired Quest Complexity: medium", result_prompt) # Default
+        self.assertIn("World Description: A generic fantasy world context.", result_prompt) # Default
+
+        # Ensure examples are still present (using their defaults from the function)
+        default_example_mechanics = {"type": "fetch", "item_static_id": "sample_item", "count": 1, "target_npc_static_id_for_delivery": "sample_npc"}
+        self.assertIn(f"Example for 'required_mechanics_json': {json.dumps(default_example_mechanics)}", result_prompt)
+
+        self.assertNotIn("Player Context:", result_prompt)
+        self.assertNotIn("Location Context:", result_prompt)
 
 
 if __name__ == "__main__":
