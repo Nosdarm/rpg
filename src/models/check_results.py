@@ -42,9 +42,10 @@ class CheckResult(BaseModel):
     rule_config_snapshot: Optional[Dict[str, Any]] = None
     check_context_provided: Optional[Dict[str, Any]] = None # Context given to resolve_check
 
-    class Config:
-        from_attributes = True # Allows Pydantic to work with ORM models if needed
-        populate_by_name = True # Allows using 'dc' as an alias for difficulty_class
+    model_config = {
+        "from_attributes": True, # Allows Pydantic to work with ORM models if needed
+        "populate_by_name": True, # Allows using 'dc' as an alias for difficulty_class
+    }
 
 # Example usage (for testing or understanding):
 if __name__ == "__main__":

@@ -36,10 +36,11 @@ class CombatActionResult(BaseModel):
     additional_details: Optional[Dict[str, Any]] = None
 
     # To ensure model can be used in ORM context if needed (though primarily for API responses)
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+    }
 
-# CombatActionResult.model_rebuild() # May not be needed with direct import of CheckResult
+# CombatActionResult.model_rebuild()
 
 # Example usage (for testing or understanding):
 # if __name__ == "__main__":

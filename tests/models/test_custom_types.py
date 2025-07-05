@@ -28,9 +28,13 @@ class JsonTestModel(Base):
     json_list_data: Mapped[list] = mapped_column(JsonBForSQLite, nullable=True)
 
 # --- Fixtures ---
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture # Default scope is "function"
 async def db_engine_custom_types():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:?cache=shared", future=True)
+    # Using a unique name for in-memory DB for each test function to ensure isolation
+    # if tests were to run in parallel or if state leaks.
+    # For serial execution and function scope, :memory: is usually fine.
+    # cache=shared is important for in-memory to be accessible across connections in the same "process".
+    engine = create_async_engine(f"sqlite+aiosqlite:///:memory:?cache=shared", future=True)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)

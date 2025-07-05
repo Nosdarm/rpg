@@ -111,12 +111,16 @@ async def test_main_keyboard_interrupt_handling(mock_settings, mock_bot_core, mo
     expected_prefix_callable = lambda bot, msg: ['?']
     monkeypatch.setattr('discord.ext.commands.when_mentioned_or', mock.Mock(return_value=expected_prefix_callable))
     mock_bot_core.start.side_effect = KeyboardInterrupt("Simulated Ctrl+C")
-    with pytest.raises(KeyboardInterrupt):
-        await main_module.main()
+
+    # Ожидаем, что main() поймает KeyboardInterrupt и завершится штатно
+    await main_module.main()
+
     mock_init_db.assert_called_once()
     mock_bot_core.start.assert_called_once_with('fake_token')
+    # Проверяем, что bot.close() был вызван в блоке finally в main()
     mock_bot_core.close.assert_called_once()
-    assert "Discord бот остановлен." in caplog.text
+    assert "Получен сигнал KeyboardInterrupt. Завершение работы..." in caplog.text
+    assert "Discord бот остановлен." in caplog.text # Это сообщение из блока finally
 
 @pytest.mark.asyncio
 async def test_main_no_token_fixed(mock_settings, mock_bot_core, mock_init_db, caplog, monkeypatch):
