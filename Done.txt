@@ -170,4 +170,18 @@ Description: Verified the existing implementation for AI Quest Generation. This 
   - Documenting expected `RuleConfig` entries for quest generation.
   - Running all relevant unit tests in `test_ai_response_parser.py`, `test_ai_prompt_builder.py`, and `test_world_generation.py`, all of which passed.
 Result: The AI Quest Generation system (Task 40) components have been verified, appear complete as per prior logs, and are covered by passing unit tests. No new code was added; existing code was validated.
+
+- Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped).
+Description: Implemented the core logic for tracking and completing quests in `src/core/quest_system.py`.
+  - Created `handle_player_event_for_quest` function to process `StoryLog` entries. This includes identifying relevant players (individual or party members), loading their active quests (`PlayerQuestProgress` with status `STARTED` or `IN_PROGRESS`), and associated `GeneratedQuest` and `QuestStep` data.
+  - Implemented `_check_mechanic_match` to compare `StoryLog` event data with `QuestStep.required_mechanics_json` (event_type and details_subset).
+  - Implemented `_evaluate_abstract_goal` with placeholder logic for LLM and rule-based evaluation of `QuestStep.abstract_goal_json`.
+  - Implemented `_advance_quest_progress` to move to the next step or mark the quest as completed, including logging `QUEST_STEP_STARTED` and `QUEST_COMPLETED` events.
+  - Implemented `_apply_quest_consequences` to handle consequences from `QuestStep.consequences_json` or `GeneratedQuest.rewards_json`. This includes awarding XP (via `experience_system`), changing relationships (via `relationship_system`), and placeholders for item rewards and world state changes, along with logging relevant events (`ITEM_REWARDED`, `WORLD_STATE_UPDATED`).
+  - Integrated `handle_player_event_for_quest` into `action_processor.py` (called after action commit, assuming `log_entry_id` is available in action result) and `combat_cycle_manager.py` (called after `COMBAT_END` event is logged).
+  - Modified `game_events.log_event` to return the created `StoryLog` object to facilitate integration.
+  - Updated `src/core/__init__.py` to export the new quest system components.
+  - Defined and documented `RuleConfig` structures for quest mechanic matching, abstract goal evaluation, and consequence value determination in `AGENTS.md`.
+  - Created `tests/core/test_quest_system.py` with unit tests for `handle_player_event_for_quest` and its helper functions, covering key scenarios with mocks.
+Result: A functional quest tracking and completion system is in place, capable of advancing quests based on game events and applying defined consequences. Further enhancements include full LLM/rule-based goal evaluation and implementation of pending consequence handlers (items, world state).
 [end of Done.txt]

@@ -19,8 +19,9 @@ from src.bot.events import DEFAULT_STATIC_LOCATIONS # Для мокирован�
 
 # Для удобства мокирования объектов discord.py
 class MockGuild:
-    def __init__(self, id):
+    def __init__(self, id, name="Test Guild"): # Added name attribute
         self.id = id
+        self.name = name # Store the name
 
 class MockUser:
     def __init__(self, id, name, display_name=None, locale_str="en-US"):
@@ -60,8 +61,16 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         interaction.user = user
         interaction.guild = guild
         interaction.guild_id = guild.id if guild else None
+
+        # Mock for interaction.response
         interaction.response = AsyncMock(spec=discord.InteractionResponse)
-        interaction.response.send_message = AsyncMock() # Ensure this is also an AsyncMock
+        interaction.response.defer = AsyncMock()
+        interaction.response.send_message = AsyncMock()
+
+        # Mock for interaction.followup
+        interaction.followup = AsyncMock() # Removed spec=discord.Webhook
+        interaction.followup.send = AsyncMock()
+
         interaction.locale = user.locale if user.locale else discord.Locale.en_US # type: ignore # Default locale
         return interaction
 
@@ -97,8 +106,8 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.session_mock.add.assert_called_once_with(created_player) # Проверка, что new_player.current_status обновлен и добавлен в сессию
         self.assertEqual(created_player.current_status, PlayerStatus.EXPLORING)
 
-        mock_interaction.response.send_message.assert_called_once()
-        args, kwargs = mock_interaction.response.send_message.call_args
+        mock_interaction.followup.send.assert_called_once() # Changed from response.send_message
+        args, kwargs = mock_interaction.followup.send.call_args # Changed from response.send_message
         self.assertIn(f"Добро пожаловать в игру, {mock_user.display_name}!", args[0])
         self.assertIn(f"Стартовая Зона", args[0]) # Проверка имени локации
         self.assertIn(f"язык установлен на ru", args[0])
@@ -106,8 +115,12 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
     async def test_start_command_existing_player(self):
         mock_user = MockUser(id=124, name="ExistingUser")
-        mock_guild = MockGuild(id=457)
+        mock_guild = MockGuild(id=457, name="Existing Player Guild") # Ensure name is present
         mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
+
+        # Explicitly ensure followup.send is AsyncMock for this test
+        mock_interaction.followup = AsyncMock(spec=discord.Webhook)
+        mock_interaction.followup.send = AsyncMock()
 
         existing_player = Player(id=2, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.name, level=5)
         self.mock_player_crud.get_by_discord_id.return_value = existing_player
@@ -116,7 +129,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
         self.mock_player_crud.create_with_defaults.assert_not_called()
-        mock_interaction.response.send_message.assert_called_once_with(
+        mock_interaction.followup.send.assert_called_once_with( # Changed to followup
             f"Привет, {mock_user.name}! Ты уже в игре. Твой персонаж уровня 5.",
             ephemeral=True
         )
@@ -151,8 +164,8 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
             session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=None, selected_language="de"
         )
-        mock_interaction.response.send_message.assert_called_once()
-        args, kwargs = mock_interaction.response.send_message.call_args
+        mock_interaction.followup.send.assert_called_once() # Changed to followup
+        args, kwargs = mock_interaction.followup.send.call_args # Changed to followup
         self.assertIn("находится в локации: неизвестной локации", args[0])
 
 

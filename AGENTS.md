@@ -44,24 +44,7 @@
 *(Этот раздел будет заполняться планом для следующей задачи)*
 ---
 ## Текущий план
-1.  **Correct `on_message` in `src/bot/events.py`**:
-    *   Change the line:
-        `if message.type == discord.MessageType.application_command:`
-        to:
-        `if message.interaction is not None:`
-    *   This will correctly identify messages that are application command invocations.
-
-2.  **Review and Test (Mentally)**:
-    *   Confirm that `message.interaction` is the appropriate check for slash commands.
-    *   Ensure this change correctly allows slash commands to be processed by `discord.py` and not the NLU.
-
-3.  **Update `AGENTS.md`**:
-    *   Create a new entry in "Лог действий" for this `AttributeError` fix.
-    *   Update "Текущий план".
-
-4.  **Submit the Fix**:
-    *   Commit the changes with a clear message.
-
+*(Этот раздел будет заполняться планом для следующей задачи)*
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -85,6 +68,41 @@
 ---
 
 ## Лог действий
+
+## Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped) - Сессия [YYYY-MM-DD]
+- **Определение задачи**: Tracking the progress of active quests and applying consequences. API `handle_player_event_for_quest` called from Action Processing Module and Combat Cycle.
+- **План**:
+    1.  **Создание модуля `quest_system.py`**:
+        *   Создать файл `src/core/quest_system.py`.
+        *   Определить основную функцию `handle_player_event_for_quest(session: AsyncSession, guild_id: int, player_id: Optional[int], party_id: Optional[int], event_log_entry: StoryLog)`.
+    2.  **Реализация `handle_player_event_for_quest`**:
+        *   Загрузка активных квестов для игрока/партии.
+        *   Проверка соответствия события (`event_log_entry`) требованиям текущего шага квеста (`required_mechanics_json`) с использованием `RuleConfig`.
+        *   Оценка `abstract_goal_json` (если есть), включая заглушку для вызова LLM.
+        *   Применение последствий шага (`_apply_quest_consequences`): XP, отношения, предметы (заглушка), состояние мира (заглушка).
+        *   Логирование `QUEST_STEP_COMPLETED`.
+        *   Продвижение к следующему шагу или завершение квеста (`_advance_quest_progress`), включая логирование `QUEST_COMPLETED` и применение наград квеста.
+    3.  **Интеграция `handle_player_event_for_quest`**:
+        *   В `src/core/action_processor.py` (`_execute_player_actions`): вызов после успешной обработки действия и получения `StoryLog` (через `action_result.log_entry_id` - требует доработки обработчиков).
+        *   В `src/core/combat_cycle_manager.py` (`_handle_combat_end_consequences`): модификация `game_events.log_event` для возврата `StoryLog`; вызов `handle_player_event_for_quest` с этим логом.
+        *   Обновление `src/core/__init__.py` для экспорта `quest_system` и `handle_player_event_for_quest`.
+    4.  **Определение структур для `RuleConfig`**:
+        *   Задокументированы структуры для `quest_rules:mechanic_matching:<event_type>`, правил оценки `abstract_goal_json` и определения значений последствий в `AGENTS.md`.
+    5.  **Написание Unit-тестов**:
+        *   Создан `tests/core/test_quest_system.py`.
+        *   Написаны тесты для `handle_player_event_for_quest`, `_check_mechanic_match`, `_advance_quest_progress`, `_apply_quest_consequences`, покрывающие основные сценарии.
+    6.  **Обновление `AGENTS.md`**: Запись этого плана, обновление лога, очистка текущего плана.
+- **Реализация**:
+    - **Шаг 1**: Создан файл `src/core/quest_system.py` с сигнатурами `handle_player_event_for_quest` и `_apply_quest_consequences`.
+    - **Шаг 2**: Реализована основная логика `handle_player_event_for_quest`, включая загрузку активных квестов, вызовы вспомогательных функций для проверки механик (`_check_mechanic_match`), оценки абстрактных целей (`_evaluate_abstract_goal` - с заглушками для LLM/правил), применения последствий (`_apply_quest_consequences`) и продвижения по квесту (`_advance_quest_progress`). Добавлено логирование событий `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`, `QUEST_STEP_STARTED`, `ITEM_REWARDED`, `WORLD_STATE_UPDATED`. Функция `_apply_quest_consequences` дополнена обработкой XP, отношений, заглушками для предметов и состояния мира.
+    - **Шаг 3**:
+        - `src/core/action_processor.py`: В `_execute_player_actions` добавлен вызов `handle_player_event_for_quest` после успешного коммита транзакции действия. Используется предположение, что `action_result` содержит `log_entry_id`.
+        - `src/core/game_events.py`: Функция `log_event` модифицирована для возврата созданного `StoryLog` объекта (после `flush` и `refresh`).
+        - `src/core/combat_cycle_manager.py`: В `_handle_combat_end_consequences` заменен вызов заглушки `quest_system.handle_combat_event_for_quests` на прямой вызов `handle_player_event_for_quest` с использованием `StoryLog` объекта, полученного от `game_events.log_event`. Реализована логика для вызова квест-системы для всех участвовавших игроков/партий.
+        - `src/core/__init__.py`: Добавлены `quest_system` и `handle_player_event_for_quest` в импорты и `__all__`.
+    - **Шаг 4**: Определены и задокументированы структуры `RuleConfig` для системы квестов в `AGENTS.md` (секция "Отложенные задачи", подраздел "Структуры RuleConfig для Системы Квестов (Task 41)").
+    - **Шаг 5**: Создан файл `tests/core/test_quest_system.py` с unit-тестами для `handle_player_event_for_quest` и вспомогательных функций. Тесты покрывают основные сценарии, используя моки.
+    - **Шаг 6**: Этот лог обновлен. "Текущий план" очищен.
 
 ## Пользовательская задача: Реализация команды /help (Сессия 2024-07-08)
 - **Определение задачи**: Проанализировать файл AGENTS.md и реализовать команду `/help`, которая поможет пользователю ориентироваться в командах бота.
@@ -530,6 +548,92 @@
     - **Описание**: В файле `src/core/ai_response_parser.py` используется метод `parse_obj_as`, который является устаревшим в Pydantic V2 и будет удален в V3.0.
     - **Необходимые действия**: Заменить `parse_obj_as(GeneratedEntity, entity_data)` на `TypeAdapter(GeneratedEntity).validate_python(entity_data)`. Это потребует импорта `TypeAdapter` из `pydantic`.
     - **Срок**: Выполнить при следующем значительном рефакторинге или обновлении зависимостей Pydantic.
+
+---
+### Структуры `RuleConfig` для Системы Квестов (Task 41)
+
+1.  **Сопоставление механик и событий (`quest_rules:mechanic_matching:<EVENT_TYPE_NAME>`)**
+    *   **Ключ**: `quest_rules:mechanic_matching:<EVENT_TYPE_NAME>` (например, `quest_rules:mechanic_matching:COMBAT_END`)
+    *   **Описание**: Определяет, как детали из `StoryLog.details_json` для данного `EVENT_TYPE_NAME` должны сопоставляться с полями в `QuestStep.required_mechanics_json.details_subset`.
+    *   **Структура `value_json`**:
+        ```json
+        {
+            "description": "Rules for matching COMBAT_END event for quest steps.",
+            "event_details_to_check": [
+                {"json_path": "winning_team", "required": true},
+                {"json_path": "defeated_npc_static_ids", "comparison_type": "contains_all_from_required"}
+            ],
+            "allow_missing_details_subset_in_step": false
+        }
+        ```
+    *   **Пояснения к полям `event_details_to_check`**:
+        *   `json_path`: Ключ или путь к полю в `StoryLog.details_json`.
+        *   `required`: `true`, если это поле обязательно для проверки.
+        *   `comparison_type` (опционально): Тип сравнения значения из лога со значением из `required_mechanics.details_subset`. Варианты:
+            *   `"exact_match"` (по умолчанию): Значения должны точно совпадать.
+            *   `"contains_all_from_required"`: Значение в логе (список) должно содержать все элементы из значения в `required_mechanics.details_subset` (список).
+            *   `"contains_any_from_required"`: Значение в логе (список) должно содержать хотя бы один элемент из значения в `required_mechanics.details_subset` (список).
+            *   `"has_key"`: Проверяет только наличие ключа в `event.details_json` (значение из `required_mechanics.details_subset` игнорируется).
+            *   `"value_greater_equal"`, `"value_less_equal"`, `"value_greater"`, `"value_less"`: Числовое сравнение.
+    *   `allow_missing_details_subset_in_step`: Если `true` и в `QuestStep.required_mechanics_json` отсутствует `details_subset`, то совпадение по `event_type` считается достаточным.
+
+2.  **Оценка абстрактной цели квеста (для `evaluation_method: "rule_based"`)**
+    *   **Ключ**: Определяется в `QuestStep.abstract_goal_json.rule_config_key` (например, `quest_goals:is_faction_leader_impressed`).
+    *   **Описание**: Правила для оценки выполнения конкретной абстрактной цели.
+    *   **Структура `value_json`**: Массив правил, которые должны быть выполнены (логика "И"). Каждое правило - объект.
+        ```json
+        [
+            {
+                "description": "Player's reputation with 'eldoria_mages' must be >= 50.",
+                "evaluation_type": "player_stat_check",
+                "stat_details": {
+                   "type": "relationship_value",
+                   "target_entity_type": "FACTION",
+                   "target_entity_static_id": "eldoria_mages"
+                },
+                "operator": ">=",
+                "required_value": 50
+            },
+            {
+                "description": "World flag 'ancient_gate_opened' must be true.",
+                "evaluation_type": "world_state_check",
+                "stat_details": {
+                    "type": "world_state_flag",
+                    "flag_name": "ancient_gate_opened"
+                },
+                "operator": "==",
+                "required_value": true
+            },
+            {
+                "description": "Player must have killed at least 5 goblins of type 'goblin_grunt' during this quest step.",
+                "evaluation_type": "event_aggregation",
+                "event_to_aggregate": {
+                    "type": "COMBAT_NPC_DEFEATED", // Примерный тип события
+                    "filters": [ // Фильтры для событий, которые считать
+                        {"json_path_in_event_details": "npc_static_id", "value": "goblin_grunt"}
+                    ]
+                },
+                "aggregation_scope": "current_quest_step", // "current_quest", "since_timestamp_from_progress_data"
+                "aggregation_function": "count", // "sum(field_name)", "avg(field_name)"
+                "operator": ">=",
+                "required_value": 5
+            }
+        ]
+        ```
+    *   **`evaluation_type`**: `player_stat_check`, `world_state_check`, `event_aggregation`.
+    *   **`stat_details`**: Конкретизирует, какой стат/флаг проверяется.
+    *   **`operator`**: Оператор сравнения (`==`, `!=`, `>`, `<`, `>=`, `<=`).
+    *   **`required_value`**: Значение для сравнения.
+
+3.  **Определение значений для последствий квеста (если не указаны в `consequences_json`)**
+    *   **Ключ**: Например, `quest_rewards:xp:easy_combat_quest`, `quest_rewards:item:potion_delivery`
+    *   **Описание**: Позволяет централизованно управлять наградами/последствиями, если `QuestStep.consequences_json` или `GeneratedQuest.rewards_json` содержат ссылку на ключ `RuleConfig` вместо прямого значения.
+    *   **Структура `value_json`**: Зависит от типа последствия.
+        *   Для XP: `{"amount": 100}` или `{"formula": "player_level * 50"}`
+        *   Для предметов: `[{"item_static_id": "potion_minor_heal", "quantity": 2}]`
+        *   Для изменения отношений: `{"target_entity_static_id": "village_elder", "target_entity_type": "NPC", "delta": 10, "relationship_type_override": "personal_respect"}`
+    *   **Использование в `_apply_quest_consequences`**: Если в `consequences_json` указан `rule_key` для конкретного типа последствия, загрузить это правило и использовать его значения.
+
 ---
 
 ## Task 34: 🎭 8.2 Relationships Model (Guild-Scoped)

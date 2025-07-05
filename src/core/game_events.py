@@ -33,14 +33,12 @@ async def log_event(
     party_id: Optional[int] = None,  # Retained for placeholder info, not directly on StoryLog model
     location_id: Optional[int] = None,
     entity_ids_json: Optional[dict] = None,
-):
+) -> Optional["StoryLog"]: # Modified to return StoryLog or None
     """
-    Logs a game event to the StoryLog.
+    Logs a game event to the StoryLog and returns the created entry.
     The event_type should match a key in the EventType enum.
     The caller is responsible for session management (commit/rollback).
     """
-    # Log basic info for now, even if it was a placeholder before.
-    # The detailed logging now happens via the StoryLog entry itself.
     logger.info(
         f"Attempting to log event. Guild: {guild_id}, EventType: {event_type}, Player: {player_id}, Party: {party_id}, Location: {location_id}"
     )
@@ -48,25 +46,18 @@ async def log_event(
     from src.models.story_log import StoryLog
     from src.models.enums import EventType
 
-    # Validate event_type against EventType enum
     try:
-        # If event_type is string, try to convert to Enum member.
         event_type_enum_member = EventType[event_type.upper()]
     except KeyError:
         logger.error(f"Invalid event_type string: {event_type}. Cannot log event for guild {guild_id}.")
-        return
+        return None
 
-    # Prepare entity_ids_json
     final_entity_ids: dict = entity_ids_json.copy() if entity_ids_json is not None else {}
-
     if player_id is not None:
         final_entity_ids.setdefault("players", []).append(player_id)
-        # Ensure uniqueness if player_id might be duplicated by caller
         final_entity_ids["players"] = list(set(final_entity_ids["players"]))
-
     if party_id is not None:
         final_entity_ids.setdefault("parties", []).append(party_id)
-        # Ensure uniqueness
         final_entity_ids["parties"] = list(set(final_entity_ids["parties"]))
 
     log_entry = StoryLog(
@@ -74,9 +65,16 @@ async def log_event(
         event_type=event_type_enum_member,
         details_json=details_json,
         location_id=location_id,
-        entity_ids_json=final_entity_ids if final_entity_ids else None, # Store None if empty after processing
-        # timestamp is server_default
+        entity_ids_json=final_entity_ids if final_entity_ids else None,
     )
     session.add(log_entry)
-    logger.debug(f"StoryLog entry added to session for guild {guild_id}, event: {event_type}")
-    # The caller is responsible for committing the session.
+    try:
+        await session.flush() # Flush to get the ID and other server-set defaults like timestamp
+        await session.refresh(log_entry) # Refresh to load all attributes
+        logger.debug(f"StoryLog entry (ID: {log_entry.id}) added and flushed for guild {guild_id}, event: {event_type}")
+        return log_entry
+    except Exception as e:
+        logger.error(f"Error flushing/refreshing StoryLog entry for guild {guild_id}, event {event_type}: {e}", exc_info=True)
+        # Depending on policy, might want to await session.rollback() here or let caller handle.
+        # For now, just return None as the entry wasn't successfully prepared.
+        return None

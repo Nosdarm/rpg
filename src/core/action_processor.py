@@ -513,7 +513,14 @@ async def _execute_player_actions(
     Returns a list of action results.
     """
     processed_actions_results = []
+    # Import quest_system here or at top level if no circular dependencies
+    from src.core.quest_system import handle_player_event_for_quest
+    from src.models import StoryLog # For type hinting if needed, or load StoryLog entry
+
     for player_id, action in all_player_actions_for_turn:
+        action_event_log_entry: Optional[StoryLog] = None # To store the log entry of the processed action
+        action_committed_successfully = False
+
         async with session_maker() as action_session:  # New session for each action's transaction
             try:
                 async with action_session.begin():  # Start transaction for this action
@@ -521,22 +528,120 @@ async def _execute_player_actions(
                     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Dispatching action '{action.intent}' to {handler.__name__}")
                     action_result = await handler(action_session, guild_id, player_id, action)
                     processed_actions_results.append({"player_id": player_id, "action": action.model_dump(mode='json'), "result": action_result})
+
+                    # Assuming the handler (or log_event called within it) creates a StoryLog entry
+                    # We need to fetch that StoryLog entry to pass to handle_player_event_for_quest
+                    # This is a simplification: log_event doesn't return the created object directly.
+                    # A more robust way would be if log_event returned the StoryLog object or its ID.
+                    # For now, we'll assume the most recent StoryLog for this player/action is the one.
+                    # This is NOT ROBUST. log_event needs to return the entry or its ID.
+                    # Let's simulate that action_result contains the log_id if successful.
+                    # Or, more realistically, the log_event function within the handler would be the point of integration.
+                    # Modifying all handlers is too broad.
+                    # A better way: log_event itself could trigger quest check, but that's too coupled.
+                    # Alternative: After action_session.commit(), query the last StoryLog.
+                    # This is also not ideal due to potential races if other logs happen.
+
+                    # Temporary approach: Assume the action result contains enough info, or we query.
+                    # For this integration, we need the actual StoryLog entry.
+                    # Let's assume log_event is called by handlers and we can query it.
+                    # This part is tricky without modifying log_event or handlers.
+
+                    # If action was successful and a log entry was created by the handler (e.g. via log_event),
+                    # try to retrieve it. This is a placeholder for a more direct way to get the event log.
+                    # This assumes the event for the action itself is what triggers quest progress.
+                    # We need the ID of the StoryLog entry for the action that was just processed.
+                    # For now, we'll assume action_result might contain 'log_entry_id' if available.
+                    # This is a significant assumption.
+
+                    # If the transaction for the action is successful, we can then query for the log.
+                    # However, handle_player_event_for_quest should ideally be part of the same transaction
+                    # or a subsequent one that can rely on the committed state of the action.
+                    # Let's assume for now that if the action is successful, we'll try to find its log
+                    # AFTER the main action transaction commits.
+                    action_committed_successfully = True # Mark that the main action was successful
+
+                # Action transaction committed successfully
                 logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Action '{action.intent}' committed successfully.")
+
+                # Now, outside the main action's transaction, but within the same session context if possible,
+                # or using a new one, try to find the event log and process quests.
+                # This is still tricky. Best if handle_player_event_for_quest is called *within* the transaction
+                # if its changes should be atomic with the action. Or, it needs its own robust transaction handling.
+
             except Exception as e:
                 logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Error processing action '{action.intent}': {e}", exc_info=True)
+                action_committed_successfully = False # Ensure this is false on error
                 processed_actions_results.append({
                     "player_id": player_id,
                     "action": action.model_dump(mode='json'),
                     "result": {"status": "error", "message": str(e)}
                 })
-                # Log event within the same session if possible, but outside the failed transaction
-                try:
-                    async with action_session.begin(): # Attempt a new transaction for logging
+                try: # Log action processing error
+                    async with action_session.begin(): # New transaction for this error log
                         await log_event(action_session, guild_id=guild_id, event_type="ACTION_PROCESSING_ERROR",
                                         details_json={"player_id": player_id, "action": action.model_dump(mode='json'), "error": str(e)}, player_id=player_id)
-                    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: ACTION_PROCESSING_ERROR event logged.")
                 except Exception as log_e:
-                    logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Failed to log ACTION_PROCESSING_ERROR: {log_e}", exc_info=True)
+                    logger.error(f"[ACTION_PROCESSOR] Failed to log ACTION_PROCESSING_ERROR: {log_e}", exc_info=True)
+
+            # After action processing (commit or rollback for the action itself)
+            if action_committed_successfully and action_result.get("status") == "success":
+                # Attempt to find the StoryLog entry for the action that was just committed.
+                # This is the critical part that needs a robust way to get the StoryLog instance.
+                # Option 1: Handler returns StoryLog ID.
+                # Option 2: Query last StoryLog by player_id and event_type (fragile).
+                # Option 3: Modify log_event to return the StoryLog instance. (Best for future)
+
+                # For now, let's assume action_result contains a "log_entry_id" if successful.
+                # This is a contract that handlers would need to fulfill.
+                log_id_from_action = action_result.get("log_entry_id")
+
+                if log_id_from_action:
+                    try:
+                        # Use a new transaction for quest processing to keep it separate
+                        # async with session_maker() as quest_session: # This would be ideal for full separation
+                        # For now, reuse action_session but start a new transaction block if possible,
+                        # or rely on handle_player_event_for_quest to manage its own if it becomes complex.
+                        # Let's assume handle_player_event_for_quest will be part of a new transaction block implicitly
+                        # if called outside current action_session.begin().
+                        # Or, if called within, it's part of the same.
+                        # The plan is for handle_player_event_for_quest to be called AFTER action processing.
+                        # So, it should use its own session or a new transaction on the current session.
+
+                        # Fetch the specific StoryLog entry
+                        # We need to ensure this runs after the log entry is committed.
+                        # The current structure of _execute_player_actions processes one action, commits, then next.
+                        # So, after the commit for the action, the log should be there.
+                        # We need to fetch it within a new session context or after the previous one is fully done.
+
+                        # Simplification: Assume we can fetch the log entry now.
+                        # This requires that the previous transaction for the action (including its log_event call)
+                        # has been successfully committed.
+                        async with session_maker() as fetch_log_session: # Fresh session to ensure visibility
+                            log_entry_for_quest = await fetch_log_session.get(StoryLog, log_id_from_action)
+
+                        if log_entry_for_quest:
+                            logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Processing quests for action '{action.intent}' using log entry {log_entry_for_quest.id}")
+                            # We need a session for handle_player_event_for_quest.
+                            # It should handle its own transactionality.
+                            async with session_maker() as quest_processing_session: # New session for quest system
+                                await handle_player_event_for_quest(
+                                    session=quest_processing_session,
+                                    guild_id=guild_id,
+                                    event_log_entry=log_entry_for_quest,
+                                    player_id=player_id
+                                    # party_id might need to be derived if action was by a party leader
+                                )
+                                await quest_processing_session.commit() # Commit changes made by quest system
+                            logger.info(f"[ACTION_PROCESSOR] Quest processing complete for action '{action.intent}' log {log_entry_for_quest.id}")
+                        else:
+                            logger.error(f"[ACTION_PROCESSOR] Could not retrieve StoryLog entry with ID {log_id_from_action} for quest processing.")
+                    except Exception as qe:
+                        logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Error during quest processing for action '{action.intent}': {qe}", exc_info=True)
+                        # Optionally log this quest processing error
+                elif action_result.get("status") == "success": # Action succeeded but no log_entry_id provided
+                    logger.warning(f"[ACTION_PROCESSOR] Action '{action.intent}' for player {player_id} succeeded but no 'log_entry_id' found in result. Cannot trigger quest system based on specific log.")
+
     return processed_actions_results
 
 

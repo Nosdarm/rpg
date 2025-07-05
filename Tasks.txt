@@ -103,20 +103,7 @@ This block presents tasks for implementing a comprehensive quest system with ste
 Description: AI generates quests for a specific guild according to rules.
 Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
 
-Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped).
-Description: Tracking the progress of active quests and applying consequences.
-API handle_player_event_for_quest(guild_id: int, player_id/party_id, log_entry_id: int). Called FROM 21 (Action Processing Module - after EVERY action) AND FROM 27 (Combat Cycle - after combat). Accepts guild_id and the ID of the just-occurred event's log entry.
-Loads active quests (39) for this player/party IN THIS GUILD.
-For each active quest: Checks if the event (from log 17) matches the required_mechanics_json requirement of the current step (from DB 39), comparing the event type from the log and its details with the mechanic description in the step, according to RuleConfig rules (13/0.3/41).
-If the step is complete:
-If step has abstract_goal_json: Evaluate the abstract goal. Collect logs (17) for the recent period for this player/party (related to the quest?). Optionally: Call LLM (48) for judgment, using a prompt with guild context, logs, goal description. The LLM result (or rules 13/41) determines the success/failure of the evaluation.
-If the step is successfully completed (and goal evaluation is successful): Update step status in the DB. Apply STEP CONSEQUENCES (from the step's consequences_json 39): Parse the step's consequences_json. Call corresponding modules (36 for WorldState, 34 for relationships, 29 for XP, 15/42 for gold/items) PASSING guild_id AND SPECIFYING THE PLAYER OR PARTY AS THE SOURCE of change. All according to RuleConfig rules (13/0.3/41). Log event (19). Provide feedback (47).
-Check if there's a next step in the branch. If yes, update the current step.
-
-
-If this is the last step: Mark the quest as completed. Apply the CONSEQUENCES OF THE ENTIRE QUEST (similarly to a step). Start the next quest in the arc (39). Award rewards (according to distribution rules 13/41!).
-
-
+{Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped). - Moved to Done.txt}
 
 Task Block: Phase 10: Economy, Items, and Trade
 This block presents tasks related to economy, items, and trade mechanics.
