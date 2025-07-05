@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext import commands
 
 from src.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
-from src.models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item
+from src.models import (
+    PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship
+)
 from src.models.enums import ModerationStatus, PlayerStatus
 from src.core.ai_response_parser import ParsedAiData, CustomValidationError, ParsedNpcData
 
@@ -243,7 +245,7 @@ async def test_save_approved_generation_success(
     assert create_npc_call_args.get("properties_json") == {"stats": parsed_npc.stats}
 
     update_pending_gen_call = None
-    update_player_call = None
+    update_player_call = None  # Initialize update_player_call
     for call_obj in mock_update_entity.call_args_list:
         if call_obj.args[1] == mock_pending_gen:
             update_pending_gen_call = call_obj
@@ -311,12 +313,14 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
 
     mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction")
     mock_crud_relationship_create.assert_called_once()
-    created_rel_args = mock_crud_relationship_create.call_args.args[1]
-    assert created_rel_args["entity1_id"] == created_npc_db.id
-    assert created_rel_args["entity1_type"] == RelationshipEntityType.NPC
-    assert created_rel_args["entity2_id"] == existing_faction_db.id
-    assert created_rel_args["entity2_type"] == RelationshipEntityType.FACTION
-    assert created_rel_args["relationship_type"] == "secret_loyalty_to_faction"
+    # Call is crud_relationship.create(session, obj_in=rel_obj_in)
+    # So, rel_obj_in is in kwargs
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in']
+    assert created_rel_obj_in["entity1_id"] == created_npc_db.id
+    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
+    assert created_rel_obj_in["entity2_id"] == existing_faction_db.id
+    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_FACTION
+    assert created_rel_obj_in["relationship_type"] == "secret_loyalty_to_faction"
 
 
 @pytest.mark.asyncio
@@ -348,8 +352,10 @@ async def test_save_approved_generation_updates_existing_relationship(
     mock_transactional_deco.side_effect = passthrough
 
     from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
-    from src.models.enums import RelationshipEntityType # Corrected import
+    from src.models.enums import RelationshipEntityType, PlayerStatus # Import PlayerStatus
     from src.models import Relationship # Import for existing_rel
+
+    mock_player.current_status = PlayerStatus.AWAITING_MODERATION # Set player status
 
     npc_data = ParsedNpcData(static_id="npc_friend", name_i18n={"en": "Old Friend"}, description_i18n={"en": "An old friend."})
     # Relationship that will update an existing one
@@ -372,8 +378,8 @@ async def test_save_approved_generation_updates_existing_relationship(
     # Mock existing relationship
     existing_rel_db = Relationship(
         id=301, guild_id=DEFAULT_GUILD_ID,
-        entity1_id=created_npc_db.id, entity1_type=RelationshipEntityType.NPC,
-        entity2_id=existing_other_npc_db.id, entity2_type=RelationshipEntityType.NPC,
+        entity1_id=created_npc_db.id, entity1_type=RelationshipEntityType.GENERATED_NPC,
+        entity2_id=existing_other_npc_db.id, entity2_type=RelationshipEntityType.GENERATED_NPC,
         relationship_type="friendship_level", value=70 # Old value
     )
     mock_crud_relationship_get_between.return_value = existing_rel_db
@@ -404,8 +410,14 @@ async def test_save_approved_generation_updates_existing_relationship(
             break
     assert found_updated_rel_in_session_add, "Existing relationship was not added to session with updated values."
 
-    assert update_player_call is not None
-    assert update_player_call.args[2]["current_status"] == PlayerStatus.EXPLORING
+    # Check player status update
+    update_player_call_found = None
+    for call_obj in mock_update_entity.call_args_list:
+        if call_obj.args[1] == mock_player: # Check if the entity being updated is the player
+            update_player_call_found = call_obj
+            break
+    assert update_player_call_found is not None, "Update call for player not found"
+    assert update_player_call_found.args[2]["current_status"] == PlayerStatus.EXPLORING
 
 
 @pytest.mark.asyncio
@@ -861,14 +873,14 @@ async def test_save_approved_generation_with_npc_relationships(
 
     # Check relationship was created with correct DB IDs
     mock_crud_relationship_create.assert_called_once()
-    created_rel_call_args = mock_crud_relationship_create.call_args.args[1] # obj_in
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in']
 
-    assert created_rel_call_args["entity1_id"] == created_npc1_db.id
-    assert created_rel_call_args["entity1_type"] == RelationshipEntityType.NPC
-    assert created_rel_call_args["entity2_id"] == created_npc2_db.id
-    assert created_rel_call_args["entity2_type"] == RelationshipEntityType.NPC
-    assert created_rel_call_args["relationship_type"] == "secret_rivalry"
-    assert created_rel_call_args["value"] == -30
+    assert created_rel_obj_in["entity1_id"] == created_npc1_db.id
+    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
+    assert created_rel_obj_in["entity2_id"] == created_npc2_db.id
+    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_NPC
+    assert created_rel_obj_in["relationship_type"] == "secret_rivalry"
+    assert created_rel_obj_in["value"] == -30
 
     # Check PendingGeneration status update
     update_pending_gen_call = None
