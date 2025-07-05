@@ -7,14 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, \
     _mock_openai_api_call # Используем мок для AI
-from src.core.ai_prompt_builder import prepare_ai_prompt, prepare_faction_relationship_generation_prompt
+from src.core.ai_prompt_builder import prepare_ai_prompt, prepare_faction_relationship_generation_prompt, prepare_quest_generation_prompt
 from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, ParsedLocationData, \
-    CustomValidationError, ParsedFactionData, ParsedRelationshipData
+    CustomValidationError, ParsedFactionData, ParsedRelationshipData, ParsedQuestData
 from src.core.crud.crud_location import location_crud
 from src.core.crud.crud_faction import crud_faction
 from src.core.crud.crud_relationship import crud_relationship
+from src.core.crud.crud_quest import generated_quest_crud, quest_step_crud, questline_crud # Added for Task 40
 from src.core.game_events import log_event
 from src.models import Location, GeneratedFaction, Relationship
+from src.models.quest import GeneratedQuest # Added for Task 40
 from src.models.enums import EventType, ModerationStatus, RelationshipEntityType
 from src.models.pending_generation import PendingGeneration
 
@@ -508,3 +510,162 @@ async def generate_factions_and_relationships(
         logger.exception(f"Error in generate_factions_and_relationships for guild {guild_id}: {e}")
         await session.rollback()
         return None, None, f"An unexpected error occurred during AI faction/relationship generation: {str(e)}"
+
+
+async def generate_quests_for_guild(
+    session: AsyncSession,
+    guild_id: int,
+    player_id_context: Optional[int] = None,
+    location_id_context: Optional[int] = None,
+) -> Tuple[Optional[List[GeneratedQuest]], Optional[str]]:
+    """
+    Generates new quests for a guild using AI, including their steps,
+    and saves them to the DB.
+    Returns (list_of_created_quests, None) or (None, error_message).
+    """
+    # Imports moved to module level
+    from src.models.quest import Questline, QuestStep # GeneratedQuest is already imported at module level
+
+    logger.info(f"Starting quest generation for guild_id: {guild_id}")
+    try:
+        # 1. Prepare prompt for AI
+        prompt = await prepare_quest_generation_prompt(
+            session,
+            guild_id,
+            player_id_context=player_id_context,
+            location_id_context=location_id_context
+        )
+        if "Error generating" in prompt: # Basic error check
+            logger.error(f"Failed to generate quest prompt for guild {guild_id}: {prompt}")
+            return None, prompt
+
+        logger.debug(f"Generated AI prompt for quests in guild {guild_id}:\n{prompt[:500]}...")
+
+        # 2. Call AI (using mock for now)
+        # The mock response should be a JSON string representing a LIST of quest objects.
+        # Each quest object should conform to ParsedQuestData, including a list of steps.
+        mock_ai_response_str = json.dumps([
+            {
+                "entity_type": "quest",
+                "static_id": "first_sample_quest_01",
+                "title_i18n": {"en": "The Missing Scroll", "ru": "Пропавший Свиток"},
+                "summary_i18n": {"en": "A valuable scroll has been stolen from the library.", "ru": "Ценный свиток был украден из библиотеки."},
+                "min_level": 1,
+                "steps": [
+                    {
+                        "title_i18n": {"en": "Ask the Librarian", "ru": "Спросить Библиотекаря"},
+                        "description_i18n": {"en": "Speak to Librarian Elara about the theft.", "ru": "Поговорить с Библиотекарем Эларой о краже."},
+                        "step_order": 0,
+                        "required_mechanics_json": {"type": "dialogue", "target_npc_static_id": "librarian_elara", "required_dialogue_outcome_tag": "clue_obtained"}
+                    },
+                    {
+                        "title_i18n": {"en": "Find the Scroll", "ru": "Найти Свиток"},
+                        "description_i18n": {"en": "Based on the clue, find the stolen scroll.", "ru": "Основываясь на подсказке, найти украденный свиток."},
+                        "step_order": 1,
+                        "required_mechanics_json": {"type": "explore_and_fetch", "target_item_static_id": "stolen_scroll_xyz", "location_hint_key": "thief_hideout_location"}
+                    }
+                ],
+                "rewards_json": {"xp": 150, "gold": 25}
+            }
+        ])
+        logger.debug(f"Mock AI response for quests: {mock_ai_response_str[:500]}...")
+
+        # 3. Parse and validate AI response
+        # parse_and_validate_ai_response expects a list of entities in the JSON string
+        parsed_data_or_error = await parse_and_validate_ai_response(
+            raw_ai_output_text=mock_ai_response_str, # This should be a JSON string of a list
+            guild_id=guild_id
+        )
+
+        if isinstance(parsed_data_or_error, CustomValidationError):
+            error_msg = f"AI response validation failed for quests: {parsed_data_or_error.message} - Details: {parsed_data_or_error.details}"
+            logger.error(error_msg)
+            return None, error_msg
+
+        parsed_ai_data: ParsedAiData = parsed_data_or_error
+
+        created_quests_db: List[GeneratedQuest] = []
+
+        for entity_data in parsed_ai_data.generated_entities:
+            if isinstance(entity_data, ParsedQuestData):
+                parsed_quest: ParsedQuestData = entity_data
+
+                # Handle Questline (Simplified: assume standalone or existing for now)
+                # A more complex version might create new Questlines based on AI output.
+                questline_db_id: Optional[int] = None
+                if parsed_quest.questline_static_id:
+                    existing_questline = await questline_crud.get_by_static_id(session, guild_id=guild_id, static_id=parsed_quest.questline_static_id)
+                    if existing_questline:
+                        questline_db_id = existing_questline.id
+                    else:
+                        logger.warning(f"Questline with static_id '{parsed_quest.questline_static_id}' not found for quest '{parsed_quest.static_id}'. Quest will be standalone.")
+                        # Optionally, create the questline here if AI is expected to define new ones.
+                        # For now, skipping dynamic questline creation from this function.
+
+                # Create GeneratedQuest
+                quest_to_create_data = {
+                    "guild_id": guild_id,
+                    "static_id": parsed_quest.static_id,
+                    "title_i18n": parsed_quest.title_i18n,
+                    "description_i18n": parsed_quest.summary_i18n, # Map summary to description
+                    "questline_id": questline_db_id,
+                    # "giver_entity_type": ... # Needs mapping from string to Enum if AI provides it
+                    # "giver_entity_id": ... # Needs resolving static_id to DB id
+                    "min_level": parsed_quest.min_level,
+                    "rewards_json": parsed_quest.rewards_json,
+                    "ai_metadata_json": parsed_quest.ai_metadata_json,
+                }
+
+                # Check for existing quest by static_id for this guild
+                existing_db_quest = await generated_quest_crud.get_by_static_id(session, guild_id=guild_id, static_id=parsed_quest.static_id)
+                if existing_db_quest:
+                    logger.warning(f"Quest with static_id '{parsed_quest.static_id}' already exists for guild {guild_id}. Skipping creation.")
+                    created_quests_db.append(existing_db_quest) # Add existing to list for return if needed
+                    continue
+
+                new_quest_db = await generated_quest_crud.create(session, obj_in=quest_to_create_data)
+                await session.flush() # Ensure new_quest_db.id is available
+
+                # Create QuestSteps
+                if new_quest_db:
+                    for step_data in parsed_quest.steps:
+                        step_to_create_data = {
+                            "quest_id": new_quest_db.id,
+                            "step_order": step_data.step_order,
+                            "title_i18n": step_data.title_i18n,
+                            "description_i18n": step_data.description_i18n,
+                            "required_mechanics_json": step_data.required_mechanics_json,
+                            "abstract_goal_json": step_data.abstract_goal_json,
+                            "consequences_json": step_data.consequences_json,
+                        }
+                        await quest_step_crud.create(session, obj_in=step_to_create_data)
+
+                    await session.refresh(new_quest_db, attribute_names=['steps']) # Refresh to load steps
+                    created_quests_db.append(new_quest_db)
+                    logger.info(f"Created quest '{new_quest_db.title_i18n.get('en')}' (ID: {new_quest_db.id}, StaticID: {new_quest_db.static_id}) with {len(new_quest_db.steps)} steps for guild {guild_id}")
+                else:
+                    logger.error(f"Failed to create GeneratedQuest DB entry for static_id: {parsed_quest.static_id}")
+
+        # Log event
+        await log_event(
+            session=session,
+            guild_id=guild_id,
+            event_type=EventType.WORLD_EVENT_QUESTS_GENERATED.value,
+            details_json={
+                "generated_quests_count": len(created_quests_db),
+                "quest_ids": [q.id for q in created_quests_db],
+                "context": { # Log context used for generation
+                    "player_id_context": player_id_context,
+                    "location_id_context": location_id_context
+                }
+            }
+        )
+
+        await session.commit()
+        logger.info(f"Successfully generated and saved {len(created_quests_db)} quests for guild {guild_id}.")
+        return created_quests_db, None
+
+    except Exception as e:
+        logger.exception(f"Error in generate_quests_for_guild for guild {guild_id}: {e}")
+        await session.rollback()
+        return None, f"An unexpected error occurred during AI quest generation: {str(e)}"

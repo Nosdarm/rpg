@@ -55,9 +55,18 @@ class ParsedQuestData(BaseGeneratedEntity):
     entity_type: str = Field("quest", frozen=True)
     title_i18n: Dict[str, str]
     summary_i18n: Dict[str, str]
-    steps_description_i18n: List[Dict[str, str]] # Each step is a dict of lang:text
+    # steps_description_i18n: List[Dict[str, str]] # REMOVED THIS OLD FIELD
     rewards_json: Optional[Dict[str, Any]] = None # e.g. {"xp": 100, "gold": 50, "items": ["item_static_id_1"]}
     # Add other Quest specific fields
+    static_id: str # AI should generate this, unique within the response at least
+    questline_static_id: Optional[str] = None # Optional: if part of a new questline also being generated
+    giver_entity_type: Optional[str] = None # e.g., "npc", "item", "location_interaction"
+    giver_entity_static_id: Optional[str] = None # static_id of the NPC/item giving the quest
+    min_level: Optional[int] = None
+    steps: List["ParsedQuestStepData"] # Changed from steps_description_i18n
+    # rewards_json is already present and fine
+    ai_metadata_json: Optional[Dict[str, Any]] = None
+
 
     @field_validator('title_i18n', 'summary_i18n')
     @classmethod
@@ -68,16 +77,56 @@ class ParsedQuestData(BaseGeneratedEntity):
             raise ValueError("i18n field must be a dict of str:str")
         return v
 
-    @field_validator('steps_description_i18n')
+    # REMOVED VALIDATOR FOR steps_description_i18n
+    # @field_validator('steps_description_i18n')
+    # @classmethod
+    # def check_steps_i18n_content(cls, v):
+    #     if not v: # Steps can be empty for a simple quest
+    #         return v
+    #     for step_desc in v:
+    #         if not isinstance(step_desc, dict) or not all(isinstance(lang, str) and isinstance(text, str) for lang, text in step_desc.items()):
+    #             raise ValueError("Each step description must be a dict of str:str")
+    #     return v
+
+    @field_validator('static_id', mode="before")
     @classmethod
-    def check_steps_i18n_content(cls, v):
-        if not v: # Steps can be empty for a simple quest
-            return v
-        for step_desc in v:
-            if not isinstance(step_desc, dict) or not all(isinstance(lang, str) and isinstance(text, str) for lang, text in step_desc.items()):
-                raise ValueError("Each step description must be a dict of str:str")
+    def check_static_id(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("static_id must be a non-empty string for ParsedQuestData.")
         return v
 
+    @field_validator('steps')
+    @classmethod
+    def check_steps_not_empty(cls, v):
+        if not v:
+            raise ValueError("Quest must have at least one step.")
+        return v
+
+class ParsedQuestStepData(BaseModel): # Not inheriting BaseGeneratedEntity as it's part of ParsedQuestData
+    # No entity_type needed here as it's nested.
+    # If steps could be generated independently, then it would need entity_type.
+    title_i18n: Dict[str, str]
+    description_i18n: Dict[str, str]
+    step_order: int # Added to ensure order is defined by AI
+    required_mechanics_json: Optional[Dict[str, Any]] = None
+    abstract_goal_json: Optional[Dict[str, Any]] = None
+    consequences_json: Optional[Dict[str, Any]] = None
+
+    @field_validator('title_i18n', 'description_i18n')
+    @classmethod
+    def check_step_i18n_content(cls, v):
+        if not v:
+            raise ValueError("Step i18n field cannot be empty")
+        if not all(isinstance(lang, str) and isinstance(text, str) for lang, text in v.items()):
+            raise ValueError("Step i18n field must be a dict of str:str")
+        return v
+
+    @field_validator('step_order')
+    @classmethod
+    def check_step_order_positive(cls, v):
+        if not isinstance(v, int) or v < 0: # Allow 0 for first step if desired, or change to v < 1
+            raise ValueError("step_order must be a non-negative integer.")
+        return v
 
 class ParsedItemData(BaseGeneratedEntity):
     entity_type: str = Field("item", frozen=True)
@@ -352,13 +401,17 @@ def _perform_semantic_validation(
                 check_i18n_dict(entity.name_i18n, "name_i18n", i)
                 check_i18n_dict(entity.description_i18n, "description_i18n", i)
                 if isinstance(entity, ParsedFactionData):
-                    check_i18n_dict(entity.ideology_i18n, "ideology_i18n", i) # ideology_i18n is Optional
+                    check_i18n_dict(entity.ideology_i18n, "ideology_i18n", i)
+            elif isinstance(entity, ParsedLocationData): # Added for completeness from existing code
+                check_i18n_dict(entity.name_i18n, "name_i18n", i)
+                check_i18n_dict(entity.descriptions_i18n, "descriptions_i18n", i)
             elif isinstance(entity, ParsedQuestData):
                 check_i18n_dict(entity.title_i18n, "title_i18n", i)
                 check_i18n_dict(entity.summary_i18n, "summary_i18n", i)
-                if entity.steps_description_i18n:
-                    for step_idx, step_desc_i18n in enumerate(entity.steps_description_i18n):
-                        check_i18n_dict(step_desc_i18n, f"steps_description_i18n[{step_idx}]", i)
+                if entity.steps: # Changed from steps_description_i18n
+                    for step_idx, step_data in enumerate(entity.steps):
+                        check_i18n_dict(step_data.title_i18n, f"steps[{step_idx}].title_i18n", i)
+                        check_i18n_dict(step_data.description_i18n, f"steps[{step_idx}].description_i18n", i)
             elif isinstance(entity, ParsedRelationshipData):
                 # Relationships typically don't have direct i18n fields in ParsedRelationshipData
                 # Their meaning is derived from types and values, descriptions come from related entities.

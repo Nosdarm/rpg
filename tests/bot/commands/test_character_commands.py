@@ -99,7 +99,7 @@ async def test_levelup_command_success(
     await cog._levelup_internal(mock_interaction_fixture, "strength", 1, session=mock_session_fixture)
 
     mock_get_player.assert_called_once_with(
-        db=mock_session_fixture, guild_id=mock_interaction_fixture.guild_id, discord_id=mock_interaction_fixture.user.id
+        session=mock_session_fixture, guild_id=mock_interaction_fixture.guild_id, discord_id=mock_interaction_fixture.user.id
     )
     mock_spend_points_api.assert_called_once_with(
         session=mock_session_fixture,

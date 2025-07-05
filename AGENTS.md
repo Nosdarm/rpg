@@ -41,7 +41,82 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет очищен после выполнения Task 39)*
+1.  **Analyze Dependencies and Existing Code**:
+    *   Review Task 10 (Generation Cycle), Task 16/17 (AI Prompting/Response - likely `ai_prompt_builder.py` and `ai_response_parser.py`), Task 39 (Quest Structures - `src/models/quest.py`), and Task 13/0.3/41 (RuleConfig access - `src/core/rules.py`).
+    *   Identify where the "Generation Cycle" (Task 10) is implemented and how new generation modules are integrated. This is likely in `src/core/world_generation.py` or a similar orchestration module.
+    *   Examine `src/core/ai_prompt_builder.py` to understand how prompts for AI are constructed, especially for i18n and guild-specific rules.
+    *   Examine `src/core/ai_response_parser.py` to understand how AI responses are parsed and validated, and how new parsable entities are added.
+    *   Review `src/models/quest.py` to ensure full understanding of `Questline`, `GeneratedQuest`, and `QuestStep` models, including `required_mechanics_json`, `abstract_goal_json`, `consequences_json`, and i18n fields.
+    *   Review `src/core/rules.py` for fetching guild-specific `RuleConfig` entries.
+
+2.  **Extend Pydantic Models for AI Response Parsing (`src/core/ai_response_parser.py`)**:
+    *   Define new Pydantic models (e.g., `ParsedQuestData`, `ParsedQuestStepData`) to represent the AI's output for quests and their steps. These models should align with the SQLAlchemy models from Task 39 (`GeneratedQuest`, `QuestStep`).
+    *   Include fields for `guild_id`, i18n text fields (e.g., `name_i18n`, `description_i18n`), `required_mechanics_json`, `abstract_goal_json`, and `consequences_json`.
+    *   Add these new models to the `GeneratedEntity` union type.
+    *   Update `_perform_semantic_validation` to include validation logic for the new quest-related Pydantic models (e.g., checking i18n structure, presence of required JSON fields).
+
+3.  **Develop AI Prompt Preparation Function (`src/core/ai_prompt_builder.py`)**:
+    *   Create a new asynchronous function, e.g., `prepare_quest_generation_prompt(session: AsyncSession, guild_id: int, params: Optional[Dict[str, Any]] = None) -> str`.
+    *   This function will:
+        *   Fetch guild-specific language settings and quest generation rules from `RuleConfig` (e.g., number of quests, themes, complexity, rules for `required_mechanics_json`, `abstract_goal_json`, `consequences_json`).
+        *   Incorporate schemas for `GeneratedQuest` and `QuestStep` (similar to `_get_entity_schema_terms`) into the prompt to guide the AI's JSON output.
+        *   Instruct the AI to generate i18n text fields according to the guild's languages.
+        *   Include clear instructions for generating `required_mechanics_json`, `abstract_goal_json`, and `consequences_json` based on the provided rules or examples.
+
+4.  **Implement Quest Generation Logic (e.g., in `src/core/world_generation.py`)**:
+    *   Create a new asynchronous function, e.g., `async def generate_quests_for_guild(session: AsyncSession, guild_id: int, generation_params: Optional[Dict[str, Any]] = None) -> list[GeneratedQuest]`.
+    *   This function will:
+        *   Call `prepare_quest_generation_prompt` to get the AI prompt.
+        *   Invoke the AI service (mocked for now, similar to other generation functions) to get the generated quest data.
+        *   Use `parse_and_validate_ai_response` from `src/core/ai_response_parser.py` to parse the AI's JSON output into the Pydantic models defined in step 2.
+        *   Iterate through the parsed quest data:
+            *   For each `ParsedQuestData`:
+                *   Create a `Questline` instance (if quests are part of a questline, or handle standalone quests). Ensure `guild_id` is set.
+                *   Create a `GeneratedQuest` instance, linking it to the `Questline` and setting `guild_id` and other i18n fields.
+                *   For each `ParsedQuestStepData` associated with the quest:
+                    *   Create `QuestStep` instances, populating `required_mechanics_json`, `abstract_goal_json`, `consequences_json`, and i18n fields. Link them to the `GeneratedQuest`.
+            *   Use existing CRUD operations (e.g., `crud_quest.create_quest_with_steps`) or add new ones if necessary to save the `Questline`, `GeneratedQuest`, and `QuestStep` objects to the database. Ensure `guild_id` is correctly propagated.
+        *   Log a `WORLD_EVENT_QUESTS_GENERATED` (new `EventType`) or similar event.
+    *   Export the new generation function (e.g., `generate_quests_for_guild`) from `src/core/__init__.py`.
+    *   Integrate this function into the main "Generation Cycle" identified in step 1.
+
+5.  **Define `RuleConfig` Entries for Quest Generation**:
+    *   Document the expected keys and structures in `RuleConfig` that will be used by `prepare_quest_generation_prompt`. Examples:
+        *   `ai:quest_generation:number_of_quests`
+        *   `ai:quest_generation:themes_i18n`
+        *   `ai:quest_generation:complexity_options`
+        *   `ai:quest_generation:rules_for_mechanics_json`
+        *   `ai:quest_generation:rules_for_abstract_goal_json`
+        *   `ai:quest_generation:rules_for_consequences_json`
+
+6.  **Write Unit Tests**:
+    *   **For `ai_response_parser.py`**:
+        *   Test successful parsing and validation of valid AI-generated quest data.
+        *   Test handling of invalid or incomplete quest data (e.g., missing required fields, incorrect i18n structure).
+    *   **For `ai_prompt_builder.py`**:
+        *   Test `prepare_quest_generation_prompt` to ensure it correctly incorporates guild language, `RuleConfig` entries, and schema definitions into the prompt.
+        *   Test fallback to default rules if specific guild rules are missing.
+    *   **For `world_generation.py` (or the module containing quest generation logic)**:
+        *   Write integration-style tests for `generate_quests_for_guild`.
+        *   Mock the AI response.
+        *   Verify that `Questline`, `GeneratedQuest`, and `QuestStep` objects are created and saved correctly in the database with appropriate `guild_id` and other fields.
+        *   Verify that game events are logged.
+        *   Test error handling (e.g., if AI response parsing fails).
+
+7.  **Update `AGENTS.md`**:
+    *   Record the plan in the "Текущий план" section.
+    *   Log all actions taken during the implementation under a "Task 40" heading in the "Лог действий" section.
+
+8.  **Testing and Refinement**:
+    *   Run all relevant tests.
+    *   If tests fail, debug and fix the issues.
+    *   Refine the implementation based on test results.
+
+9.  **Submit**:
+    *   Once all tests pass and the implementation is complete, prepare a commit.
+    *   Update `Tasks.txt` (remove Task 40) and `Done.txt` (add Task 40).
+    *   Clear the "Текущий план" section in `AGENTS.md`.
+    *   Submit the changes with a descriptive commit message.
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -65,6 +140,41 @@
 ---
 
 ## Лог действий
+
+## Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild)
+- **Определение задачи**: AI generates quests for a specific guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
+- **Реализация**:
+    - **Шаг 1: Анализ зависимостей и существующего кода**:
+        - Проанализированы файлы: `src/core/world_generation.py`, `src/core/ai_prompt_builder.py`, `src/core/ai_response_parser.py`, `src/models/quest.py`, `src/core/crud/crud_quest.py`, `src/core/rules.py`, `Tasks.txt`.
+        - Определены ключевые модули и паттерны для реализации задачи.
+    - **Шаг 2: Расширение Pydantic моделей для парсинга ответа AI (`src/core/ai_response_parser.py`)**:
+        - Обновлена модель `ParsedQuestData` для полноты, включая `static_id`, опциональные поля для связки с `Questline` и квестодателем, список шагов.
+        - Создана новая модель `ParsedQuestStepData` для представления шагов квеста, включая `title_i18n`, `description_i18n`, `step_order`, и JSON поля (`required_mechanics_json`, `abstract_goal_json`, `consequences_json`).
+        - Добавлены валидаторы для новых полей (например, `static_id` не пустой, `steps` не пустой список).
+        - Обновлен `_perform_semantic_validation` для включения базовых проверок i18n для новых моделей квестов и шагов.
+    - **Шаг 3: Разработка функции для подготовки промпта AI (`src/core/ai_prompt_builder.py`)**:
+        - Обновлена функция `_get_entity_schema_terms` для включения детализированных `quest_schema` и `quest_step_schema`, соответствующих новым Pydantic моделям и требованиям Task 39/40.
+        - Создана новая функция `async def prepare_quest_generation_prompt(...)`.
+        - Функция собирает настройки языка гильдии, правила генерации квестов из `RuleConfig` (целевое количество, темы, сложность, примеры для JSON полей).
+        - Включает опциональный контекст игрока и локации.
+        - Формирует промпт с инструкциями по генерации квестов, шагов, i18n текстов и структурированных JSON полей, предоставляя AI обновленные схемы.
+    - **Шаг 4: Реализация логики генерации квестов (`src/core/world_generation.py`)**:
+        - Добавлен новый тип события `WORLD_EVENT_QUESTS_GENERATED` в `src/models/enums.py`.
+        - Создана функция `async def generate_quests_for_guild(...)`.
+        - Функция вызывает `prepare_quest_generation_prompt`, использует мок `_mock_openai_api_call` для ответа AI.
+        - Использует `parse_and_validate_ai_response` для парсинга ответа.
+        - Итерирует по распарсенным `ParsedQuestData`:
+            - Обрабатывает (упрощенно) связь с `Questline` через `questline_static_id`.
+            - Создает `GeneratedQuest` и его `QuestStep` объекты.
+            - Сохраняет сущности в БД, используя `generated_quest_crud`, `quest_step_crud`.
+            - Логирует событие `WORLD_EVENT_QUESTS_GENERATED`.
+        - Функция `generate_quests_for_guild` экспортирована из `src/core/__init__.py`.
+    - **Шаг 5: Определение записей `RuleConfig` для генерации квестов**:
+        - Задокументированы ключи и структуры `RuleConfig` для управления генерацией квестов (например, `ai:quest_generation:target_count`, `ai:quest_generation:themes_i18n`, примеры JSON).
+    - **Шаг 6: Написание Unit-тестов**:
+        - Добавлены тесты в `tests/core/test_ai_response_parser.py` для парсинга валидных и невалидных данных квестов/шагов.
+        - Добавлены тесты в `tests/core/test_ai_prompt_builder.py` для `prepare_quest_generation_prompt`, проверяющие корректность формирования промпта, использование правил и схем.
+        - Добавлены тесты в `tests/core/test_world_generation.py` для `generate_quests_for_guild`, покрывающие успешное создание, обработку ошибок парсинга, и пропуск дубликатов по `static_id`.
 
 ## Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n)
 - **Определение задачи**: GeneratedQuest, Questline, QuestStep models. MUST INCLUDE guild_id. Link to player OR party in this guild. Step structure with required_mechanics_json, abstract_goal_json, consequences_json. _i18n text fields.

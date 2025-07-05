@@ -105,7 +105,7 @@ async def test_start_combat_successful_creation(
 ):
     # Mock rule calls
     # Lambda now uses keyword arguments matching the call to get_rule
-    def get_rule_mock_side_effect(*, db, guild_id, key, default): # Use actual param names
+    def get_rule_mock_side_effect(*, session, guild_id, key, default): # Changed db to session
         return {
             "player:stats:default_max_hp": 100,
             "combat:initiative:dice": "1d20",
@@ -244,7 +244,7 @@ async def test_start_combat_initiative_tie_break_order(
     # If rolls are P1=10 (score 12), NPC=11 (score 12), P2=12 (score 12)
     # Order should be P1, NPC, P2 (if input order was P1, NPC, P2)
 
-    mock_get_rule.side_effect = lambda *, db, guild_id, key, default: {"combat:initiative:dice": "1d20"}.get(key, default)
+    mock_get_rule.side_effect = lambda *, session, guild_id, key, default: {"combat:initiative:dice": "1d20"}.get(key, default) # Changed db to session
     mock_roll_dice.side_effect = [
         (10, [10]), # P1 (id 1, mod +2) -> total 12
         (11, [11]), # NPC (id 2, mod +1) -> total 12
@@ -518,7 +518,7 @@ async def test_start_combat_player_in_party_status_update(
     mock_party.current_combat_id = None # Assuming this attribute exists
 
     # Mock rule calls
-    def get_rule_party_test_side_effect(*, db, guild_id, key, default):
+    def get_rule_party_test_side_effect(*, session, guild_id, key, default): # Changed db to session
         return {
             "player:stats:default_max_hp": 100,
             "combat:initiative:dice": "1d20",

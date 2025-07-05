@@ -360,7 +360,7 @@ async def test_load_and_clear_all_actions_single_player_with_actions(
     # Check that actions were cleared and player added to session
     assert mock_player_1_with_both_actions.collected_actions_json == []
     mock_session.add.assert_called_with(mock_player_1_with_both_actions)
-    mock_player_crud_get_many.assert_called_once_with(db=mock_session, ids=[PLAYER_ID_PK_1], guild_id=DEFAULT_GUILD_ID) # Changed {P_ID} to [P_ID]
+    mock_player_crud_get_many.assert_called_once_with(session=mock_session, ids=[PLAYER_ID_PK_1], guild_id=DEFAULT_GUILD_ID) # Changed db to session
     mock_party_crud_get_many.assert_not_called()
 
 
@@ -390,8 +390,8 @@ async def test_load_and_clear_all_actions_party_with_player_actions(
 
     assert mock_player_1_with_look_action.collected_actions_json == []
     mock_session.add.assert_called_with(mock_player_1_with_look_action)
-    mock_party_crud_get_many.assert_called_once_with(db=mock_session, ids=[PARTY_ID_PK_1], guild_id=DEFAULT_GUILD_ID) # Changed {P_ID} to [P_ID]
-    mock_player_crud_get_many.assert_called_once_with(db=mock_session, ids=[mock_player_1_with_look_action.id], guild_id=DEFAULT_GUILD_ID) # Changed {P_ID} to [P_ID]
+    mock_party_crud_get_many.assert_called_once_with(session=mock_session, ids=[PARTY_ID_PK_1], guild_id=DEFAULT_GUILD_ID) # Changed db to session
+    mock_player_crud_get_many.assert_called_once_with(session=mock_session, ids=[mock_player_1_with_look_action.id], guild_id=DEFAULT_GUILD_ID) # Changed db to session
 
 
 @pytest.mark.asyncio

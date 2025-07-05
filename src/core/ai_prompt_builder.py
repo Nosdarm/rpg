@@ -51,6 +51,11 @@ from .locations_utils import get_localized_text # Assuming this can be used broa
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_QUEST_THEMES = {
+    "en": ["artifact hunt", "monster hunt", "local mystery", "escort mission", "gathering resources"],
+    "ru": ["поиск артефакта", "охота на монстра", "местная тайна", "миссия сопровождения", "сбор ресурсов"]
+}
+
 # Placeholder for actual WorldState model and CRUD if it gets created
 # from src.models import WorldState
 # from src.core.crud import world_state_crud
@@ -350,25 +355,49 @@ def _get_entity_schema_terms() -> Dict[str, Any]:
             }
         },
         "quest_schema": {
-            "description": "Schema for Quests.",
+            "description": "Schema for Generated Quests. Ensure 'static_id' is unique for each quest generated in this batch.",
             "fields": {
-                "name_i18n": {"type": "object", "description": "Localized quest name."},
-                "description_i18n": {"type": "object", "description": "Overall quest description."},
-                "type": {"type": "string", "enum": ["main", "side", "faction", "personal"], "description": "Quest type."},
-                "suggested_level": {"type": "integer", "description": "Suggested player level for this quest."},
+                "entity_type": {"type": "string", "const": "quest", "description": "Must be 'quest'."},
+                "static_id": {"type": "string", "description": "AI-generated unique static ID for this quest (e.g., 'forest_ruins_artifact')."},
+                "title_i18n": {"type": "object", "description": "Localized quest title (e.g., {'en': 'Title', 'ru': 'Заголовок'})."},
+                "summary_i18n": {"type": "object", "description": "Localized overall quest summary/description."},
+                "questline_static_id": {"type": "string", "description": "Optional static_id of a questline this quest belongs to."},
+                "giver_entity_type": {"type": "string", "description": "Optional type of entity giving the quest (e.g., 'npc', 'item')."},
+                "giver_entity_static_id": {"type": "string", "description": "Optional static_id of the NPC or item giving the quest."},
+                "min_level": {"type": "integer", "description": "Optional minimum player level suggested for this quest."},
                 "steps": {
                     "type": "array",
+                    "description": "List of quest steps. Must contain at least one step.",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "name_i18n": {"type": "object", "description": "Localized step name."},
-                            "description_i18n": {"type": "object", "description": "Localized step description/goal."},
-                            "required_mechanics_json": {"type": "object", "description": "Structured goal, e.g., {'type': 'fetch', 'item_static_id': '...', 'count': 1} or {'type': 'kill', 'target_npc_static_id': '...'}"},
-                        }
+                        "$ref": "#/components/schemas/quest_step_schema" # Reference to QuestStep schema
                     }
                 },
-                "rewards_json": {"type": "object", "description": "Structured rewards, e.g., {'xp': 100, 'gold': 50, 'item_static_ids': ['...']}"}
-            }
+                "rewards_json": {"type": "object", "description": "Structured rewards, e.g., {'xp': 100, 'gold': 50, 'item_static_ids': ['item_id_1']}"},
+                "ai_metadata_json": {"type": "object", "description": "Optional AI-specific metadata."}
+            },
+            "required": ["entity_type", "static_id", "title_i18n", "summary_i18n", "steps"]
+        },
+        "quest_step_schema": { # Renamed for clarity and reference
+            "description": "Schema for individual Quest Steps.",
+            "type": "object", # Added type object for clarity as a sub-schema
+            "properties": {
+                "title_i18n": {"type": "object", "description": "Localized step title."},
+                "description_i18n": {"type": "object", "description": "Localized step description detailing the objective."},
+                "step_order": {"type": "integer", "description": "Order of the step in the quest, starting from 0 or 1."},
+                "required_mechanics_json": {
+                    "type": "object",
+                    "description": "Structured objective. Examples: {'type': 'fetch', 'item_static_id': 'ancient_scroll', 'count': 1, 'target_npc_static_id_for_delivery': 'hermit_joe'}, {'type': 'kill', 'target_npc_static_id': 'goblin_leader', 'count': 1}, {'type': 'explore', 'location_static_id': 'hidden_cave'}, {'type': 'dialogue', 'target_npc_static_id': 'village_elder', 'required_dialogue_outcome_tag': 'information_revealed'}"
+                },
+                "abstract_goal_json": {
+                    "type": "object",
+                    "description": "Optional abstract goal for more complex steps, e.g., {'description_i18n': {'en': 'Gain the trust of the village elder.', 'ru': 'Завоевать доверие старейшины деревни.'}, 'evaluation_criteria_tags': ['trust_earned', 'elder_friendly']}"
+                },
+                "consequences_json": {
+                    "type": "object",
+                    "description": "Optional consequences of completing this step, e.g., {'relationship_change': {'target_faction_static_id': 'village_guard', 'delta': 10}, 'world_state_update': {'state_key': 'bridge_repaired', 'new_value': True}}"
+                }
+            },
+            "required": ["title_i18n", "description_i18n", "step_order"]
         },
         "item_schema": {
              "description": "Schema for Items.",
@@ -754,17 +783,25 @@ async def _get_hidden_relationships_context_for_dialogue(
         if chosen_rule_data:
             hints_i18n = chosen_rule_data.get("prompt_modifier_hints_i18n")
             if hints_i18n and isinstance(hints_i18n, dict):
-                hint_template = get_localized_text(hints_i18n, lang, "en") # get_localized_text is already in this file
+                hint_template = hints_i18n.get(lang) # Get text for current language
+                if hint_template is None and lang != "en": # Fallback to English if current lang not found
+                    hint_template = hints_i18n.get("en")
+                if hint_template is None: # If still None (e.g. 'en' also not found or hints_i18n was empty for these keys)
+                    hint_template = ""
 
-                # Basic placeholder replacement. A more robust templating engine might be better for complex cases.
-                # For now, simple replace for {value} and a generic description.
-                # A better way for description would be to map relationship_type to a human-readable phrase.
-                relationship_description = rel.relationship_type.replace("_", " ").replace("secret ", "") # Simple description
+                if hint_template: # Only proceed if we have a template
+                    # Basic placeholder replacement.
+                    relationship_description = rel.relationship_type.replace("_", " ").replace("secret ", "") # Simple description
+                    formatted_hint = hint_template.replace("{value}", str(rel.value))
+                    # These might not exist in all templates, but replace won't error if placeholder is missing
+                    formatted_hint = formatted_hint.replace("{relationship_description_en}", relationship_description)
+                    formatted_hint = formatted_hint.replace("{relationship_description_ru}", relationship_description)
+                    rel_ctx["prompt_hints"] = formatted_hint
+                else:
+                    rel_ctx["prompt_hints"] = "" # Ensure it's an empty string if no template
+            else: # hints_i18n is not a dict or is None
+                rel_ctx["prompt_hints"] = ""
 
-                formatted_hint = hint_template.replace("{value}", str(rel.value))
-                formatted_hint = formatted_hint.replace("{relationship_description_en}", relationship_description)
-                formatted_hint = formatted_hint.replace("{relationship_description_ru}", relationship_description) # Needs actual i18n for description
-                rel_ctx["prompt_hints"] = formatted_hint
 
             rel_ctx["unlocks_tags"] = chosen_rule_data.get("unlocks_dialogue_options_tags", [])
             rel_ctx["options_availability_formula"] = chosen_rule_data.get("dialogue_option_availability_formula")
@@ -772,3 +809,122 @@ async def _get_hidden_relationships_context_for_dialogue(
         hidden_relationships_context.append(rel_ctx)
 
     return hidden_relationships_context
+
+
+async def prepare_quest_generation_prompt(
+    session: AsyncSession,
+    guild_id: int,
+    # context_params: Optional[Dict[str, Any]] = None # General context if needed
+    # For quest generation, context might include:
+    # - Current world state snippets (e.g., recent major events)
+    # - Key NPCs or Factions recently interacted with or of importance
+    # - Themes or types of quests desired (e.g., "exploration", "mystery", "combat-heavy")
+    # - Player/Party level or progression to tailor difficulty/rewards
+    player_id_context: Optional[int] = None, # For player-specific quest context
+    location_id_context: Optional[int] = None # For location-specific quest context
+) -> str:
+    """
+    Collects guild-level context and forms a structured prompt for the AI
+    to generate quests, including their steps and relevant JSON fields.
+    """
+    try:
+        guild_main_lang = await _get_guild_main_language(session, guild_id)
+        all_rules = await get_all_rules_for_guild(session, guild_id) # Fetches from cache or DB
+
+        # --- Gather Quest Generation Rules & Context ---
+        quest_gen_rules = {
+            "target_quest_count": all_rules.get("ai:quest_generation:target_count", 1),
+            "quest_themes_i18n": all_rules.get("ai:quest_generation:themes_i18n", {"en": ["artifact recovery", "monster hunt", "local mystery"]}),
+            "quest_complexity": all_rules.get("ai:quest_generation:complexity", "medium"), # e.g., simple, medium, complex
+            "example_mechanics_json": all_rules.get(
+                "ai:quest_generation:example_mechanics_json",
+                {"type": "fetch", "item_static_id": "sample_item", "count": 1, "target_npc_static_id_for_delivery": "sample_npc"}
+            ),
+            "example_abstract_goal_json": all_rules.get(
+                "ai:quest_generation:example_abstract_goal_json",
+                {"description_i18n": {"en": "Impress the guild master.", "ru": "Произвести впечатление на главу гильдии."}}
+            ),
+            "example_consequences_json": all_rules.get(
+                "ai:quest_generation:example_consequences_json",
+                {"world_state_update": {"key": "guild_master_mood", "new_value": "pleased"}}
+            ),
+            "world_description": all_rules.get("world_description", "A generic fantasy world context.") # General world context
+        }
+
+        # Fetch relevant context (player, location, etc.) if IDs are provided
+        player_context_str = ""
+        if player_id_context:
+            player_ctx = await _get_player_context(session, player_id_context, guild_id)
+            if player_ctx:
+                player_context_str = f"  - Player Context: Name: {player_ctx.get('name')}, Level: {player_ctx.get('level')}\n"
+
+        location_context_str = ""
+        if location_id_context:
+            loc_ctx = await _get_location_context(session, location_id_context, guild_id, guild_main_lang)
+            if loc_ctx:
+                location_context_str = f"  - Location Context: Name: {loc_ctx.get('name')}, Type: {loc_ctx.get('type')}\n"
+
+
+        entity_schemas = _get_entity_schema_terms() # Ensure this includes the updated quest_schema and quest_step_schema
+
+        # --- Construct the Prompt ---
+        prompt_parts = []
+        prompt_parts.append("## AI Quest Generation Request")
+        prompt_parts.append(f"Target Guild ID: {guild_id}")
+        prompt_parts.append(f"Primary Language for Generation: {guild_main_lang} (Also provide English ('en') translations for all user-facing text in _i18n JSON objects).")
+
+        prompt_parts.append("\n### Generation Guidelines & Context:")
+        prompt_parts.append(f"  World Description: {quest_gen_rules['world_description']}")
+        if player_context_str: prompt_parts.append(player_context_str)
+        if location_context_str: prompt_parts.append(location_context_str)
+        prompt_parts.append(f"  Target Number of Quests to Generate: {quest_gen_rules['target_quest_count']}")
+
+        # Corrected theme processing
+        actual_themes_i18n = all_rules.get("ai:quest_generation:themes_i18n", {}) # Get from all_rules directly
+        themes_list_for_lang = actual_themes_i18n.get(guild_main_lang, [])
+
+        if not themes_list_for_lang and guild_main_lang != "en": # Fallback to English from rules
+            themes_list_for_lang = actual_themes_i18n.get("en", [])
+
+        if not themes_list_for_lang: # Fallback to global defaults if no themes found in rules
+            themes_list_for_lang = DEFAULT_QUEST_THEMES.get(guild_main_lang, DEFAULT_QUEST_THEMES.get("en", []))
+
+        suggested_themes_str = ", ".join(themes_list_for_lang) if themes_list_for_lang else ""
+        prompt_parts.append(f"  Suggested Quest Themes: {suggested_themes_str}")
+        prompt_parts.append(f"  Desired Quest Complexity: {quest_gen_rules['quest_complexity']}")
+
+        prompt_parts.append("\n### Generation Task:")
+        prompt_parts.append(f"Generate {quest_gen_rules['target_quest_count']} quest(s) suitable for the provided context.")
+        prompt_parts.append("For each quest:")
+        prompt_parts.append("  - Adhere to the 'quest_schema'. Ensure 'static_id' is unique for each quest.")
+        prompt_parts.append("  - Each quest must have one or more steps, adhering to 'quest_step_schema'.")
+        prompt_parts.append("  - For each step, define 'title_i18n', 'description_i18n', and 'step_order'.")
+        prompt_parts.append("  - Populate 'required_mechanics_json' with a clear, structured objective for the step.")
+        prompt_parts.append(f"    Example for 'required_mechanics_json': {json.dumps(quest_gen_rules['example_mechanics_json'])}")
+        prompt_parts.append("  - Optionally, provide 'abstract_goal_json' for steps requiring broader interpretation.")
+        prompt_parts.append(f"    Example for 'abstract_goal_json': {json.dumps(quest_gen_rules['example_abstract_goal_json'])}")
+        prompt_parts.append("  - Optionally, detail 'consequences_json' for step completion.")
+        prompt_parts.append(f"    Example for 'consequences_json': {json.dumps(quest_gen_rules['example_consequences_json'])}")
+        prompt_parts.append("  - Ensure all user-facing text fields (titles, descriptions, summaries) are _i18n objects including both the primary language and English.")
+
+        prompt_parts.append("\n### Output Format Instructions:")
+        prompt_parts.append("Provide your response as a single JSON array, where each element is a quest object conforming to 'quest_schema'.")
+        prompt_parts.append("Example of _i18n field: \"title_i18n\": {\""+guild_main_lang+"\": \"Localized Title\", \"en\": \"English Title\"}")
+
+        prompt_parts.append("\n### Entity Schemas for Generation:")
+        prompt_parts.append("```json")
+        # Ensure quest_schema and quest_step_schema are included. _get_entity_schema_terms should provide them.
+        prompt_parts.append(json.dumps({
+            "quest_schema": entity_schemas.get("quest_schema"),
+            "quest_step_schema": entity_schemas.get("quest_step_schema") # Referenced by quest_schema
+            # Include other schemas if AI needs to reference them for quest content (e.g., item_schema for rewards)
+        }, indent=2))
+        prompt_parts.append("```")
+
+        final_prompt = "\n".join(prompt_parts)
+        logger.info(f"Generated AI prompt for quest generation for guild {guild_id}:\n{final_prompt[:1000]}...") # Log snippet
+        return final_prompt
+
+    except Exception as e:
+        logger.exception(f"Error in prepare_quest_generation_prompt for guild {guild_id}: {e}")
+        return f"Error generating quest AI prompt: {str(e)}"

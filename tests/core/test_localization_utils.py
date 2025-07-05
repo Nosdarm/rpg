@@ -247,9 +247,9 @@ async def test_get_batch_localized_entity_names_success(mock_db_session: AsyncSe
     assert names_cache_ru[("location", 10)] == "Локация Бета"
     assert names_cache_ru[("item", 20)] == "Предмет Гамма"
 
-    mock_player_crud_instance.get_many_by_ids.assert_any_call(db=mock_db_session, ids=[1, 2], guild_id=guild_id)
-    mock_location_crud_instance.get_many_by_ids.assert_any_call(db=mock_db_session, ids=[10], guild_id=guild_id)
-    mock_item_crud_instance.get_many_by_ids.assert_any_call(db=mock_db_session, ids=[20], guild_id=guild_id)
+    mock_player_crud_instance.get_many_by_ids.assert_any_call(session=mock_db_session, ids=[1, 2], guild_id=guild_id)
+    mock_location_crud_instance.get_many_by_ids.assert_any_call(session=mock_db_session, ids=[10], guild_id=guild_id)
+    mock_item_crud_instance.get_many_by_ids.assert_any_call(session=mock_db_session, ids=[20], guild_id=guild_id)
     # Each CRUD's get_many_by_ids should be called twice (once for 'en', once for 'ru')
     assert mock_player_crud_instance.get_many_by_ids.call_count == 2
     assert mock_location_crud_instance.get_many_by_ids.call_count == 2
@@ -306,8 +306,8 @@ async def test_get_batch_localized_entity_names_all_entities_not_found(mock_db_s
     assert names_cache.get(("player", 1)) == "[player ID: 1 (Unknown)]"
     assert names_cache.get(("location", 10)) == "[location ID: 10 (Unknown)]"
     assert len(names_cache) == 2
-    mock_player_crud_instance.get_many_by_ids.assert_called_once_with(db=mock_db_session, ids=[1], guild_id=guild_id)
-    mock_location_crud_instance.get_many_by_ids.assert_called_once_with(db=mock_db_session, ids=[10], guild_id=guild_id)
+    mock_player_crud_instance.get_many_by_ids.assert_called_once_with(session=mock_db_session, ids=[1], guild_id=guild_id)
+    mock_location_crud_instance.get_many_by_ids.assert_called_once_with(session=mock_db_session, ids=[10], guild_id=guild_id)
 
 @pytest.mark.asyncio
 async def test_get_batch_localized_entity_names_fallback_and_nameless(mock_db_session: AsyncSession):

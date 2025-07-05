@@ -281,8 +281,19 @@ async def process_combat_action(
         from src.models.enums import RelationshipEntityType # Import the enum
 
         try:
-            actor_rel_entity_type = RelationshipEntityType(actor_type.upper())
-            target_rel_entity_type = RelationshipEntityType(target_type.upper()) if target_type else None
+            processed_actor_type = actor_type.lower()
+            if processed_actor_type == "npc": # Map generic "npc" to the specific enum member
+                actor_rel_entity_type = RelationshipEntityType.GENERATED_NPC
+            else:
+                actor_rel_entity_type = RelationshipEntityType(processed_actor_type)
+
+            processed_target_type = target_type.lower() if target_type else None
+            if processed_target_type == "npc":
+                target_rel_entity_type = RelationshipEntityType.GENERATED_NPC
+            elif processed_target_type:
+                target_rel_entity_type = RelationshipEntityType(processed_target_type)
+            else:
+                target_rel_entity_type = None
         except ValueError:
             msg = f"Invalid entity type string for relationship enum: actor_type='{actor_type}', target_type='{target_type}'"
             logger.error(msg)

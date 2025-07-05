@@ -59,13 +59,13 @@ async def test_ensure_guild_config_exists_new_guild(
         session=mock_session, guild_id=guild_id, guild_name=guild_name
     )
 
-    mock_guild_crud.get.assert_called_once_with(db=mock_session, id=guild_id)
+    mock_guild_crud.get.assert_called_once_with(session=mock_session, id=guild_id)
 
     expected_obj_in = {"id": guild_id, "main_language": 'en', "name": guild_name}
-    mock_guild_crud.create.assert_called_once_with(db=mock_session, obj_in=expected_obj_in)
+    mock_guild_crud.create.assert_called_once_with(session=mock_session, obj_in=expected_obj_in)
 
     mock_update_rule_config.assert_called_once_with(
-        db=mock_session,
+        session=mock_session, # Changed db to session
         guild_id=guild_id,
         key="guild_main_language",
         value={"language": "en"}
@@ -98,7 +98,7 @@ async def test_ensure_guild_config_exists_existing_guild(
         session=mock_session, guild_id=guild_id, guild_name=guild_name
     )
 
-    mock_guild_crud.get.assert_called_once_with(db=mock_session, id=guild_id)
+    mock_guild_crud.get.assert_called_once_with(session=mock_session, id=guild_id)
     mock_guild_crud.create.assert_not_called()
     mock_update_rule_config.assert_not_called()
     assert returned_config == mock_existing_guild_config

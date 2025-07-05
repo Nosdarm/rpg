@@ -114,21 +114,33 @@ def mock_target_npc_friendly_faction() -> GeneratedNpc:
 
 
 @pytest.fixture
-def mock_combat_encounter(mock_actor_npc: GeneratedNpc, mock_target_player: Player) -> CombatEncounter:
+def mock_combat_encounter(
+    mock_actor_npc: GeneratedNpc,
+    mock_target_player: Player,
+    mock_target_npc_hostile: GeneratedNpc,
+    mock_target_npc_friendly_faction: GeneratedNpc
+) -> CombatEncounter:
+    # Max HP values from individual fixtures or sensible defaults for combat data
+    actor_max_hp = mock_actor_npc.properties_json.get("stats", {}).get("hp", 50)
+    player_max_hp = 100 # As per mock_target_player.current_hp and general assumption
+    hostile_npc_max_hp = mock_target_npc_hostile.properties_json.get("stats", {}).get("hp", 40)
+    friendly_npc_max_hp = mock_target_npc_friendly_faction.properties_json.get("stats", {}).get("hp", 30)
+    defeated_player_max_hp = 100 # Arbitrary typical max HP for a defeated player
+
     return CombatEncounter(
         id=1,
         guild_id=100,
         location_id=1,
         participants_json=[
-            {"id": mock_actor_npc.id, "type": EntityType.NPC.value, "hp": 50, "resources": {"mana": 10}, "cooldowns": {}},
-            {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80}, # Player target
-            {"id": 2, "type": EntityType.NPC.value, "hp": 40}, # Another NPC, potentially hostile
-            {"id": 3, "type": EntityType.NPC.value, "hp": 30}, # Another NPC, potentially friendly
-            {"id": 4, "type": EntityType.PLAYER.value, "hp": 0}, # Defeated player
+            {"id": mock_actor_npc.id, "type": EntityType.NPC.value, "current_hp": actor_max_hp, "max_hp": actor_max_hp, "resources": {"mana": 10}, "cooldowns": {}},
+            {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "current_hp": 80, "max_hp": player_max_hp}, # Player target, current_hp can differ from max_hp
+            {"id": mock_target_npc_hostile.id, "type": EntityType.NPC.value, "current_hp": hostile_npc_max_hp, "max_hp": hostile_npc_max_hp},
+            {"id": mock_target_npc_friendly_faction.id, "type": EntityType.NPC.value, "current_hp": friendly_npc_max_hp, "max_hp": friendly_npc_max_hp},
+            {"id": 4, "type": EntityType.PLAYER.value, "current_hp": 0, "max_hp": defeated_player_max_hp}, # Defeated player
         ],
         combat_log_json=[],
         rules_config_snapshot_json={},
-            turn_order_json={} # Changed turn_info_json to turn_order_json
+        turn_order_json={}
     )
 
 @pytest.fixture
@@ -235,7 +247,7 @@ async def test_get_npc_ai_rules_merges_defaults_and_specific_relationship_rules(
         }
     }
 
-    async def mock_get_rule_side_effect(db, guild_id, key, default=None):
+    async def mock_get_rule_side_effect(session, guild_id, key, default=None): # Changed db to session
         if key == "ai_behavior:npc_default_strategy": return base_npc_rules_from_db
         if key == "relationship_influence:npc_combat:behavior": return specific_rel_rules_from_db
         # For hidden relationship tests, this mock will need to return those rules too
@@ -280,7 +292,7 @@ async def test_get_npc_ai_rules_loads_hidden_relationship_effects(mock_session, 
         "hostility_override": {"if_target_matches_relationship": True, "new_hostility_status": "neutral"}
     }
 
-    async def mock_get_rule_side_effect(db, guild_id, key, default=None):
+    async def mock_get_rule_side_effect(session, guild_id, key, default=None): # Changed db to session
         if key == "ai_behavior:npc_default_strategy": return {} # Minimal base
         if key == "relationship_influence:npc_combat:behavior": return {} # Minimal standard rel influence
         if key == f"hidden_relationship_effects:npc_combat:{hidden_rel_npc_to_player.relationship_type}":
@@ -599,7 +611,7 @@ async def test_get_potential_targets_basic(
 
             # Check that combat_data is passed along
             player_target_entry = next(t for t in targets if t["entity"].id == mock_target_player.id)
-            assert player_target_entry["combat_data"]["hp"] == 80 # HP from combat_encounter.participants_json
+            assert player_target_entry["combat_data"]["current_hp"] == 80 # HP from combat_encounter.participants_json
 
 
 # TODO: Add more tests for:
@@ -649,20 +661,21 @@ async def test_get_npc_combat_action_chooses_attack_on_player(
 
     with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_loaded_npc)):
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_loaded_combat_encounter)):
-            with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
-                # For _get_potential_targets to return our player
-                with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[selected_target_info])):
-                    # For _select_target to pick that player
-                    with patch('src.core.npc_combat_strategy._select_target', AsyncMock(return_value=selected_target_info)):
-                        # For _choose_action to pick "quick_stab"
-                        with patch('src.core.npc_combat_strategy._choose_action', AsyncMock(return_value=chosen_action_details_from_chooser)):
-                            # _format_action_result is simple enough not to mock for this high-level test, or can be mocked too
-                            # with patch('src.core.npc_combat_strategy._format_action_result', MagicMock(return_value=expected_formatted_action)):
+            with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
+                with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
+                    # For _get_potential_targets to return our player
+                    with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[selected_target_info])):
+                        # For _select_target to pick that player
+                        with patch('src.core.npc_combat_strategy._select_target', AsyncMock(return_value=selected_target_info)):
+                            # For _choose_action to pick "quick_stab"
+                            with patch('src.core.npc_combat_strategy._choose_action', AsyncMock(return_value=chosen_action_details_from_chooser)):
+                                # _format_action_result is simple enough not to mock for this high-level test, or can be mocked too
+                                # with patch('src.core.npc_combat_strategy._format_action_result', MagicMock(return_value=expected_formatted_action)):
 
-                            action_result = await get_npc_combat_action(
-                                mock_session, mock_actor_npc.guild_id, mock_actor_npc.id, mock_combat_encounter.id
-                            )
-                            assert action_result == expected_formatted_action
+                                action_result = await get_npc_combat_action(
+                                    mock_session, mock_actor_npc.guild_id, mock_actor_npc.id, mock_combat_encounter.id
+                                )
+                                assert action_result == expected_formatted_action
 
 @pytest.mark.asyncio
 async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc, mock_combat_encounter):
@@ -670,46 +683,55 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
 
     # Modify combat encounter so actor is defeated
     defeated_actor_combat_data = None
-    for p_data in mock_combat_encounter.participants_json:
-        if p_data["id"] == mock_actor_npc_defeated_data.id and p_data["type"] == EntityType.NPC.value:
-            p_data["hp"] = 0
+    # Ensure participants_json is treated as a list, which it is from the fixture
+    participants_list_for_setup = mock_combat_encounter.participants_json
+    if not isinstance(participants_list_for_setup, list): # Should not happen with current fixture
+        participants_list_for_setup = []
+
+
+    for p_data in participants_list_for_setup: # mock_combat_encounter.participants_json:
+        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value:
+            p_data["current_hp"] = 0 # Use current_hp
             defeated_actor_combat_data = p_data
             break
 
-    assert defeated_actor_combat_data is not None and defeated_actor_combat_data["hp"] == 0
+    assert defeated_actor_combat_data is not None and defeated_actor_combat_data.get("current_hp") == 0
 
     with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc_defeated_data)):
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
-            action_result = await get_npc_combat_action(
-                mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id
-            )
-            assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
+            with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
+                action_result = await get_npc_combat_action(
+                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id
+                )
+                assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
 
     # Restore HP for other tests if mock_combat_encounter is shared and modified directly
     if defeated_actor_combat_data:
-        defeated_actor_combat_data["hp"] = mock_actor_npc.properties_json["stats"]["hp"]
+        actor_max_hp = mock_actor_npc.properties_json.get("stats", {}).get("hp", 50)
+        defeated_actor_combat_data["current_hp"] = actor_max_hp # Use current_hp and actual max_hp
 
 
 @pytest.mark.asyncio
 async def test_get_npc_combat_action_no_targets_available(mock_session, mock_actor_npc, mock_combat_encounter, mock_ai_rules):
     with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc)):
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
-            # The actual participants_list from mock_combat_encounter would be passed to the original _get_potential_targets
-            # but since we are mocking _get_potential_targets itself to return [], we don't need to pass the list to the mock.
-            # The original call inside get_npc_combat_action would construct it.
-            # The important part is that the mock for _get_potential_targets is what's being tested here.
-            with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
-                # _get_potential_targets is mocked directly, so its signature change doesn't affect this specific mock setup
-                with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])) as mock_get_targets:
-                    action_result = await get_npc_combat_action(
-                        mock_session, mock_actor_npc.guild_id, mock_actor_npc.id, mock_combat_encounter.id
-                    )
-                    # We can assert that the mocked _get_potential_targets was called correctly
-                    # (though its internal logic is bypassed by the mock's return_value=[])
-                    mock_get_targets.assert_called_once()
-                    # We'd expect it to be called with session, actor_npc, combat_encounter, ai_rules, guild_id, and the list
-                    # For this test, the key is that it returns [] and causes the "No targets available" outcome.
-                    assert action_result == {"action_type": "idle", "reason": "No targets available."}
+            with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
+                # The actual participants_list from mock_combat_encounter would be passed to the original _get_potential_targets
+                # but since we are mocking _get_potential_targets itself to return [], we don't need to pass the list to the mock.
+                # The original call inside get_npc_combat_action would construct it.
+                # The important part is that the mock for _get_potential_targets is what's being tested here.
+                with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
+                    # _get_potential_targets is mocked directly, so its signature change doesn't affect this specific mock setup
+                    with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])) as mock_get_targets:
+                        action_result = await get_npc_combat_action(
+                            mock_session, mock_actor_npc.guild_id, mock_actor_npc.id, mock_combat_encounter.id
+                        )
+                        # We can assert that the mocked _get_potential_targets was called correctly
+                        # (though its internal logic is bypassed by the mock's return_value=[])
+                        mock_get_targets.assert_called_once()
+                        # We'd expect it to be called with session, actor_npc, combat_encounter, ai_rules, guild_id, and the list
+                        # For this test, the key is that it returns [] and causes the "No targets available" outcome.
+                        assert action_result == {"action_type": "idle", "reason": "No targets available."}
 
 # --- Tests for _choose_action with relationship influence ---
 @pytest.mark.asyncio
