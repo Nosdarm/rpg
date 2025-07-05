@@ -5,14 +5,83 @@ from discord.ext import commands
 from typing import Optional, Any # Added Any
 
 from src.core.database import get_db_session, transactional
+import logging
+import discord
+from discord import app_commands
+from discord.ext import commands
+from typing import Optional, Any
+
+from src.core.database import get_db_session, transactional
 from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud
-from src.core.crud.crud_guild import guild_crud # Added for guild config check
+from src.core.crud.crud_guild import guild_crud
+from src.models.guild import GuildConfig
 from src.models.player import PlayerStatus
-from src.bot.events import DEFAULT_STATIC_LOCATIONS, EventCog # Используем список дефолтных локаций и EventCog для _ensure_guild_config_exists
+from src.models.location import LocationType # Needed for _populate_default_locations
+from src.core.rules import update_rule_config # For setting default language
+from src.bot.events import DEFAULT_STATIC_LOCATIONS # Используем список дефолтных локаций
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+
+# Helper methods, similar to those in EventCog, but localized or adapted for GeneralCog
+async def _ensure_guild_config_in_command(session: AsyncSession, guild_id: int, guild_name: str) -> GuildConfig:
+    """Ensures a GuildConfig record exists for the guild, creates if not. (Adapted for command context)"""
+    guild_config = await guild_crud.get(session=session, id=guild_id)
+    if not guild_config:
+        logger.info(f"Конфигурация для гильдии {guild_name} (ID: {guild_id}) не найдена в команде, создаю новую.")
+        guild_config_data = {"id": guild_id, "main_language": 'en', "name": guild_name} # Ensure name is passed
+        guild_config = await guild_crud.create(session=session, obj_in=guild_config_data)
+
+        await update_rule_config(
+            session=session,
+            guild_id=guild_id,
+            key="guild_main_language",
+            value={"language": "en"}
+        )
+        logger.info(f"Установлен язык по умолчанию 'en' для гильдии {guild_id} в RuleConfig (из команды).")
+
+        # After creating guild_config, also populate default locations
+        await _populate_default_locations_in_command(session=session, guild_id=guild_id)
+    else:
+        logger.info(f"Найдена конфигурация для гильдии {guild_name} (ID: {guild_id}) (из команды).")
+    return guild_config
+
+async def _populate_default_locations_in_command(session: AsyncSession, guild_id: int):
+    """Populates default static locations for the guild if they don't exist. (Adapted for command context)"""
+    logger.info(f"Заполнение стандартными локациями для гильдии {guild_id} (из команды)...")
+    created_count = 0
+    for loc_data in DEFAULT_STATIC_LOCATIONS:
+        # Ensure loc_data is correctly structured for create_with_guild, especially 'type'
+        loc_data_copy = loc_data.copy() # Avoid modifying the original DEFAULT_STATIC_LOCATIONS list
+        if isinstance(loc_data_copy.get("type"), str): # Assuming LocationType enum members are passed as strings initially
+            try:
+                loc_data_copy["type"] = LocationType[loc_data_copy["type"].upper()]
+            except KeyError:
+                logger.error(f"Invalid LocationType string '{loc_data_copy['type']}' in DEFAULT_STATIC_LOCATIONS for static_id '{loc_data_copy['static_id']}'. Skipping.")
+                continue
+        elif not isinstance(loc_data_copy.get("type"), LocationType):
+             logger.error(f"LocationType for static_id '{loc_data_copy['static_id']}' is not a valid string or LocationType enum. Skipping.")
+             continue
+
+
+        existing_location = await location_crud.get_by_static_id(
+            session=session, guild_id=guild_id, static_id=loc_data_copy["static_id"]
+        )
+        if not existing_location:
+            # create_with_guild now expects obj_in to be a Pydantic schema or compatible dict
+            # Ensure loc_data_copy is compatible (e.g. static_id, name_i18n, descriptions_i18n, type)
+            await location_crud.create_with_guild(session=session, obj_in=loc_data_copy, guild_id=guild_id)
+            created_count += 1
+            logger.info(f"Создана локация '{loc_data_copy['static_id']}' для гильдии {guild_id} (из команды).")
+        else:
+            logger.info(f"Локация '{loc_data_copy['static_id']}' уже существует для гильдии {guild_id}, пропуск (из команды).")
+
+    if created_count > 0:
+        logger.info(f"Создано {created_count} стандартных локаций для гильдии {guild_id} (из команды).")
+    else:
+        logger.info(f"Стандартные локации уже существуют или не определены для гильдии {guild_id} (из команды).")
 
 class GeneralCog(commands.Cog, name="General Commands"):
     def __init__(self, bot: commands.Bot):
@@ -32,28 +101,14 @@ class GeneralCog(commands.Cog, name="General Commands"):
         player_locale = str(interaction.locale) if interaction.locale else 'en'
 
         # Ensure guild configuration exists before proceeding
-        # This is important if on_guild_join didn't fire or if the bot was in the guild before this logic was added.
-        if interaction.guild: # Should always be true due to earlier check, but good for type hinting
-            # We need an instance of EventCog to call _ensure_guild_config_exists
-            # A bit of a workaround as ideally this logic might be in a shared utility
-            # or EventCog would be accessible differently.
-            # For now, creating a temporary instance or finding a shared one.
-            # This assumes EventCog can be instantiated without bot if only using _ensure_guild_config_exists
-            # Or, if bot is needed by EventCog's _ensure_guild_config_exists, it must be passed.
-            # Let's assume EventCog is already loaded and try to get it from the bot
-            event_cog_instance = self.bot.get_cog("EventCog")
-            if not event_cog_instance or not isinstance(event_cog_instance, EventCog):
-                logger.error("EventCog instance not found or is of incorrect type. Cannot ensure guild config.")
-                await interaction.response.send_message("Произошла внутренняя ошибка конфигурации сервера. Пожалуйста, сообщите администратору.", ephemeral=True)
-                return
-
-            await event_cog_instance._ensure_guild_config_exists(session=session, guild_id=guild_id, guild_name=interaction.guild.name)
-        else: # Should not happen due to the check in the wrapper command
+        if interaction.guild: # Should always be true due to earlier check
+            await _ensure_guild_config_in_command(session=session, guild_id=guild_id, guild_name=interaction.guild.name)
+        else: # Should not happen
             logger.error("Guild object is None in _start_command_internal despite initial check.")
             await interaction.response.send_message("Произошла ошибка: информация о сервере отсутствует.", ephemeral=True)
             return
 
-        existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id) # FIX: db to session
+        existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id)
 
         if existing_player:
             await interaction.response.send_message(
