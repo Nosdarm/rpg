@@ -1,0 +1,590 @@
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 44 issue(s):
+  Line 131  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 132  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 180  [ERROR] "id" is not a known attribute of "None"
+  Line 181  [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 194  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 198  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 199  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 212  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 218  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 219  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 232  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 244  [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 245  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
+┬а┬а"Literal[0]" is not assignable to "str"
+  Line 245  [ERROR] Object of type "None" is not subscriptable
+  Line 246  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
+┬а┬а"Literal[0]" is not assignable to "str"
+  Line 246  [ERROR] Object of type "None" is not subscriptable
+  Line 247  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 261  [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 262  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
+┬а┬а"Literal[0]" is not assignable to "str"
+  Line 262  [ERROR] Object of type "None" is not subscriptable
+  Line 263  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 275  [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 276  [ERROR] Argument of type "Literal[0]" cannot be assigned to parameter "key" of type "str" in function "__getitem__"
+┬а┬а"Literal[0]" is not assignable to "str"
+  Line 276  [ERROR] Object of type "None" is not subscriptable
+  Line 277  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 282  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 283  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 306  [ERROR] "id" is not a known attribute of "None"
+  Line 307  [ERROR] "neighbor_locations_json" is not a known attribute of "None"
+  Line 310  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 325  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 326  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 395  [ERROR] Argument of type "List[Location] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Location] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 396  [ERROR] Argument of type "List[Location] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Location] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 433  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 446  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 447  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 472  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 495  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 496  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 560  [ERROR] Argument of type "List[Location] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Location] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 561  [ERROR] Object of type "None" cannot be used as iterable value
+  Line 565  [ERROR] Argument of type "List[Location] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[Location] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 581  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 31 issue(s):
+  Line 64   [ERROR] Object of type "None" is not subscriptable
+  Line 137  [ERROR] Object of type "None" is not subscriptable
+  Line 173  [ERROR] Argument missing for parameter "name_i18n"
+  Line 176  [ERROR] Argument missing for parameter "description_i18n"
+  Line 195  [ERROR] Cannot access attribute "generated_entities" for class "CustomValidationError"
+┬а┬аAttribute "generated_entities" is unknown
+  Line 196  [ERROR] Cannot access attribute "generated_entities" for class "CustomValidationError"
+┬а┬аAttribute "generated_entities" is unknown
+  Line 197  [ERROR] Cannot access attribute "generated_entities" for class "CustomValidationError"
+┬а┬аAttribute "generated_entities" is unknown
+  Line 198  [ERROR] Cannot access attribute "generated_entities" for class "CustomValidationError"
+┬а┬аAttribute "generated_entities" is unknown
+  Line 198  [ERROR] Cannot access attribute "static_id" for class "ParsedItemData"
+┬а┬аAttribute "static_id" is unknown
+  Line 198  [ERROR] Cannot access attribute "static_id" for class "ParsedLocationData"
+┬а┬аAttribute "static_id" is unknown
+  Line 198  [ERROR] Cannot access attribute "static_id" for class "ParsedQuestData"
+┬а┬аAttribute "static_id" is unknown
+  Line 198  [ERROR] Cannot access attribute "static_id" for class "ParsedRelationshipData"
+┬а┬аAttribute "static_id" is unknown
+  Line 199  [ERROR] Cannot access attribute "generated_entities" for class "CustomValidationError"
+┬а┬аAttribute "generated_entities" is unknown
+  Line 199  [ERROR] Cannot access attribute "value" for class "ParsedFactionData"
+┬а┬аAttribute "value" is unknown
+  Line 199  [ERROR] Cannot access attribute "value" for class "ParsedItemData"
+┬а┬аAttribute "value" is unknown
+  Line 199  [ERROR] Cannot access attribute "value" for class "ParsedLocationData"
+┬а┬аAttribute "value" is unknown
+  Line 199  [ERROR] Cannot access attribute "value" for class "ParsedNpcData"
+┬а┬аAttribute "value" is unknown
+  Line 199  [ERROR] Cannot access attribute "value" for class "ParsedQuestData"
+┬а┬аAttribute "value" is unknown
+  Line 205  [ERROR] Cannot access attribute "error_type" for class "ParsedAiData"
+┬а┬аAttribute "error_type" is unknown
+  Line 212  [ERROR] Cannot access attribute "error_type" for class "ParsedAiData"
+┬а┬аAttribute "error_type" is unknown
+  Line 213  [ERROR] Cannot access attribute "message" for class "ParsedAiData"
+┬а┬аAttribute "message" is unknown
+  Line 223  [ERROR] Cannot access attribute "error_type" for class "ParsedAiData"
+┬а┬аAttribute "error_type" is unknown
+  Line 224  [ERROR] Cannot access attribute "message" for class "ParsedAiData"
+┬а┬аAttribute "message" is unknown
+  Line 225  [ERROR] Cannot access attribute "path" for class "ParsedAiData"
+┬а┬аAttribute "path" is unknown
+  Line 230  [ERROR] Cannot access attribute "details" for class "ParsedAiData"
+┬а┬аAttribute "details" is unknown
+  Line 230  [ERROR] Object of type "None" cannot be used as iterable value
+  Line 248  [ERROR] Cannot access attribute "error_type" for class "ParsedAiData"
+┬а┬аAttribute "error_type" is unknown
+  Line 249  [ERROR] Cannot access attribute "message" for class "ParsedAiData"
+┬а┬аAttribute "message" is unknown
+  Line 268  [ERROR] Cannot access attribute "error_type" for class "ParsedAiData"
+┬а┬аAttribute "error_type" is unknown
+  Line 269  [ERROR] Cannot access attribute "message" for class "ParsedAiData"
+┬а┬аAttribute "message" is unknown
+  Line 270  [ERROR] Cannot access attribute "path" for class "ParsedAiData"
+┬а┬аAttribute "path" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\combat_cycle_manager.py] — 29 issue(s):
+  Line 97   [ERROR] Argument missing for parameter "session"
+  Line 97   [ERROR] No parameter named "db"
+  Line 123  [ERROR] "dex_modifier" is possibly unbound
+  Line 128  [ERROR] Argument missing for parameter "session"
+  Line 128  [ERROR] No parameter named "db"
+  Line 130  [ERROR] "dex_modifier" is possibly unbound
+  Line 137  [ERROR] Object of type "None" is not subscriptable
+  Line 138  [ERROR] Object of type "None" is not subscriptable
+  Line 142  [ERROR] Object of type "None" is not subscriptable
+  Line 143  [ERROR] Object of type "None" is not subscriptable
+  Line 164  [ERROR] Argument missing for parameter "session"
+  Line 164  [ERROR] No parameter named "db"
+  Line 172  [ERROR] Object of type "None" is not subscriptable
+  Line 179  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 189  [ERROR] Object of type "None" is not subscriptable
+  Line 200  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 207  [ERROR] Object of type "None" is not subscriptable
+  Line 208  [ERROR] Object of type "None" is not subscriptable
+  Line 220  [ERROR] Object of type "None" is not subscriptable
+  Line 221  [ERROR] Object of type "None" is not subscriptable
+  Line 227  [ERROR] Object of type "None" is not subscriptable
+  Line 258  [ERROR] "get" is not a known attribute of "None"
+  Line 339  [ERROR] Cannot access attribute "FINISHED" for class "type[CombatStatus]"
+┬а┬аAttribute "FINISHED" is unknown
+  Line 349  [ERROR] "get" is not a known attribute of "None"
+  Line 438  [ERROR] Object of type "None" is not subscriptable
+  Line 517  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 518  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 539  [ERROR] Cannot access attribute "current_combat_id" for class "Party"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 541  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
+┬а┬аAttribute "current_combat_id" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\npc_combat_strategy.py] — 27 issue(s):
+  Line 64   [ERROR] Argument missing for parameter "db"
+  Line 65   [ERROR] No parameter named "session"
+  Line 87   [ERROR] Argument missing for parameter "session"
+  Line 87   [ERROR] No parameter named "db"
+  Line 133  [ERROR] Argument missing for parameter "session"
+  Line 133  [ERROR] No parameter named "db"
+  Line 169  [ERROR] Argument missing for parameter "session"
+  Line 169  [ERROR] No parameter named "db"
+  Line 174  [ERROR] Argument missing for parameter "session"
+  Line 174  [ERROR] No parameter named "db"
+  Line 838  [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+┬а┬аAttribute "get" is unknown
+  Line 838  [ERROR] Cannot access attribute "get" for class "Player"
+┬а┬аAttribute "get" is unknown
+  Line 912  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 912  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 912  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 912  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 947  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 947  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 949  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 949  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 1093 [ERROR] Argument of type "Literal[CombatParticipantType.NPC]" cannot be assigned to parameter "entity_type" of type "RelationshipEntityType" in function "get_relationships_for_entity"
+┬а┬а"Literal[CombatParticipantType.NPC]" is not assignable to "RelationshipEntityType"
+  Line 1116 [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+┬а┬аAttribute "get" is unknown
+  Line 1116 [ERROR] Cannot access attribute "get" for class "Player"
+┬а┬аAttribute "get" is unknown
+  Line 1118 [ERROR] Cannot access attribute "get" for class "GeneratedNpc"
+┬а┬аAttribute "get" is unknown
+  Line 1118 [ERROR] Cannot access attribute "get" for class "Player"
+┬а┬аAttribute "get" is unknown
+  Line 1118 [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 1118 [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_combat_engine.py] — 20 issue(s):
+  Line 70   [ERROR] Object of type "None" is not subscriptable
+  Line 213  [ERROR] Object of type "None" is not subscriptable
+  Line 214  [ERROR] Object of type "None" is not subscriptable
+  Line 242  [ERROR] Object of type "None" is not subscriptable
+  Line 261  [ERROR] Object of type "None" is not subscriptable
+  Line 287  [ERROR] Object of type "None" is not subscriptable
+  Line 296  [ERROR] Object of type "None" is not subscriptable
+  Line 311  [ERROR] Object of type "None" is not subscriptable
+  Line 366  [ERROR] Object of type "None" is not subscriptable
+  Line 367  [ERROR] Object of type "None" is not subscriptable
+  Line 370  [ERROR] Object of type "None" is not subscriptable
+  Line 449  [ERROR] Object of type "None" is not subscriptable
+  Line 450  [ERROR] Object of type "None" is not subscriptable
+  Line 452  [ERROR] Object of type "None" is not subscriptable
+  Line 453  [ERROR] Object of type "None" is not subscriptable
+  Line 509  [ERROR] Object of type "None" is not subscriptable
+  Line 512  [ERROR] Object of type "None" is not subscriptable
+  Line 513  [ERROR] Object of type "None" is not subscriptable
+  Line 542  [ERROR] Object of type "None" is not subscriptable
+  Line 557  [ERROR] Object of type "None" is not subscriptable
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_faction.py] — 19 issue(s):
+  Line 89   [ERROR] "get" is not a known attribute of "None"
+  Line 90   [ERROR] "get" is not a known attribute of "None"
+  Line 91   [ERROR] "get" is not a known attribute of "None"
+  Line 107  [ERROR] "id" is not a known attribute of "None"
+  Line 108  [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 109  [ERROR] "guild_id" is not a known attribute of "None"
+  Line 131  [ERROR] "id" is not a known attribute of "None"
+  Line 132  [ERROR] "guild_id" is not a known attribute of "None"
+  Line 157  [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 158  [ERROR] "guild_id" is not a known attribute of "None"
+  Line 163  [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 164  [ERROR] "guild_id" is not a known attribute of "None"
+  Line 169  [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 170  [ERROR] "guild_id" is not a known attribute of "None"
+  Line 173  [ERROR] "id" is not a known attribute of "None"
+  Line 173  [ERROR] "id" is not a known attribute of "None"
+  Line 268  [ERROR] "get" is not a known attribute of "None"
+  Line 269  [ERROR] "get" is not a known attribute of "None"
+  Line 270  [ERROR] "get" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_experience_system.py] — 15 issue(s):
+  Line 120  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 121  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 173  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 174  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 252  [ERROR] Cannot access attribute "call_count" for class "MethodType"
+┬а┬аAttribute "call_count" is unknown
+  Line 253  [ERROR] Cannot access attribute "call_count" for class "MethodType"
+┬а┬аAttribute "call_count" is unknown
+  Line 254  [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+┬а┬аAttribute "assert_any_call" is unknown
+  Line 255  [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+┬а┬аAttribute "assert_any_call" is unknown
+  Line 299  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 300  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 349  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 378  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 433  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 494  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 495  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_combat_cycle_manager.py] — 14 issue(s):
+  Line 143  [ERROR] Object of type "None" is not subscriptable
+  Line 144  [ERROR] Object of type "None" is not subscriptable
+  Line 145  [ERROR] Object of type "None" is not subscriptable
+  Line 155  [ERROR] Object of type "None" is not subscriptable
+  Line 156  [ERROR] Object of type "None" is not subscriptable
+  Line 157  [ERROR] Object of type "None" is not subscriptable
+  Line 158  [ERROR] Object of type "None" is not subscriptable
+  Line 159  [ERROR] Object of type "None" is not subscriptable
+  Line 162  [ERROR] Object of type "None" is not subscriptable
+  Line 163  [ERROR] Object of type "None" is not subscriptable
+  Line 167  [ERROR] Operator "in" not supported for types "Literal['combat:initiative:dice']" and "dict[Unknown, Unknown] | None"
+┬а┬аOperator "in" not supported for types "Literal['combat:initiative:dice']" and "None"
+  Line 168  [ERROR] Object of type "None" is not subscriptable
+  Line 173  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 233  [ERROR] Object of type "None" is not subscriptable
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_base_definitions.py] — 13 issue(s):
+  Line 64   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 70   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 80   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 89   [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 99   [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 104  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 112  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 116  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 125  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+  Line 147  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 152  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 154  [ERROR] Cannot access attribute "reset_mock" for class "MethodType"
+┬а┬аAttribute "reset_mock" is unknown
+  Line 163  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
+  Line 94   [ERROR] Argument missing for parameter "entity_type"
+  Line 213  [ERROR] Argument missing for parameter "entity_type"
+  Line 289  [ERROR] Argument missing for parameter "entity_type"
+  Line 291  [ERROR] Argument missing for parameter "entity_type"
+  Line 360  [ERROR] Argument missing for parameter "entity_type"
+  Line 362  [ERROR] Argument missing for parameter "entity_type"
+  Line 403  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
+┬а┬аAttribute "call_args_list" is unknown
+  Line 506  [ERROR] Argument missing for parameter "entity_type"
+  Line 834  [ERROR] Argument missing for parameter "entity_type"
+  Line 835  [ERROR] Argument missing for parameter "entity_type"
+  Line 836  [ERROR] Argument missing for parameter "entity_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 11 issue(s):
+  Line 31   [ERROR] Argument missing for parameter "description"
+  Line 42   [ERROR] Argument missing for parameter "description"
+  Line 54   [ERROR] Argument missing for parameter "description"
+  Line 60   [ERROR] Argument missing for parameter "description"
+  Line 77   [ERROR] Argument missing for parameter "description"
+  Line 77   [ERROR] Argument missing for parameter "language_code"
+  Line 115  [ERROR] Arguments missing for parameters "description", "required"
+  Line 118  [ERROR] Arguments missing for parameters "description", "type"
+  Line 121  [ERROR] Arguments missing for parameters "name", "description"
+  Line 125  [ERROR] Argument missing for parameter "name"
+  Line 129  [ERROR] Argument missing for parameter "commands"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_prompt_builder.py] — 9 issue(s):
+  Line 310  [ERROR] Object of type "None" is not subscriptable
+  Line 311  [ERROR] Object of type "None" is not subscriptable
+  Line 312  [ERROR] Object of type "None" is not subscriptable
+  Line 314  [ERROR] Object of type "None" is not subscriptable
+  Line 319  [ERROR] Object of type "None" is not subscriptable
+  Line 320  [ERROR] Object of type "None" is not subscriptable
+  Line 321  [ERROR] Object of type "None" is not subscriptable
+  Line 322  [ERROR] Object of type "None" is not subscriptable
+  Line 323  [ERROR] Object of type "None" is not subscriptable
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_command_utils.py] — 9 issue(s):
+  Line 26   [ERROR] Expression of type "None" cannot be assigned to parameter of type "dict[Unknown, Unknown]"
+┬а┬а"None" is not assignable to "dict[Unknown, Unknown]"
+  Line 41   [ERROR] Argument of type "MockLocaleStr" cannot be assigned to parameter "value" of type "str | locale_str | None" in function "_get_localized_string"
+┬а┬аType "MockLocaleStr" is not assignable to type "str | locale_str | None"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "locale_str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "None"
+  Line 42   [ERROR] Argument of type "MockLocaleStr" cannot be assigned to parameter "value" of type "str | locale_str | None" in function "_get_localized_string"
+┬а┬аType "MockLocaleStr" is not assignable to type "str | locale_str | None"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "locale_str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "None"
+  Line 43   [ERROR] Argument of type "MockLocaleStr" cannot be assigned to parameter "value" of type "str | locale_str | None" in function "_get_localized_string"
+┬а┬аType "MockLocaleStr" is not assignable to type "str | locale_str | None"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "locale_str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "None"
+  Line 44   [ERROR] Argument of type "MockLocaleStr" cannot be assigned to parameter "value" of type "str | locale_str | None" in function "_get_localized_string"
+┬а┬аType "MockLocaleStr" is not assignable to type "str | locale_str | None"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "locale_str"
+┬а┬а┬а┬а"MockLocaleStr" is not assignable to "None"
+  Line 131  [ERROR] "ext" is not a known attribute of module "discord"
+  Line 145  [ERROR] "ext" is not a known attribute of module "discord"
+  Line 168  [ERROR] "ext" is not a known attribute of module "discord"
+  Line 205  [ERROR] "ext" is not a known attribute of module "discord"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\interaction_handlers.py] — 7 issue(s):
+  Line 139  [ERROR] Argument missing for parameter "session"
+  Line 139  [ERROR] No parameter named "db"
+  Line 190  [ERROR] Arguments missing for parameters "actor_entity_id", "actor_entity_type"
+  Line 194  [ERROR] No parameter named "entity_doing_check_id"
+  Line 195  [ERROR] No parameter named "entity_doing_check_type"
+  Line 216  [ERROR] Cannot access attribute "lower" for class "CheckOutcome"
+┬а┬аAttribute "lower" is unknown
+  Line 223  [ERROR] Cannot access attribute "lower" for class "CheckOutcome"
+┬а┬аAttribute "lower" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\test_party_commands.py] — 7 issue(s):
+  Line 31   [ERROR] Argument of type "dict[str, Unknown]" cannot be assigned to parameter "data" of type "User | PartialUser" in function "__init__"
+┬а┬аType "dict[str, Unknown]" is not assignable to type "User | PartialUser"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "User"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "PartialUser"
+  Line 99   [ERROR] Expected 1 positional argument
+  Line 118  [ERROR] Expected 1 positional argument
+  Line 136  [ERROR] Expected 1 positional argument
+  Line 154  [ERROR] Expected 1 positional argument
+  Line 182  [ERROR] Expected 1 positional argument
+  Line 211  [ERROR] Expected 1 positional argument
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_party.py] — 6 issue(s):
+  Line 151  [ERROR] "location" is not a known attribute of "None"
+  Line 152  [ERROR] "location" is not a known attribute of "None"
+  Line 153  [ERROR] "location" is not a known attribute of "None"
+  Line 155  [ERROR] "leader" is not a known attribute of "None"
+  Line 156  [ERROR] "leader" is not a known attribute of "None"
+  Line 157  [ERROR] "leader" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_player.py] — 6 issue(s):
+  Line 157  [ERROR] "location" is not a known attribute of "None"
+  Line 158  [ERROR] "location" is not a known attribute of "None"
+  Line 159  [ERROR] "location" is not a known attribute of "None"
+  Line 161  [ERROR] "party" is not a known attribute of "None"
+  Line 162  [ERROR] "party" is not a known attribute of "None"
+  Line 163  [ERROR] "party" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 5 issue(s):
+  Line 34   [ERROR] "get" is not a known attribute of "None"
+  Line 214  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 215  [ERROR] Cannot access attribute "call_args" for class "MethodType"
+┬а┬аAttribute "call_args" is unknown
+  Line 220  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 270  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
+  Line 595  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 601  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 602  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 602  [ERROR] "__getitem__" method not defined on type "Player"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\test_main.py] — 4 issue(s):
+  Line 80   [ERROR] Cannot access attribute "called" for class "type[BotCore]"
+┬а┬аAttribute "called" is unknown
+  Line 97   [ERROR] Cannot access attribute "called" for class "type[BotCore]"
+┬а┬аAttribute "called" is unknown
+  Line 143  [ERROR] Cannot access attribute "called" for class "type[BotCore]"
+┬а┬аAttribute "called" is unknown
+  Line 144  [ERROR] Cannot access attribute "call_args" for class "type[BotCore]"
+┬а┬аAttribute "call_args" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\combat_engine.py] — 3 issue(s):
+  Line 281  [ERROR] Arguments missing for parameters "actor_entity_id", "actor_entity_type"
+  Line 283  [ERROR] No parameter named "entity_doing_check_id"
+  Line 283  [ERROR] No parameter named "entity_doing_check_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 2 issue(s):
+  Line 102  [ERROR] Argument missing for parameter "session"
+  Line 103  [ERROR] No parameter named "db"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\command_utils.py] — 2 issue(s):
+  Line 152  [ERROR] Type "List[Command[Any, ..., Any] | Group | ContextMenu]" is not assignable to declared type "List[AppCommand]"
+┬а┬а"List[Command[Any, ..., Any] | Group | ContextMenu]" is not assignable to "List[AppCommand]"
+┬а┬а┬а┬аType parameter "_T@list" is invariant, but "Command[Any, ..., Any] | Group | ContextMenu" is not the same as "AppCommand"
+┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
+  Line 157  [ERROR] Argument of type "AppCommand" cannot be assigned to parameter "app_cmd" of type "Command[Unknown, ..., Unknown] | Group" in function "_extract_command_details"
+┬а┬аType "AppCommand" is not assignable to type "Command[Unknown, ..., Unknown] | Group"
+┬а┬а┬а┬а"AppCommand" is not assignable to "Command[Unknown, ..., Unknown]"
+┬а┬а┬а┬а"AppCommand" is not assignable to "Group"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\test_general_commands.py] — 2 issue(s):
+  Line 65   [ERROR] Cannot access attribute "en_US" for class "type[Locale]"
+┬а┬аAttribute "en_US" is unknown
+  Line 129  [ERROR] Expected 1 positional argument
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_player.py] — 2 issue(s):
+  Line 168  [ERROR] "name" is not a known attribute of "None"
+  Line 253  [ERROR] "name" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\character_commands.py] — 1 issue(s):
+  Line 27   [ERROR] Argument missing for parameter "session"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\general_commands.py] — 1 issue(s):
+  Line 91   [ERROR] Argument missing for parameter "session"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 1 issue(s):
+  Line 436  [ERROR] Cannot assign to attribute "applied_at" for class "ActiveStatusEffect"
+┬а┬аType "now" is not assignable to type "SQLCoreOperations[TIMESTAMP] | TIMESTAMP"
+┬а┬а┬а┬а"now" is not assignable to "SQLCoreOperations[TIMESTAMP]"
+┬а┬а┬а┬а┬а┬аType parameter "_T_co@SQLCoreOperations" is covariant, but "datetime" is not a subtype of "TIMESTAMP"
+┬а┬а┬а┬а┬а┬а┬а┬а"datetime" is not assignable to "TIMESTAMP"
+┬а┬а┬а┬а"now" is not assignable to "TIMESTAMP"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\check_resolver.py] — 1 issue(s):
+  Line 382  [ERROR] No parameter named "difficulty_class"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud\crud_combat_encounter.py] — 1 issue(s):
+  Line 21   [ERROR] Type "Sequence[CombatEncounter]" is not assignable to return type "list[CombatEncounter]"
+┬а┬а"Sequence[CombatEncounter]" is not assignable to "list[CombatEncounter]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\crud_base_definitions.py] — 1 issue(s):
+  Line 345  [WARNING] TypeVar "ModelType" appears only once in generic function signature
+┬а┬аUse "Base" instead
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\relationship_system.py] — 1 issue(s):
+  Line 172  [ERROR] Cannot access attribute "create_with_guild_id" for class "CRUDRelationship"
+┬а┬аAttribute "create_with_guild_id" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
+  Line 505  [ERROR] Type "tuple[List[GeneratedFaction], List[Relationship], None]" is not assignable to return type "Tuple[List[Location] | None, List[Location] | None, str | None]"
+┬а┬аType "List[GeneratedFaction]" is not assignable to type "List[Location] | None"
+┬а┬а┬а┬а"List[GeneratedFaction]" is not assignable to "List[Location]"
+┬а┬а┬а┬а┬а┬аType parameter "_T@list" is invariant, but "GeneratedFaction" is not the same as "Location"
+┬а┬а┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
+┬а┬а┬а┬а"List[GeneratedFaction]" is not assignable to "None"
+┬а┬аType "List[Relationship]" is not assignable to type "List[Location] | None"
+┬а┬а┬а┬а"List[Relationship]" is not assignable to "List[Location]"
+┬а┬а┬а┬а┬а┬аType parameter "_T@list" is invariant, but "Relationship" is not the same as "Location"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\main.py] — 1 issue(s):
+  Line 40   [ERROR] Argument of type "str | None" cannot be assigned to parameter "token" of type "str" in function "start"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\test_character_commands.py] — 1 issue(s):
+  Line 323  [ERROR] Expected 3 positional arguments
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_party.py] — 1 issue(s):
+  Line 137  [ERROR] "name" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_check_resolver.py] — 1 issue(s):
+  Line 182  [ERROR] Argument of type "Dict[str, Any] | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "Dict[str, Any] | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 1 issue(s):
+  Line 362  [ERROR] Object of type "None" is not subscriptable
