@@ -97,8 +97,7 @@ This block presents tasks related to factions, relationships between entities, a
 Task Block: Phase 9: Detailed Quest System with Consequences
 This block presents tasks for implementing a comprehensive quest system with steps, consequences, and links to other mechanics.
 
-Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n).
-Description: GeneratedQuest, Questline, QuestStep models. MUST INCLUDE guild_id. Link to player OR party in this guild. Step structure with required_mechanics_json, abstract_goal_json, consequences_json. _i18n text fields.
+{Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n). - Moved to Done.txt}
 
 Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild).
 Description: AI generates quests for a specific guild according to rules.

@@ -9,7 +9,7 @@ from .enums import PlayerStatus # Import the PlayerStatus enum
 if TYPE_CHECKING:
     from .location import Location
     from .party import Party
-
+    from .quest import PlayerQuestProgress # Added for quest_progress relationship
 
 class Player(Base):
     __tablename__ = "players"
@@ -48,6 +48,7 @@ class Player(Base):
     # Mypy might complain about "parties.id" if Party model is not yet defined or imported for TYPE_CHECKING.
     # It's fine for SQLAlchemy as it resolves strings at runtime.
     party: Mapped[Optional["Party"]] = relationship(foreign_keys=[current_party_id], back_populates="players", lazy="selectin") # Assuming Party.players backref
+    quest_progress: Mapped[List["PlayerQuestProgress"]] = relationship(back_populates="player", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("guild_id", "discord_id", name="uq_player_guild_discord"),
