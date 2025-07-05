@@ -1,4 +1,5 @@
 # src/core/world_generation.py
+import json
 import logging
 from typing import Optional, Any, Dict, Tuple, List
 
