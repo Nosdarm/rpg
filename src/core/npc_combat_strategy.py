@@ -125,8 +125,44 @@ async def _get_npc_ai_rules(
     actor_props = actor_npc.properties_json or {}
     actor_ai_meta = actor_npc.ai_metadata_json or {}
 
+    # Merge relationship influence rules
+    rel_influence_key = "relationship_influence:npc_combat:behavior"
+    rel_influence_rules_specific = await get_rule(db=session, guild_id=guild_id, key=rel_influence_key, default=None)
+
+    default_rel_influence_rules = {
+        "enabled": True,
+        "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
+        "target_score_modifier_formula": "-(relationship_value * 0.2)",
+        "action_choice": {
+            "friendly_positive_threshold": 50,
+            "hostile_negative_threshold": -50,
+            "actions_if_friendly": [], # Example: {"action_type": "ability", "ability_static_id": "aid_friend", "weight_multiplier": 2.0}
+            "actions_if_hostile": []   # Example: {"action_type": "attack", "weight_multiplier": 1.2}
+        }
+    }
+
+    final_rel_influence_rules = default_rel_influence_rules.copy()
+    if rel_influence_rules_specific and isinstance(rel_influence_rules_specific, dict):
+        # Deep merge might be better if structures are complex
+        for key, value in rel_influence_rules_specific.items():
+            if isinstance(value, dict) and isinstance(final_rel_influence_rules.get(key), dict):
+                final_rel_influence_rules[key].update(value)
+            else:
+                final_rel_influence_rules[key] = value
+
+    # Add the merged relationship rules to the main npc_rules structure
+    # This assumes ai_rules is the final, comprehensive rule set for the NPC's turn.
+    # We store it under a distinct key to avoid clashes with 'target_selection', 'action_selection' etc.
+    if "relationship_influence" not in npc_rules:
+        npc_rules["relationship_influence"] = {}
+    if "npc_combat" not in npc_rules["relationship_influence"]:
+        npc_rules["relationship_influence"]["npc_combat"] = {}
+    npc_rules["relationship_influence"]["npc_combat"]["behavior"] = final_rel_influence_rules
+    # End of merging relationship influence rules
+
+
     npc_personality = actor_props.get("personality", actor_ai_meta.get("personality"))
-    if npc_personality and npc_personality in npc_rules.get("personality_modifiers", {}):
+    if npc_personality and npc_personality in npc_rules.get("personality_modifiers", {}): # This refers to the base npc_rules personality_modifiers
         mods = npc_rules["personality_modifiers"][npc_personality]
         current_bias = npc_rules.get("action_selection", {}).get("offensive_bias", default_strategy["action_selection"]["offensive_bias"])
 
@@ -184,11 +220,63 @@ async def _is_hostile(
     )
 
     if relationship_val is not None:
-        min_hostile_threshold = hostility_config.get("relationship_hostile_threshold", -50) # Example threshold
-        if relationship_val <= min_hostile_threshold:
+        # Get base thresholds
+        base_hostile_threshold = hostility_config.get("relationship_hostile_threshold", -50)
+        base_friendly_threshold = hostility_config.get("relationship_friendly_threshold", 50)
+
+        # Apply modifier from relationship_influence rule if present
+        # This rule would be part of the broader 'relationship_influence:npc_combat:behavior'
+        # For simplicity, assume ai_rules might already contain a pre-processed version
+        # or we fetch it here. Let's assume it's part of ai_rules structure.
+        rel_influence_config = ai_rules.get("relationship_influence", {}).get("npc_combat", {}).get("behavior", {})
+
+        final_hostile_threshold = base_hostile_threshold
+        final_friendly_threshold = base_friendly_threshold
+
+        if rel_influence_config.get("enabled", False):
+            formula = rel_influence_config.get("hostility_threshold_modifier_formula")
+            if formula and isinstance(formula, str):
+                try:
+                    # Formula expected to return a value that MODIFIES the threshold
+                    # e.g. "-(relationship_value / 10)" means positive relationship increases effective threshold (less likely hostile)
+                    # For hostile_threshold (e.g. -50), a positive modifier makes it less negative (e.g. -40)
+                    # For friendly_threshold (e.g. 50), a positive modifier makes it higher (e.g. 60)
+                    # Let's assume formula directly calculates the *adjustment*
+                    adjustment = int(eval(formula, {"__builtins__": {}}, {"relationship_value": relationship_val}))
+
+                    # How adjustment applies depends on interpretation.
+                    # If formula is e.g. "relationship_value / 5":
+                    # Hostile: -50 + (rel_val/5). If rel_val is 50, threshold becomes -40.
+                    # Friendly: 50 - (rel_val/5). If rel_val is 50, threshold becomes 40. (This seems counterintuitive for friendly)
+                    # Let's redefine: formula gives a value. Positive value = more friendly bias.
+                    # Hostile threshold: increase it (make it harder to be hostile). Friendly threshold: decrease it (easier to be friendly).
+                    # Example: bias_value = relationship_value / 10.
+                    # final_hostile_threshold = base_hostile_threshold + bias_value
+                    # final_friendly_threshold = base_friendly_threshold - bias_value
+
+                    # Using the example hostility_threshold_modifier_formula: "-(relationship_value / 10)"
+                    # If rel_value = 50 (friendly), adjustment = -(50/10) = -5
+                    # final_hostile_threshold = -50 + (-5) = -55 (harder to meet hostile threshold)
+                    # final_friendly_threshold = 50 - (-5) = 55 (easier to meet friendly threshold)
+                    # This interpretation seems more consistent: positive relationship makes NPC less hostile / more friendly.
+
+                    # Let's use the direct output of the formula as the adjustment.
+                    # The formula "-(relationship_value / X)" means positive rel_value leads to negative adjustment.
+                    # Hostile threshold: base_hostile_threshold + adjustment (e.g., -50 + (-5) = -55)
+                    # Friendly threshold: base_friendly_threshold - adjustment (e.g., 50 - (-5) = 55)
+
+                    hostility_bias_mod = int(eval(formula, {"__builtins__": {}}, {"relationship_value": relationship_val}))
+                    final_hostile_threshold += hostility_bias_mod
+                    final_friendly_threshold -= hostility_bias_mod # Higher positive relationship makes friendly threshold lower (easier to be friendly)
+                                                                  # and hostile threshold more negative (harder to be hostile)
+
+                except Exception as e:
+                    # Log error in evaluating formula
+                    pass # Use base thresholds
+
+        if relationship_val <= final_hostile_threshold:
             return True
-        min_friendly_threshold = hostility_config.get("relationship_friendly_threshold", 50) # Example threshold
-        if relationship_val >= min_friendly_threshold:
+        if relationship_val >= final_friendly_threshold:
             return False # Explicitly friendly
 
     # 2. Faction check (if both are NPCs and have factions)
@@ -356,11 +444,28 @@ async def _calculate_target_score(
             EntityType.NPC, actor_npc.id,
             EntityType(target_combat_data["type"]), target_combat_data["id"]
         )
-        if relationship_val is not None and threat_factors.get("relationship_threat_modifier"):
-            # e.g. modifier = ( (max_relationship - relationship_val) / max_relationship_range ) * factor
-            # Simplified: if very hostile, add some threat
-            if relationship_val < -50 : # Arbitrary threshold for "very hostile"
-                 threat += 75 * threat_factors.get("relationship_threat_modifier", 0.1)
+        if relationship_val is not None:
+            # Apply general target_score_modifier_formula from relationship_influence rules
+            rel_influence_config = ai_rules.get("relationship_influence", {}).get("npc_combat", {}).get("behavior", {})
+            if rel_influence_config.get("enabled", False):
+                formula = rel_influence_config.get("target_score_modifier_formula")
+                if formula and isinstance(formula, str):
+                    try:
+                        # Formula like "(relationship_value * 0.5)"
+                        # Positive relationship_value (friendly) should decrease threat score (if formula results in negative adjustment)
+                        # Negative relationship_value (hostile) should increase threat score (if formula results in positive adjustment)
+                        # Example: formula = "-(relationship_value * 0.2)" -> rel=50 (friend) -> -(10) -> threat decreases by 10
+                        #          formula = "-(relationship_value * 0.2)" -> rel=-50 (enemy) -> -(-10) -> threat increases by 10
+                        adjustment = float(eval(formula, {"__builtins__": {}}, {"relationship_value": relationship_val}))
+                        threat += adjustment
+                    except Exception as e:
+                        # Log error
+                        pass
+            # Legacy/Specific threat factor (can be kept for fine-tuning or removed if formula is preferred)
+            elif threat_factors.get("relationship_threat_modifier"): # Check this only if general formula not applied
+                # Simplified: if very hostile, add some threat based on old logic
+                if relationship_val < -50 : # Arbitrary threshold for "very hostile"
+                     threat += 75 * threat_factors.get("relationship_threat_modifier", 0.1) # This factor could be deprecated
 
         return threat # Higher is better
 
@@ -721,6 +826,45 @@ async def _choose_action(
     # if best_evaluated_action["score"] < ai_rules.get("action_selection",{}).get("min_offensive_score_threshold", 5.0) and offensive_bias < 0.5:
     #     # Look for non-offensive actions or idle
     #     pass
+
+    # Modify action scores based on relationship category with the target
+    rel_influence_config = ai_rules.get("relationship_influence", {}).get("npc_combat", {}).get("behavior", {})
+    if rel_influence_config.get("enabled", False) and "action_choice" in rel_influence_config:
+        action_choice_rules = rel_influence_config["action_choice"]
+        current_relationship_val = await _get_relationship_value(
+            session, guild_id,
+            EntityType.NPC, actor_npc.id,
+            EntityType(target_info["combat_data"]["type"]), target_info["combat_data"]["id"]
+        )
+
+        if current_relationship_val is not None:
+            relationship_category = "neutral" # Default
+            if current_relationship_val >= action_choice_rules.get("friendly_positive_threshold", 50):
+                relationship_category = "friendly"
+            elif current_relationship_val <= action_choice_rules.get("hostile_negative_threshold", -50):
+                relationship_category = "hostile"
+
+            rules_for_category = action_choice_rules.get(f"actions_if_{relationship_category}", [])
+            if rules_for_category:
+                for eval_item in action_evaluations: # eval_item is {"action": action, "score": effectiveness}
+                    action_type = eval_item["action"]["type"]
+                    ability_static_id = eval_item["action"].get("ability_props", {}).get("static_id") if action_type == "ability" else None
+
+                    for rule_mod in rules_for_category:
+                        matches_type = (rule_mod.get("action_type") == action_type)
+                        matches_id = (not rule_mod.get("ability_static_id") or rule_mod.get("ability_static_id") == ability_static_id)
+
+                        if matches_type and matches_id:
+                            weight_multiplier = rule_mod.get("weight_multiplier", 1.0)
+                            eval_item["score"] *= weight_multiplier
+                            # Add to a log or debug message that score was modified by relationship rule
+                            break # Apply first matching rule modification for this action
+
+                # Re-sort after applying multipliers
+                action_evaluations.sort(key=lambda x: x["score"], reverse=True)
+                if action_evaluations: # Check if list is not empty after potential modifications
+                    best_evaluated_action = action_evaluations[0]
+
 
     # TODO: Check for special conditions (e.g., NPC low HP -> prioritize healing ability if available and effective)
     actor_props = actor_npc.properties_json or {}

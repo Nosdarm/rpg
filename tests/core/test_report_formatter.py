@@ -406,6 +406,99 @@ async def test_format_npc_action(mock_session, mock_names_cache_fixture, mock_ge
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
+# --- Tests for Combat Action with CheckResult details ---
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lang, damage, roll, total_mod, final_val, dc, rel_desc, rel_val", [
+    ("en", 10, 15, 2, 17, 16, "Friendly (Formula)", 2),
+    ("ru", 5, 8, -1, 7, 10, "Враждебность (Порог)", -1),
+    ("en", 0, 5, 0, 5, 10, None, None), # Miss, no specific relationship bonus shown in this test case
+])
+async def test_format_combat_action_with_check_result_and_relationship_details(
+    mock_session, mock_names_cache_fixture, mock_get_rule_fixture,
+    lang, damage, roll, total_mod, final_val, dc, rel_desc, rel_val
+):
+    actor_key = ("player", 1)
+    target_key = ("npc", 601)
+    action_name = "Slash" if lang == "en" else "Рубящий удар"
+
+    # Setup terms for the test
+    term_map = {
+        f"terms.combat.uses_{lang}": {"en": "uses", "ru": "использует"}[lang],
+        f"terms.combat.on_{lang}": {"en": "on", "ru": "против"}[lang],
+        f"terms.combat.dealing_damage_{lang}": {"en": "dealing", "ru": "нанося"}[lang],
+        f"terms.general.damage_{lang}": {"en": "damage", "ru": "урона"}[lang],
+        f"terms.checks.roll_{lang}": {"en": "Roll", "ru": "Бросок"}[lang],
+        f"terms.checks.modifier_{lang}": {"en": "Mod", "ru": "Мод."}[lang],
+        f"terms.checks.total_{lang}": {"en": "Total", "ru": "Итог"}[lang],
+        f"terms.checks.vs_dc_{lang}": {"en": "vs DC", "ru": "против СЛ"}[lang],
+        f"terms.checks.bonuses_penalties_{lang}": {"en": "Bonuses/Penalties", "ru": "Бонусы/Штрафы"}[lang],
+    }
+    mock_get_rule_fixture.set_map_for_test(term_map)
+
+    check_result_details_dict = {
+        "roll_used": roll, "total_modifier": total_mod, "final_value": final_val, "difficulty_class": dc,
+        "modifier_details": []
+    }
+    if rel_desc and rel_val is not None:
+        check_result_details_dict["modifier_details"].append(
+            {"description": rel_desc, "value": rel_val, "source": "relationship:some_pattern"}
+        )
+
+    # Add a generic modifier for more coverage
+    check_result_details_dict["modifier_details"].append(
+        {"description": "Base Stat", "value": total_mod - (rel_val or 0), "source":"base_stat:strength"}
+    )
+
+
+    log_details = {
+        "guild_id": 1, "event_type": EventType.COMBAT_ACTION.value,
+        "actor": {"type": actor_key[0], "id": actor_key[1]},
+        "target": {"type": target_key[0], "id": target_key[1]},
+        "action_name": action_name,
+        "damage": damage if damage > 0 else None, # None if 0 damage
+        "check_result": check_result_details_dict
+    }
+
+    # Expected base message part
+    actor_name = mock_names_cache_fixture[actor_key]
+    target_name = mock_names_cache_fixture[target_key]
+    uses_term = term_map[f"terms.combat.uses_{lang}"]
+    on_term = term_map[f"terms.combat.on_{lang}"]
+
+    expected_base_msg = f"{actor_name} {uses_term} '{action_name}' {on_term} {target_name}"
+    if damage > 0:
+        dealing_term = term_map[f"terms.combat.dealing_damage_{lang}"]
+        damage_term_val = term_map[f"terms.general.damage_{lang}"]
+        expected_base_msg += f", {dealing_term} {damage} {damage_term_val}."
+    else:
+        expected_base_msg += "."
+
+    # Expected check details part
+    term_roll_val = term_map[f"terms.checks.roll_{lang}"]
+    term_mod_val = term_map[f"terms.checks.modifier_{lang}"]
+    term_total_val = term_map[f"terms.checks.total_{lang}"]
+    term_vs_dc_val = term_map[f"terms.checks.vs_dc_{lang}"]
+    expected_check_str = f" ({term_roll_val}: {roll}, {term_mod_val}: {total_mod}, {term_total_val}: {final_val} {term_vs_dc_val}: {dc})"
+
+    mod_descs_rendered = []
+    if rel_desc and rel_val is not None:
+        mod_descs_rendered.append(f"{rel_desc} ({'+' if rel_val >=0 else ''}{rel_val})")
+
+    # Add the generic modifier to rendered list
+    generic_mod_val = total_mod - (rel_val or 0)
+    mod_descs_rendered.append(f"Base Stat ({'+' if generic_mod_val >=0 else ''}{generic_mod_val})")
+
+    if mod_descs_rendered:
+        term_bonuses_penalties_val = term_map[f"terms.checks.bonuses_penalties_{lang}"]
+        expected_check_str += f" [{term_bonuses_penalties_val}: {'; '.join(mod_descs_rendered)}]"
+
+    final_expected_msg = expected_base_msg + expected_check_str
+
+    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+        result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
+
+    assert result == final_expected_msg
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lang, player_key, item_key, target_info, outcome_desc, uses_term_default, on_term_default", [
