@@ -133,5 +133,9 @@ Description: Реализована система для AI-генерации 
     2.  Расширены Pydantic-модели в `src/core/ai_response_parser.py`: добавлены `ParsedFactionData` и `ParsedRelationshipData`, обновлен `GeneratedEntity = Union[...]` и базовая семантическая валидация.
     3.  Разработана функция `prepare_faction_relationship_generation_prompt` в `src/core/ai_prompt_builder.py` для создания промптов AI, включая обновление `_get_entity_schema_terms` схемами для фракций и отношений.
     4.  Реализована основная функция `generate_factions_and_relationships` в `src/core/world_generation.py`, использующая созданный промпт, мок-вызов AI, парсинг ответа, сохранение данных в БД (`GeneratedFaction`, `Relationship`) и логирование события `WORLD_EVENT_FACTIONS_GENERATED`. Функция экспортирована из `src/core/__init__.py`.
-    5.  Unit-тесты для данной задачи запланированы, но не реализованы на этом этапе.
-Result: Система генерации фракций и их отношений готова к использованию (с мок-ответом от AI). Требуется добавление реального вызова LLM и написание Unit-тестов.
+    5.  Написаны Unit-тесты:
+        *   Для `crud_faction` (`tests/core/crud/test_crud_faction.py`): покрыты все основные CRUD операции и специфичные методы.
+        *   Для Pydantic моделей `ParsedFactionData`, `ParsedRelationshipData` и функции `parse_and_validate_ai_response` (`tests/core/test_ai_response_parser.py`): покрыты валидация моделей, успешный парсинг, обработка ошибок и семантическая валидация.
+        *   Для функции `prepare_faction_relationship_generation_prompt` (`tests/core/test_ai_prompt_builder.py`): покрыты структура промпта, использование правил и языка гильдии, обработка отсутствующих правил.
+        *   Интеграционные тесты для `generate_factions_and_relationships` (`tests/core/test_world_generation.py`): покрыты успешный сценарий, ошибки парсинга, обработка существующих `static_id`.
+Result: Система генерации фракций и их отношений реализована и покрыта тестами (с мок-ответом от AI). Готова к использованию.

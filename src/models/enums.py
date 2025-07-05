@@ -94,6 +94,8 @@ class EventType(enum.Enum):
     MASTER_ACTION_LOCATION_REMOVED = "master_action_location_removed" # Master removed
     MASTER_ACTION_LOCATIONS_CONNECTED = "master_action_locations_connected" # Master connected
     MASTER_ACTION_LOCATIONS_DISCONNECTED = "master_action_locations_disconnected" # Master disconnected
+    WORLD_EVENT_FACTIONS_GENERATED = "world_event_factions_generated" # AI generated factions and relationships
+
 
     # TODO: Add more event types as needed for other modules
     # e.g., QUEST_ACCEPTED, QUEST_STEP_COMPLETED, QUEST_COMPLETED, COMBAT_STARTED, COMBAT_ENDED, ITEM_CRAFTED, etc.

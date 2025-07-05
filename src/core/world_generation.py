@@ -7,13 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, \
     _mock_openai_api_call # Используем мок для AI
-from src.core.ai_prompt_builder import prepare_ai_prompt
+from src.core.ai_prompt_builder import prepare_ai_prompt, prepare_faction_relationship_generation_prompt
 from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, ParsedLocationData, \
-    CustomValidationError
+    CustomValidationError, ParsedFactionData, ParsedRelationshipData
 from src.core.crud.crud_location import location_crud
+from src.core.crud.crud_faction import crud_faction
+from src.core.crud.crud_relationship import crud_relationship
 from src.core.game_events import log_event
-from src.models import Location
-from src.models.enums import EventType, ModerationStatus
+from src.models import Location, GeneratedFaction, Relationship
+from src.models.enums import EventType, ModerationStatus, RelationshipEntityType
 from src.models.pending_generation import PendingGeneration
 
 logger = logging.getLogger(__name__)
@@ -253,11 +255,12 @@ async def generate_factions_and_relationships(
     Generates factions and their relationships for a guild using AI.
     Returns (created_factions_list, created_relationships_list, None) or (None, None, error_message).
     """
-    from .ai_prompt_builder import prepare_faction_relationship_generation_prompt
-    from .ai_response_parser import ParsedFactionData, ParsedRelationshipData # Import specific parsed types
-    from .crud import crud_faction, crud_relationship # Import CRUDs
-    from ..models import GeneratedFaction, Relationship # Import DB Models
-    from ..models.enums import RelationshipEntityType # For Relationship model
+    # Moved imports to module level for easier patching in tests
+    # from .ai_prompt_builder import prepare_faction_relationship_generation_prompt -> This is already at module level if used by other funcs or should be.
+    # from .ai_response_parser import ParsedFactionData, ParsedRelationshipData
+    # from .crud import crud_faction, crud_relationship
+    # from ..models import GeneratedFaction, Relationship
+    # from ..models.enums import RelationshipEntityType
 
     logger.info(f"Starting faction and relationship generation for guild_id: {guild_id}")
     try:

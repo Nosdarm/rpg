@@ -1,0 +1,219 @@
+import sys
+import os
+import unittest
+import json
+from typing import Dict, Any, List, Union
+
+# Add the project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from pydantic import ValidationError as PydanticNativeValidationError
+
+from src.core.ai_response_parser import (
+    ParsedFactionData,
+    ParsedRelationshipData,
+    parse_and_validate_ai_response,
+    CustomValidationError,
+    GeneratedEntity, # For constructing test data for parse_and_validate_ai_response
+    ParsedAiData
+)
+# Mocking get_rule for semantic validation tests, as it's called by _perform_semantic_validation
+# This will be used with unittest.mock.patch
+# from src.core.rules import get_rule
+
+# Helper data
+VALID_FACTION_DATA_MINIMAL = {
+    "entity_type": "faction",
+    "static_id": "test_fac_01",
+    "name_i18n": {"en": "Test Faction", "ru": "Тестовая Фракция"},
+    "description_i18n": {"en": "A test faction.", "ru": "Тестовая фракция."},
+}
+
+VALID_FACTION_DATA_FULL = {
+    **VALID_FACTION_DATA_MINIMAL,
+    "ideology_i18n": {"en": "Testology", "ru": "Тестология"},
+    "leader_npc_static_id": "npc_leader_01",
+    "resources_json": {"gold": 100, "wood": 500},
+    "ai_metadata_json": {"notes": "Generated for testing"},
+}
+
+VALID_RELATIONSHIP_DATA = {
+    "entity_type": "relationship",
+    "entity1_static_id": "test_fac_01",
+    "entity1_type": "faction",
+    "entity2_static_id": "test_fac_02",
+    "entity2_type": "faction",
+    "relationship_type": "rivalry",
+    "value": -50,
+}
+
+class TestAIResponseParserPydanticModels(unittest.TestCase):
+    # Synchronous tests for Pydantic model validation
+
+    def test_parsed_faction_data_valid(self):
+        # Test minimal valid data
+        faction_min = ParsedFactionData(**VALID_FACTION_DATA_MINIMAL)
+        self.assertEqual(faction_min.static_id, "test_fac_01")
+        self.assertEqual(faction_min.name_i18n["en"], "Test Faction")
+
+        # Test full valid data
+        faction_full = ParsedFactionData(**VALID_FACTION_DATA_FULL)
+        self.assertEqual(faction_full.leader_npc_static_id, "npc_leader_01")
+        self.assertEqual(faction_full.resources_json["wood"], 500)
+
+    def test_parsed_faction_data_invalid(self):
+        # Missing static_id
+        with self.assertRaises(PydanticNativeValidationError):
+            data = VALID_FACTION_DATA_MINIMAL.copy()
+            del data["static_id"]
+            ParsedFactionData(**data)
+
+        # Empty static_id
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedFactionData(**{**VALID_FACTION_DATA_MINIMAL, "static_id": ""})
+
+        # Invalid name_i18n (not a dict)
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedFactionData(**{**VALID_FACTION_DATA_MINIMAL, "name_i18n": "not a dict"})
+
+        # Invalid name_i18n (empty dict)
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedFactionData(**{**VALID_FACTION_DATA_MINIMAL, "name_i18n": {}})
+
+        # Invalid name_i18n (wrong content type)
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedFactionData(**{**VALID_FACTION_DATA_MINIMAL, "name_i18n": {"en": 123}})
+
+        # Invalid ideology_i18n (if present, must be valid)
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedFactionData(**{**VALID_FACTION_DATA_FULL, "ideology_i18n": {"en": 123}})
+
+        # Entity type cannot be changed
+        with self.assertRaises(PydanticNativeValidationError):
+            faction = ParsedFactionData(**VALID_FACTION_DATA_MINIMAL)
+            faction.entity_type = "new_type"
+
+
+    def test_parsed_relationship_data_valid(self):
+        rel = ParsedRelationshipData(**VALID_RELATIONSHIP_DATA)
+        self.assertEqual(rel.entity1_static_id, "test_fac_01")
+        self.assertEqual(rel.value, -50)
+
+    def test_parsed_relationship_data_invalid(self):
+        # Missing entity1_static_id
+        with self.assertRaises(PydanticNativeValidationError):
+            data = VALID_RELATIONSHIP_DATA.copy()
+            del data["entity1_static_id"]
+            ParsedRelationshipData(**data)
+
+        # Empty entity1_type
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedRelationshipData(**{**VALID_RELATIONSHIP_DATA, "entity1_type": ""})
+
+        # Non-numeric value (Pydantic should catch this based on type hint)
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedRelationshipData(**{**VALID_RELATIONSHIP_DATA, "value": "not a number"})
+
+        # Entity type cannot be changed
+        with self.assertRaises(PydanticNativeValidationError):
+            rel = ParsedRelationshipData(**VALID_RELATIONSHIP_DATA)
+            rel.entity_type = "new_type"
+
+
+class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
+    # Asynchronous tests for parse_and_validate_ai_response function
+
+    async def test_parse_valid_faction_and_relationship(self):
+        # Test with a mix of valid faction and relationship data
+        # The parser expects a flat list of entities as input string
+        ai_response_list = [VALID_FACTION_DATA_FULL, VALID_RELATIONSHIP_DATA]
+        ai_response_str = json.dumps(ai_response_list)
+
+        # Mocking get_rule for semantic validation of language (e.g. 'en' required)
+        # For this test, assume 'en' is always required by _perform_semantic_validation's current logic
+
+        result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
+
+        self.assertNotIsInstance(result, CustomValidationError, msg=f"Parsing failed: {result.message if isinstance(result, CustomValidationError) else 'Unknown error'}")
+        self.assertIsInstance(result, ParsedAiData)
+        self.assertEqual(len(result.generated_entities), 2)
+        self.assertIsInstance(result.generated_entities[0], ParsedFactionData)
+        self.assertIsInstance(result.generated_entities[1], ParsedRelationshipData)
+        self.assertEqual(result.generated_entities[0].static_id, VALID_FACTION_DATA_FULL["static_id"])
+        self.assertEqual(result.generated_entities[1].value, VALID_RELATIONSHIP_DATA["value"])
+
+    async def test_parse_invalid_json_string(self):
+        invalid_json_str = '{"entity_type": "faction", "name_i18n": {"en": "Test"' # Missing closing brace and quote
+        result = await parse_and_validate_ai_response(invalid_json_str, guild_id=1)
+        self.assertIsInstance(result, CustomValidationError)
+        self.assertEqual(result.error_type, "JSONParsingError")
+
+    async def test_parse_structural_validation_error_not_a_list(self):
+        # AI response is expected to be a list of entities
+        not_a_list_str = json.dumps({"some_key": "some_value"})
+        result = await parse_and_validate_ai_response(not_a_list_str, guild_id=1)
+        self.assertIsInstance(result, CustomValidationError)
+        self.assertEqual(result.error_type, "StructuralValidationError")
+        self.assertIn("Expected a list of entities", result.message)
+
+    async def test_parse_pydantic_validation_error_in_faction(self):
+        invalid_faction_data = VALID_FACTION_DATA_MINIMAL.copy()
+        del invalid_faction_data["name_i18n"] # Missing required field
+        ai_response_list = [invalid_faction_data, VALID_RELATIONSHIP_DATA]
+        ai_response_str = json.dumps(ai_response_list)
+
+        result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
+        self.assertIsInstance(result, CustomValidationError)
+        self.assertEqual(result.error_type, "StructuralValidationError") # Pydantic errors are caught as structural by _validate_overall_structure
+        self.assertIn("Validation failed for entity at index 0", result.message)
+        self.assertEqual(result.path, [0]) # Path should indicate the failing entity index
+
+        # Check details for specific field error for 'name_i18n'
+        # result.details is a list of dicts, each representing a Pydantic validation error for the entity at path [0]
+        found_name_error = False
+        for error_detail in result.details:
+            # Example error_detail: {'type': 'missing', 'loc': ('name_i18n',), 'msg': 'Field required', 'input': {...}}
+            if "name_i18n" in error_detail.get("loc", tuple()) and error_detail.get("type") == "missing":
+                found_name_error = True
+                break
+        self.assertTrue(found_name_error, "Expected a validation error for missing 'name_i18n' in the first entity's details.")
+
+
+    async def test_parse_semantic_validation_error_faction_missing_lang(self):
+        # Assumes _perform_semantic_validation checks for 'en' key.
+        faction_missing_en = {
+            "entity_type": "faction", "static_id": "fac_sem_err",
+            "name_i18n": {"ru": "Только Ру"}, # Missing 'en'
+            "description_i18n": {"en": "Desc", "ru": "Описание"}
+        }
+        ai_response_str = json.dumps([faction_missing_en])
+        result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
+        self.assertIsInstance(result, CustomValidationError)
+        self.assertEqual(result.error_type, "SemanticValidationError")
+        self.assertIn("missing required languages {'en'} in 'name_i18n'", result.message)
+
+    async def test_parse_semantic_validation_error_relationship_value_out_of_range(self):
+        # Assumes _perform_semantic_validation checks relationship value range (-1000 to 1000)
+        relationship_bad_value = {
+            **VALID_RELATIONSHIP_DATA,
+            "value": 2000 # Out of range
+        }
+        ai_response_str = json.dumps([VALID_FACTION_DATA_MINIMAL, relationship_bad_value]) # Add a valid faction to make the list pass initial struct validation for first item
+
+        # Need to ensure the faction part is valid semantically too
+        valid_faction_for_sem_test = VALID_FACTION_DATA_MINIMAL.copy()
+        valid_faction_for_sem_test["name_i18n"] = {"en": "Test", "ru": "Тест"}
+        valid_faction_for_sem_test["description_i18n"] = {"en": "Test", "ru": "Тест"}
+
+        ai_response_str = json.dumps([valid_faction_for_sem_test, relationship_bad_value])
+
+        result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
+        self.assertIsInstance(result, CustomValidationError)
+        self.assertEqual(result.error_type, "SemanticValidationError")
+        self.assertIn("has value 2000 outside expected range", result.message)
+        self.assertEqual(result.path, [1, "value"]) # path should be [entity_index, field_name]
+
+if __name__ == "__main__":
+    unittest.main()
