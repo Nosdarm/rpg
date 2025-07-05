@@ -258,36 +258,44 @@ class GeneralCog(commands.Cog, name="General Commands"):
                     await interaction.followup.send(f"Command `/{command_name}` not found. Use `/help` to see all available commands.", ephemeral=True)
             else:
                 logger.info("--- HELP: CHECKPOINT 3 --- Entering general help block")
-                logger.debug("Processing general help (listing all commands).")
-                # General help
+                logger.debug("Processing general help (listing all commands).") # Keep this if log level is DEBUG
+
+                logger.info("--- HELP: Attempting to create general help embed ---") # NEW LOG
                 embed = discord.Embed(
                     title="Bot Commands Help",
                     description=f"Here's a list of available commands. Use `/help command_name` for more details on a specific command.\nLanguage: {lang_code}",
                     color=discord.Color.blue()
                 )
                 embed.set_footer(text=f"Total commands: {len(all_commands)}")
+                logger.info(f"--- HELP: Embed created. Title: '{embed.title}', Num All Cmds: {len(all_commands)} ---") # NEW LOG
 
                 command_list_str = []
                 current_length = 0
-                for cmd_info in all_commands:
+                logger.info("--- HELP: Starting to loop through commands for embed description ---") # NEW LOG
+                for i, cmd_info in enumerate(all_commands):
                     desc = cmd_info.description or "No description available."
                     entry = f"**/{cmd_info.name}** - {desc}"
+                    logger.debug(f"--- HELP: Processing command for embed: {cmd_info.name} (Entry length: {len(entry)}) ---") # DEBUG LOG
                     if current_length + len(entry) + 2 < 4000: # +2 for \n
                         command_list_str.append(entry)
                         current_length += len(entry) + 2
                     else:
                         command_list_str.append("...") # Indicate truncation
-                        logger.warning(f"Help message truncated due to length limits. Displaying {len(command_list_str)-1} commands out of {len(all_commands)}.")
+                        logger.warning(f"--- HELP: Help message truncated. Index: {i}, Current Length: {current_length}, Total Commands: {len(all_commands)} ---") # NEW LOG
                         break
+
+                logger.info(f"--- HELP: Finished loop. {len(command_list_str)} entries for embed. Current length: {current_length} ---") # NEW LOG
 
                 if command_list_str:
                     embed.description += "\n\n" + "\n".join(command_list_str)
+                    logger.info("--- HELP: Added command list to embed description ---") # NEW LOG
                 else:
-                    logger.warning("Command list string is empty for general help, though all_commands was not empty.")
+                    logger.warning("--- HELP: Command list string is empty for general help embed! ---") # NEW LOG
                     embed.description += "\n\nNo commands to display."
 
+                logger.info("--- HELP: Attempting to send general help embed ---") # NEW LOG
                 await interaction.followup.send(embed=embed, ephemeral=True)
-                logger.debug("Sent general help embed.")
+                logger.info("--- HELP: Successfully sent general help embed ---") # CHANGED TO INFO
 
         except Exception as e:
             # Log the error first thing in the except block
