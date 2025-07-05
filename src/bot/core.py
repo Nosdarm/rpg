@@ -65,10 +65,23 @@ class BotCore(commands.Bot):
             # Sync all commands globally.
             # For guild-specific commands, you might use: await self.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
             # If no guild is specified, commands are synced globally.
+            # Sync all commands globally.
+            # For guild-specific commands, you might use: await self.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
+            # If no guild is specified, commands are synced globally.
+            logger.info("Attempting to sync application commands globally...")
             synced = await self.tree.sync()
-            logger.info(f"Синхронизировано {len(synced)} команд приложения (слеш-команд).")
-            for cmd in synced: # Log synced commands for verification
-                logger.info(f"  - Синхронизирована команда: {cmd.name} (ID: {cmd.id})")
+            logger.info(f"Successfully synced {len(synced)} application commands globally.")
+            if synced:
+                logger.info("Details of globally synced commands:")
+                for cmd in synced:
+                    command_type = "Unknown"
+                    if isinstance(cmd, discord.app_commands.Command):
+                        command_type = "Command"
+                    elif isinstance(cmd, discord.app_commands.Group):
+                        command_type = "Group"
+                    logger.info(f"  - Name: {cmd.name}, ID: {cmd.id}, Type: {command_type}, Description: '{cmd.description}', Guild ID: {cmd.guild_id or 'Global'}")
+            else:
+                logger.info("No application commands were returned from the sync operation.")
         except Exception as e:
             logger.error(f"Ошибка при синхронизации команд приложения: {e}", exc_info=True)
 
