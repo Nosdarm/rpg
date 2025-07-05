@@ -173,12 +173,15 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
     @app_commands.command(name="ping", description="Проверяет задержку ответа бота.")
     async def ping_command(self, interaction: discord.Interaction):
-        """
-        Отправляет задержку бота в миллисекундах.
-        """
-        latency_ms = round(self.bot.latency * 1000)
-        logger.info(f"Команда /ping вызвана {interaction.user} на сервере {interaction.guild.name if interaction.guild else 'DM'}. Задержка: {latency_ms}ms")
-        await interaction.response.send_message(f"Понг! Задержка: {latency_ms}ms", ephemeral=True)
+        # Diagnostic: Try to log immediately and send a direct response
+        logger.info(f"--- PING COMMAND REACHED --- User: {interaction.user} (ID: {interaction.user.id}), Guild: {interaction.guild_id}, Channel: {interaction.channel_id}")
+        try:
+            # Try to respond directly without deferring for this test
+            latency_ms = round(self.bot.latency * 1000)
+            await interaction.response.send_message(f"Pong! Diagnostic Ping. Latency: {latency_ms}ms", ephemeral=True)
+            logger.info(f"--- PING COMMAND: Successfully sent diagnostic response. Latency: {latency_ms}ms ---")
+        except Exception as e:
+            logger.error(f"--- PING COMMAND ERROR: {e} ---", exc_info=True)
 
     @app_commands.command(name="help", description="Shows a list of commands or details for a specific command.")
     @app_commands.describe(command_name="The specific command to get help for (e.g., 'ping' or 'party create').")
@@ -209,12 +212,13 @@ class GeneralCog(commands.Cog, name="General Commands"):
                 except Exception as log_ex:
                     logger.debug(f"Could not serialize command names for logging: {log_ex}")
 
-
+            logger.info("--- HELP: CHECKPOINT 1 --- About to check 'if not all_commands'")
             if not all_commands:
                 logger.warning("No commands returned by get_bot_commands. Sending 'no commands found' message.")
                 await interaction.followup.send("No commands found or unable to retrieve command list.", ephemeral=True)
                 return
 
+            logger.info(f"--- HELP: CHECKPOINT 2 --- About to check 'if command_name' (value: {command_name})")
             if command_name:
                 logger.debug(f"Processing specific help for command_name: '{command_name}'")
                 # Specific command help
@@ -253,6 +257,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
                     logger.warning(f"Command `/{command_name}` not found in all_commands. Sending 'not found' message.")
                     await interaction.followup.send(f"Command `/{command_name}` not found. Use `/help` to see all available commands.", ephemeral=True)
             else:
+                logger.info("--- HELP: CHECKPOINT 3 --- Entering general help block")
                 logger.debug("Processing general help (listing all commands).")
                 # General help
                 embed = discord.Embed(
