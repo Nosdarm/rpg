@@ -100,6 +100,64 @@ from pydantic import ValidationInfo # Added for Pydantic 2.x
 #      but ensure their field_validators are compatible with Pydantic V2 if not already,
 #      e.g. using ValidationInfo for context if needed, though current ones seem simple enough)
 
+class ParsedFactionData(BaseGeneratedEntity):
+    entity_type: str = Field("faction", frozen=True)
+    static_id: str # AI should generate this, unique within the response at least
+    name_i18n: Dict[str, str]
+    description_i18n: Dict[str, str]
+    ideology_i18n: Optional[Dict[str, str]] = None
+    leader_npc_static_id: Optional[str] = None # Static ID of an NPC (could be generated in same batch)
+    resources_json: Optional[Dict[str, Any]] = None
+    ai_metadata_json: Optional[Dict[str, Any]] = None
+
+    @field_validator('name_i18n', 'description_i18n', 'ideology_i18n', mode="before")
+    @classmethod
+    def check_i18n_fields(cls, v, info: ValidationInfo):
+        if v is None and info.field_name == 'ideology_i18n': # Ideology can be optional
+            return v
+        if not isinstance(v, dict) or not v:
+            raise ValueError(f"{info.field_name} must be a non-empty dictionary.")
+        if not all(isinstance(lang, str) and isinstance(text, str) for lang, text in v.items()):
+            raise ValueError(f"{info.field_name} must be a dict of str:str.")
+        # TODO: Add check for required languages (e.g., 'en' and guild's main lang)
+        return v
+
+    @field_validator('static_id', mode="before")
+    @classmethod
+    def check_static_id(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("static_id must be a non-empty string.")
+        # Consider adding regex for static_id format if needed
+        return v
+
+class ParsedRelationshipData(BaseGeneratedEntity):
+    entity_type: str = Field("relationship", frozen=True)
+    # Using static_ids for entities as DB IDs are not known at generation time
+    entity1_static_id: str
+    entity1_type: str # e.g., "faction", "npc", "player_default"
+    entity2_static_id: str
+    entity2_type: str
+    relationship_type: str # e.g., "faction_standing", "personal_feeling_npc_faction"
+    value: int # Numerical value of the relationship
+
+    @field_validator('entity1_static_id', 'entity1_type', 'entity2_static_id', 'entity2_type', 'relationship_type', mode="before")
+    @classmethod
+    def check_non_empty_strings(cls, v, info: ValidationInfo):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError(f"{info.field_name} must be a non-empty string.")
+        return v
+
+    @field_validator('entity1_type', 'entity2_type', mode="before")
+    @classmethod
+    def check_entity_types(cls, v, info: ValidationInfo):
+        # Basic check, can be expanded with known RelationshipEntityType values
+        # from src.models.enums import RelationshipEntityType
+        # known_types = [ret.value for ret in RelationshipEntityType]
+        # if v not in known_types:
+        #     raise ValueError(f"Invalid {info.field_name}: '{v}'. Must be one of {known_types}")
+        return v.lower()
+
+
 class ParsedLocationData(BaseGeneratedEntity):
     entity_type: str = Field("location", frozen=True)
     name_i18n: Dict[str, str]
@@ -140,7 +198,14 @@ class ParsedLocationData(BaseGeneratedEntity):
 
 
 # Union of all possible generated entity types for Pydantic to discriminate
-GeneratedEntity = Union[ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedLocationData]
+GeneratedEntity = Union[
+    ParsedNpcData,
+    ParsedQuestData,
+    ParsedItemData,
+    ParsedLocationData,
+    ParsedFactionData,
+    ParsedRelationshipData
+]
 
 
 class ParsedAiData(BaseModel):
@@ -275,15 +340,29 @@ def _perform_semantic_validation(
                         path=[entity_idx, field_name]
                     ))
 
-            if isinstance(entity, (ParsedNpcData, ParsedItemData)):
+            if isinstance(entity, (ParsedNpcData, ParsedItemData, ParsedFactionData)):
                 check_i18n_dict(entity.name_i18n, "name_i18n", i)
                 check_i18n_dict(entity.description_i18n, "description_i18n", i)
+                if isinstance(entity, ParsedFactionData):
+                    check_i18n_dict(entity.ideology_i18n, "ideology_i18n", i) # ideology_i18n is Optional
             elif isinstance(entity, ParsedQuestData):
                 check_i18n_dict(entity.title_i18n, "title_i18n", i)
                 check_i18n_dict(entity.summary_i18n, "summary_i18n", i)
                 if entity.steps_description_i18n:
                     for step_idx, step_desc_i18n in enumerate(entity.steps_description_i18n):
                         check_i18n_dict(step_desc_i18n, f"steps_description_i18n[{step_idx}]", i)
+            elif isinstance(entity, ParsedRelationshipData):
+                # Relationships typically don't have direct i18n fields in ParsedRelationshipData
+                # Their meaning is derived from types and values, descriptions come from related entities.
+                # Basic validation for relationship values if needed:
+                if not (-1000 <= entity.value <= 1000): # Example range
+                    semantic_errors.append(CustomValidationError(
+                        error_type="SemanticValidationError",
+                        message=f"Entity {i} ('relationship') has value {entity.value} outside expected range.",
+                        path=[i, "value"]
+                    ))
+                # Check if entity types are known/valid (could use RelationshipEntityType enum)
+                # For now, type checked in Pydantic model validator for non-empty string.
 
             # --- Other Semantic Validations ---
             # Example: Check NPC stats against RuleConfig (conceptual)

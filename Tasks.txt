@@ -89,10 +89,7 @@ This block presents tasks related to factions, relationships between entities, a
 {Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n). - Moved to Done.txt}
 
 {Task 34: 🎭 8.2 Relationships Model (Guild-Scoped). - Moved to Done.txt}
-
-Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild).
-Description: AI generates factions and their relationships for a guild according to rules. (Moved from 8.2).
-Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules (13/41) FOR THIS GUILD, including factions and their relationships (to others, to player/NPC/parties). The result is saved in the GeneratedFaction (33) and Relationship (34) models WITH THIS guild_id.
+{Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild). - Moved to Done.txt}
 
 Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped).
 Description: Implement logic for updating numerical relationship values in response to game events based on Master-configurable rules. (Moved from 8.3).

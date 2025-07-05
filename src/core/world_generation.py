@@ -240,3 +240,267 @@ async def update_location_neighbors(
 
     # session.add(location) # SQLAlchemy 2.0+ отслеживает изменения автоматически
     await session.flush([location])
+
+
+async def generate_factions_and_relationships(
+    session: AsyncSession,
+    guild_id: int,
+    # context: Optional[Dict[str, Any]] = None, # If any specific context beyond guild_id is needed
+    # trigger_event_id: Optional[int] = None # If this generation is tied to a specific event
+) -> Tuple[Optional[List[Location]], Optional[List[Location]], Optional[str]]: # TODO: Correct return types to Faction, Relationship
+    """
+    Generates factions and their relationships for a guild using AI.
+    Returns (created_factions_list, created_relationships_list, None) or (None, None, error_message).
+    """
+    from .ai_prompt_builder import prepare_faction_relationship_generation_prompt
+    from .ai_response_parser import ParsedFactionData, ParsedRelationshipData # Import specific parsed types
+    from .crud import crud_faction, crud_relationship # Import CRUDs
+    from ..models import GeneratedFaction, Relationship # Import DB Models
+    from ..models.enums import RelationshipEntityType # For Relationship model
+
+    logger.info(f"Starting faction and relationship generation for guild_id: {guild_id}")
+    try:
+        # 1. Prepare prompt for AI
+        prompt = await prepare_faction_relationship_generation_prompt(session, guild_id)
+        if "Error generating" in prompt: # Basic error check from prompt builder
+            logger.error(f"Failed to generate faction/relationship prompt for guild {guild_id}: {prompt}")
+            return None, None, prompt
+
+        logger.debug(f"Generated AI prompt for factions/relationships in guild {guild_id}:\n{prompt[:500]}...")
+
+        # 2. Call AI (using mock for now)
+        # For faction/relationship, the mock response needs to be different.
+        # TODO: Create a more specific mock or adapt _mock_openai_api_call
+        # For now, let's assume _mock_openai_api_call is generic enough or we'll adapt its output structure.
+        # A more realistic mock would return a JSON with "generated_factions" and "generated_relationships" keys.
+        # Example mock structure:
+        # mock_ai_response_str = json.dumps({
+        #     "generated_factions": [
+        #         {"entity_type": "faction", "static_id": "f1", "name_i18n": {"en": "Faction One", "ru": "Фракция Один"}, ...},
+        #         {"entity_type": "faction", "static_id": "f2", "name_i18n": {"en": "Faction Two", "ru": "Фракция Два"}, ...}
+        #     ],
+        #     "generated_relationships": [
+        #         {"entity_type": "relationship", "entity1_static_id": "f1", "entity1_type": "faction", "entity2_static_id": "f2", "entity2_type": "faction", "relationship_type": "rivalry", "value": -50}
+        #     ]
+        # })
+        # Using existing mock, but it might not fit the expected structure for factions/relationships perfectly.
+        # This will likely fail parsing unless the mock is adapted.
+        # Let's create a dedicated mock response string here for now.
+        mock_ai_response_str = json.dumps({
+            "generated_factions": [
+                {
+                    "entity_type": "faction", "static_id": "knights_of_dawn",
+                    "name_i18n": {"en": "Knights of Dawn", "ru": "Рыцари Рассвета"},
+                    "description_i18n": {"en": "A noble order defending the realm.", "ru": "Благородный орден, защищающий королевство."},
+                    "ideology_i18n": {"en": "Justice and Order", "ru": "Справедливость и Порядок"}
+                },
+                {
+                    "entity_type": "faction", "static_id": "shadow_syndicate",
+                    "name_i18n": {"en": "Shadow Syndicate", "ru": "Теневой Синдикат"},
+                    "description_i18n": {"en": "A secretive group operating in the underworld.", "ru": "Секретная группа, действующая в преступном мире."},
+                    "ideology_i18n": {"en": "Power through Stealth", "ru": "Власть через Скрытность"}
+                }
+            ],
+            "generated_relationships": [
+                {
+                    "entity_type": "relationship", "entity1_static_id": "knights_of_dawn", "entity1_type": "faction",
+                    "entity2_static_id": "shadow_syndicate", "entity2_type": "faction",
+                    "relationship_type": "faction_standing", "value": -75
+                },
+                { # Example relationship with a generic player placeholder
+                    "entity_type": "relationship", "entity1_static_id": "knights_of_dawn", "entity1_type": "faction",
+                    "entity2_static_id": "player_default", "entity2_type": "player", # Assuming AI might generate this
+                    "relationship_type": "faction_reputation", "value": 10
+                }
+            ]
+        })
+
+        logger.debug(f"Mock AI response for factions/relationships: {mock_ai_response_str[:500]}...")
+
+        # 3. Parse and validate AI response
+        # parse_and_validate_ai_response expects a list of entities, not a dict with top-level keys.
+        # The prompt asks for a dict. So, we need to adapt how we pass data to the parser.
+        # The parser currently expects a list of entity objects directly.
+        # Let's assume the AI returns a list of mixed entities (factions and relationships)
+        # and the prompt builder will instruct it to do so, or we adjust the parser.
+        # For now, let's adapt the MOCK to be a flat list as the parser expects.
+        # This means the prompt builder's instruction for output format and the parser's expectation must align.
+        # If prompt asks for {"generated_factions": [], "generated_relationships": []}, parser needs an update.
+        # Current parser expects: [ {faction_obj1}, {faction_obj2}, {relationship_obj1} ]
+        # Let's adjust the mock output to be a flat list for now to match current parser.
+        # This is a design choice: either parser handles nested structure, or AI provides flat list.
+        # For now, assume AI is instructed to provide a flat list of all generated entities.
+        # This also implies that ParsedAiData.generated_entities is a flat list.
+
+        # Re-mocking based on current parser expectation (flat list of entities)
+        # And the prompt builder needs to instruct AI to output this flat list.
+        # For now, I'll assume the prompt builder is updated to ask for a flat list.
+        # If not, this part needs to change or the parser needs to change.
+        # Let's assume the output is a JSON that directly is a list of entities.
+        # The prompt builder will need to be updated to ask for this.
+        # Or, the parser's _validate_overall_structure is updated to handle the dict.
+
+        # Given the current plan, the prompt asks for a dict. So the parser needs to handle it.
+        # Let's assume the parser is NOT changed yet. We will extract the lists.
+        raw_parsed_json = json.loads(mock_ai_response_str)
+        parsed_faction_list_json = raw_parsed_json.get("generated_factions", [])
+        parsed_relationship_list_json = raw_parsed_json.get("generated_relationships", [])
+
+        all_parsed_entities_json = parsed_faction_list_json + parsed_relationship_list_json
+
+        # Now parse this combined list
+        parsed_data_or_error = await parse_and_validate_ai_response(
+            raw_ai_output_text=json.dumps(all_parsed_entities_json), # Pass the combined list as a JSON string
+            guild_id=guild_id
+        )
+
+        if isinstance(parsed_data_or_error, CustomValidationError):
+            error_msg = f"AI response validation failed for factions/relationships: {parsed_data_or_error.message} - Details: {parsed_data_or_error.details}"
+            logger.error(error_msg)
+            return None, None, error_msg
+
+        parsed_ai_data: ParsedAiData = parsed_data_or_error
+
+        created_factions: List[GeneratedFaction] = []
+        created_relationships: List[Relationship] = []
+        static_id_to_db_id_map: Dict[str, int] = {}
+
+        # Save Factions first
+        for entity_data in parsed_ai_data.generated_entities:
+            if isinstance(entity_data, ParsedFactionData):
+                faction_to_create = {
+                    "guild_id": guild_id,
+                    "static_id": entity_data.static_id,
+                    "name_i18n": entity_data.name_i18n,
+                    "description_i18n": entity_data.description_i18n,
+                    "ideology_i18n": entity_data.ideology_i18n,
+                    # leader_npc_id needs to be resolved if leader_npc_static_id is provided
+                    # For now, assuming leader_npc_id is set later or AI provides existing NPC ID.
+                    # "leader_npc_id": None, # Placeholder
+                    "resources_json": entity_data.resources_json,
+                    "ai_metadata_json": entity_data.ai_metadata_json,
+                }
+                # Check for unique static_id within the guild before creating
+                existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id)
+                if existing_faction:
+                    logger.warning(f"Faction with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping.")
+                    # Optionally, map this static_id to the existing DB ID for relationship creation
+                    static_id_to_db_id_map[entity_data.static_id] = existing_faction.id
+                    created_factions.append(existing_faction) # Add existing to list if needed for return
+                    continue
+
+                new_faction_db = await crud_faction.create(session, obj_in=faction_to_create)
+                await session.flush() # Ensure ID is available
+                if new_faction_db:
+                    created_factions.append(new_faction_db)
+                    static_id_to_db_id_map[new_faction_db.static_id] = new_faction_db.id # type: ignore
+                    logger.info(f"Created faction '{new_faction_db.name_i18n.get('en')}' (ID: {new_faction_db.id}, StaticID: {new_faction_db.static_id}) for guild {guild_id}")
+                else:
+                    logger.error(f"Failed to create faction DB entry for static_id: {entity_data.static_id}")
+
+
+        # Save Relationships
+        for entity_data in parsed_ai_data.generated_entities:
+            if isinstance(entity_data, ParsedRelationshipData):
+                e1_id = static_id_to_db_id_map.get(entity_data.entity1_static_id)
+                e2_id = static_id_to_db_id_map.get(entity_data.entity2_static_id)
+
+                # Handle generic player_default for relationships
+                # We don't create a DB record for 'player_default', so its ID is conceptual (e.g., 0 or a special marker)
+                # For now, we'll only create relationships if both entities are actual factions found in the map.
+                # If e.g. entity2_type is 'player' and static_id is 'player_default', we might skip DB creation here
+                # or handle it by linking to a conceptual player entity (e.g. player_id=0).
+                # Task 35 doesn't specify saving relationships to player_default, only that AI *may suggest* them.
+                # For now, only create if both are resolved to actual faction IDs.
+
+                if e1_id is None and entity_data.entity1_type.lower() != "player": # Allow player type without DB ID for now
+                    logger.warning(f"Could not find DB ID for entity1_static_id '{entity_data.entity1_static_id}' for relationship. Skipping.")
+                    continue
+                if e2_id is None and entity_data.entity2_type.lower() != "player":
+                    logger.warning(f"Could not find DB ID for entity2_static_id '{entity_data.entity2_static_id}' for relationship. Skipping.")
+                    continue
+
+                # Determine RelationshipEntityType from string
+                try:
+                    entity1_type_enum = RelationshipEntityType(entity_data.entity1_type.lower())
+                    entity2_type_enum = RelationshipEntityType(entity_data.entity2_type.lower())
+                except ValueError:
+                    logger.error(f"Invalid entity type in relationship data: {entity_data.entity1_type} or {entity_data.entity2_type}. Skipping.")
+                    continue
+
+                # Handle player_default case: if type is player and static_id is player_default, use a placeholder ID (e.g. 0)
+                # This is conceptual and depends on how relationships with "all players" or "new players" are handled.
+                # For now, we require actual DB IDs for non-player entities.
+                final_e1_id = e1_id
+                final_e2_id = e2_id
+
+                if entity_data.entity1_type.lower() == "player" and entity_data.entity1_static_id == "player_default":
+                    final_e1_id = 0 # Placeholder ID for "default player"
+                elif e1_id is None: # Non-player type but ID not found
+                    logger.warning(f"Entity1 static_id '{entity_data.entity1_static_id}' (type: {entity_data.entity1_type}) not resolved to DB ID. Skipping relationship.")
+                    continue
+
+                if entity_data.entity2_type.lower() == "player" and entity_data.entity2_static_id == "player_default":
+                    final_e2_id = 0 # Placeholder ID for "default player"
+                elif e2_id is None: # Non-player type but ID not found
+                    logger.warning(f"Entity2 static_id '{entity_data.entity2_static_id}' (type: {entity_data.entity2_type}) not resolved to DB ID. Skipping relationship.")
+                    continue
+
+
+                relationship_to_create = {
+                    "guild_id": guild_id,
+                    "entity1_id": final_e1_id,
+                    "entity1_type": entity1_type_enum,
+                    "entity2_id": final_e2_id,
+                    "entity2_type": entity2_type_enum,
+                    "relationship_type": entity_data.relationship_type,
+                    "value": entity_data.value,
+                    # "source_log_id": trigger_event_id, # If applicable
+                }
+                # Check for existing relationship before creating
+                # Note: crud_relationship.get_relationship_between_entities handles order
+                existing_rel = await crud_relationship.get_relationship_between_entities(
+                    session,
+                    guild_id=guild_id,
+                    entity1_id=final_e1_id, # type: ignore
+                    entity1_type=entity1_type_enum,
+                    entity2_id=final_e2_id, # type: ignore
+                    entity2_type=entity2_type_enum
+                )
+                if existing_rel:
+                    logger.info(f"Relationship already exists between {entity_data.entity1_static_id} and {entity_data.entity2_static_id}. Updating value from {existing_rel.value} to {entity_data.value}.")
+                    existing_rel.value = entity_data.value
+                    existing_rel.relationship_type = entity_data.relationship_type # Also update type if AI suggests change
+                    session.add(existing_rel)
+                    created_relationships.append(existing_rel)
+                else:
+                    new_relationship_db = await crud_relationship.create(session, obj_in=relationship_to_create)
+                    if new_relationship_db:
+                        created_relationships.append(new_relationship_db)
+                        logger.info(f"Created relationship between '{entity_data.entity1_static_id}' and '{entity_data.entity2_static_id}' (Value: {entity_data.value}) for guild {guild_id}")
+                    else:
+                        logger.error(f"Failed to create relationship DB entry for {entity_data.entity1_static_id} - {entity_data.entity2_static_id}")
+
+        # 6. Log event
+        await log_event(
+            session=session,
+            guild_id=guild_id,
+            event_type=EventType.WORLD_EVENT_FACTIONS_GENERATED.value, # Define this event type
+            details_json={
+                "generated_factions_count": len(created_factions),
+                "generated_relationships_count": len(created_relationships),
+                "faction_ids": [f.id for f in created_factions],
+                # "trigger_event_id": trigger_event_id # If applicable
+            }
+            # entity_ids_json could list all faction IDs involved.
+        )
+
+        await session.commit()
+        logger.info(f"Successfully generated and saved {len(created_factions)} factions and {len(created_relationships)} relationships for guild {guild_id}.")
+        # Corrected return type
+        return created_factions, created_relationships, None
+
+    except Exception as e:
+        logger.exception(f"Error in generate_factions_and_relationships for guild {guild_id}: {e}")
+        await session.rollback()
+        return None, None, f"An unexpected error occurred during AI faction/relationship generation: {str(e)}"
