@@ -119,7 +119,23 @@
     *   Submit the changes with a descriptive commit message.
 ---
 ## Текущий план
-*(Этот раздел будет очищен после завершения текущей пользовательской задачи)*
+1.  **Correct `on_message` in `src/bot/events.py`**:
+    *   Change the line:
+        `if message.type == discord.MessageType.application_command:`
+        to:
+        `if message.interaction is not None:`
+    *   This will correctly identify messages that are application command invocations.
+
+2.  **Review and Test (Mentally)**:
+    *   Confirm that `message.interaction` is the appropriate check for slash commands.
+    *   Ensure this change correctly allows slash commands to be processed by `discord.py` and not the NLU.
+
+3.  **Update `AGENTS.md`**:
+    *   Create a new entry in "Лог действий" for this `AttributeError` fix.
+    *   Update "Текущий план".
+
+4.  **Submit the Fix**:
+    *   Commit the changes with a clear message.
 
 ---
 ## Отложенные задачи
@@ -202,6 +218,18 @@
     - **Шаг 4**: Вызов в `src/bot/events.py` оставлен как `await process_player_message_for_nlu(self.bot, message)`, что корректно с учетом `@transactional`.
     - **Шаг 5**: Логика проверена.
     - **Шаг 6**: `AGENTS.md` обновлен (этот лог) и "Текущий план" очищен.
+
+## Пользовательская задача: Исправление AttributeError в on_message (Сессия 2024-07-08)
+- **Определение задачи**: Устранить `AttributeError: type object 'MessageType' has no attribute 'application_command'` в `src/bot/events.py`.
+- **План**:
+    1.  Изменить проверку в `on_message` с `message.type == discord.MessageType.application_command` на `message.interaction is not None`.
+    2.  Проверить изменение.
+    3.  Обновить `AGENTS.md`.
+    4.  Закоммитить исправление.
+- **Реализация**:
+    - **Шаг 1**: В `src/bot/events.py` в `on_message` проверка изменена на `if message.interaction is not None:`.
+    - **Шаг 2**: Изменение проверено (логически), оно корректно идентифицирует сообщения, связанные с interaction (включая slash commands).
+    - **Шаг 3**: `AGENTS.md` обновлен (этот лог) и "Текущий план" очищен.
 
 ## Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild)
 - **Определение задачи**: AI generates quests for a specific guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
