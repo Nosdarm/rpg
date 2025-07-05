@@ -64,8 +64,12 @@ class EventCog(commands.Cog):
         # If the message is an application command (slash command), let discord.py handle it.
         # Do not process it with NLU or custom prefix checks.
         # Check if the message is associated with an interaction (e.g., a slash command)
-        if message.interaction is not None:
-            logger.debug(f"Message (ID: {message.id}) is an interaction ({message.interaction.name}), NLU skipped.")
+        # message.interaction is deprecated, use message.interaction_metadata
+        if message.interaction_metadata is not None: # type: ignore
+            # interaction_metadata is of type MessageInteractionMetadata
+            # It has .name (of command), .id (of interaction), .user (who invoked)
+            # For logging, we can use its presence or specific fields if needed.
+            logger.debug(f"Message (ID: {message.id}) has interaction metadata (type: {message.interaction_metadata.type.name}, name: {message.interaction_metadata.name}), NLU skipped.") # type: ignore
             return
 
         if not message.guild: # Ignore DMs for NLU processing for now, after application command check

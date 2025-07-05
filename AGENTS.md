@@ -231,6 +231,18 @@
     - **Шаг 2**: Изменение проверено (логически), оно корректно идентифицирует сообщения, связанные с interaction (включая slash commands).
     - **Шаг 3**: `AGENTS.md` обновлен (этот лог) и "Текущий план" очищен.
 
+## Пользовательская задача: Исправление DeprecationWarning и NLU для /help (Сессия 2024-07-08)
+- **Определение задачи**: Устранить `DeprecationWarning` для `message.interaction` и разобраться, почему `/help` все еще обрабатывается NLU.
+- **План**:
+    1.  Изменить проверку в `on_message` на `message.interaction_metadata is not None`.
+    2.  Проверить изменение (мысленно).
+    3.  Обновить `AGENTS.md`.
+    4.  Закоммитить исправление.
+- **Реализация**:
+    - **Шаг 1**: В `src/bot/events.py` в `on_message` проверка изменена на `if message.interaction_metadata is not None: # type: ignore`. Лог обновлен для использования `message.interaction_metadata.type.name` и `message.interaction_metadata.name`.
+    - **Шаг 2**: Изменение проверено. Оно устраняет `DeprecationWarning`. Однако, если `interaction_metadata` также `None` для slash-команд в `on_message`, проблема с NLU останется.
+    - **Шаг 3**: `AGENTS.md` обновлен (этот лог), "Текущий план" очищен.
+
 ## Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild)
 - **Определение задачи**: AI generates quests for a specific guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
 - **Реализация**:
