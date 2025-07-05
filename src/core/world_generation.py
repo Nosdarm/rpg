@@ -148,8 +148,8 @@ async def generate_location(
                 neighbor_identifier = neighbor_info.get("static_id_or_name")
                 conn_desc_i18n = neighbor_info.get("connection_description_i18n", {"en": "a path", "ru": "тропа"})
 
-                if not neighbor_identifier:
-                    logger.warning(f"Skipping potential neighbor for new loc {new_location_db.id} due to missing 'static_id_or_name': {neighbor_info}")
+                if not isinstance(neighbor_identifier, str) or not neighbor_identifier: # FIX: Stricter check
+                    logger.warning(f"Skipping potential neighbor for new loc {new_location_db.id} due to invalid or missing 'static_id_or_name': {neighbor_identifier} in {neighbor_info}")
                     continue
 
                 # Try to find the existing neighbor by static_id first, then by name (more complex, requires i18n name search)
@@ -250,7 +250,7 @@ async def generate_factions_and_relationships(
     guild_id: int,
     # context: Optional[Dict[str, Any]] = None, # If any specific context beyond guild_id is needed
     # trigger_event_id: Optional[int] = None # If this generation is tied to a specific event
-) -> Tuple[Optional[List[Location]], Optional[List[Location]], Optional[str]]: # TODO: Correct return types to Faction, Relationship
+) -> Tuple[Optional[List[GeneratedFaction]], Optional[List[Relationship]], Optional[str]]: # FIX: Corrected return types
     """
     Generates factions and their relationships for a guild using AI.
     Returns (created_factions_list, created_relationships_list, None) or (None, None, error_message).

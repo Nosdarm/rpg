@@ -81,15 +81,17 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         faction = await crud_faction.create(self.session, obj_in=faction_data)
         await self.session.commit()
 
+        self.assertIsNotNone(faction) # Ensure faction object exists
+        # Now that faction is not None, proceed with other assertions
         self.assertIsNotNone(faction.id)
         self.assertEqual(faction.guild_id, self.test_guild_id)
         self.assertEqual(faction.static_id, "test_faction_001")
         # name_i18n and description_i18n are non-nullable and default to {}
-        self.assertEqual(faction.name_i18n["en"], "Test Faction 1")
-        self.assertEqual(faction.description_i18n["ru"], "Описание для ТФ1")
+        self.assertEqual(faction.name_i18n["en"], "Test Faction 1") # name_i18n itself is not Optional
+        self.assertEqual(faction.description_i18n["ru"], "Описание для ТФ1") # description_i18n itself is not Optional
 
         # ideology_i18n, resources_json, ai_metadata_json are Optional[Dict]
-        if faction.ideology_i18n:
+        if faction.ideology_i18n: # This correctly guards access
             self.assertEqual(faction.ideology_i18n.get("en"), "Testology")
         else: # If the test data implies it should exist, this is an issue
             self.assertIsNotNone(faction.ideology_i18n, "ideology_i18n should exist based on input data")
@@ -283,14 +285,15 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         await self.session.commit()
         await self.session.refresh(updated_faction) # Refresh to get latest state from DB
 
+        self.assertIsNotNone(updated_faction) # Ensure updated_faction object exists
         # name_i18n and description_i18n are non-nullable
-        self.assertEqual(updated_faction.name_i18n["en"], "Updated Name")
+        self.assertEqual(updated_faction.name_i18n["en"], "Updated Name") # name_i18n not Optional
         self.assertEqual(updated_faction.name_i18n.get("ru"), "Обновленное Имя")
-        self.assertEqual(updated_faction.description_i18n["en"], "Updated Desc")
+        self.assertEqual(updated_faction.description_i18n["en"], "Updated Desc") # description_i18n not Optional
         self.assertIsNone(updated_faction.description_i18n.get("ru")) # ru key was not in update payload
 
         # ideology_i18n, resources_json are Optional[Dict]
-        if updated_faction.ideology_i18n:
+        if updated_faction.ideology_i18n: # Correctly guarded
             self.assertEqual(updated_faction.ideology_i18n.get("en"), "New Ideology")
         else:
             # This would be an error if ideology was expected from update_payload

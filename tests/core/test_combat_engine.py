@@ -67,7 +67,7 @@ def mock_combat_encounter(mock_player: Player, mock_npc: GeneratedNpc) -> Combat
         participants_json={
             "entities": [
                 {"id": mock_player.id, "type": "player", "current_hp": mock_player.current_hp, "team": "A", "name": mock_player.name, "base_entity_id": mock_player.id},
-                {"id": mock_npc.id, "type": "npc", "current_hp": mock_npc.properties_json["stats"]["current_hp"], "team": "B", "name": mock_npc.name_i18n.get("en"), "base_entity_id": mock_npc.id}
+                {"id": mock_npc.id, "type": "npc", "current_hp": mock_npc.properties_json.get("stats", {}).get("current_hp", 0) if mock_npc.properties_json else 0, "team": "B", "name": mock_npc.name_i18n.get("en"), "base_entity_id": mock_npc.id}
             ]
         },
         rules_config_snapshot_json={
@@ -217,8 +217,10 @@ async def test_process_combat_action_attack_hit(
     assert npc_data_after_attack is not None, "NPC data not found in participants_json after attack"
 
     expected_npc_hp = 0
-    if mock_npc.properties_json and "stats" in mock_npc.properties_json and isinstance(mock_npc.properties_json["stats"], dict) and "current_hp" in mock_npc.properties_json["stats"]:
-        expected_npc_hp = mock_npc.properties_json["stats"]["current_hp"] - (4 + 3)
+    npc_initial_props = mock_npc.properties_json if mock_npc.properties_json else {}
+    npc_initial_stats = npc_initial_props.get("stats", {}) if isinstance(npc_initial_props, dict) else {}
+    npc_initial_hp = npc_initial_stats.get("current_hp", 0) if isinstance(npc_initial_stats, dict) else 0
+    expected_npc_hp = npc_initial_hp - (4 + 3)
 
     if npc_data_after_attack: # Should be true due to assert above
         assert npc_data_after_attack.get("current_hp") == expected_npc_hp

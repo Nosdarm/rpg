@@ -84,7 +84,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         }.get(key, default)
         self.mock_get_entity_attribute.return_value = 3
         self.mock_roll_dice.return_value = (14, [14])
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
         self.assertEqual(result.outcome.status, "success")
         self.assertEqual(result.final_value, 17)
 
@@ -97,7 +97,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         }.get(key, DEFAULT_RULE_VALUES.get(key, default))
         self.mock_get_entity_attribute.return_value = 1
         self.mock_roll_dice.return_value = (10, [10])
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.npc_id, actor_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.npc_id, actor_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result.outcome.status, "failure")
         self.assertEqual(result.final_value, 11)
 
@@ -112,7 +112,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         }.get(key, default)
         self.mock_get_entity_attribute.return_value = 5
         self.mock_roll_dice.return_value = (20, [20])
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
         self.assertEqual(result.outcome.status, "critical_success")
 
     async def test_critical_failure(self):
@@ -126,7 +126,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         }.get(key, default)
         self.mock_get_entity_attribute.return_value = 5
         self.mock_roll_dice.return_value = (1, [1])
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, difficulty_dc=dc)
         self.assertEqual(result.outcome.status, "critical_failure")
 
     async def test_relationship_influence_roll_modifier_formula_positive(self):
@@ -141,7 +141,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (10, [10])
         mock_relationship = Relationship(entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id, entity2_type=RelationshipEntityType.GENERATED_NPC, entity2_id=self.npc_id, relationship_type="personal_feeling", value=50, guild_id=self.guild_id)
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result.total_modifier, 1 + 2)
         self.assertEqual(result.final_value, 13)
         self.assertEqual(result.outcome.status, "failure")
@@ -159,7 +159,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (10, [10])
         mock_relationship = Relationship(entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id, entity2_type=RelationshipEntityType.GENERATED_FACTION, entity2_id=1, relationship_type="faction_standing", value=70, guild_id=self.guild_id)
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=1, target_entity_type=RelationshipEntityType.GENERATED_FACTION, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=1, target_entity_type=RelationshipEntityType.GENERATED_FACTION, difficulty_dc=dc)
         self.assertEqual(result.total_modifier, 3)
         self.assertEqual(result.final_value, 13)
         self.assertEqual(result.outcome.status, "success")
@@ -176,10 +176,12 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (7, [7])
         mock_relationship = Relationship(relationship_type="trust_level", value=20, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.GENERATED_NPC)
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result.total_modifier, 3)
         self.assertEqual(result.outcome.status, "success")
-        self.assertIn("relationship_roll_modifier_error", result.rule_config_snapshot)
+        self.assertIsNotNone(result.rule_config_snapshot)
+        if result.rule_config_snapshot: # Guard for Pyright
+            self.assertIn("relationship_roll_modifier_error", result.rule_config_snapshot)
 
     async def test_hidden_relationship_roll_modifier_npc_hates_player(self):
         check_type = "intimidation"
@@ -193,7 +195,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (16, [16])
         mock_hidden_relationship = Relationship(entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER, relationship_type="secret_negative_to_entity", value=80, guild_id=self.guild_id)
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result.total_modifier, 2 - 8)
         self.assertEqual(result.final_value, 10)
         self.assertEqual(result.outcome.status, "failure")
@@ -210,7 +212,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (12, [12])
         mock_hidden_relationship = Relationship(entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER, relationship_type="secret_positive_to_entity", value=50, guild_id=self.guild_id)
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
-        result = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result.outcome.status, "success")
         self.assertEqual(result.total_modifier, 1 + 5)
         self.assertEqual(result.final_value, 18)
@@ -230,7 +232,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (11, [11])
         mock_hidden_relationship = Relationship(entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER, relationship_type="secret_generic_hidden_trait", value=50, guild_id=self.guild_id)
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
-        result_no_rule = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result_no_rule = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result_no_rule.total_modifier, 2)
         self.assertEqual(result_no_rule.final_value, 13)
         # Case 2: Rule exists but is disabled
@@ -242,7 +244,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
             }
             return rules.get(key, default)
         self.mock_get_rule.side_effect = side_effect_disabled_rule
-        result_disabled_rule = await resolve_check(db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
+        result_disabled_rule = await resolve_check(session=self.mock_db_session, guild_id=self.guild_id, check_type=check_type, actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, difficulty_dc=dc)
         self.assertEqual(result_disabled_rule.total_modifier, 2)
         self.assertEqual(result_disabled_rule.final_value, 13)
 

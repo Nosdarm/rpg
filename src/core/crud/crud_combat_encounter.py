@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Optional
+from typing import Optional, List # ADDED List
 
 from src.core.crud_base_definitions import CRUDBase
 from src.models.combat_encounter import CombatEncounter
@@ -10,28 +10,28 @@ from src.models.enums import CombatStatus # Added import for CombatStatus
 class CRUDCombatEncounter(CRUDBase[CombatEncounter]):
     # Specific methods for CombatEncounter can be added here if needed
     # For example, finding active encounters for a guild, etc.
-    async def get_active_for_guild(self, db: AsyncSession, *, guild_id: int) -> list[CombatEncounter]:
+    async def get_active_for_guild(self, session: AsyncSession, *, guild_id: int) -> List[CombatEncounter]: # FIX: db to session, list type hint
         """
         Retrieves all active combat encounters for a specific guild.
         (Example of a specific method, not strictly required by current combat_engine)
         """
         # Assuming CombatStatus has an 'ACTIVE' member or similar relevant statuses
         query = select(self.model).filter(self.model.guild_id == guild_id, self.model.status == CombatStatus.ACTIVE)
-        result = await db.execute(query)
-        return result.scalars().all()
+        result = await session.execute(query) # FIX: db to session
+        return list(result.scalars().all()) # FIX: Convert Sequence to list
         # return [] # Return empty list to satisfy type hint - Replaced with actual query
 
-    async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[CombatEncounter]:
+    async def get_by_id_and_guild(self, session: AsyncSession, *, id: int, guild_id: int) -> Optional[CombatEncounter]: # FIX: db to session
         """
         Retrieves a combat encounter by its ID and Guild ID.
         Ensures the encounter belongs to the specified guild.
         """
         query = select(self.model).filter(self.model.id == id, self.model.guild_id == guild_id)
-        result = await db.execute(query)
+        result = await session.execute(query) # FIX: db to session
         return result.scalars().first()
 
     async def get_active_combat_for_entity(
-        self, db: AsyncSession, *, guild_id: int, entity_id: int, entity_type: str
+        self, session: AsyncSession, *, guild_id: int, entity_id: int, entity_type: str # FIX: db to session
     ) -> Optional[CombatEncounter]:
         """
         Retrieves the active combat encounter for a specific entity in a guild.
@@ -58,8 +58,10 @@ class CRUDCombatEncounter(CRUDBase[CombatEncounter]):
             self.model.guild_id == guild_id,
             self.model.status == CombatStatus.ACTIVE
         )
-        result = await db.execute(stmt)
-        active_combats = result.scalars().all()
+        result = await session.execute(stmt) # FIX: db to session
+        active_combats_seq = result.scalars().all()
+        active_combats: List[CombatEncounter] = list(active_combats_seq)
+
 
         for combat in active_combats:
             if combat.participants_json and "entities" in combat.participants_json:

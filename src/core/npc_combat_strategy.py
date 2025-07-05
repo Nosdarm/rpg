@@ -7,7 +7,7 @@ from src.models.generated_npc import GeneratedNpc
 from src.models.relationship import Relationship # Added import
 from src.models.combat_encounter import CombatEncounter
 from src.models.player import Player
-from src.models.enums import CombatParticipantType as EntityType # Changed to CombatParticipantType
+from src.models.enums import CombatParticipantType as EntityType, RelationshipEntityType # FIX: Added RelationshipEntityType
 from src.core.crud import crud_npc, crud_combat_encounter, crud_player, crud_relationship
 from src.core.rules import get_rule
 
@@ -17,13 +17,13 @@ async def _get_npc_data(session: AsyncSession, npc_id: int, guild_id: int) -> Op
     """
     Loads NPC data from the database.
     """
-    return await crud_npc.npc_crud.get_by_id_and_guild(db=session, id=npc_id, guild_id=guild_id)
+    return await crud_npc.npc_crud.get_by_id_and_guild(session=session, id=npc_id, guild_id=guild_id) # FIX: db to session
 
 async def _get_combat_encounter_data(session: AsyncSession, combat_instance_id: int, guild_id: int) -> Optional[CombatEncounter]:
     """
     Loads Combat Encounter data from the database.
     """
-    return await crud_combat_encounter.combat_encounter_crud.get_by_id_and_guild(db=session, id=combat_instance_id, guild_id=guild_id)
+    return await crud_combat_encounter.combat_encounter_crud.get_by_id_and_guild(session=session, id=combat_instance_id, guild_id=guild_id) # FIX: db to session
 
 async def _get_participant_entity(session: AsyncSession, participant_info: Dict[str, Any], guild_id: int) -> Optional[Union[Player, GeneratedNpc]]:
     """
@@ -43,30 +43,31 @@ async def _get_participant_entity(session: AsyncSession, participant_info: Dict[
         return None # Unknown entity type
 
     if entity_type == EntityType.PLAYER:
-        return await crud_player.player_crud.get_by_id_and_guild(db=session, id=entity_id, guild_id=guild_id)
+        return await crud_player.player_crud.get_by_id_and_guild(session=session, id=entity_id, guild_id=guild_id) # FIX: db to session
     elif entity_type == EntityType.NPC:
-        return await crud_npc.npc_crud.get_by_id_and_guild(db=session, id=entity_id, guild_id=guild_id)
+        return await crud_npc.npc_crud.get_by_id_and_guild(session=session, id=entity_id, guild_id=guild_id) # FIX: db to session
 
     return None
 
 async def _get_relationship_value(
     session: AsyncSession,
     guild_id: int,
-    entity1_type: EntityType,
+    entity1_type: RelationshipEntityType, # FIX: Changed to RelationshipEntityType
     entity1_id: int,
-    entity2_type: EntityType,
+    entity2_type: RelationshipEntityType, # FIX: Changed to RelationshipEntityType
     entity2_id: int
 ) -> Optional[int]:
     """
     Retrieves the relationship value between two entities.
     Returns None if no relationship is found.
     """
+    # The crud_relationship.get_relationship_between_entities already expects RelationshipEntityType
     relationship = await crud_relationship.get_relationship_between_entities(
         session=session,
         guild_id=guild_id,
-        entity1_type=entity1_type,
+        entity1_type=entity1_type, # This is now correctly RelationshipEntityType
         entity1_id=entity1_id,
-        entity2_type=entity2_type,
+        entity2_type=entity2_type, # This is now correctly RelationshipEntityType
         entity2_id=entity2_id
     )
     return relationship.value if relationship else None
@@ -167,12 +168,12 @@ async def _get_npc_ai_rules(
 
             # Attempt to load rule by exact relationship type string
             rule_key_exact = f"hidden_relationship_effects:npc_combat:{rel.relationship_type}"
-            specific_hidden_rule = await get_rule(db=session, guild_id=guild_id, key=rule_key_exact, default=None)
+            specific_hidden_rule = await get_rule(session=session, guild_id=guild_id, key=rule_key_exact, default=None) # Already session
 
             # Attempt to load rule by base relationship type (e.g. "secret_positive_to_faction")
             # This allows generic rules for categories of hidden relationships.
             rule_key_generic = f"hidden_relationship_effects:npc_combat:{base_rel_type_for_rule}"
-            generic_hidden_rule = await get_rule(db=session, guild_id=guild_id, key=rule_key_generic, default=None)
+            generic_hidden_rule = await get_rule(session=session, guild_id=guild_id, key=rule_key_generic, default=None) # Already session
 
             chosen_rule_data = None
             # Prioritize specific rule if enabled, then generic if enabled
@@ -1164,7 +1165,7 @@ async def get_npc_combat_action(
         return {"action_type": "idle", "reason": "Actor is defeated."}
 
     actor_all_relationships = await crud_relationship.get_relationships_for_entity(
-        db=session,
+        session=session, # FIX: db to session
         guild_id=guild_id,
         entity_id=actor_npc.id,
         entity_type=RelationshipEntityType.GENERATED_NPC # Mapped from CombatParticipantType.NPC

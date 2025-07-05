@@ -379,7 +379,7 @@ async def resolve_check(
         entity_doing_check_type=actor_entity_type.value,
         target_entity_id=target_entity_id,
         target_entity_type=target_entity_type.value if target_entity_type else None,
-        difficulty_class=difficulty_dc,
+        difficulty_dc=difficulty_dc, # type: ignore # FIX: Changed difficulty_class to difficulty_dc
         dice_notation=dice_notation,
         raw_rolls=individual_rolls,
         roll_used=roll_used,

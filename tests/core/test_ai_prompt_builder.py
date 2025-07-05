@@ -307,20 +307,22 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
         # Find and check "secret_negative_to_faction:faction_evil"
         neg_rel_ctx = next((r for r in context_list_no_player if r["relationship_type"] == "secret_negative_to_faction:faction_evil"), None)
         self.assertIsNotNone(neg_rel_ctx)
-        self.assertEqual(neg_rel_ctx["value"], 90)
-        self.assertEqual(neg_rel_ctx["target_entity_id"], 5) # Faction ID
-        self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_FACTION.value)
-        # Description for "secret_negative_to_faction" is "secret_negative_to_faction" due to simple replace
-        self.assertIn("This NPC secretly despises the secret_negative_to_faction (value: 90).", neg_rel_ctx["prompt_hints"])
+        if neg_rel_ctx is not None: # Guard for Pyright
+            self.assertEqual(neg_rel_ctx["value"], 90)
+            self.assertEqual(neg_rel_ctx["target_entity_id"], 5) # Faction ID
+            self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_FACTION.value)
+            # Description for "secret_negative_to_faction" is "secret_negative_to_faction" due to simple replace
+            self.assertIn("This NPC secretly despises the secret_negative_to_faction (value: 90).", neg_rel_ctx["prompt_hints"])
 
         # Check "personal_debt_to_entity" - should have no hints as no rule was mocked for it
         debt_rel_ctx = next((r for r in context_list_no_player if r["relationship_type"] == "personal_debt_to_entity"), None)
         self.assertIsNotNone(debt_rel_ctx)
-        self.assertEqual(debt_rel_ctx["value"], 50)
-        self.assertEqual(debt_rel_ctx["target_entity_id"], 101) # NPC ID
-        self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_NPC.value)
-        self.assertEqual(debt_rel_ctx["prompt_hints"], "") # No rule, so no hints
-        self.assertEqual(debt_rel_ctx["unlocks_tags"], [])
+        if debt_rel_ctx is not None: # Guard for Pyright
+            self.assertEqual(debt_rel_ctx["value"], 50)
+            self.assertEqual(debt_rel_ctx["target_entity_id"], 101) # NPC ID
+            self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_NPC.value)
+            self.assertEqual(debt_rel_ctx["prompt_hints"], "") # No rule, so no hints
+            self.assertEqual(debt_rel_ctx["unlocks_tags"], [])
 
 
 if __name__ == "__main__":

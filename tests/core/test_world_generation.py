@@ -133,8 +133,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
     # For example, test_generate_new_location_via_ai_success would become:
     async def test_generate_new_location_via_ai_success(self): # Removed pytest fixtures
         guild_id = self.test_guild_id # Use instance guild_id
-        self.session_commit_mock.reset_mock() # Reset mock before action
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
         context_location_id = 10
 
         mock_parsed_location_data = ParsedLocationData(
@@ -193,21 +193,21 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
             # Assuming created_location_mock.id is safe if location_crud.create worked as expected.
             # And existing_neighbor_mock is also assumed to be valid for this test.
             if location: # Guard for mock_update_neighbors if it depends on location details not covered by created_location_mock
-                 mock_update_neighbors.assert_called_once_with(
+                 mock_update_neighbors.assert_called_once_with( # type: ignore
                      self.session, existing_neighbor_mock, created_location_mock.id, {"en": "a path", "ru": "тропа"}, add_connection=True
                  )
 
-            mock_log_event.assert_called_once()
-            # Assuming mock_log_event.call_args[1] is a dict after being called
-            self.assertEqual(mock_log_event.call_args[1]["event_type"], EventType.WORLD_EVENT_LOCATION_GENERATED.value)
-            self.assertEqual(mock_log_event.call_args[1]["details_json"]["location_id"], 100)
+            mock_log_event.assert_called_once() # type: ignore
+            # Assuming mock_log_event.call_args.kwargs is a dict after being called
+            self.assertEqual(mock_log_event.call_args.kwargs["event_type"], EventType.WORLD_EVENT_LOCATION_GENERATED.value)
+            self.assertEqual(mock_log_event.call_args.kwargs["details_json"]["location_id"], 100)
 
-            self.session_commit_mock.assert_called_once()
+            self.session_commit_mock.assert_called_once() # type: ignore
 
     async def test_generate_new_location_ai_validation_error(self): # Removed pytest fixtures
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
         validation_error = CustomValidationError(error_type="TestError", message="AI validation failed")
 
         with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
@@ -227,8 +227,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
     async def test_generate_new_location_no_location_data_in_response(self): # Removed pytest fixtures
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
         mock_parsed_ai_data_empty = ParsedAiData(generated_entities=[], raw_ai_output="mock raw output", parsing_metadata={})
 
         with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
@@ -256,9 +256,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertIsNotNone(loc1.neighbor_locations_json)
         if loc1.neighbor_locations_json: # Guard for Pyright
             self.assertEqual(len(loc1.neighbor_locations_json), 1)
-            self.assertEqual(loc1.neighbor_locations_json[0]["id"], neighbor_id)
-            self.assertEqual(loc1.neighbor_locations_json[0]["type_i18n"], conn_type)
-        self.session_flush_mock.assert_called_once_with([loc1])
+            self.assertEqual(loc1.neighbor_locations_json[0]["id"], neighbor_id) # type: ignore
+            self.assertEqual(loc1.neighbor_locations_json[0]["type_i18n"], conn_type) # type: ignore
+        self.session_flush_mock.assert_called_once_with([loc1]) # type: ignore
 
 
     async def test_update_location_neighbors_remove_connection(self): # Removed pytest fixtures
@@ -274,8 +274,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertIsNotNone(loc1.neighbor_locations_json)
         if loc1.neighbor_locations_json: # Guard for Pyright
             self.assertEqual(len(loc1.neighbor_locations_json), 1)
-            self.assertEqual(loc1.neighbor_locations_json[0]["id"], 3)
-        self.session_flush_mock.assert_called_once_with([loc1])
+            self.assertEqual(loc1.neighbor_locations_json[0]["id"], 3) # type: ignore
+        self.session_flush_mock.assert_called_once_with([loc1]) # type: ignore
 
 
     async def test_update_location_neighbors_add_existing_does_not_duplicate(self): # Removed pytest fixtures
@@ -289,14 +289,14 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertIsNotNone(loc1.neighbor_locations_json)
         if loc1.neighbor_locations_json: # Guard for Pyright
             self.assertEqual(len(loc1.neighbor_locations_json), 1)
-            self.assertEqual(loc1.neighbor_locations_json[0]["id"], existing_neighbor_id)
-        self.session_flush_mock.assert_called_once_with([loc1])
+            self.assertEqual(loc1.neighbor_locations_json[0]["id"], existing_neighbor_id) # type: ignore
+        self.session_flush_mock.assert_called_once_with([loc1]) # type: ignore
 
 
     async def test_generate_new_location_potential_neighbor_not_found(self): # Removed pytest fixtures
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
         mock_parsed_location_data = ParsedLocationData(
             entity_type="location",
             name_i18n={"en": "Test Loc"}, descriptions_i18n={"en": "Desc"}, location_type="PLAINS",
@@ -323,8 +323,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
                 self.assertEqual(location.id, 101)
                 self.assertFalse(location.neighbor_locations_json)
 
-            mock_update_neighbors.assert_not_called()
-            self.session_commit_mock.assert_called_once()
+            mock_update_neighbors.assert_not_called() # type: ignore
+            self.session_commit_mock.assert_called_once() # type: ignore
 
     # New tests for generate_factions_and_relationships will be added here...
 
@@ -339,8 +339,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
 
         # 1. Setup Mocks
         mock_prepare_prompt.return_value = "faction_rel_prompt"
@@ -429,7 +429,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(call_args_f2['name_i18n']['en'], "Faction Two")
 
         # Check relationship creation
-        mock_crud_relationship_instance.create.assert_called_once()
+        mock_crud_relationship_instance.create.assert_called_once() # type: ignore
         call_args_rel = mock_crud_relationship_instance.create.call_args[1]['obj_in']
         self.assertEqual(call_args_rel['guild_id'], guild_id)
         self.assertEqual(call_args_rel['entity1_id'], created_faction1_db.id) # Check correct DB ID mapping
@@ -440,16 +440,16 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(call_args_rel['value'], 75)
 
         # Check log_event call
-        mock_log_event.assert_called_once()
-        log_args = mock_log_event.call_args[1]
+        mock_log_event.assert_called_once() # type: ignore
+        log_args = mock_log_event.call_args.kwargs
         self.assertEqual(log_args['guild_id'], guild_id)
         self.assertEqual(log_args['event_type'], EventType.WORLD_EVENT_FACTIONS_GENERATED.value)
         self.assertEqual(log_args['details_json']['generated_factions_count'], 2)
         self.assertEqual(log_args['details_json']['generated_relationships_count'], 1)
-        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids'])
-        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids'])
+        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids']) # This should be fine if faction_ids is a list
+        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids']) # And this too
 
-        self.session_commit_mock.assert_called_once()
+        self.session_commit_mock.assert_called_once() # type: ignore
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
@@ -462,8 +462,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
 
         # 1. Setup Mocks
         mock_prepare_prompt.return_value = "faction_rel_prompt"
@@ -512,8 +512,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock()
-        self.session_rollback_mock.reset_mock()
+        self.session_commit_mock.reset_mock() # type: ignore
+        self.session_rollback_mock.reset_mock() # type: ignore
         existing_static_id = "existing_fac_sid"
 
         # 1. Setup: Mock an existing faction in DB
@@ -599,8 +599,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(call_args_rel['entity2_id'], new_faction_db.id)
         self.assertEqual(call_args_rel['relationship_type'], "neutral_standing")
 
-        mock_log_event.assert_called_once()
-        self.session_commit_mock.assert_called_once()
+        mock_log_event.assert_called_once() # type: ignore
+        self.session_commit_mock.assert_called_once() # type: ignore
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ def _create_mock_npc(npc_id: int, guild_id: int, hp: int = 80, mana: int = 30, s
         "stats": {"hp": hp, "mana": mana, "status": status},
     }
     # Make current_location_id accessible for _get_entity if it needs it from the top level of the object
-    setattr(npc, 'current_location_id', npc.properties_json.get("current_location_id", 1)) # Default to 1 if not in json
+    setattr(npc, 'current_location_id', npc.properties_json.get("current_location_id", 1)) # type: ignore # Default to 1 if not in json
     return npc
 
 def _create_mock_ability(ability_id: int, static_id: str, guild_id: Optional[int] = None, cost: Optional[dict] = None, effects: Optional[list] = None) -> Ability:
@@ -211,10 +211,10 @@ async def test_apply_status_new_status(mock_session_no_existing_status: AsyncSes
                                    RelationshipEntityType.PLAYER.value, status_static_id_val,
                                    duration=3, source_ability_id=ab_id)
         assert success is True
-        mock_session_no_existing_status.add.assert_called_once()
-        added_obj = mock_session_no_existing_status.add.call_args[0][0]
-        assert isinstance(added_obj, ActiveStatusEffect)
-        mock_log_event.assert_called_once()
+        mock_session_no_existing_status.add.assert_called_once() # type: ignore
+        added_obj = mock_session_no_existing_status.add.call_args[0][0] # type: ignore
+        assert isinstance(added_obj, ActiveStatusEffect) # type: ignore
+        mock_log_event.assert_called_once() # type: ignore
 
 @pytest.mark.asyncio
 async def test_apply_status_refresh_duration(mock_session_with_existing_status_factory: callable):
@@ -240,10 +240,10 @@ async def test_apply_status_refresh_duration(mock_session_with_existing_status_f
         success = await apply_status(mock_session, guild_id, target_id, RelationshipEntityType.PLAYER.value,
                                    status_static_id_val, duration=5, source_ability_id=ab_id)
         assert success is True
-        mock_session.add.assert_called_once_with(existing_active)
+        mock_session.add.assert_called_once_with(existing_active) # type: ignore
         assert existing_active.applied_at == fixed_now
-        mock_log_event.assert_called_once()
-        mock_sqlalchemy_func_now.assert_called()
+        mock_log_event.assert_called_once() # type: ignore
+        mock_sqlalchemy_func_now.assert_called() # type: ignore
 
 @pytest.mark.asyncio
 async def test_remove_status_success(mock_session_no_existing_status: AsyncSession):
@@ -267,8 +267,8 @@ async def test_remove_status_success(mock_session_no_existing_status: AsyncSessi
 
         success = await remove_status(mock_session_no_existing_status, guild_id, active_status_id_val)
         assert success is True
-        mock_session_no_existing_status.delete.assert_called_once_with(active_status_to_remove)
-        mock_log_event.assert_called_once()
+        mock_session_no_existing_status.delete.assert_called_once_with(active_status_to_remove) # type: ignore
+        mock_log_event.assert_called_once() # type: ignore
 
 # (Many TODOs from previous block still apply and will be implemented incrementally)
 # ...

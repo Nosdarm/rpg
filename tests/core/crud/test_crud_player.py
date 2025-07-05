@@ -165,7 +165,8 @@ class TestCRUDPlayer(unittest.IsolatedAsyncioTestCase):
 
         found_player = await player_crud.get_by_discord_id(self.session, guild_id=self.test_guild_id, discord_id=202)
         self.assertIsNotNone(found_player)
-        self.assertEqual(found_player.name, "Discord Player")
+        if found_player: # Guard for Pyright
+            self.assertEqual(found_player.name, "Discord Player")
 
         not_found_player = await player_crud.get_by_discord_id(self.session, guild_id=self.test_guild_id, discord_id=999)
         self.assertIsNone(not_found_player)
@@ -250,7 +251,8 @@ class TestCRUDPlayer(unittest.IsolatedAsyncioTestCase):
 
         found_player = await player_crud.get_by_id_and_guild(self.session, id=player_id, guild_id=self.test_guild_id)
         self.assertIsNotNone(found_player)
-        self.assertEqual(found_player.name, "GetMeGuild")
+        if found_player: # Guard for Pyright
+            self.assertEqual(found_player.name, "GetMeGuild")
 
         wrong_guild_player = await player_crud.get_by_id_and_guild(self.session, id=player_id, guild_id=self.other_guild_id)
         self.assertIsNone(wrong_guild_player)

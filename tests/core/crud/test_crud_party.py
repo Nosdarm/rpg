@@ -134,7 +134,8 @@ class TestCRUDParty(unittest.IsolatedAsyncioTestCase):
 
         found_party = await party_crud.get_by_name(self.session, guild_id=self.test_guild_id, name="NamedParty")
         self.assertIsNotNone(found_party)
-        self.assertEqual(found_party.name, "NamedParty")
+        if found_party: # Guard for Pyright
+            self.assertEqual(found_party.name, "NamedParty")
 
         not_found_party = await party_crud.get_by_name(self.session, guild_id=self.test_guild_id, name="NonExistentParty")
         self.assertIsNone(not_found_party)

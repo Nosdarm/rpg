@@ -30,7 +30,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
         player_name: str = interaction.user.display_name or interaction.user.name or "Adventurer"
         player_locale = str(interaction.locale) if interaction.locale else 'en'
 
-        existing_player = await player_crud.get_by_discord_id(db=session, guild_id=guild_id, discord_id=discord_id)
+        existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id) # FIX: db to session
 
         if existing_player:
             await interaction.response.send_message(
@@ -45,7 +45,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
             first_default_loc_static_id_optional: Optional[Any] = DEFAULT_STATIC_LOCATIONS[0].get("static_id")
             if isinstance(first_default_loc_static_id_optional, str) and first_default_loc_static_id_optional:
                 first_default_loc_static_id: str = first_default_loc_static_id_optional # Now clearly a string
-                start_loc = await location_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=first_default_loc_static_id)
+                start_loc = await location_crud.get_by_static_id(session=session, guild_id=guild_id, static_id=first_default_loc_static_id) # FIX: db to session
                 if start_loc:
                     starting_location_id = start_loc.id
                     loc_name_i18n = start_loc.name_i18n or {} # Location.name_i18n defaults to {}
@@ -61,7 +61,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
         try:
             new_player = await player_crud.create_with_defaults(
-                db=session,
+                session=session, # FIX: db to session
                 guild_id=guild_id,
                 discord_id=discord_id,
                 name=player_name,
@@ -88,7 +88,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
             await interaction.response.send_message("Эту команду можно использовать только на сервере.", ephemeral=True)
             return
         # session будет автоматически передана _start_command_internal декоратором @transactional
-        await self._start_command_internal(interaction)
+        await self._start_command_internal(interaction) # type: ignore
 
     @app_commands.command(name="ping", description="Проверяет задержку ответа бота.")
     async def ping_command(self, interaction: discord.Interaction):
