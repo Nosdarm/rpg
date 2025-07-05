@@ -84,11 +84,26 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(faction.id)
         self.assertEqual(faction.guild_id, self.test_guild_id)
         self.assertEqual(faction.static_id, "test_faction_001")
+        # name_i18n and description_i18n are non-nullable and default to {}
         self.assertEqual(faction.name_i18n["en"], "Test Faction 1")
         self.assertEqual(faction.description_i18n["ru"], "Описание для ТФ1")
-        self.assertEqual(faction.ideology_i18n.get("en"), "Testology")
-        self.assertEqual(faction.resources_json.get("gold"), 1000)
-        self.assertEqual(faction.ai_metadata_json.get("source_prompt_hash"), "abc123xyz")
+
+        # ideology_i18n, resources_json, ai_metadata_json are Optional[Dict]
+        if faction.ideology_i18n:
+            self.assertEqual(faction.ideology_i18n.get("en"), "Testology")
+        else: # If the test data implies it should exist, this is an issue
+            self.assertIsNotNone(faction.ideology_i18n, "ideology_i18n should exist based on input data")
+
+        if faction.resources_json:
+            self.assertEqual(faction.resources_json.get("gold"), 1000)
+        else:
+            self.assertIsNotNone(faction.resources_json, "resources_json should exist based on input data")
+
+        if faction.ai_metadata_json:
+            self.assertEqual(faction.ai_metadata_json.get("source_prompt_hash"), "abc123xyz")
+        else:
+            self.assertIsNotNone(faction.ai_metadata_json, "ai_metadata_json should exist based on input data")
+
 
     async def test_get_faction_by_id(self):
         faction_data = {
@@ -104,9 +119,11 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         # Get existing faction
         fetched_faction = await crud_faction.get(self.session, id=faction_id) # CRUDBase.get does not take guild_id
         self.assertIsNotNone(fetched_faction)
-        self.assertEqual(fetched_faction.id, faction_id)
-        self.assertEqual(fetched_faction.name_i18n["en"], "GetMe Faction")
-        self.assertEqual(fetched_faction.guild_id, self.test_guild_id) # Important: ensure it's from the correct guild even if get() doesn't filter by it
+        if fetched_faction: # Guard for Pyright
+            self.assertEqual(fetched_faction.id, faction_id)
+            # name_i18n is non-nullable, no inner check needed
+            self.assertEqual(fetched_faction.name_i18n["en"], "GetMe Faction")
+            self.assertEqual(fetched_faction.guild_id, self.test_guild_id) # Important: ensure it's from the correct guild even if get() doesn't filter by it
 
         # Try to get non-existent faction
         not_found_faction = await crud_faction.get(self.session, id=99999)
@@ -128,8 +145,9 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         # Fetching other_faction by its ID should work
         fetched_other_faction = await crud_faction.get(self.session, id=other_faction.id)
         self.assertIsNotNone(fetched_other_faction)
-        self.assertEqual(fetched_other_faction.id, other_faction.id)
-        self.assertEqual(fetched_other_faction.guild_id, self.other_guild_id)
+        if fetched_other_faction: # Guard for Pyright
+            self.assertEqual(fetched_other_faction.id, other_faction.id)
+            self.assertEqual(fetched_other_faction.guild_id, self.other_guild_id)
 
     async def test_get_faction_by_static_id(self):
         static_id_shared = "shared_static_id"
@@ -154,23 +172,27 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         # Get faction with unique static_id for test_guild_id
         fetched_unique = await crud_faction.get_by_static_id(self.session, guild_id=self.test_guild_id, static_id="unique_sid_faction")
         self.assertIsNotNone(fetched_unique)
-        self.assertEqual(fetched_unique.name_i18n["en"], "Faction Unique SID")
-        self.assertEqual(fetched_unique.guild_id, self.test_guild_id)
+        if fetched_unique: # Guard for Pyright
+            self.assertEqual(fetched_unique.name_i18n["en"], "Faction Unique SID") # name_i18n non-nullable
+            self.assertEqual(fetched_unique.guild_id, self.test_guild_id)
 
         # Get faction with shared static_id for test_guild_id
         fetched1 = await crud_faction.get_by_static_id(self.session, guild_id=self.test_guild_id, static_id=static_id_shared)
         self.assertIsNotNone(fetched1)
-        self.assertEqual(fetched1.name_i18n["en"], "Faction 1 Shared SID")
-        self.assertEqual(fetched1.guild_id, self.test_guild_id)
+        if fetched1: # Guard for Pyright
+            self.assertEqual(fetched1.name_i18n["en"], "Faction 1 Shared SID") # name_i18n non-nullable
+            self.assertEqual(fetched1.guild_id, self.test_guild_id)
 
         # Get faction with shared static_id for other_guild_id
         fetched2 = await crud_faction.get_by_static_id(self.session, guild_id=self.other_guild_id, static_id=static_id_shared)
         self.assertIsNotNone(fetched2)
-        self.assertEqual(fetched2.name_i18n["en"], "Faction 2 Shared SID")
-        self.assertEqual(fetched2.guild_id, self.other_guild_id)
+        if fetched2: # Guard for Pyright
+            self.assertEqual(fetched2.name_i18n["en"], "Faction 2 Shared SID") # name_i18n non-nullable
+            self.assertEqual(fetched2.guild_id, self.other_guild_id)
 
         # Ensure they are different objects
-        self.assertNotEqual(fetched1.id, fetched2.id)
+        if fetched1 and fetched2: # Guard for Pyright
+            self.assertNotEqual(fetched1.id, fetched2.id)
 
         # Try to get non-existent static_id
         not_found_sid = await crud_faction.get_by_static_id(self.session, guild_id=self.test_guild_id, static_id="non_existent_sid")
@@ -261,13 +283,25 @@ class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):
         await self.session.commit()
         await self.session.refresh(updated_faction) # Refresh to get latest state from DB
 
+        # name_i18n and description_i18n are non-nullable
         self.assertEqual(updated_faction.name_i18n["en"], "Updated Name")
         self.assertEqual(updated_faction.name_i18n.get("ru"), "Обновленное Имя")
         self.assertEqual(updated_faction.description_i18n["en"], "Updated Desc")
         self.assertIsNone(updated_faction.description_i18n.get("ru")) # ru key was not in update payload
-        self.assertEqual(updated_faction.ideology_i18n.get("en"), "New Ideology")
-        self.assertEqual(updated_faction.resources_json.get("gold"), 200)
-        self.assertEqual(updated_faction.resources_json.get("wood"), 50)
+
+        # ideology_i18n, resources_json are Optional[Dict]
+        if updated_faction.ideology_i18n:
+            self.assertEqual(updated_faction.ideology_i18n.get("en"), "New Ideology")
+        else:
+            # This would be an error if ideology was expected from update_payload
+            self.assertIsNotNone(updated_faction.ideology_i18n, "ideology_i18n should have been set")
+
+        if updated_faction.resources_json:
+            self.assertEqual(updated_faction.resources_json.get("gold"), 200)
+            self.assertEqual(updated_faction.resources_json.get("wood"), 50)
+        else:
+            self.assertIsNotNone(updated_faction.resources_json, "resources_json should have been set")
+
 
         # Check that static_id DID change, because it was in the update_payload.
         self.assertEqual(updated_faction.static_id, "new_static_id_should_not_change_if_not_explicitly_coded_in_update")

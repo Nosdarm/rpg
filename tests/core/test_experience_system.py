@@ -1,7 +1,8 @@
 import sys
 import os
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock # Added MagicMock for casting
+from typing import cast # Added cast
 
 # Add the project root to sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -117,8 +118,8 @@ async def test_award_xp_single_player_no_levelup(
         },
         entity_ids_json={"player_id": updated_player.id}
     )
-    mock_session_fixture.commit.assert_called_once()
-    mock_session_fixture.refresh.assert_called_once_with(updated_player)
+    cast(AsyncMock, mock_session_fixture.commit).assert_called_once()
+    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player)
 
 
 @pytest.mark.asyncio
@@ -151,8 +152,8 @@ async def test_award_xp_single_player_level_up(
         assert updated_player.level == 2
         assert updated_player.unspent_xp == mock_level_up_rewards_rules_fixture["2"]["attribute_points"]
 
-        assert mock_log_event.call_count == 2
-        mock_log_event.assert_any_call(
+    assert cast(AsyncMock, mock_log_event).call_count == 2
+    cast(AsyncMock, mock_log_event).assert_any_call(
             session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.XP_GAINED.name, # .name
             details_json={
                 "player_id": updated_player.id, "player_name": updated_player.name,
@@ -161,7 +162,7 @@ async def test_award_xp_single_player_level_up(
             },
             entity_ids_json={"player_id": updated_player.id}
         )
-        mock_log_event.assert_any_call(
+    cast(AsyncMock, mock_log_event).assert_any_call(
             session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.LEVEL_UP.name, # .name
             details_json={
                 "player_id": updated_player.id, "player_name": updated_player.name,
@@ -170,8 +171,8 @@ async def test_award_xp_single_player_level_up(
             },
             entity_ids_json={"player_id": updated_player.id}
         )
-        mock_session_fixture.commit.assert_called_once()
-        mock_session_fixture.refresh.assert_called_once_with(updated_player)
+    cast(AsyncMock, mock_session_fixture.commit).assert_called_once()
+    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player)
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -220,8 +221,8 @@ async def test_award_xp_party_equal_split_no_levelup(
     assert player2_updated.unspent_xp == mock_level_up_rewards_rules_fixture["2"]["attribute_points"]
 
     # Ожидаем 3 лога: XP_GAINED для player1, XP_GAINED для player2, LEVEL_UP для player2
-    assert mock_log_event.call_count == 3
-    mock_log_event.assert_any_call(
+    assert cast(AsyncMock, mock_log_event).call_count == 3
+    cast(AsyncMock, mock_log_event).assert_any_call(
         session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.XP_GAINED.name,
         details_json={
             "player_id": player1_updated.id, "player_name": player1_updated.name,
@@ -230,7 +231,7 @@ async def test_award_xp_party_equal_split_no_levelup(
         },
         entity_ids_json={"player_id": player1_updated.id}
     )
-    mock_log_event.assert_any_call(
+    cast(AsyncMock, mock_log_event).assert_any_call(
         session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.XP_GAINED.name, # .name
         details_json={
             "player_id": player2_updated.id, "player_name": player2_updated.name,
@@ -239,7 +240,7 @@ async def test_award_xp_party_equal_split_no_levelup(
         },
         entity_ids_json={"player_id": player2_updated.id}
     )
-    mock_log_event.assert_any_call(
+    cast(AsyncMock, mock_log_event).assert_any_call(
         session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.LEVEL_UP.name, # .name
         details_json={
             "player_id": player2_updated.id, "player_name": player2_updated.name,
@@ -249,10 +250,10 @@ async def test_award_xp_party_equal_split_no_levelup(
         entity_ids_json={"player_id": player2_updated.id}
     )
 
-    assert mock_session_fixture.commit.call_count == 1
-    assert mock_session_fixture.refresh.call_count == 2
-    mock_session_fixture.refresh.assert_any_call(player1_updated)
-    mock_session_fixture.refresh.assert_any_call(player2_updated)
+    assert cast(AsyncMock, mock_session_fixture.commit).call_count == 1
+    assert cast(AsyncMock, mock_session_fixture.refresh).call_count == 2
+    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player1_updated)
+    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player2_updated)
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
@@ -277,8 +278,8 @@ async def test_check_for_level_up_multiple_levels(
     assert player_fixture.unspent_xp == mock_level_up_rewards_rules_fixture["2"]["attribute_points"] + \
                                      mock_level_up_rewards_rules_fixture["3"]["attribute_points"]
 
-    assert mock_log_event.call_count == 2
-    mock_log_event.assert_any_call(
+    assert cast(AsyncMock, mock_log_event).call_count == 2
+    cast(AsyncMock, mock_log_event).assert_any_call(
         session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.LEVEL_UP.name, # .name
         details_json={
             "player_id": player_fixture.id, "player_name": player_fixture.name,
@@ -287,7 +288,7 @@ async def test_check_for_level_up_multiple_levels(
         },
         entity_ids_json={"player_id": player_fixture.id}
     )
-    mock_log_event.assert_any_call(
+    cast(AsyncMock, mock_log_event).assert_any_call(
         session=mock_session_fixture, guild_id=guild_id_fixture, event_type=EventType.LEVEL_UP.name, # .name
         details_json={
             "player_id": player_fixture.id, "player_name": player_fixture.name,
@@ -296,8 +297,8 @@ async def test_check_for_level_up_multiple_levels(
         },
         entity_ids_json={"player_id": player_fixture.id}
     )
-    mock_session_fixture.commit.assert_not_called()
-    mock_session_fixture.refresh.assert_not_called()
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
+    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called()
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
@@ -344,9 +345,9 @@ async def test_award_xp_player_not_found(
         mock_session_fixture, guild_id_fixture, 999, RelationshipEntityType.PLAYER, 100, EventType.SYSTEM_EVENT # Используем SYSTEM_EVENT
     )
     assert len(updated_players) == 0
-    mock_log_event.assert_not_called()
-    mock_get_rule.assert_not_called()
-    mock_session_fixture.commit.assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called()
+    cast(AsyncMock, mock_get_rule).assert_not_called() # mock_get_rule is also an AsyncMock
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -373,9 +374,9 @@ async def test_award_xp_party_not_found_or_empty(
     )
     assert len(updated_players) == 0
 
-    mock_log_event.assert_not_called()
-    mock_get_rule.assert_not_called()
-    mock_session_fixture.commit.assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called()
+    cast(AsyncMock, mock_get_rule).assert_not_called() # mock_get_rule is also an AsyncMock
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
@@ -400,7 +401,7 @@ async def test_check_for_level_up_max_level_reached(
     assert level_up_achieved is False
     assert player_fixture.level == 5
     assert player_fixture.xp == 500
-    mock_log_event.assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called()
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -423,14 +424,14 @@ async def test_award_xp_party_xp_per_player_becomes_zero(
     )
 
     assert len(updated_players) == 0
-    assert mock_log_event.call_count == 0
+    assert cast(AsyncMock, mock_log_event).call_count == 0
 
     player1 = next(p for p in party_fixture.players if p.id == 1)
     player2 = next(p for p in party_fixture.players if p.id == 2)
     assert player1.xp == 0
     assert player2.xp == 50
 
-    mock_session_fixture.commit.assert_not_called()
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
 
 
 # --- Тесты для spend_attribute_points ---
@@ -491,8 +492,8 @@ async def test_spend_attribute_points_success(
         entity_ids_json={"player_id": player_fixture.id}
     )
     # session.commit() и session.refresh() не должны вызываться внутри spend_attribute_points
-    mock_session_fixture.commit.assert_not_called()
-    mock_session_fixture.refresh.assert_not_called()
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
+    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called()
 
 
 @pytest.mark.asyncio
