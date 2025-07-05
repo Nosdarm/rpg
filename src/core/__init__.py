@@ -59,11 +59,13 @@ from . import combat_cycle_manager # Import the new combat_cycle_manager module
 from .combat_cycle_manager import start_combat, process_combat_turn # Import the main function for Task 29
 from . import experience_system # Import the new experience_system module
 from .experience_system import award_xp, spend_attribute_points # Import functions for Task 31 & 32
+from . import relationship_system # Import the new relationship_system module
+from .relationship_system import update_relationship # Import the main function
 from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager, experience_system.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager, experience_system, relationship_system.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -129,4 +131,6 @@ __all__ = [
     "experience_system", # Added
     "award_xp", # Added
     "spend_attribute_points", # Added for Task 32
+    "relationship_system", # Added for Task 36
+    "update_relationship", # Added for Task 36
 ]

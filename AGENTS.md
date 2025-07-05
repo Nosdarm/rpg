@@ -56,6 +56,38 @@
 
 ## Лог действий
 
+## Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped)
+- **Определение задачи**: Implement logic for updating numerical relationship values in response to game events based on Master-configurable rules.
+- **Реализация**:
+    - **Шаг 1: Создание модуля `src/core/relationship_system.py`**:
+        - Создан файл `src/core/relationship_system.py` с базовыми импортами (`AsyncSession`, `Relationship`, `RelationshipEntityType`, `EventType`, `crud_relationship`, `get_rule`, `log_event`) и заглушками для функций `update_relationship` и `_get_canonical_entity_pair`.
+    - **Шаг 2: Реализация API `update_relationship` и `_get_canonical_entity_pair`**:
+        - В `src/core/relationship_system.py` реализована функция `_get_canonical_entity_pair` для упорядочивания пары сущностей (сначала по `entity_type.value`, затем по `entity_id`).
+        - Реализована основная функция `update_relationship`:
+            - Использует `_get_canonical_entity_pair`.
+            - Загружает правила из `RuleConfig` по ключу вида `relationship_rules:{EVENT_TYPE}`.
+            - Обрабатывает случаи отсутствия или некорректной структуры правила.
+            - Определяет `delta`, `min_val`, `max_val`, `relationship_type` из правила.
+            - Использует `crud_relationship.get_relationship_between_entities` для поиска существующей записи.
+            - Вычисляет новое значение `value`, применяя `delta` и ограничения `min_val`/`max_val`.
+            - Если запись существует, обновляет `value` и `source_log_id` через `crud_relationship.update`.
+            - Если запись не существует, создает новую `Relationship` напрямую (используя `Relationship(**data)`) и добавляет в сессию (`session.add`, `session.flush`, `session.refresh`).
+            - Логирует событие `EventType.RELATIONSHIP_CHANGE` через `game_events.log_event` с детальной информацией.
+    - **Шаг 3: Экспорт `update_relationship`**:
+        - Модуль `relationship_system` и функция `update_relationship` добавлены в импорты и список `__all__` в `src/core/__init__.py`. Обновлено информационное сообщение логгера в `src/core/__init__.py`.
+    - **Шаг 4: Написание Unit-тестов для `relationship_system.py`**:
+        - Создан файл `tests/core/test_relationship_system.py`.
+        - Добавлены параметризованные тесты для `_get_canonical_entity_pair`.
+        - Добавлены тесты для `update_relationship`, покрывающие:
+            - Обновление существующего отношения.
+            - Создание нового отношения.
+            - Отсутствие правила в `RuleConfig`.
+            - Некорректную структуру правила.
+            - Ограничение значения (`clamping`) по `min_val`/`max_val`.
+            - Отсутствие изменений, если значение и `source_log_id` не меняются (уточнено: если дельта 0 и `source_log_id` тот же).
+            - Обработку ошибок CRUD с проверкой отката сессии.
+        - Использованы моки для `AsyncSession`, `crud_relationship`, `get_rule`, `log_event`.
+
 ## Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild)
 - **Определение задачи**: AI генерирует фракции и их отношения для гильдии согласно правилам. Вызывается из Task 10 (Generation Cycle). Результат сохраняется в моделях `GeneratedFaction` и `Relationship`.
 - **Реализация**:

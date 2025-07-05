@@ -90,12 +90,7 @@ This block presents tasks related to factions, relationships between entities, a
 
 {Task 34: 🎭 8.2 Relationships Model (Guild-Scoped). - Moved to Done.txt}
 {Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild). - Moved to Done.txt}
-
-Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped).
-Description: Implement logic for updating numerical relationship values in response to game events based on Master-configurable rules. (Moved from 8.3).
-API update_relationship(guild_id: int, entity_doing_id, entity_doing_type, target_entity_id, target_entity_type, event_type: str, event_details_log_id: int). Accepts guild_id. Called by other modules upon events that change relationships (combat 27, quest 39, dialogue 46, trade 42, world event 44/40).
-Uses rules FROM rules_config (13/0.3) FOR THIS GUILD to find relationship change rules by event_type. Determines which relationship changes (Player vs Entity or Party vs Entity), by what amount (formula from RuleConfig).
-Finds/creates a Relationship record (34) WITHIN THIS GUILD. Updates the value. Logs (19) WITH THIS guild_id.
+{Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped). - Moved to Done.txt}
 
 Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n).
 Description: Implement the use of relationship values from the DB (34) as parameters or conditions in various game mechanics according to game rules. (Moved from 8.5).
