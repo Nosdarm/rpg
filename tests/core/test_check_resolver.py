@@ -20,8 +20,6 @@ from src.core.check_resolver import (
     CheckResult,
     CheckOutcome,
     ModifierDetail,
-    ENTITY_TYPE_PLAYER,
-    ENTITY_TYPE_NPC,
     CheckError
 )
 from src.models.relationship import Relationship, RelationshipEntityType # Added
@@ -352,7 +350,7 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         # Mock relationship
         mock_relationship = Relationship(
             entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id,
-            entity2_type=RelationshipEntityType.NPC, entity2_id=self.npc_id,
+            entity2_type=RelationshipEntityType.GENERATED_NPC, entity2_id=self.npc_id,
             relationship_type="personal_feeling", value=50, guild_id=self.guild_id
         )
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
@@ -570,10 +568,10 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         )
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
 
-        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed args
-            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id:
+        def mock_load_entity(db_session_arg, *, entity_type_str, entity_id, guild_id): # Match signature
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id == self.player_id:
                 return self.mock_player
-            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id:
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id == self.npc_id:
                 return self.mock_npc
             return None
         self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
@@ -624,10 +622,10 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         )
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
 
-        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed
-            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id:
+        def mock_load_entity(db_session_arg, *, entity_type_str, entity_id, guild_id): # Match signature
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id == self.player_id:
                 return self.mock_player
-            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id:
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id == self.npc_id:
                 return self.mock_npc
             return None
         self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
@@ -674,9 +672,9 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         )
         self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
 
-        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed
-            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id: return self.mock_player
-            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id: return self.mock_npc
+        def mock_load_entity(db_session_arg, *, entity_type_str, entity_id, guild_id): # Match signature
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id == self.player_id: return self.mock_player
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id == self.npc_id: return self.mock_npc
             return None
         self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
 

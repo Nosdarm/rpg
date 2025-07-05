@@ -23,7 +23,7 @@ from .crud import ( # These should come from src.core.crud (meaning src.core.cru
     # skill_crud # To be created
 )
 # Import get_all_rules_for_guild instead of the raw rule_config_crud for this purpose
-from .rules import get_all_rules_for_guild
+from .rules import get_all_rules_for_guild, get_rule
 # For others, we'll have to use placeholders or wait for their creation.
 # For now, let's assume they will be added to src.core.crud later.
 # To avoid breaking the code that uses them, we might need to define placeholders if they are actively used.
@@ -687,7 +687,7 @@ async def _get_hidden_relationships_context_for_dialogue(
         db=session, # crud_relationship.py uses 'db' as session parameter name
         guild_id=guild_id,
         entity_id=npc_id,
-        entity_type=RelationshipEntityType.NPC # Use the imported Enum
+            entity_type=RelationshipEntityType.GENERATED_NPC # Use the imported Enum
     )
 
     if not npc_all_relationships:
@@ -706,8 +706,8 @@ async def _get_hidden_relationships_context_for_dialogue(
             is_player_entity1 = (rel.entity1_id == player_id and rel.entity1_type == RelationshipEntityType.PLAYER)
             is_player_entity2 = (rel.entity2_id == player_id and rel.entity2_type == RelationshipEntityType.PLAYER)
 
-            is_npc_entity1 = (rel.entity1_id == npc_id and rel.entity1_type == RelationshipEntityType.NPC)
-            is_npc_entity2 = (rel.entity2_id == npc_id and rel.entity2_type == RelationshipEntityType.NPC)
+            is_npc_entity1 = (rel.entity1_id == npc_id and rel.entity1_type == RelationshipEntityType.GENERATED_NPC) # Corrected indent here
+            is_npc_entity2 = (rel.entity2_id == npc_id and rel.entity1_type == RelationshipEntityType.GENERATED_NPC) # Corrected indent here
 
             if (is_npc_entity1 and is_player_entity2) or \
                (is_npc_entity2 and is_player_entity1):

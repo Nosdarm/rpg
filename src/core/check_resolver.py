@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.crud import crud_relationship
-from src.core.crud.crud_base import get_entity_by_id_and_type_str # Corrected path
+from src.core.crud_base_definitions import get_entity_by_id_and_type_str
 from src.core.dice_roller import roll_dice
 from src.core.rules import get_rule
 from src.models import GeneratedNpc, Player, Relationship
@@ -267,10 +267,11 @@ async def resolve_check(
         if target_entity_id is not None and target_entity_type is not None:
             rel_target_entity_id = target_entity_id
             rel_target_entity_type_str = target_entity_type.value
-        if rel_target_entity_id is not None and rel_target_entity_type_str is not None:
+        if rel_target_entity_id is not None and target_entity_type is not None: # Use target_entity_type directly
             try:
                 actor_rel_type_enum = actor_entity_type
-                target_rel_type_enum = RelationshipEntityType(rel_target_entity_type_str.upper())
+                # target_entity_type is already the Enum member if not None
+                target_rel_type_enum = target_entity_type
                 relationships = await crud_relationship.get_relationships_for_entity(
                     db=db,
                     guild_id=guild_id,

@@ -210,16 +210,16 @@ class TestAIProompBuilderLocationContent(unittest.IsolatedAsyncioTestCase):
         # A more direct check would be to inspect the call to json.dumps if that was possible,
         # or to parse the JSON from the prompt and check the schema there.
         # For now, let's assume if "static_id" is in the description of npc_schema (as added in previous step), it's fine.
-        self.assertIn("\"static_id\": {\"type\": \"string\", \"description\": \"Unique static identifier for this NPC", prompt)
+        self.assertIn("\"description\": \"Unique static identifier for this NPC, e.g., 'guard_captain_reynold'. Should be unique at least within the current generation batch for relationship linking.\"", prompt) # Corrected assertIn
         self.assertIn("\"relationship_schema\"", prompt) # Ensure relationship_schema is also there
 
 # Placeholder for TestHiddenRelationshipsContext - to be added next
 class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.ai_prompt_builder.actual_crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
-    @patch('src.core.rules.get_rule') # Corrected patch path
+    @patch('src.core.crud.crud_relationship.crud_relationship', new_callable=AsyncMock) # Corrected patch target
+    @patch('src.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Keep this for get_rule in SUT
     async def test_get_hidden_relationships_context_basic(
-        self, mock_get_rule, mock_get_rels_for_entity
+        self, mock_get_rule, mock_crud_relationship_obj # Renamed mock arg
     ):
         from src.core.ai_prompt_builder import _get_hidden_relationships_context_for_dialogue
         from src.models import Relationship # Import real Relationship for mock return
@@ -233,20 +233,20 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
 
         # Mock relationships returned for the NPC
         mock_npc_relationships = [
-            Relationship(id=1, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+            Relationship(id=1, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC,
                          entity2_id=player_id, entity2_type=RelationshipEntityType.PLAYER,
                          relationship_type="secret_positive_to_entity", value=70),
-            Relationship(id=2, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
-                         entity2_id=5, entity2_type=RelationshipEntityType.FACTION, # Assuming faction ID 5
+            Relationship(id=2, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC,
+                         entity2_id=5, entity2_type=RelationshipEntityType.GENERATED_FACTION,
                          relationship_type="secret_negative_to_faction:faction_evil", value=90),
-            Relationship(id=3, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
-                         entity2_id=101, entity2_type=RelationshipEntityType.NPC, # Another NPC
+            Relationship(id=3, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC,
+                         entity2_id=101, entity2_type=RelationshipEntityType.GENERATED_NPC,
                          relationship_type="personal_debt_to_entity", value=50),
-            Relationship(id=4, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+            Relationship(id=4, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC,
                          entity2_id=player_id, entity2_type=RelationshipEntityType.PLAYER,
                          relationship_type="normal_interaction_log", value=10), # Not a hidden one
         ]
-        mock_get_rels_for_entity.return_value = mock_npc_relationships
+        mock_crud_relationship_obj.get_relationships_for_entity.return_value = mock_npc_relationships
 
         # Mock RuleConfig responses
         # Rule for "secret_positive_to_entity" with player
@@ -295,7 +295,7 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rel1_ctx["options_availability_formula"], "value > 50")
 
         # Test without player_id (should include all hidden relationships of NPC)
-        mock_get_rels_for_entity.return_value = mock_npc_relationships # Reset mock for new call
+        mock_crud_relationship_obj.get_relationships_for_entity.return_value = mock_npc_relationships # Reset mock for new call
         mock_get_rule.side_effect = get_rule_side_effect # Reset side effect for new call
 
         context_list_no_player = await _get_hidden_relationships_context_for_dialogue(
@@ -309,7 +309,7 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(neg_rel_ctx)
         self.assertEqual(neg_rel_ctx["value"], 90)
         self.assertEqual(neg_rel_ctx["target_entity_id"], 5) # Faction ID
-        self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.FACTION.value)
+        self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_FACTION.value)
         # Description for "secret_negative_to_faction" is "secret_negative_to_faction" due to simple replace
         self.assertIn("This NPC secretly despises the secret_negative_to_faction (value: 90).", neg_rel_ctx["prompt_hints"])
 
@@ -318,7 +318,7 @@ class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(debt_rel_ctx)
         self.assertEqual(debt_rel_ctx["value"], 50)
         self.assertEqual(debt_rel_ctx["target_entity_id"], 101) # NPC ID
-        self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.NPC.value)
+        self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.GENERATED_NPC.value)
         self.assertEqual(debt_rel_ctx["prompt_hints"], "") # No rule, so no hints
         self.assertEqual(debt_rel_ctx["unlocks_tags"], [])
 
