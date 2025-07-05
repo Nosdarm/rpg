@@ -119,26 +119,7 @@
     *   Submit the changes with a descriptive commit message.
 ---
 ## Текущий план
-1.  **Investigate Bot Initialization for `command_prefix`**:
-    *   Await user to provide the file content where `discord.ext.commands.Bot` (or similar) is instantiated.
-    *   Read this file to understand how `command_prefix` is defined (string, list, or callable).
-
-2.  **Modify `on_message` in `src/bot/events.py`**:
-    *   Based on how `command_prefix` is initialized:
-        *   **If Callable**: Modify the `on_message` event handler to correctly call `self.bot.command_prefix(self.bot, message)` to get the actual prefix(es). Then, use the returned string or list of strings with `message.content.startswith()`. Handle cases where the callable might return no prefixes.
-        *   **If Static (string/list but error occurs)**: This would be unexpected given the error. If so, re-evaluate. The primary suspect is that it's a callable.
-    *   Ensure the logic correctly handles both single string prefixes and lists/tuples of prefixes returned by the callable.
-
-3.  **Review and Test**:
-    *   Manually review the implemented changes to ensure logical correctness.
-    *   Consider how this change interacts with messages that are not commands (the intended NLU processing path).
-
-4.  **Update `AGENTS.md`**:
-    *   Create a new entry in "Лог действий" for this `TypeError` fix.
-    *   Update "Текущий план" (this plan).
-
-5.  **Submit the Fix**:
-    *   Commit the changes with a descriptive commit message.
+*(Этот раздел будет очищен после завершения текущей пользовательской задачи)*
 
 ---
 ## Отложенные задачи
@@ -204,6 +185,23 @@
     - **Шаг 2**: В `src/bot/events.py` в `on_message` изменена логика для вызова `self.bot.command_prefix(self.bot, message)` и проверки результата на строку или список/кортеж для `startswith`.
     - **Шаг 3**: Изменения проверены (логически).
     - **Шаг 4**: Обновлен `AGENTS.md` (этот лог) и "Текущий план" очищен.
+
+## Пользовательская задача: Исправление NameError в on_message (Сессия 2024-07-08)
+- **Определение задачи**: Устранить `NameError: name 'process_player_message_for_nlu' is not defined` в `src/bot/events.py`.
+- **План**:
+    1.  Определить функцию `process_player_message_for_nlu` в `src/core/action_processor.py` с корректной сигнатурой и декоратором `@transactional`.
+    2.  Реализовать логику внутри `process_player_message_for_nlu` для вызова NLU, получения игрока и добавления `ParsedAction` в `player.collected_actions_json`.
+    3.  Импортировать `process_player_message_for_nlu` в `src/bot/events.py`.
+    4.  Убедиться, что вызов в `src/bot/events.py` корректен.
+    5.  Проверить изменения.
+    6.  Обновить `AGENTS.md` (этот лог).
+    7.  Закоммитить исправление.
+- **Реализация**:
+    - **Шаг 1 & 2**: Функция `process_player_message_for_nlu` определена в `src/core/action_processor.py` с необходимой логикой и импортами (`discord`, `commands`, `Optional`, `ParsedAction`, `player_crud`, `parse_player_input`, `json`, `logging`).
+    - **Шаг 3**: `process_player_message_for_nlu` импортирована в `src/bot/events.py`.
+    - **Шаг 4**: Вызов в `src/bot/events.py` оставлен как `await process_player_message_for_nlu(self.bot, message)`, что корректно с учетом `@transactional`.
+    - **Шаг 5**: Логика проверена.
+    - **Шаг 6**: `AGENTS.md` обновлен (этот лог) и "Текущий план" очищен.
 
 ## Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild)
 - **Определение задачи**: AI generates quests for a specific guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
