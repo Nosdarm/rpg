@@ -7,8 +7,9 @@ from typing import Optional, Any # Added Any
 from src.core.database import get_db_session, transactional
 from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud
+from src.core.crud.crud_guild import guild_crud # Added for guild config check
 from src.models.player import PlayerStatus
-from src.bot.events import DEFAULT_STATIC_LOCATIONS # Используем список дефолтных локаций
+from src.bot.events import DEFAULT_STATIC_LOCATIONS, EventCog # Используем список дефолтных локаций и EventCog для _ensure_guild_config_exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,28 @@ class GeneralCog(commands.Cog, name="General Commands"):
         discord_id = interaction.user.id
         player_name: str = interaction.user.display_name or interaction.user.name or "Adventurer"
         player_locale = str(interaction.locale) if interaction.locale else 'en'
+
+        # Ensure guild configuration exists before proceeding
+        # This is important if on_guild_join didn't fire or if the bot was in the guild before this logic was added.
+        if interaction.guild: # Should always be true due to earlier check, but good for type hinting
+            # We need an instance of EventCog to call _ensure_guild_config_exists
+            # A bit of a workaround as ideally this logic might be in a shared utility
+            # or EventCog would be accessible differently.
+            # For now, creating a temporary instance or finding a shared one.
+            # This assumes EventCog can be instantiated without bot if only using _ensure_guild_config_exists
+            # Or, if bot is needed by EventCog's _ensure_guild_config_exists, it must be passed.
+            # Let's assume EventCog is already loaded and try to get it from the bot
+            event_cog_instance = self.bot.get_cog("EventCog")
+            if not event_cog_instance or not isinstance(event_cog_instance, EventCog):
+                logger.error("EventCog instance not found or is of incorrect type. Cannot ensure guild config.")
+                await interaction.response.send_message("Произошла внутренняя ошибка конфигурации сервера. Пожалуйста, сообщите администратору.", ephemeral=True)
+                return
+
+            await event_cog_instance._ensure_guild_config_exists(session=session, guild_id=guild_id, guild_name=interaction.guild.name)
+        else: # Should not happen due to the check in the wrapper command
+            logger.error("Guild object is None in _start_command_internal despite initial check.")
+            await interaction.response.send_message("Произошла ошибка: информация о сервере отсутствует.", ephemeral=True)
+            return
 
         existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id) # FIX: db to session
 
