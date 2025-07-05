@@ -253,6 +253,157 @@ async def test_save_approved_generation_success(
     assert update_pending_gen_call is not None
     assert update_pending_gen_call.args[2]["status"] == ModerationStatus.SAVED
 
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock) # Keep this if resolving existing NPCs
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_save_approved_generation_npc_rel_to_existing_faction(
+    mock_transactional_deco: MagicMock,
+    mock_crud_relationship_create: AsyncMock,
+    mock_crud_relationship_get_between: AsyncMock,
+    mock_actual_npc_crud_get_static: AsyncMock, # For resolving other NPCs if needed
+    mock_crud_faction_get_static: AsyncMock,
+    mock_update_entity: AsyncMock,
+    mock_create_entity: AsyncMock,
+    mock_get_entity_by_id: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from src.models.enums import RelationshipEntityType # Corrected import
+    from src.models import GeneratedFaction # For mock_crud_faction_get_static return
+
+    npc_data = ParsedNpcData(static_id="npc_loyalist", name_i18n={"en": "Loyalist Guard"}, description_i18n={"en": "Loyal to the Kingsguard."})
+    # Relationship to an *existing* faction
+    relationship_data = ParsedRelationshipData(
+        entity1_static_id="npc_loyalist", entity1_type="npc",
+        entity2_static_id="kingsguard_faction", entity2_type="faction", # Existing faction static_id
+        relationship_type="secret_loyalty_to_faction", value=80
+    )
+    parsed_data = ParsedAiData(generated_entities=[npc_data, relationship_data], raw_ai_output="raw")
+    mock_pending_gen = PendingGeneration(id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID, status=ModerationStatus.APPROVED, parsed_validated_data_json=parsed_data.model_dump(), triggered_by_user_id=mock_player.id)
+    mock_get_entity_by_id.side_effect = [mock_pending_gen, mock_player]
+
+    created_npc_db = GeneratedNpc(id=105, guild_id=DEFAULT_GUILD_ID, static_id="npc_loyalist", name_i18n=npc_data.name_i18n)
+    mock_create_entity.side_effect = lambda s, mc, od: created_npc_db if mc == GeneratedNpc else MagicMock()
+
+    # Mock existing faction
+    existing_faction_db = GeneratedFaction(id=201, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction", name_i18n={"en": "Kingsguard"})
+    mock_crud_faction_get_static.return_value = existing_faction_db
+    mock_actual_npc_crud_get_static.return_value = None # No other NPCs involved
+
+    mock_crud_relationship_get_between.return_value = None # No existing relationship
+    mock_crud_relationship_create.return_value = MagicMock(spec=Relationship)
+
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
+    assert success is True
+
+    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction")
+    mock_crud_relationship_create.assert_called_once()
+    created_rel_args = mock_crud_relationship_create.call_args.args[1]
+    assert created_rel_args["entity1_id"] == created_npc_db.id
+    assert created_rel_args["entity1_type"] == RelationshipEntityType.NPC
+    assert created_rel_args["entity2_id"] == existing_faction_db.id
+    assert created_rel_args["entity2_type"] == RelationshipEntityType.FACTION
+    assert created_rel_args["relationship_type"] == "secret_loyalty_to_faction"
+
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock) # For create
+@patch("src.core.ai_orchestrator.crud_relationship.update", new_callable=AsyncMock) # For update
+@patch("src.core.database.transactional")
+async def test_save_approved_generation_updates_existing_relationship(
+    mock_transactional_deco: MagicMock,
+    mock_crud_relationship_update: AsyncMock, # Renamed for clarity
+    mock_crud_relationship_create: AsyncMock,
+    mock_crud_relationship_get_between: AsyncMock,
+    mock_actual_npc_crud_get_static: AsyncMock,
+    mock_crud_faction_get_static: AsyncMock,
+    mock_update_entity: AsyncMock,
+    mock_create_entity: AsyncMock,
+    mock_get_entity_by_id: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from src.models.enums import RelationshipEntityType # Corrected import
+    from src.models import Relationship # Import for existing_rel
+
+    npc_data = ParsedNpcData(static_id="npc_friend", name_i18n={"en": "Old Friend"}, description_i18n={"en": "An old friend."})
+    # Relationship that will update an existing one
+    relationship_data = ParsedRelationshipData(
+        entity1_static_id="npc_friend", entity1_type="npc",
+        entity2_static_id="another_npc_static_id", entity2_type="npc",
+        relationship_type="friendship_level", value=95 # New higher value
+    )
+    parsed_data = ParsedAiData(generated_entities=[npc_data, relationship_data], raw_ai_output="raw")
+    mock_pending_gen = PendingGeneration(id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID, status=ModerationStatus.APPROVED, parsed_validated_data_json=parsed_data.model_dump(), triggered_by_user_id=mock_player.id)
+    mock_get_entity_by_id.side_effect = [mock_pending_gen, mock_player]
+
+    created_npc_db = GeneratedNpc(id=110, guild_id=DEFAULT_GUILD_ID, static_id="npc_friend", name_i18n=npc_data.name_i18n)
+    mock_create_entity.side_effect = lambda s, mc, od: created_npc_db if mc == GeneratedNpc else MagicMock()
+
+    existing_other_npc_db = GeneratedNpc(id=111, guild_id=DEFAULT_GUILD_ID, static_id="another_npc_static_id", name_i18n={"en":"Other NPC"})
+    mock_actual_npc_crud_get_static.return_value = existing_other_npc_db
+    mock_crud_faction_get_static.return_value = None # No factions involved
+
+    # Mock existing relationship
+    existing_rel_db = Relationship(
+        id=301, guild_id=DEFAULT_GUILD_ID,
+        entity1_id=created_npc_db.id, entity1_type=RelationshipEntityType.NPC,
+        entity2_id=existing_other_npc_db.id, entity2_type=RelationshipEntityType.NPC,
+        relationship_type="friendship_level", value=70 # Old value
+    )
+    mock_crud_relationship_get_between.return_value = existing_rel_db
+    # mock_crud_relationship_update.return_value = existing_rel_db # Update returns the updated object
+
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
+    assert success is True
+
+    mock_crud_relationship_create.assert_not_called() # Should update, not create
+
+    # Check that existing_rel_db was updated in the session
+    # The logic in save_approved_generation directly modifies existing_rel.value and existing_rel.relationship_type
+    # and then adds it to session. SQLAlchemy handles the UPDATE.
+    # We can check the properties of existing_rel_db *after* the call if it was passed by reference and modified.
+    # Or, more robustly, check the call to session.add() or a mock for crud_relationship.update if it were used.
+    # Since the code directly modifies fields and calls session.add(existing_rel):
+
+    # Verify that session.add was called with the modified existing_rel object
+    # This requires session.add to be a MagicMock that records calls.
+    # The current mock_session.add is a MagicMock.
+    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)]
+    found_updated_rel_in_session_add = False
+    for added_obj in add_calls:
+        if added_obj.id == existing_rel_db.id: # Check if it's the same relationship object by ID
+            assert added_obj.value == 95 # New value
+            assert added_obj.relationship_type == "friendship_level" # Type could also be updated
+            found_updated_rel_in_session_add = True
+            break
+    assert found_updated_rel_in_session_add, "Existing relationship was not added to session with updated values."
+
     assert update_player_call is not None
     assert update_player_call.args[2]["current_status"] == PlayerStatus.EXPLORING
 
@@ -634,3 +785,96 @@ async def test_generate_narrative_llm_call_error(
     mock_get_rule.return_value = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="ru")
     narrative_ru = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
     assert narrative_ru == "Произошла ошибка при генерации повествования."
+
+
+# --- Tests for save_approved_generation with Relationships (Task 38) ---
+
+@pytest.mark.asyncio
+@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock) # For PendingGeneration, Player
+@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock) # For GeneratedNpc etc.
+@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock) # For PendingGeneration, Player
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock)
+@patch("src.core.database.transactional")
+async def test_save_approved_generation_with_npc_relationships(
+    mock_transactional_deco: MagicMock,
+    mock_crud_relationship_create: AsyncMock,
+    mock_crud_relationship_get_between: AsyncMock,
+    mock_actual_npc_crud_get_static: AsyncMock,
+    mock_crud_faction_get_static: AsyncMock,
+    mock_update_entity: AsyncMock,
+    mock_create_entity: AsyncMock,
+    mock_get_entity_by_id: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player # Used for triggered_by_user_id
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from src.models.enums import RelationshipEntityType # Corrected import
+
+    # Prepare ParsedAiData with NPCs and a relationship between them
+    npc_data_1 = ParsedNpcData(static_id="npc_gen_1", name_i18n={"en": "NPC Gen 1"}, description_i18n={"en": "Desc 1"})
+    npc_data_2 = ParsedNpcData(static_id="npc_gen_2", name_i18n={"en": "NPC Gen 2"}, description_i18n={"en": "Desc 2"})
+    relationship_data = ParsedRelationshipData(
+        entity1_static_id="npc_gen_1", entity1_type="npc",
+        entity2_static_id="npc_gen_2", entity2_type="npc",
+        relationship_type="secret_rivalry", value=-30
+    )
+    parsed_data = ParsedAiData(generated_entities=[npc_data_1, npc_data_2, relationship_data], raw_ai_output="raw")
+
+    mock_pending_gen = PendingGeneration(
+        id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID,
+        status=ModerationStatus.APPROVED,
+        parsed_validated_data_json=parsed_data.model_dump(),
+        triggered_by_user_id=mock_player.id
+    )
+    mock_get_entity_by_id.side_effect = [mock_pending_gen, mock_player] # For pending_gen and then player
+
+    # Mock creation of NPCs
+    created_npc1_db = GeneratedNpc(id=101, guild_id=DEFAULT_GUILD_ID, static_id="npc_gen_1", name_i18n=npc_data_1.name_i18n)
+    created_npc2_db = GeneratedNpc(id=102, guild_id=DEFAULT_GUILD_ID, static_id="npc_gen_2", name_i18n=npc_data_2.name_i18n)
+
+    npc_creation_call_count = 0
+    async def mock_create_entity_side_effect(session, model_class, obj_in_data):
+        nonlocal npc_creation_call_count
+        if model_class == GeneratedNpc:
+            npc_creation_call_count += 1
+            if obj_in_data["static_id"] == "npc_gen_1": return created_npc1_db
+            if obj_in_data["static_id"] == "npc_gen_2": return created_npc2_db
+        return MagicMock() # For other entity types if any
+    mock_create_entity.side_effect = mock_create_entity_side_effect
+
+    mock_crud_relationship_get_between.return_value = None # No existing relationship
+    mock_crud_relationship_create.return_value = MagicMock(spec=Relationship) # Relationship creation successful
+
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
+    assert success is True
+
+    # Check NPCs were created
+    assert npc_creation_call_count == 2
+
+    # Check relationship was created with correct DB IDs
+    mock_crud_relationship_create.assert_called_once()
+    created_rel_call_args = mock_crud_relationship_create.call_args.args[1] # obj_in
+
+    assert created_rel_call_args["entity1_id"] == created_npc1_db.id
+    assert created_rel_call_args["entity1_type"] == RelationshipEntityType.NPC
+    assert created_rel_call_args["entity2_id"] == created_npc2_db.id
+    assert created_rel_call_args["entity2_type"] == RelationshipEntityType.NPC
+    assert created_rel_call_args["relationship_type"] == "secret_rivalry"
+    assert created_rel_call_args["value"] == -30
+
+    # Check PendingGeneration status update
+    update_pending_gen_call = None
+    for call_obj in mock_update_entity.call_args_list:
+        if isinstance(call_obj.args[1], PendingGeneration): # Check if the object being updated is PendingGeneration
+            update_pending_gen_call = call_obj
+            break
+    assert update_pending_gen_call is not None
+    assert update_pending_gen_call.args[2]["status"] == ModerationStatus.SAVED

@@ -92,11 +92,7 @@ This block presents tasks related to factions, relationships between entities, a
 {Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild). - Moved to Done.txt}
 {Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped). - Moved to Done.txt}
 {Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n). - Moved to Done.txt}
-
-Task 38: 🎭 8.6 Complex Internal Faction Relationships.
-Description: Generation and use of specific NPC relationships to other factions or NPCs within their own factions for more complex behavior. (Moved from 8.6).
-AI generates (16) and parses (17) these relationships. Stored in Relationship (34).
-Their influence is defined in RuleConfig (13/0.3) as a separate relationship type or rule modifier. NPC behavior rules dictated by hidden relationships (betrayal, helping the player from a hostile faction) are used by the AI Strategy (28) and Action Processing Module (21) / Dialogue (46).
+{Task 38: 🎭 8.6 Complex Internal Faction Relationships. - Moved to Done.txt}
 
 Task Block: Phase 9: Detailed Quest System with Consequences
 This block presents tasks for implementing a comprehensive quest system with steps, consequences, and links to other mechanics.

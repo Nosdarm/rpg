@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List, Optional, Union
 
 from src.models.generated_npc import GeneratedNpc
+from src.models.relationship import Relationship # Added import
 from src.models.combat_encounter import CombatEncounter
 from src.models.player import Player
 from src.models.enums import CombatParticipantType as EntityType # Changed to CombatParticipantType
@@ -74,10 +75,12 @@ async def _get_npc_ai_rules(
     session: AsyncSession,
     guild_id: int,
     actor_npc: GeneratedNpc,
-    combat_encounter: CombatEncounter
+    combat_encounter: CombatEncounter,
+    actor_hidden_relationships: Optional[List[Relationship]] = None # Новый параметр
 ) -> Dict[str, Any]:
     """
     Loads and compiles AI behavior rules for the given NPC from RuleConfig.
+    Includes standard relationship influences and specific hidden relationship effects.
     This is a placeholder implementation. Detailed logic will depend on RuleConfig structure.
     """
     base_rules_key = "ai_behavior:npc_default_strategy"
@@ -125,44 +128,78 @@ async def _get_npc_ai_rules(
     actor_props = actor_npc.properties_json or {}
     actor_ai_meta = actor_npc.ai_metadata_json or {}
 
-    # Merge relationship influence rules
+    # Merge relationship influence rules (standard relationships)
     rel_influence_key = "relationship_influence:npc_combat:behavior"
     rel_influence_rules_specific = await get_rule(db=session, guild_id=guild_id, key=rel_influence_key, default=None)
-
     default_rel_influence_rules = {
-        "enabled": True,
-        "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
+        "enabled": True, "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
         "target_score_modifier_formula": "-(relationship_value * 0.2)",
         "action_choice": {
-            "friendly_positive_threshold": 50,
-            "hostile_negative_threshold": -50,
-            "actions_if_friendly": [], # Example: {"action_type": "ability", "ability_static_id": "aid_friend", "weight_multiplier": 2.0}
-            "actions_if_hostile": []   # Example: {"action_type": "attack", "weight_multiplier": 1.2}
+            "friendly_positive_threshold": 50, "hostile_negative_threshold": -50,
+            "actions_if_friendly": [], "actions_if_hostile": []
         }
     }
-
     final_rel_influence_rules = default_rel_influence_rules.copy()
     if rel_influence_rules_specific and isinstance(rel_influence_rules_specific, dict):
-        # Deep merge might be better if structures are complex
         for key, value in rel_influence_rules_specific.items():
             if isinstance(value, dict) and isinstance(final_rel_influence_rules.get(key), dict):
                 final_rel_influence_rules[key].update(value)
             else:
                 final_rel_influence_rules[key] = value
-
-    # Add the merged relationship rules to the main npc_rules structure
-    # This assumes ai_rules is the final, comprehensive rule set for the NPC's turn.
-    # We store it under a distinct key to avoid clashes with 'target_selection', 'action_selection' etc.
-    if "relationship_influence" not in npc_rules:
-        npc_rules["relationship_influence"] = {}
-    if "npc_combat" not in npc_rules["relationship_influence"]:
-        npc_rules["relationship_influence"]["npc_combat"] = {}
+    if "relationship_influence" not in npc_rules: npc_rules["relationship_influence"] = {}
+    if "npc_combat" not in npc_rules["relationship_influence"]: npc_rules["relationship_influence"]["npc_combat"] = {}
     npc_rules["relationship_influence"]["npc_combat"]["behavior"] = final_rel_influence_rules
-    # End of merging relationship influence rules
 
+    # Load and parse hidden relationship combat effects
+    # This part is moved from the original plan to be inside _get_npc_ai_rules
+    # It assumes actor_hidden_relationships is passed to this function.
+    # The plan was to pass actor_hidden_relationships to _get_npc_ai_rules,
+    # This change IS NOW REFLECTED in the function signature.
+    # The parameter `actor_hidden_relationships` is now directly available.
+
+    if actor_hidden_relationships: # Use the passed parameter directly
+        npc_rules["parsed_hidden_relationship_combat_effects"] = []
+        for rel in actor_hidden_relationships:
+            # rel.relationship_type can be "secret_positive_to_faction:some_id"
+            # Base type for rule lookup, e.g., "secret_positive_to_faction"
+            base_rel_type_for_rule = rel.relationship_type.split(':')[0]
+
+            # Attempt to load rule by exact relationship type string
+            rule_key_exact = f"hidden_relationship_effects:npc_combat:{rel.relationship_type}"
+            specific_hidden_rule = await get_rule(db=session, guild_id=guild_id, key=rule_key_exact, default=None)
+
+            # Attempt to load rule by base relationship type (e.g. "secret_positive_to_faction")
+            # This allows generic rules for categories of hidden relationships.
+            rule_key_generic = f"hidden_relationship_effects:npc_combat:{base_rel_type_for_rule}"
+            generic_hidden_rule = await get_rule(db=session, guild_id=guild_id, key=rule_key_generic, default=None)
+
+            chosen_rule_data = None
+            # Prioritize specific rule if enabled, then generic if enabled
+            if specific_hidden_rule and specific_hidden_rule.get("enabled", False):
+                chosen_rule_data = specific_hidden_rule
+            elif generic_hidden_rule and generic_hidden_rule.get("enabled", False):
+                chosen_rule_data = generic_hidden_rule
+
+            if chosen_rule_data:
+                npc_rules["parsed_hidden_relationship_combat_effects"].append({
+                    "rule_data": chosen_rule_data,
+                    "applies_to_relationship": { # Store context of the relationship this rule applies to
+                        "type": rel.relationship_type, # Full type, e.g. "secret_positive_to_faction:faction_id_123"
+                        "value": rel.value,
+                        "target_entity_type": rel.entity2_type.value, # The other entity in this relationship
+                        "target_entity_id": rel.entity2_id
+                    }
+                })
+
+        # Sort collected hidden relationship effects by priority (higher priority first)
+        if npc_rules.get("parsed_hidden_relationship_combat_effects"):
+            npc_rules["parsed_hidden_relationship_combat_effects"].sort(
+                key=lambda x: x["rule_data"].get("priority", 0), reverse=True
+            )
+    # End of loading hidden relationship effects
 
     npc_personality = actor_props.get("personality", actor_ai_meta.get("personality"))
-    if npc_personality and npc_personality in npc_rules.get("personality_modifiers", {}): # This refers to the base npc_rules personality_modifiers
+    if npc_personality and npc_personality in npc_rules.get("personality_modifiers", {}):
         mods = npc_rules["personality_modifiers"][npc_personality]
         current_bias = npc_rules.get("action_selection", {}).get("offensive_bias", default_strategy["action_selection"]["offensive_bias"])
 
@@ -281,14 +318,35 @@ async def _is_hostile(
 
     # 2. Faction check (if both are NPCs and have factions)
     if actor_faction and target_faction and actor_faction == target_faction:
-        # Same faction: generally not hostile unless specific rules override
         if hostility_config.get("same_faction_is_friendly", True):
-            return False
+            return False # Not hostile if same faction and rule applies
 
     # TODO: Implement more complex faction hostility rules (e.g., enemy faction list)
-    # faction_relationships = await get_rule(session, guild_id, f"factions:{actor_faction}:relationships", {})
-    # if target_faction in faction_relationships.get("enemies", []): return True
-    # if target_faction in faction_relationships.get("allies", []): return False
+
+    # Check for hostility override from hidden relationship effects
+    if "parsed_hidden_relationship_combat_effects" in ai_rules:
+        for hidden_effect_entry in ai_rules["parsed_hidden_relationship_combat_effects"]:
+            rule_data = hidden_effect_entry["rule_data"]
+            rel_details = hidden_effect_entry["applies_to_relationship"]
+
+            override_rules = rule_data.get("hostility_override", {})
+            if override_rules.get("if_target_matches_relationship", False):
+                current_target_type_enum = EntityType(target_participant_info["type"])
+                if rel_details["target_entity_type"] == current_target_type_enum.value and \
+                   rel_details["target_entity_id"] == target_participant_info["id"]:
+
+                    condition_formula = override_rules.get("condition_formula", "True")
+                    try:
+                        condition_met = eval(condition_formula, {"__builtins__": {}}, {"value": rel_details["value"]})
+                    except Exception:
+                        condition_met = False
+
+                    if condition_met:
+                        new_status_str = override_rules.get("new_hostility_status")
+                        if new_status_str == "friendly": return False
+                        if new_status_str == "hostile": return True
+                        if new_status_str == "neutral": return False
+                        # If new_status_str is None or unrecognized, no override from this rule.
 
     # 3. Default rule application
     if default_hostility_rule == "attack_players_and_hostile_npcs":
@@ -467,11 +525,29 @@ async def _calculate_target_score(
                 if relationship_val < -50 : # Arbitrary threshold for "very hostile"
                      threat += 75 * threat_factors.get("relationship_threat_modifier", 0.1) # This factor could be deprecated
 
+        # Apply modifiers from hidden relationships
+        if "parsed_hidden_relationship_combat_effects" in ai_rules:
+            for hidden_effect_entry in ai_rules["parsed_hidden_relationship_combat_effects"]:
+                rule_data = hidden_effect_entry["rule_data"]
+                rel_details = hidden_effect_entry["applies_to_relationship"]
+
+                current_target_type_enum = EntityType(target_combat_data["type"])
+                if rel_details["target_entity_type"] == current_target_type_enum.value and \
+                   rel_details["target_entity_id"] == target_combat_data["id"]:
+
+                    formula = rule_data.get("target_score_modifier_formula")
+                    if formula and isinstance(formula, str):
+                        try:
+                            adjustment = float(eval(formula, {"__builtins__": {}}, {"value": rel_details["value"], "current_score": threat}))
+                            threat += adjustment
+                        except Exception as e:
+                            # Log error in formula evaluation
+                            pass
         return threat # Higher is better
 
     # TODO: Implement other metrics like "closest_target", "random", "specific_role_focus"
 
-    return score
+    return score # Default score if metric not handled
 
 
 async def _select_target(
@@ -558,27 +634,34 @@ def _get_available_abilities(
     """
     Gets a list of abilities available for the NPC to use, considering resources and cooldowns.
     Each ability in the list is a dictionary from actor_npc.properties_json['abilities'].
+    It now also adds a 'category' field to the ability dictionary if defined in ability_props.
     """
     available_abilities = []
     actor_props = actor_npc.properties_json or {}
-    npc_abilities = actor_props.get("abilities", [])
-    if not npc_abilities: # npc_abilities will be [] if properties_json is None or "abilities" key is missing
-        return []
+    # Ensure npc_abilities is always a list
+    npc_abilities_raw = actor_props.get("abilities")
+    if not isinstance(npc_abilities_raw, list): # Handles None or incorrect type
+        npc_abilities = []
+    else:
+        npc_abilities = npc_abilities_raw
 
     current_resources = actor_combat_data.get("resources", {}) # e.g., {"mana": 50, "stamina": 100}
     active_cooldowns = actor_combat_data.get("cooldowns", {}) # e.g., {"fireball_static_id": 2 (turns remaining)}
 
-    for ability_props in npc_abilities:
+    for ability_props_original in npc_abilities:
+        if not isinstance(ability_props_original, dict): # Skip if ability_props is not a dict
+            continue
+
+        ability_props = ability_props_original.copy() # Work with a copy
+
         ability_static_id = ability_props.get("static_id")
         if not ability_static_id:
-            continue # Skip abilities without static_id for tracking
+            continue
 
-        # Check cooldown
         if ability_static_id in active_cooldowns and active_cooldowns[ability_static_id] > 0:
             continue
 
-        # Check resource costs
-        cost = ability_props.get("cost", {}) # e.g., {"mana": 10}
+        cost = ability_props.get("cost", {})
         can_afford = True
         for resource_type, amount_needed in cost.items():
             if current_resources.get(resource_type, 0) < amount_needed:
@@ -587,10 +670,10 @@ def _get_available_abilities(
         if not can_afford:
             continue
 
-        # TODO: Check other conditions if any (e.g. target requirements, self status requirements)
-        # conditions = ability_props.get("conditions", {})
-        # meets_conditions = True
-        # if meets_conditions:
+        # Add category to the ability_props if not already present, for _choose_action logic
+        if "category" not in ability_props:
+            ability_props["category"] = ability_props.get("default_category", "ability_generic") # e.g. from rule or default
+
         available_abilities.append(ability_props)
 
     return available_abilities
@@ -778,59 +861,51 @@ async def _choose_action(
     possible_actions = []
 
     # 1. Consider basic attack
-    basic_attack_action = {"type": "attack", "name": "Basic Attack"}
-    # We always evaluate basic attack, but its effectiveness score will determine if it's chosen.
+    # Adding 'category' for consistency with ability actions if rules refer to it.
+    basic_attack_action = {"type": "attack", "name": "Basic Attack", "category": "attack_basic"}
 
     # 2. Consider available abilities
     available_abilities = _get_available_abilities(actor_npc, actor_combat_data, ai_rules)
     for ability_prop in available_abilities:
-        # TODO: Filter abilities based on target type, range, etc. if applicable
-        # For now, assume all available abilities can target the selected_target
-        possible_actions.append({"type": "ability", "name": ability_prop.get("name", "Unknown Ability"), "ability_props": ability_prop})
+        # ability_prop already includes 'category' from _get_available_abilities
+        possible_actions.append({
+            "type": "ability",
+            "name": ability_prop.get("name", "Unknown Ability"),
+            "ability_props": ability_prop,
+            "category": ability_prop.get("category", "ability_generic") # Ensure category is present
+        })
 
-    # Always add basic attack to the list of considerations
     possible_actions.append(basic_attack_action)
 
-    if not possible_actions:
-        return {"type": "idle", "reason": "No actions available"} # Should at least have basic attack
-
-    # 3. Evaluate effectiveness of each possible action
     action_evaluations = []
-    for action in possible_actions:
+    for action_detail in possible_actions: # Renamed 'action' to 'action_detail' to avoid confusion
         effectiveness = await _evaluate_action_effectiveness(
-            session, guild_id, actor_npc, actor_combat_data, target_info, action, ai_rules
+            session, guild_id, actor_npc, actor_combat_data, target_info, action_detail, ai_rules
         )
-        if effectiveness >= 0: # Only consider actions that pass basic simulation checks (not -1.0)
-            action_evaluations.append({"action": action, "score": effectiveness})
+        if effectiveness >= 0:
+            action_evaluations.append({"action": action_detail, "score": effectiveness})
 
     if not action_evaluations:
-         # If all actions were deemed too ineffective by simulation, fallback to basic attack if possible, or idle.
-        # This check is important if _evaluate_action_effectiveness can return very low scores for bad actions.
-        # Re-evaluate basic attack with minimal thresholds if everything else failed.
         basic_attack_effectiveness = await _evaluate_action_effectiveness(
             session, guild_id, actor_npc, actor_combat_data, target_info, basic_attack_action,
-            {**ai_rules, "simulation": {**ai_rules.get("simulation",{}), "enabled":False}} # Force sim off for fallback
+            {**ai_rules, "simulation": {**ai_rules.get("simulation",{}), "enabled":False}}
         )
-        if basic_attack_effectiveness > 0 : # Simple check if it's not completely useless
+        if basic_attack_effectiveness > 0:
              return basic_attack_action
         return {"type": "idle", "reason": "All actions deemed ineffective or failed simulation"}
 
-    # 4. Select best action based on scores and AI rules (e.g., offensive_bias)
-    # Sort by score descending
     action_evaluations.sort(key=lambda x: x["score"], reverse=True)
 
-    best_evaluated_action = action_evaluations[0] # Highest score
+    # Initial best action before hidden relationship modifiers
+    if not action_evaluations: # Should not happen if basic attack was added and evaluated positively
+         return {"type": "idle", "reason": "No positively evaluated actions found."}
+    best_evaluated_action_dict = action_evaluations[0]
 
-    # TODO: Implement offensive_bias logic (e.g. if score is low and bias is low, maybe choose a defensive/utility action if available, or idle)
-    # offensive_bias = ai_rules.get("action_selection", {}).get("offensive_bias", 0.75)
-    # if best_evaluated_action["score"] < ai_rules.get("action_selection",{}).get("min_offensive_score_threshold", 5.0) and offensive_bias < 0.5:
-    #     # Look for non-offensive actions or idle
-    #     pass
 
-    # Modify action scores based on relationship category with the target
-    rel_influence_config = ai_rules.get("relationship_influence", {}).get("npc_combat", {}).get("behavior", {})
-    if rel_influence_config.get("enabled", False) and "action_choice" in rel_influence_config:
-        action_choice_rules = rel_influence_config["action_choice"]
+    # Modify action scores based on STANDARD relationship category with the target
+    std_rel_influence_config = ai_rules.get("relationship_influence", {}).get("npc_combat", {}).get("behavior", {})
+    if std_rel_influence_config.get("enabled", False) and "action_choice" in std_rel_influence_config:
+        action_choice_rules = std_rel_influence_config["action_choice"]
         current_relationship_val = await _get_relationship_value(
             session, guild_id,
             EntityType.NPC, actor_npc.id,
@@ -857,18 +932,48 @@ async def _choose_action(
                         if matches_type and matches_id:
                             weight_multiplier = rule_mod.get("weight_multiplier", 1.0)
                             eval_item["score"] *= weight_multiplier
-                            # Add to a log or debug message that score was modified by relationship rule
-                            break # Apply first matching rule modification for this action
-
-                # Re-sort after applying multipliers
+                            break
                 action_evaluations.sort(key=lambda x: x["score"], reverse=True)
-                if action_evaluations: # Check if list is not empty after potential modifications
-                    best_evaluated_action = action_evaluations[0]
+                if action_evaluations:
+                    best_evaluated_action_dict = action_evaluations[0]
 
+    # Now, apply modifiers from HIDDEN relationships
+    if "parsed_hidden_relationship_combat_effects" in ai_rules and action_evaluations:
+        for hidden_effect_entry in ai_rules["parsed_hidden_relationship_combat_effects"]:
+            rule_data = hidden_effect_entry["rule_data"]
+            rel_details = hidden_effect_entry["applies_to_relationship"]
 
-    # TODO: Check for special conditions (e.g., NPC low HP -> prioritize healing ability if available and effective)
+            # Check if the current target of the action matches the target of the hidden relationship
+            current_target_type_enum = EntityType(target_info["combat_data"]["type"])
+            if rel_details["target_entity_type"] == current_target_type_enum.value and \
+               rel_details["target_entity_id"] == target_info["combat_data"]["id"]:
+
+                weight_multipliers_rules = rule_data.get("action_weight_multipliers", [])
+                for eval_item in action_evaluations:
+                    action_category = eval_item["action"].get("category", "unknown")
+
+                    for wm_rule in weight_multipliers_rules:
+                        if wm_rule.get("action_category") == action_category:
+                            formula = wm_rule.get("multiplier_formula")
+                            if formula and isinstance(formula, str):
+                                try:
+                                    multiplier = float(eval(formula, {"__builtins__": {}}, {"value": rel_details["value"]}))
+                                    eval_item["score"] *= multiplier
+                                    # Optionally log this modification
+                                except Exception as e:
+                                    # Log error in formula evaluation
+                                    pass
+                            break # Apply first matching multiplier for this category
+
+        action_evaluations.sort(key=lambda x: x["score"], reverse=True)
+        if action_evaluations:
+            best_evaluated_action_dict = action_evaluations[0]
+
+    # Special conditions (e.g., low HP heal) - applied AFTER all score modifications
     actor_props = actor_npc.properties_json or {}
-    actor_stats = actor_props.get("stats", {})
+    actor_stats = actor_props.get("stats", {}) # Ensure actor_stats is a dict
+    if not isinstance(actor_stats, dict): actor_stats = {} # Default to empty dict if not found or wrong type
+
     actor_max_hp = actor_stats.get("hp",1)
     actor_current_hp = actor_combat_data.get("hp", actor_max_hp)
     hp_percentage = (actor_current_hp / actor_max_hp) if actor_max_hp > 0 else 1.0
@@ -884,12 +989,15 @@ async def _choose_action(
 
         if healing_actions: # If there are healing actions, pick the best one among them
             healing_actions.sort(key=lambda x: x["score"], reverse=True)
-            # print(f"NPC {actor_npc.id} is low HP ({hp_percentage*100}%), choosing heal: {healing_actions[0]['action']}")
-            return healing_actions[0]["action"]
+            return healing_actions[0]["action"] # Return the best healing action
 
+    # Fallback to the best action after all modifiers if no special condition met
+    if not best_evaluated_action_dict: # Should be populated if action_evaluations was not empty
+        # This case implies action_evaluations became empty or best_evaluated_action_dict was not set,
+        # which is unlikely if initial checks pass.
+        return {"type": "idle", "reason": "No best action determined after all considerations."}
 
-    # print(f"NPC {actor_npc.id} chose action: {best_evaluated_action['action']} with score {best_evaluated_action['score']}")
-    return best_evaluated_action["action"]
+    return best_evaluated_action_dict["action"]
 
 
 def _format_action_result(
@@ -977,11 +1085,24 @@ async def get_npc_combat_action(
     if actor_combat_data.get("hp", 0) <= 0:
         return {"action_type": "idle", "reason": "Actor is defeated."}
 
-    # 2. Get AI rules
-    ai_rules = await _get_npc_ai_rules(session, guild_id, actor_npc, combat_encounter)
+    # 2. Get AI rules (including loading hidden relationships)
+    actor_all_relationships = await crud_relationship.get_relationships_for_entity( # Corrected: removed extra .crud_relationship
+        db=session, # crud_relationship expects 'db'
+        guild_id=guild_id,
+        entity_id=actor_npc.id,
+        entity_type=EntityType.NPC # Pass the Enum member
+    )
+
+    actor_hidden_relationships = []
+    if actor_all_relationships:
+        hidden_prefixes = ("secret_", "internal_", "personal_debt", "hidden_fear", "betrayal_")
+        for rel in actor_all_relationships:
+            if rel.relationship_type.startswith(hidden_prefixes):
+                actor_hidden_relationships.append(rel)
+
+    ai_rules = await _get_npc_ai_rules(session, guild_id, actor_npc, combat_encounter, actor_hidden_relationships)
 
     # 3. Get potential targets
-    # Pass participants_list to _get_potential_targets to avoid re-accessing combat_encounter.participants_json
     potential_targets = await _get_potential_targets(session, actor_npc, combat_encounter, ai_rules, guild_id, participants_list)
     if not potential_targets:
        return {"action_type": "idle", "reason": "No targets available."}

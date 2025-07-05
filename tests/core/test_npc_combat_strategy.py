@@ -177,61 +177,136 @@ def mock_ai_rules() -> Dict[str, Any]:
         }
     }
 
+@pytest.fixture
+def mock_ai_rules_with_hidden_effects(mock_ai_rules: Dict[str, Any], mock_target_player: Player) -> Dict[str, Any]:
+    """Extends mock_ai_rules with a sample hidden relationship effect."""
+    # Make a deep copy to avoid modifying the original fixture for other tests
+    import copy
+    rules = copy.deepcopy(mock_ai_rules)
+
+    rules["parsed_hidden_relationship_combat_effects"] = [
+        {
+            "rule_data": { # This is what would be loaded from RuleConfig
+                "enabled": True, "priority": 100, # High priority
+                "hostility_override": {
+                    "if_target_matches_relationship": True,
+                    "new_hostility_status": "friendly", # Make NPC friendly to target of this secret positive rel
+                    "condition_formula": "value > 50" # If secret positive value is > 50
+                },
+                "target_score_modifier_formula": "value * 0.1", # Corrected: Formula should be for adjustment, not new total
+                "action_weight_multipliers": [
+                    {"action_category": "attack_strong", "multiplier_formula": "0.1"}, # Drastically reduce strong attacks
+                    {"action_category": "attack_basic", "multiplier_formula": "0.5"}, # Reduce basic attacks
+                    {"action_category": "ability_non_damaging", "multiplier_formula": "2.0"} # Prefer non-damaging abilities
+                ]
+            },
+            "applies_to_relationship": { # This part is constructed by _get_npc_ai_rules based on actual NPC relationships
+                "type": "secret_positive_to_entity", # The type of hidden relationship this rule was found for
+                "value": 70, # The value of that relationship
+                "target_entity_type": EntityType.PLAYER.value, # Target of the relationship is Player
+                "target_entity_id": mock_target_player.id # Specifically this player
+            }
+        }
+    ]
+    return rules
+
+
 # --- Tests for _get_npc_ai_rules ---
 @pytest.mark.asyncio
 async def test_get_npc_ai_rules_merges_defaults_and_specific_relationship_rules(mock_session, mock_actor_npc, mock_combat_encounter):
-    # Base rules for npc_default_strategy (will be returned by get_rule for this key)
     base_npc_rules_from_db = {
         "target_selection": {"priority_order": ["lowest_hp_percentage"]},
         "action_selection": {"offensive_bias": 0.6}
     }
-    # Specific relationship influence rules for the guild (will be returned by get_rule for its key)
     specific_rel_rules_from_db = {
         "enabled": True,
-        "hostility_threshold_modifier_formula": "-(relationship_value / 15)", # Override default
+        "hostility_threshold_modifier_formula": "-(relationship_value / 15)",
         "action_choice": {
-            "friendly_positive_threshold": 40, # Override default
-            "actions_if_friendly": [{"action_type": "attack", "weight_multiplier": 0.1}] # Override
+            "friendly_positive_threshold": 40,
+            "actions_if_friendly": [{"action_type": "attack", "weight_multiplier": 0.1}]
         }
     }
-    # Expected default relationship rules if specific one is not fully defined (used by _get_npc_ai_rules internally)
     default_rel_influence_rules_in_code = {
-        "enabled": True,
-        "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
+        "enabled": True, "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
         "target_score_modifier_formula": "-(relationship_value * 0.2)",
         "action_choice": {
-            "friendly_positive_threshold": 50, # Default internal to _get_npc_ai_rules
-            "hostile_negative_threshold": -50, # Default internal to _get_npc_ai_rules
-            "actions_if_friendly": [],
-            "actions_if_hostile": []
+            "friendly_positive_threshold": 50, "hostile_negative_threshold": -50,
+            "actions_if_friendly": [], "actions_if_hostile": []
         }
     }
 
     async def mock_get_rule_side_effect(db, guild_id, key, default=None):
-        if key == "ai_behavior:npc_default_strategy":
-            return base_npc_rules_from_db
-        if key == "relationship_influence:npc_combat:behavior":
-            return specific_rel_rules_from_db
+        if key == "ai_behavior:npc_default_strategy": return base_npc_rules_from_db
+        if key == "relationship_influence:npc_combat:behavior": return specific_rel_rules_from_db
+        # For hidden relationship tests, this mock will need to return those rules too
         return default
 
     with patch('src.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
-        compiled_rules = await _get_npc_ai_rules(mock_session, 100, mock_actor_npc, mock_combat_encounter)
+        # Test without hidden relationships first
+        compiled_rules = await _get_npc_ai_rules(mock_session, 100, mock_actor_npc, mock_combat_encounter, actor_hidden_relationships=None)
 
-    # Check base rules are present
     assert compiled_rules["target_selection"]["priority_order"] == ["lowest_hp_percentage"]
-    assert compiled_rules["action_selection"]["offensive_bias"] == 0.6
-
-    # Check relationship influence rules
+    # Personality "aggressive" (from mock_actor_npc) adds 0.2 to offensive_bias.
+    # Base rule from base_npc_rules_from_db.action_selection.offensive_bias is 0.6.
+    # So, expected is 0.6 + 0.2 = 0.8.
+    assert compiled_rules["action_selection"]["offensive_bias"] == 0.8
     rel_behavior = compiled_rules["relationship_influence"]["npc_combat"]["behavior"]
     assert rel_behavior["enabled"] is True
-    # Check overridden values from specific_rel_rules_from_db
     assert rel_behavior["hostility_threshold_modifier_formula"] == "-(relationship_value / 15)"
     assert rel_behavior["action_choice"]["friendly_positive_threshold"] == 40
     assert rel_behavior["action_choice"]["actions_if_friendly"] == [{"action_type": "attack", "weight_multiplier": 0.1}]
-    # Check values that should come from default_rel_influence_rules_in_code because not overridden by specific_rel_rules_from_db
     assert rel_behavior["target_score_modifier_formula"] == default_rel_influence_rules_in_code["target_score_modifier_formula"]
     assert rel_behavior["action_choice"]["hostile_negative_threshold"] == default_rel_influence_rules_in_code["action_choice"]["hostile_negative_threshold"]
     assert rel_behavior["action_choice"]["actions_if_hostile"] == default_rel_influence_rules_in_code["action_choice"]["actions_if_hostile"]
+    assert "parsed_hidden_relationship_combat_effects" not in compiled_rules # No hidden rels passed
+
+
+@pytest.mark.asyncio
+async def test_get_npc_ai_rules_loads_hidden_relationship_effects(mock_session, mock_actor_npc, mock_combat_encounter, mock_target_player):
+    from src.models.relationship import Relationship # For creating mock Relationship objects
+
+    hidden_rel_npc_to_player = Relationship(
+        id=1, guild_id=100,
+        entity1_id=mock_actor_npc.id, entity1_type=EntityType.NPC,
+        entity2_id=mock_target_player.id, entity2_type=EntityType.PLAYER,
+        relationship_type="secret_positive_to_entity", value=75
+    )
+    actor_hidden_rels = [hidden_rel_npc_to_player]
+
+    # RuleConfig for this hidden relationship type
+    rule_for_hidden_secret_positive = {
+        "enabled": True, "priority": 50,
+        "target_score_modifier_formula": "value * 0.3", # Example effect
+        "hostility_override": {"if_target_matches_relationship": True, "new_hostility_status": "neutral"}
+    }
+
+    async def mock_get_rule_side_effect(db, guild_id, key, default=None):
+        if key == "ai_behavior:npc_default_strategy": return {} # Minimal base
+        if key == "relationship_influence:npc_combat:behavior": return {} # Minimal standard rel influence
+        if key == f"hidden_relationship_effects:npc_combat:{hidden_rel_npc_to_player.relationship_type}":
+            return rule_for_hidden_secret_positive
+        # Generic rule for "secret_positive_to_entity" (if specific above not found or for broader match)
+        if key == "hidden_relationship_effects:npc_combat:secret_positive_to_entity": # Base type
+             return {"enabled": True, "priority":10, "target_score_modifier_formula": "value * 0.1"} # A less specific rule
+        return default
+
+    with patch('src.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
+        # Pass the hidden relationships to _get_npc_ai_rules
+        compiled_rules = await _get_npc_ai_rules(
+            mock_session, 100, mock_actor_npc, mock_combat_encounter,
+            actor_hidden_relationships=actor_hidden_rels
+        )
+
+    assert "parsed_hidden_relationship_combat_effects" in compiled_rules
+    hidden_effects_list = compiled_rules["parsed_hidden_relationship_combat_effects"]
+    assert len(hidden_effects_list) == 1
+
+    effect_entry = hidden_effects_list[0]
+    assert effect_entry["rule_data"] == rule_for_hidden_secret_positive # Exact rule should be chosen
+    assert effect_entry["applies_to_relationship"]["type"] == "secret_positive_to_entity"
+    assert effect_entry["applies_to_relationship"]["value"] == 75
+    assert effect_entry["applies_to_relationship"]["target_entity_id"] == mock_target_player.id
+    assert effect_entry["applies_to_relationship"]["target_entity_type"] == EntityType.PLAYER.value
 
 
 # --- Tests for _get_available_abilities ---
@@ -384,6 +459,98 @@ async def test_calculate_target_score_relationship_formula_modifies_threat(mock_
 
     assert score_friendly == pytest.approx(expected_score_friendly)
     assert score_hostile == pytest.approx(expected_score_hostile)
+
+@pytest.mark.asyncio
+async def test_is_hostile_hidden_relationship_override_friendly(
+    mock_session, mock_actor_npc, mock_target_player, mock_ai_rules_with_hidden_effects # Use fixture with hidden effects
+):
+    target_player_combat_info = {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 100}
+    # mock_ai_rules_with_hidden_effects has a rule for "secret_positive_to_entity" with value 70
+    # and hostility_override to "friendly" if value > 50.
+    # This should make the NPC friendly to mock_target_player.
+
+    # _is_hostile first checks standard relationships. Assume none or neutral.
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)): # Neutral standard relationship
+        hostile = await _is_hostile(
+            mock_session, 100, mock_actor_npc,
+            target_player_combat_info, mock_target_player,
+            mock_ai_rules_with_hidden_effects # Pass rules with pre-parsed hidden effects
+        )
+        assert hostile is False # Hidden relationship makes it friendly
+
+@pytest.mark.asyncio
+async def test_calculate_target_score_hidden_relationship_modifier(
+    mock_session, mock_actor_npc, mock_target_player, mock_ai_rules_with_hidden_effects, mock_combat_encounter
+):
+    target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100, "threat_generated_towards_actor": 10}}
+    metric = "highest_threat_score"
+
+    # Standard relationship influence: target_score_modifier_formula: "-(relationship_value * 0.2)"
+    # Hidden relationship influence: target_score_modifier_formula: "current_score + (value * 0.1)"
+    # Hidden rel value is 70.
+    # Standard rel value (mocked for _get_relationship_value): 0 (neutral)
+
+    # Base threat from damage: 10 * 1.5 (threat_factor) = 15
+    # Standard rel mod: -(0 * 0.2) = 0
+    # Current score before hidden = 15
+    # Hidden rel mod: 15 + (70 * 0.1) = 15 + 7 = 22. So, final score should be 22.
+
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)): # Neutral standard relationship
+        score = await _calculate_target_score(
+            mock_session, 100, mock_actor_npc, target_info, metric,
+            mock_ai_rules_with_hidden_effects, mock_combat_encounter
+        )
+
+    expected_base_threat = 10 * mock_ai_rules_with_hidden_effects["target_selection"]["threat_factors"]["damage_dealt_to_self_factor"] # 10 * 1.5 = 15
+    expected_final_score = expected_base_threat + (70 * 0.1) # 15 + 7 = 22
+    assert score == pytest.approx(expected_final_score)
+
+
+@pytest.mark.asyncio
+async def test_choose_action_hidden_relationship_prefers_non_damaging(
+    mock_session, mock_actor_npc, mock_target_player, mock_ai_rules_with_hidden_effects, mock_combat_encounter
+):
+    actor_combat_data = {"id": mock_actor_npc.id, "type": EntityType.NPC.value, "hp": 50, "max_hp":50, "resources": {"mana": 10}, "cooldowns": {}}
+    target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}}
+
+    # mock_ai_rules_with_hidden_effects has:
+    # "action_weight_multipliers": [
+    #     {"action_category": "attack_strong", "multiplier_formula": "0.1"},
+    #     {"action_category": "attack_basic", "multiplier_formula": "0.5"},
+    #     {"action_category": "ability_non_damaging", "multiplier_formula": "2.0"}
+    # ]
+    # And applies to relationship with mock_target_player (value 70)
+
+    # Add a non-damaging ability to mock_actor_npc for this test
+    mock_actor_npc.properties_json["abilities"].append(
+        {"static_id": "tactical_buff", "name": "Tactical Buff", "cost": {"mana": 1}, "cooldown_turns": 0,
+         "effects": [{"type": "buff", "target_scope":"self"}], "category": "ability_non_damaging"} # Added category
+    )
+
+    async def mock_eval_effectiveness(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
+        # Base scores: Strong Hit (12), Attack (10), Tactical Buff (8)
+        if action_details.get("ability_props", {}).get("static_id") == "strong_hit": return 12.0
+        if action_details.get("type") == "attack": return 10.0 # Category: attack_basic
+        if action_details.get("ability_props", {}).get("static_id") == "tactical_buff": return 8.0 # Category: ability_non_damaging
+        return 1.0
+
+    # Standard relationship is neutral for this test (to isolate hidden effect)
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
+        with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
+            chosen_action = await _choose_action(
+                mock_session, 100, mock_actor_npc, actor_combat_data, target_info,
+                mock_ai_rules_with_hidden_effects, mock_combat_encounter
+            )
+
+    # Expected scores after hidden relationship weight (value=70):
+    # Strong Hit (cat: attack_strong): 12.0 * 0.1 = 1.2
+    # Attack (cat: attack_basic): 10.0 * 0.5 = 5.0
+    # Tactical Buff (cat: ability_non_damaging): 8.0 * 2.0 = 16.0
+    # Best should be Tactical Buff.
+    assert chosen_action.get("ability_props", {}).get("static_id") == "tactical_buff"
+
+    # Clean up added ability from fixture for other tests
+    mock_actor_npc.properties_json["abilities"].pop()
 
 
 # --- Tests for _get_potential_targets ---

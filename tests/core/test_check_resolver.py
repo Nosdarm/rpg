@@ -70,20 +70,24 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.patch_get_entity_attribute = patch('src.core.check_resolver._get_entity_attribute', new_callable=AsyncMock)
         self.mock_get_entity_attribute = self.patch_get_entity_attribute.start()
 
+        self.patch_get_entity_by_id_and_type_str = patch('src.core.check_resolver.get_entity_by_id_and_type_str', new_callable=AsyncMock)
+        self.mock_get_entity_by_id_and_type_str = self.patch_get_entity_by_id_and_type_str.start()
+
         # Default mock behaviors
         self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: DEFAULT_RULE_VALUES.get(key, default)
-
-        self.patch_crud_relationship_get_relationships = patch('src.core.check_resolver.crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
-        self.mock_crud_relationship_get_relationships = self.patch_crud_relationship_get_relationships.start()
+        self.mock_crud_relationship_get_relationships = patch('src.core.check_resolver.crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
         self.mock_crud_relationship_get_relationships.return_value = [] # Default to no relationships
+        self.mock_crud_relationship_get_relationships_started = self.mock_crud_relationship_get_relationships.start()
 
 
     async def asyncTearDown(self):
         self.patch_get_rule.stop()
         self.patch_roll_dice.stop()
         self.patch_get_entity_attribute.stop()
-        if hasattr(self, 'patch_crud_relationship_get_relationships'): # Ensure it was started
-            self.patch_crud_relationship_get_relationships.stop()
+        self.patch_get_entity_by_id_and_type_str.stop()
+        if hasattr(self, 'mock_crud_relationship_get_relationships_started'): # Ensure it was started
+            self.mock_crud_relationship_get_relationships_started.stop()
+
 
     async def test_simple_success(self):
         check_type = "some_check"
@@ -103,10 +107,18 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
             db=self.mock_db_session,
             guild_id=self.guild_id,
             check_type=check_type,
-            entity_doing_check_id=self.player_id,
-            entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, # Updated parameter name
+            actor_entity_type=RelationshipEntityType.PLAYER, # Use Enum
             difficulty_dc=dc
         )
+
+        # Check that get_entity_by_id_and_type_str was called for the actor
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        # Setup mock_get_entity_attribute to be called with the mocked player model
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
+
 
         self.assertEqual(result.outcome.status, "success")
         self.assertEqual(result.roll_used, 14)
@@ -132,10 +144,15 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
             db=self.mock_db_session,
             guild_id=self.guild_id,
             check_type=check_type,
-            entity_doing_check_id=self.npc_id,
-            entity_doing_check_type=ENTITY_TYPE_NPC,
+            actor_entity_id=self.npc_id,
+            actor_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected
             difficulty_dc=dc
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.GENERATED_NPC.value, entity_id=self.npc_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_npc
+
         self.assertEqual(result.outcome.status, "failure")
         self.assertEqual(result.final_value, 11) # 10 + 1
 
@@ -153,9 +170,13 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
             difficulty_dc=dc
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
         self.assertEqual(result.outcome.status, "critical_success")
         self.assertEqual(result.roll_used, 20)
         self.assertEqual(result.final_value, 25) # 20 + 5
@@ -174,9 +195,13 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
             difficulty_dc=dc
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
         self.assertEqual(result.outcome.status, "critical_failure")
         self.assertEqual(result.roll_used, 1)
         self.assertEqual(result.final_value, 6) # 1 + 5
@@ -195,9 +220,13 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
             difficulty_dc=dc, check_context=context
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
         self.assertEqual(result.outcome.status, "success") # 12 + 1 (base) + 2 (sit) = 15
         self.assertEqual(result.total_modifier, 3) # 1 (base) + 2 (sit)
         self.assertEqual(result.final_value, 15)
@@ -217,9 +246,13 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
             difficulty_dc=dc, check_context=context
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
         self.assertEqual(result.outcome.status, "failure") # 10 + 2 (base) - 3 (sit) = 9
         self.assertEqual(result.total_modifier, -1) # 2 (base) - 3 (sit)
         self.assertEqual(result.final_value, 9)
@@ -237,8 +270,12 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER # Updated
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
         self.assertEqual(result.outcome.status, "value_determined")
         self.assertEqual(result.final_value, 18)
         self.assertIsNone(result.difficulty_class)
@@ -258,9 +295,14 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(CheckError, "Configuration error for check 'bad_dice_check': Invalid dice notation 'invalid_dice'."):
             await resolve_check(
                 db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-                entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+                actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
                 difficulty_dc=10
             )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
+
 
     async def test_base_attribute_not_found(self):
         check_type = "some_check"
@@ -275,9 +317,13 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER, # Updated
             difficulty_dc=dc
         )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.return_value = self.mock_player
 
         self.assertEqual(result.outcome.status, "success") # 12 (roll) + 0 (mod) >= 10
         self.assertEqual(result.total_modifier, 0)
@@ -313,10 +359,24 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
-            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC, # Target for relationship
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC,
             difficulty_dc=dc
         )
+        # Mock calls for loading actor and target models
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.PLAYER.value, entity_id=self.player_id, guild_id=self.guild_id
+        )
+        self.mock_get_entity_by_id_and_type_str.assert_any_call(
+            self.mock_db_session, entity_type_str=RelationshipEntityType.GENERATED_NPC.value, entity_id=self.npc_id, guild_id=self.guild_id
+        )
+        # Ensure return values are set for subsequent calls if models are re-fetched or used by _get_entity_attribute
+        def side_effect_load_entities(db, entity_type_str, entity_id, guild_id):
+            if entity_id == self.player_id: return self.mock_player
+            if entity_id == self.npc_id: return self.mock_npc
+            return None
+        self.mock_get_entity_by_id_and_type_str.side_effect = side_effect_load_entities
+
 
         # Expected: roll(10) + charisma_mod(1) + rel_mod(50//20 = 2) = 13. Fails vs DC 15.
         # But we are checking the modifier application.
@@ -347,15 +407,22 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_roll_dice.return_value = (10, [10])
         mock_relationship = Relationship(
             entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id,
-            entity2_type=RelationshipEntityType.FACTION, entity2_id=1, # Target is faction 1
+            entity2_type=RelationshipEntityType.GENERATED_FACTION, entity2_id=1, # Corrected Enum
             relationship_type="faction_standing", value=70, guild_id=self.guild_id
         )
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
 
+        def side_effect_load_entities_faction(db, entity_type_str, entity_id, guild_id):
+            if entity_id == self.player_id: return self.mock_player
+            # Mock for Faction model if needed for name resolution, not strictly needed for this test logic
+            # if entity_type_str == RelationshipEntityType.GENERATED_FACTION.value and entity_id == 1: return MagicMock(spec=GeneratedFaction, name="TestFaction")
+            return None
+        self.mock_get_entity_by_id_and_type_str.side_effect = side_effect_load_entities_faction
+
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
-            target_entity_id=1, target_entity_type="FACTION", # Target for relationship is Faction 1
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=1, target_entity_type=RelationshipEntityType.GENERATED_FACTION, # Corrected Enum
             difficulty_dc=dc
         )
         # Expected: roll(10) + speech_mod(0) + rel_mod(3) = 13. Success vs DC 12.
@@ -380,13 +447,15 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         self.mock_get_entity_attribute.return_value = 1 # charisma_mod
         self.mock_roll_dice.return_value = (10, [10])
-        mock_relationship = Relationship(relationship_type="personal_feeling", value=50, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        mock_relationship = Relationship(relationship_type="personal_feeling", value=50, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.GENERATED_NPC) # Corrected Enum
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+        self.mock_get_entity_by_id_and_type_str.side_effect = \
+            lambda db, entity_type_str, entity_id, guild_id: self.mock_player if entity_id == self.player_id else (self.mock_npc if entity_id == self.npc_id else None)
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
-            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected Enum
             difficulty_dc=dc
         )
         # Expected: roll(10) + charisma_mod(1) = 11. No relationship mod.
@@ -411,13 +480,15 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_get_entity_attribute.return_value = 2 # strength_mod
         self.mock_roll_dice.return_value = (8, [8])
         # Relationship is 'personal_feeling', not 'rivalry'
-        mock_relationship = Relationship(relationship_type="personal_feeling", value=30, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        mock_relationship = Relationship(relationship_type="personal_feeling", value=30, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.GENERATED_NPC) # Corrected Enum
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+        self.mock_get_entity_by_id_and_type_str.side_effect = \
+            lambda db, entity_type_str, entity_id, guild_id: self.mock_player if entity_id == self.player_id else (self.mock_npc if entity_id == self.npc_id else None)
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
-            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected Enum
             difficulty_dc=dc
         )
         # Expected: roll(8) + strength_mod(2) = 10. No relationship mod due to pattern mismatch.
@@ -442,13 +513,15 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
 
         self.mock_get_entity_attribute.return_value = 3 # deception_skill
         self.mock_roll_dice.return_value = (7, [7])
-        mock_relationship = Relationship(relationship_type="trust_level", value=20, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        mock_relationship = Relationship(relationship_type="trust_level", value=20, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.GENERATED_NPC) # Corrected Enum
         self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+        self.mock_get_entity_by_id_and_type_str.side_effect = \
+            lambda db, entity_type_str, entity_id, guild_id: self.mock_player if entity_id == self.player_id else (self.mock_npc if entity_id == self.npc_id else None)
 
         result = await resolve_check(
             db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
-            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
-            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected Enum
             difficulty_dc=dc
         )
         # Expected: roll(7) + skill(3) = 10. No relationship mod due to formula error.
@@ -457,6 +530,189 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.outcome.status, "success")
         self.assertIn("relationship_roll_modifier_error", result.rule_config_snapshot)
         self.assertFalse(any(md.source.startswith("relationship:") for md in result.modifier_details))
+
+    # --- Tests for Hidden Relationship Influence (Task 38) ---
+
+    async def test_hidden_relationship_roll_modifier_npc_hates_player(self):
+        check_type = "intimidation" # Player tries to intimidate NPC
+        dc = 15
+        # Player is actor, NPC is target. NPC has hidden hate for player.
+        # Rule: If NPC secretly hates player (value high), player's intimidation gets a penalty.
+        # player_matches_relationship will be true if actor (player) is target of hidden relationship.
+        # Here, NPC (target_entity) has a hidden relationship concerning the player (actor_entity).
+        # The formula "(value // 10) * (if player_matches_relationship then -1 else 1)"
+        # If NPC hates Player (value=80), and player_matches_relationship is True (player is target of this hate),
+        # then modifier is (80//10) * -1 = -8 to player's roll.
+
+        def side_effect_get_rule(db, guild_id, key, default=None):
+            rules = {
+                f"checks:{check_type}:dice_notation": "1d20",
+                f"checks:{check_type}:base_attribute": "strength_mod", # Player's strength_mod
+                f"hidden_relationship_effects:checks:secret_negative_to_entity": {
+                    "enabled": True,
+                    "applies_to_check_types": [check_type],
+                    # Player is actor, NPC is target. NPC has hidden rel TO player.
+                    # So, player_matches_relationship should be True if player is entity2 of the relationship.
+                    "roll_modifier_formula": "-(value // 10)" # Simpler: if NPC has secret_negative value 80, player gets -8.
+                }
+            }
+            return rules.get(key, DEFAULT_RULE_VALUES.get(key, default))
+        self.mock_get_rule.side_effect = side_effect_get_rule
+
+        self.mock_get_entity_attribute.return_value = 2 # Player's strength_mod
+        self.mock_roll_dice.return_value = (16, [16]) # Player rolls 16
+
+        # NPC (id=200) has a secret_negative_to_entity relationship towards Player (id=100)
+        mock_hidden_relationship = Relationship(
+            entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER,
+            relationship_type="secret_negative_to_entity", value=80, guild_id=self.guild_id
+        )
+        self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
+
+        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed args
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id:
+                return self.mock_player
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id:
+                return self.mock_npc
+            return None
+        self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            difficulty_dc=dc
+        )
+
+        # Expected: roll(16) + str_mod(2) - hidden_rel_penalty(80//10 = 8) = 10. Fails vs DC 15.
+        self.assertEqual(result.total_modifier, 2 - 8) # str_mod - penalty
+        self.assertEqual(result.final_value, 10)
+        self.assertEqual(result.outcome.status, "failure")
+        self.assertTrue(any(md.source == "Hidden Relationship (secret_negative_to_entity)" and md.value == -8 for md in result.modifier_details))
+        self.assertIn("hidden_relationship_effects_applied", result.rule_config_snapshot)
+
+
+    async def test_hidden_relationship_dc_modifier_npc_likes_player(self):
+        check_type = "deception" # Player tries to deceive NPC
+        dc = 18 # Base DC
+        # Player is actor, NPC is target. NPC secretly likes player.
+        # Rule: If NPC likes player, DC for player's deception check against this NPC is lowered.
+        # Formula: "-(value // 10)" means positive 'value' (liking) results in negative DC mod (easier).
+        # If NPC likes Player (value=50), DC mod is -(50//10) = -5. New DC = 18 - 5 = 13.
+
+        def side_effect_get_rule(db, guild_id, key, default=None):
+            rules = {
+                f"checks:{check_type}:dice_notation": "1d20",
+                f"checks:{check_type}:base_attribute": "charisma_mod",
+                f"hidden_relationship_effects:checks:secret_positive_to_entity": {
+                    "enabled": True,
+                    "applies_to_check_types": [check_type],
+                    "dc_modifier_formula": "-(value // 10)"
+                }
+            }
+            return rules.get(key, DEFAULT_RULE_VALUES.get(key, default))
+        self.mock_get_rule.side_effect = side_effect_get_rule
+
+        self.mock_get_entity_attribute.return_value = 1 # Player's charisma_mod
+        self.mock_roll_dice.return_value = (12, [12]) # Player rolls 12
+
+        mock_hidden_relationship = Relationship(
+            entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER,
+            relationship_type="secret_positive_to_entity", value=50, guild_id=self.guild_id
+        )
+        self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
+
+        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id:
+                return self.mock_player
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id:
+                return self.mock_npc
+            return None
+        self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            difficulty_dc=dc
+        )
+
+        # Original DC = 18. Hidden Rel DC mod = -(50//10) = -5. Effective DC = 13.
+        # Player roll = 12, charisma_mod = 1. Total roll = 13.
+        # Effective roll change due to DC mod is +5. Total modifier = 1 (charisma) + 5 (from DC change) = 6.
+        # Final value = 12 (roll) + 6 (total_modifier_effective) = 18.
+        # Success: 13 (effective roll) vs 13 (effective DC).
+
+        self.assertEqual(result.outcome.status, "success")
+        # total_modifier reflects changes to the roll. DC decrease of 5 is roll increase of 5.
+        self.assertEqual(result.total_modifier, 1 + 5)
+        self.assertEqual(result.final_value, 12 + (1+5)) # roll + total_modifier
+        self.assertTrue(any(md.source == "Hidden Relationship (secret_positive_to_entity)" and md.value == 5 for md in result.modifier_details))
+        self.assertIn("hidden_relationship_effects_applied", result.rule_config_snapshot)
+        applied_effect = result.rule_config_snapshot["hidden_relationship_effects_applied"][0]
+        self.assertEqual(applied_effect["modifier_applied_to_roll"], 5)
+
+
+    async def test_hidden_relationship_no_relevant_rule_or_disabled(self):
+        check_type = "stealth"
+        dc = 14
+
+        # Case 1: No rule for "secret_generic_hidden_trait"
+        def side_effect_no_rule(db, guild_id, key, default=None):
+            return {"checks:stealth:dice_notation": "1d20"}.get(key, default)
+        self.mock_get_rule.side_effect = side_effect_no_rule
+
+        self.mock_get_entity_attribute.return_value = 2 # Player's stealth_mod
+        self.mock_roll_dice.return_value = (11, [11]) # Player rolls 11
+
+        mock_hidden_relationship = Relationship(
+            entity1_id=self.npc_id, entity1_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            entity2_id=self.player_id, entity2_type=RelationshipEntityType.PLAYER,
+            relationship_type="secret_generic_hidden_trait", value=50, guild_id=self.guild_id
+        )
+        self.mock_crud_relationship_get_relationships.return_value = [mock_hidden_relationship]
+
+        def mock_load_entity(db_session_arg, entity_type_str, entity_id_arg, guild_id_call_arg): # Renamed
+            if entity_type_str == RelationshipEntityType.PLAYER.value and entity_id_arg == self.player_id: return self.mock_player
+            if entity_type_str == RelationshipEntityType.GENERATED_NPC.value and entity_id_arg == self.npc_id: return self.mock_npc
+            return None
+        self.mock_get_entity_by_id_and_type_str.side_effect = mock_load_entity
+
+        result_no_rule = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            difficulty_dc=dc
+        )
+        # Expected: 11 (roll) + 2 (stealth_mod) = 13. Fails. No hidden rel mod.
+        self.assertEqual(result_no_rule.total_modifier, 2)
+        self.assertEqual(result_no_rule.final_value, 13)
+        self.assertNotIn("hidden_relationship_effects_applied", result_no_rule.rule_config_snapshot)
+
+        # Case 2: Rule exists but is disabled
+        def side_effect_disabled_rule(db, guild_id, key, default=None):
+            rules = {
+                "checks:stealth:dice_notation": "1d20",
+                "hidden_relationship_effects:checks:secret_generic_hidden_trait": {
+                    "enabled": False, "roll_modifier_formula": "value // 10"
+                }
+            }
+            return rules.get(key, default)
+        self.mock_get_rule.side_effect = side_effect_disabled_rule
+
+        result_disabled_rule = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            actor_entity_id=self.player_id, actor_entity_type=RelationshipEntityType.PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=RelationshipEntityType.GENERATED_NPC, # Corrected
+            difficulty_dc=dc
+        )
+        # mock_load_entity is already set from the previous part of this test, assuming it's still valid.
+        self.assertEqual(result_disabled_rule.total_modifier, 2)
+        self.assertEqual(result_disabled_rule.final_value, 13)
+        self.assertNotIn("hidden_relationship_effects_applied", result_disabled_rule.rule_config_snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()

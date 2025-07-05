@@ -121,6 +121,60 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
             rel = ParsedRelationshipData(**VALID_RELATIONSHIP_DATA)
             rel.entity_type = "new_type"
 
+    # Tests for ParsedNpcData
+    def test_parsed_npc_data_valid(self):
+        from src.core.ai_response_parser import ParsedNpcData # Local import for clarity
+        valid_npc_data = {
+            "entity_type": "npc",
+            "static_id": "npc_001",
+            "name_i18n": {"en": "Guard", "ru": "Стражник"},
+            "description_i18n": {"en": "A city guard.", "ru": "Городской стражник."},
+            "stats": {"hp": 50}
+        }
+        npc = ParsedNpcData(**valid_npc_data)
+        self.assertEqual(npc.static_id, "npc_001")
+        self.assertEqual(npc.name_i18n["en"], "Guard")
+        self.assertEqual(npc.stats["hp"], 50)
+
+        # Test with optional static_id missing
+        valid_npc_data_no_static_id = valid_npc_data.copy()
+        del valid_npc_data_no_static_id["static_id"]
+        npc_no_sid = ParsedNpcData(**valid_npc_data_no_static_id)
+        self.assertIsNone(npc_no_sid.static_id)
+
+    def test_parsed_npc_data_invalid_static_id(self):
+        from src.core.ai_response_parser import ParsedNpcData
+        invalid_npc_data_empty_static_id = {
+            "entity_type": "npc", "static_id": " ", # Whitespace only
+            "name_i18n": {"en": "Guard", "ru": "Стражник"},
+            "description_i18n": {"en": "A city guard.", "ru": "Городской стражник."}
+        }
+        with self.assertRaises(PydanticNativeValidationError) as context:
+            ParsedNpcData(**invalid_npc_data_empty_static_id)
+        self.assertIn("static_id must be a non-empty string if provided", str(context.exception))
+
+        invalid_npc_data_wrong_type_static_id = {
+            "entity_type": "npc", "static_id": 123, # Not a string
+            "name_i18n": {"en": "Guard", "ru": "Стражник"},
+            "description_i18n": {"en": "A city guard.", "ru": "Городской стражник."}
+        }
+        with self.assertRaises(PydanticNativeValidationError) as context:
+            ParsedNpcData(**invalid_npc_data_wrong_type_static_id)
+        # Pydantic v2 might convert int to str if not strict, or error on type.
+        # The validator `check_static_id` runs `mode='before'`, so it gets 123.
+        # `isinstance(v, str)` will be false.
+        # The error message comes from our validator.
+        self.assertIn("static_id must be a non-empty string if provided", str(context.exception))
+
+    def test_parsed_npc_data_missing_required_fields(self):
+        from src.core.ai_response_parser import ParsedNpcData
+        # Missing name_i18n
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"})
+        # Missing description_i18n
+        with self.assertRaises(PydanticNativeValidationError):
+            ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"})
+
 
 class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
     # Asynchronous tests for parse_and_validate_ai_response function
