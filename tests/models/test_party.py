@@ -9,37 +9,22 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
-from sqlalchemy import event, JSON, select
-from sqlalchemy.orm import selectinload # Added selectinload
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import event, JSON, select # Removed unused JSONB
+from sqlalchemy.orm import selectinload
+# from sqlalchemy.dialects.postgresql import JSONB # Not needed
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.exc import IntegrityError
 
 from src.models.base import Base
 from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType # Removed LocationJsonBForSQLite
-from src.models.player import Player, PlayerStatus # Player is needed for leader relationship
+from src.models.location import Location, LocationType
+from src.models.player import Player, PlayerStatus
 from src.models.party import Party, PartyTurnStatus
-from src.models.custom_types import JsonBForSQLite # General custom type
+# from src.models.custom_types import JsonBForSQLite # Not directly used in this test file's logic after listener removal
 
-# Apply JsonBForSQLite for SQLite testing if models don't handle it internally for all JSON types
-@event.listens_for(Party.__table__, "column_reflect")
-def _party_column_reflect(inspector, table, column_info):
-    if column_info['name'] == 'player_ids_json' and isinstance(column_info['type'], JSON):
-        # Party.player_ids_json is JSON, not JSONB in the model.
-        pass
-
-@event.listens_for(Location.__table__, "column_reflect")
-def _location_column_reflect(inspector, table, column_info):
-    if column_info['name'] in ['name_i18n', 'descriptions_i18n', 'coordinates_json', 'neighbor_locations_json', 'generated_details_json', 'ai_metadata_json']:
-        if not isinstance(column_info['type'], JsonBForSQLite): # Changed LocationJsonBForSQLite to JsonBForSQLite
-             column_info['type'] = JsonBForSQLite()
-
-@event.listens_for(Player.__table__, "column_reflect")
-def _player_column_reflect(inspector, table, column_info):
-    if column_info['name'] == 'collected_actions_json' and isinstance(column_info['type'], JSON):
-         pass
-
+# Redundant event listeners removed as models (Location, Player, Party)
+# now use JsonBForSQLite directly for JSONB-like fields or standard JSON,
+# which are compatible with SQLite.
 
 class TestPartyModel(unittest.IsolatedAsyncioTestCase):
     engine: Optional[AsyncEngine] = None
@@ -58,10 +43,10 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
         )
 
     @classmethod
-    def tearDownClass(cls): # Changed to sync
+    def tearDownClass(cls):
         if cls.engine:
             import asyncio
-            asyncio.run(cls.engine.dispose()) # Run async dispose
+            asyncio.run(cls.engine.dispose())
 
     async def asyncSetUp(self):
         assert self.SessionLocal is not None, "SessionLocal not initialized"
@@ -72,14 +57,12 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-        # Setup GuildConfig
         guild_exists = await self.session.get(GuildConfig, self.test_guild_id)
         if not guild_exists:
             guild = GuildConfig(id=self.test_guild_id, main_language="en", name="Test Guild For Party")
             self.session.add(guild)
             await self.session.commit()
 
-        # Setup Location
         loc_stmt = select(Location).filter_by(guild_id=self.test_guild_id, static_id="party_loc")
         existing_loc = await self.session.execute(loc_stmt)
         party_loc = existing_loc.scalar_one_or_none()
@@ -93,7 +76,6 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
             await self.session.commit()
         self.test_location_id = party_loc.id
 
-        # Setup a Player to be a leader
         leader_player_stmt = select(Player).filter_by(guild_id=self.test_guild_id, discord_id=2001)
         existing_leader = await self.session.execute(leader_player_stmt)
         leader_player = existing_leader.scalar_one_or_none()
@@ -103,7 +85,6 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
             await self.session.commit()
         self.test_leader_player_id = leader_player.id
 
-        # Setup some sample players for player_ids_json
         self.sample_player_ids = []
         for i in range(3):
             player_discord_id = 2002 + i
@@ -126,7 +107,6 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
         party_data = {
             "guild_id": self.test_guild_id,
             "name": "The Minimalists",
-            # current_location_id, player_ids_json, turn_status should use defaults or be None
         }
         party = Party(**party_data)
         self.session.add(party)
@@ -168,19 +148,13 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
         for key, value in party_data.items():
             self.assertEqual(getattr(retrieved_party, key), value)
 
-        # Check relationships
         self.assertIsNotNone(retrieved_party.location)
-        if retrieved_party.location: # type guard
+        if retrieved_party.location:
             self.assertEqual(retrieved_party.location.id, self.test_location_id)
 
         self.assertIsNotNone(retrieved_party.leader)
-        if retrieved_party.leader: # type guard
+        if retrieved_party.leader:
              self.assertEqual(retrieved_party.leader.id, self.test_leader_player_id)
-
-        # players relationship might need players to have current_party_id set to this party's id
-        # For this model test, we primarily test if the fields are set correctly.
-        # Testing the back-population of Player.party would be more of an integration test
-        # or a test for the service layer that manages party joining.
 
 
     async def test_party_repr(self):
@@ -200,7 +174,7 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
         party = Party(
             guild_id=self.test_guild_id,
             name="EmptyParty",
-            player_ids_json=None # or []
+            player_ids_json=None
         )
         self.session.add(party)
         await self.session.commit()
