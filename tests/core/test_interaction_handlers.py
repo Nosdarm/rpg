@@ -260,9 +260,9 @@ async def test_interact_object_with_check_success(
     # Check if the custom feedback key from the rule is used
     assert "You attempt to interact with Old Chest... Success! (success)" in result["message"] # Default format for "interact_check_success_custom_chest_open" if not in _format_feedback
 
-    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
-    mock_resolve_check.assert_called_once()
-    resolve_args, resolve_kwargs = mock_resolve_check.call_args_list[0]
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic") # FIX: db to session
+    mock_resolve_check.assert_called_once() # type: ignore
+    resolve_kwargs = mock_resolve_check.call_args.kwargs # type: ignore
 
     assert resolve_kwargs["guild_id"] == DEFAULT_GUILD_ID
     assert resolve_kwargs["check_type"] == "lockpicking"
@@ -322,13 +322,19 @@ async def test_interact_object_with_check_failure(
     assert result["success"] is False # Interaction failed due to check
     assert "You attempt to interact with Old Chest... Failure. (failure)" in result["message"]
 
-    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
-    mock_resolve_check.assert_called_once()
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic") # FIX: db to session
+    mock_resolve_check.assert_called_once() # type: ignore
 
-    mock_log_event.assert_called_once()
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
-    assert log_kwargs["details_json"]["check_result"]["outcome"] == "FAILURE"
-    assert log_kwargs["details_json"]["applied_consequences_key"] == "lever_stuck"
+    mock_log_event.assert_called_once() # type: ignore
+    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    details_json_val = log_kwargs.get("details_json")
+    assert details_json_val is not None
+    assert isinstance(details_json_val, dict)
+    check_result_val = details_json_val.get("check_result")
+    assert check_result_val is not None
+    assert isinstance(check_result_val, dict)
+    assert check_result_val.get("outcome") == "FAILURE"
+    assert details_json_val.get("applied_consequences_key") == "lever_stuck"
 
 
 @pytest.mark.asyncio
@@ -380,16 +386,20 @@ async def test_interact_object_no_check_required(
     assert result["success"] is True
     assert "You interact with Hidden Lever. It seems to have worked." in result["message"] # Default for "interact_direct_lever_opens"
 
-    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:lever_simple")
-    mock_resolve_check.assert_not_called() # IMPORTANT: check resolver should not be called
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:lever_simple") # FIX: db to session
+    mock_resolve_check.assert_not_called() # type: ignore # IMPORTANT: check resolver should not be called
 
-    mock_log_event.assert_called_once()
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
-    assert log_kwargs["details_json"]["target"] == "Hidden Lever"
-    assert log_kwargs["details_json"]["rule_found"] is True
-    assert log_kwargs["details_json"]["check_required"] is False
-    assert "check_result" not in log_kwargs["details_json"] # No check result
-    assert log_kwargs["details_json"]["applied_consequences_key"] == "lever_activates_passage"
+    mock_log_event.assert_called_once() # type: ignore
+    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    details_json_val = log_kwargs.get("details_json")
+    assert details_json_val is not None, "'details_json' key missing in log_event call"
+    assert isinstance(details_json_val, dict), "'details_json' was not a dict"
+
+    assert details_json_val.get("target") == "Hidden Lever"
+    assert details_json_val.get("rule_found") is True
+    assert details_json_val.get("check_required") is False
+    assert "check_result" not in details_json_val # No check result
+    assert details_json_val.get("applied_consequences_key") == "lever_activates_passage"
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
@@ -416,10 +426,13 @@ async def test_interact_object_rule_not_found(
     assert result["success"] is True # Still true, but nothing happens
     assert "You try to interact with Old Chest, but nothing interesting happens." in result["message"]
 
-    mock_get_rule.assert_called_once_with(db=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
-    mock_log_event.assert_called_once() # Log event should still be called
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
-    assert log_kwargs["details_json"]["rule_found"] is False
+    mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic") # FIX: db to session
+    mock_log_event.assert_called_once() # type: ignore # Log event should still be called
+    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    details_json_val = log_kwargs.get("details_json")
+    assert details_json_val is not None
+    assert isinstance(details_json_val, dict)
+    assert details_json_val.get("rule_found") is False
 
 
 @pytest.mark.asyncio
@@ -466,9 +479,12 @@ async def test_interact_object_no_interaction_key( # Renamed from test_interact_
 
     assert result["success"] is True # Should be true, as "nothing interesting happens" is a success
     assert "You try to interact with Hidden Lever, but nothing interesting happens." in result["message"]
-    mock_log_event.assert_called_once()
-    log_args, log_kwargs = mock_log_event.call_args_list[0]
-    assert log_kwargs["details_json"]["interaction_rules_key"] is None
+    mock_log_event.assert_called_once() # type: ignore
+    log_kwargs = mock_log_event.call_args.kwargs # type: ignore
+    details_json_val = log_kwargs.get("details_json")
+    assert details_json_val is not None
+    assert isinstance(details_json_val, dict)
+    assert details_json_val.get("interaction_rules_key") is None
 
 
 @pytest.mark.asyncio

@@ -28,7 +28,7 @@ class MockAuthor(discord.User): # Наследуемся от discord.User дл�
         user_data = {'id': str(id), 'username': name, 'discriminator': '0000', 'avatar': None}
         if display_name:
             user_data['global_name'] = display_name
-        super().__init__(state=MagicMock(), data=user_data)
+        super().__init__(state=MagicMock(), data=user_data) # type: ignore
         # self.display_name is a property and should work correctly now based on global_name or name
         # self.mention is also a property, no need to set it manually.
 
@@ -96,7 +96,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         created_party = Party(id=100, guild_id=self.guild.id, name="Cool Adventurers", player_ids_json=[player_in_db.id], current_location_id=player_in_db.current_location_id)
         self.mock_party_crud.create.return_value = created_party
 
-        await self.cog.party_create.callback(self.cog, self.ctx, party_name="Cool Adventurers")
+        await self.cog.party_create.callback(self.cog, self.ctx, party_name="Cool Adventurers") # type: ignore
 
         self.mock_party_crud.create.assert_called_once()
         created_data = self.mock_party_crud.create.call_args[1]['obj_in']
@@ -115,7 +115,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
         self.mock_party_crud.get.return_value = existing_party # For fetching existing party name
 
-        await self.cog.party_create.callback(self.cog, self.ctx, party_name="New Party")
+        await self.cog.party_create.callback(self.cog, self.ctx, party_name="New Party") # type: ignore
 
         self.mock_party_crud.create.assert_not_called()
         self.ctx.send.assert_called_once_with(f"{self.author.mention}, ты уже состоишь в группе 'Old Party'. Сначала покинь ее.")
@@ -133,7 +133,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
             return party
         self.mock_party_crud.remove_player_from_party_json.side_effect = mock_remove_player
 
-        await self.cog.party_leave.callback(self.cog, self.ctx)
+        await self.cog.party_leave.callback(self.cog, self.ctx) # type: ignore
 
         self.mock_party_crud.remove_player_from_party_json.assert_called_once_with(self.session_mock, party=party_to_leave, player_id=player_in_db.id)
         self.assertIsNone(player_in_db.current_party_id)
@@ -151,7 +151,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         # Mock player_crud.get to return members when updating their current_party_id
         self.mock_player_crud.get.side_effect = lambda db, id, guild_id: player_in_db if id == 1 else member2 if id == 2 else None
 
-        await self.cog.party_disband.callback(self.cog, self.ctx)
+        await self.cog.party_disband.callback(self.cog, self.ctx) # type: ignore
 
         self.mock_party_crud.delete.assert_called_once_with(self.session_mock, id=party_to_disband.id, guild_id=self.guild.id)
 
@@ -179,7 +179,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         self.mock_location_crud.get.return_value = self.player_location # For fetching location name
 
-        await self.cog.party_join.callback(self.cog, self.ctx, party_identifier="Joinable Party")
+        await self.cog.party_join.callback(self.cog, self.ctx, party_identifier="Joinable Party") # type: ignore
 
         self.mock_party_crud.get_by_name.assert_called_once_with(self.session_mock, guild_id=self.guild.id, name="Joinable Party")
         self.mock_party_crud.add_player_to_party_json.assert_called_once_with(self.session_mock, party=target_party, player_id=player_in_db.id)
@@ -208,7 +208,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         self.mock_location_crud.get.return_value = different_loc # For fetching location name
 
-        await self.cog.party_join.callback(self.cog, self.ctx, party_identifier="FarAwayParty")
+        await self.cog.party_join.callback(self.cog, self.ctx, party_identifier="FarAwayParty") # type: ignore
 
         self.assertEqual(player_in_db.current_location_id, different_loc.id) # Player moved
         self.ctx.send.assert_called_once_with(f"{self.author.mention} успешно присоединился к группе 'FarAwayParty'! Текущая локация группы: Party's Hideout.")

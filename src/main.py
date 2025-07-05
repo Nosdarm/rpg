@@ -35,6 +35,7 @@ app.include_router(commands_api_router, prefix="/api/v1", tags=["Bot Commands"])
 
 async def run_bot(bot_instance: BotCore):
     """Запускает Discord бота."""
+    assert DISCORD_BOT_TOKEN is not None, "DISCORD_BOT_TOKEN cannot be None when run_bot is called"
     try:
         logger.info(f"Запуск бота с префиксом: {bot_instance.command_prefix}")
         await bot_instance.start(DISCORD_BOT_TOKEN)

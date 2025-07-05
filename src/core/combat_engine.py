@@ -279,8 +279,8 @@ async def process_combat_action(
         # A potential modification to resolve_check would be to accept an optional `base_modifier_override`.
 
         attack_roll_result = await core_check_resolver.resolve_check(
-            db=session, guild_id=guild_id, check_type=check_type,
-            entity_doing_check_id=actor_id, entity_doing_check_type=actor_type,
+            session=session, guild_id=guild_id, check_type=check_type, # FIX: db to session
+            actor_entity_id=actor_id, actor_entity_type=actor_type, # FIX: Renamed parameters
             target_entity_id=target_id, target_entity_type=target_type,
             difficulty_dc=dc_value,
             check_context={"actor_participant_data": actor_participant_data, "target_participant_data": target_participant_data}

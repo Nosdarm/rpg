@@ -189,7 +189,7 @@ async def test_start_combat_successful_creation(
     # Check player status update
     assert mock_player_entity.current_status == PlayerStatus.COMBAT # Changed IN_COMBAT
     if hasattr(mock_player_entity, 'current_combat_id'): # Guard for missing attribute
-         assert mock_player_entity.current_combat_id == combat_encounter.id
+         assert mock_player_entity.current_combat_id == combat_encounter.id # type: ignore
     else:
         # This case implies the Player model might be missing current_combat_id, which is a separate issue
         # For this test, if the fixture sets it, this branch shouldn't be hit by logic,
@@ -198,8 +198,8 @@ async def test_start_combat_successful_creation(
 
 
     # Check log_event call
-    mock_log_event.assert_called_once()
-    log_call_args = mock_log_event.call_args[1] # kwargs
+    mock_log_event.assert_called_once() # type: ignore
+    log_call_args = mock_log_event.call_args.kwargs # kwargs
     assert log_call_args["event_type"] == EventType.COMBAT_START.name # Changed to .name
     assert log_call_args["guild_id"] == guild_id
     assert log_call_args["details_json"]["combat_id"] == combat_encounter.id

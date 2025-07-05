@@ -88,19 +88,19 @@ class EventCog(commands.Cog):
 
     async def _ensure_guild_config_exists(self, session: AsyncSession, guild_id: int, guild_name: str) -> GuildConfig: # Reverted name
         """Ensures a GuildConfig record exists for the guild, creates if not."""
-        guild_config = await guild_crud.get(db=session, id=guild_id)
+        guild_config = await guild_crud.get(session=session, id=guild_id) # FIX: db to session
         if not guild_config:
             logger.info(f"Конфигурация для гильдии {guild_name} (ID: {guild_id}) не найдена, создаю новую.")
             # Ensure guild_crud.create can handle id being passed directly or remove it if it's autogen by DB sequence
             # For now, assuming GuildConfig.id is guild.id and should be set explicitly.
             # CRUDBase.create expects obj_in as a Dict[str, Any]
             guild_config_data = {"id": guild_id, "main_language": 'en', "name": guild_name}
-            guild_config = await guild_crud.create(db=session, obj_in=guild_config_data)
+            guild_config = await guild_crud.create(session=session, obj_in=guild_config_data) # FIX: db to session
 
             # Set default main language rule
             # update_rule_config expects 'value' as the parameter name for the JSON content
             await update_rule_config(
-                db=session,
+                session=session, # FIX: db to session
                 guild_id=guild_id,
                 key="guild_main_language",
                 value={"language": "en"} # Parameter renamed from value_json to value
@@ -116,12 +116,12 @@ class EventCog(commands.Cog):
         created_count = 0
         for loc_data in DEFAULT_STATIC_LOCATIONS:
             existing_location = await location_crud.get_by_static_id(
-                db=session, guild_id=guild_id, static_id=loc_data["static_id"]
+                session=session, guild_id=guild_id, static_id=loc_data["static_id"] # FIX: db to session
             )
             if not existing_location:
                 # Ensure obj_in matches the fields of Location model for creation
                 # guild_id will be added by create_with_guild or CRUDBase.create
-                await location_crud.create_with_guild(db=session, obj_in=loc_data, guild_id=guild_id)
+                await location_crud.create_with_guild(session=session, obj_in=loc_data, guild_id=guild_id) # FIX: db to session
                 created_count += 1
                 logger.info(f"Создана локация '{loc_data['static_id']}' для гильдии {guild_id}.")
             else:

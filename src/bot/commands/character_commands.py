@@ -36,7 +36,7 @@ class CharacterCog(commands.Cog, name="Character Commands"):
         discord_id = interaction.user.id
         player_locale = str(interaction.locale) if interaction.locale else 'en'
 
-        player = await player_crud.get_by_discord_id(db=session, guild_id=guild_id, discord_id=discord_id)
+        player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id) # FIX: db to session
 
         if not player:
             # TODO: Локализовать это сообщение через RuleConfig

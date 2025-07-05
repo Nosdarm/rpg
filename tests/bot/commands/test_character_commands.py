@@ -320,7 +320,7 @@ async def test_levelup_command_calls_internal(
     cog = CharacterCog(mock_bot_fixture)
     attribute_name_test = "dexterity"
     points_to_spend_test = 2
-    await cog.levelup_command.callback(cog, mock_interaction_fixture, attribute_name_test, points_to_spend_test)
+    await cog.levelup_command.callback(cog, mock_interaction_fixture, attribute_name_test, points_to_spend_test) # type: ignore
     mock_levelup_internal.assert_called_once_with(
         mock_interaction_fixture, attribute_name_test, points_to_spend_test
     )

@@ -81,7 +81,7 @@ async def update_relationship( # noqa C901
 
     # 3. Find or create the Relationship record
     existing_relationship = await crud_relationship.get_relationship_between_entities(
-        db=session, # Renamed from db to session for consistency with other modules
+        session=session, # FIX: db to session
         guild_id=guild_id,
         entity1_type=c_entity1_type,
         entity1_id=c_entity1_id,
@@ -144,7 +144,7 @@ async def update_relationship( # noqa C901
         # existing_relationship.value = new_value
         # existing_relationship.source_log_id = event_details_log_id
         try:
-            updated_rel = await crud_relationship.update(db=session, db_obj=existing_relationship, obj_in=update_data)
+            updated_rel = await crud_relationship.update(session=session, db_obj=existing_relationship, obj_in=update_data) # FIX: db to session
             if not updated_rel: # Should not happen if update is successful
                  logger.error(f"Failed to update relationship for pair ({c_entity1_id}, {c_entity2_id}) in guild {guild_id}")
                  return

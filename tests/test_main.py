@@ -77,7 +77,7 @@ async def test_main_discord_login_failure(mock_settings, mock_bot_core, mock_ini
     mock_bot_core.start.side_effect = discord.LoginFailure("Login failed")
     await main_module.main()
     mock_init_db.assert_called_once()
-    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван"
+    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван" # type: ignore
     mock_bot_core.start.assert_called_once_with('fake_token')
     mock_bot_core.close.assert_called_once()
     assert "Ошибка входа: неверный токен Discord." in caplog.text
@@ -94,7 +94,7 @@ async def test_main_generic_start_exception(mock_settings, mock_bot_core, mock_i
     mock_bot_core.start.side_effect = Exception("Generic Start Error")
     await main_module.main()
     mock_init_db.assert_called_once()
-    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван"
+    assert main_module.BotCore.called, "Конструктор BotCore должен был быть вызван" # type: ignore
     mock_bot_core.start.assert_called_once_with('fake_token')
     mock_bot_core.close.assert_called_once()
     assert "Произошла ошибка при запуске бота: Generic Start Error" in caplog.text
@@ -140,8 +140,8 @@ async def test_main_success_with_bot_args_check(mock_settings, mock_bot_core, mo
     mocked_bot_constructor = main_module.BotCore
     await main_module.main()
     mock_init_db.assert_called_once()
-    assert mocked_bot_constructor.called, "Конструктор BotCore должен был быть вызван"
-    args, kwargs = mocked_bot_constructor.call_args
+    assert mocked_bot_constructor.called, "Конструктор BotCore должен был быть вызван" # type: ignore
+    args, kwargs = mocked_bot_constructor.call_args # type: ignore
     assert 'intents' in kwargs
     assert isinstance(kwargs['intents'], discord.Intents)
     assert kwargs['intents'].messages is True

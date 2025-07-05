@@ -136,7 +136,7 @@ async def handle_intra_location_action(
 
             if interaction_rules_key_short:
                 rule_config_key = f"interactions:{interaction_rules_key_short}"
-                interaction_rule = await get_rule(db=session, guild_id=guild_id, key=rule_config_key)
+                interaction_rule = await get_rule(session=session, guild_id=guild_id, key=rule_config_key) # FIX: db to session
 
                 if interaction_rule:
                     log_details["rule_found"] = True
@@ -188,11 +188,11 @@ async def handle_intra_location_action(
 
 
                             check_result = await resolve_check(
-                                db=session,
+                                session=session, # FIX: db to session
                                 guild_id=guild_id,
                                 check_type=check_type,
-                                entity_doing_check_id=player.id,
-                                entity_doing_check_type="player",
+                                actor_entity_id=player.id, # FIX: Renamed and added
+                                actor_entity_type="player", # FIX: Renamed and added (ensure this matches expected type, e.g. RelationshipEntityType.PLAYER.value)
                                 difficulty_dc=dc,
                                 # target_entity_id and target_entity_type are for actual game entities,
                                 # not necessarily the 'target_object_data' from location details.
@@ -213,14 +213,14 @@ async def handle_intra_location_action(
                                 consequences_key = interaction_rule.get("success_consequences_key", "generic_interaction_success")
                                 feedback_msg_key = interaction_rule.get("feedback_success", "interact_check_success")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.lower()),
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.value.lower()), # FIX: .value
                                     "success": True
                                 }
                             else: # FAILURE, CRITICAL_FAILURE
                                 consequences_key = interaction_rule.get("failure_consequences_key", "generic_interaction_failure")
                                 feedback_msg_key = interaction_rule.get("feedback_failure", "interact_check_failure")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.lower()),
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.value.lower()), # FIX: .value
                                     "success": False # Interaction failed duef to check
                                 }
                             log_details["applied_consequences_key"] = consequences_key

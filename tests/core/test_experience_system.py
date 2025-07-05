@@ -118,8 +118,8 @@ async def test_award_xp_single_player_no_levelup(
         },
         entity_ids_json={"player_id": updated_player.id}
     )
-    cast(AsyncMock, mock_session_fixture.commit).assert_called_once()
-    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player)
+    cast(AsyncMock, mock_session_fixture.commit).assert_called_once() # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player) # type: ignore
 
 
 @pytest.mark.asyncio
@@ -171,8 +171,8 @@ async def test_award_xp_single_player_level_up(
             },
             entity_ids_json={"player_id": updated_player.id}
         )
-    cast(AsyncMock, mock_session_fixture.commit).assert_called_once()
-    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player)
+    cast(AsyncMock, mock_session_fixture.commit).assert_called_once() # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_called_once_with(updated_player) # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -250,10 +250,10 @@ async def test_award_xp_party_equal_split_no_levelup(
         entity_ids_json={"player_id": player2_updated.id}
     )
 
-    assert cast(AsyncMock, mock_session_fixture.commit).call_count == 1
-    assert cast(AsyncMock, mock_session_fixture.refresh).call_count == 2
-    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player1_updated)
-    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player2_updated)
+    assert cast(AsyncMock, mock_session_fixture.commit).call_count == 1 # type: ignore
+    assert cast(AsyncMock, mock_session_fixture.refresh).call_count == 2 # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player1_updated) # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_any_call(player2_updated) # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
@@ -297,8 +297,8 @@ async def test_check_for_level_up_multiple_levels(
         },
         entity_ids_json={"player_id": player_fixture.id}
     )
-    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
-    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called()
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called() # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
@@ -345,9 +345,9 @@ async def test_award_xp_player_not_found(
         mock_session_fixture, guild_id_fixture, 999, RelationshipEntityType.PLAYER, 100, EventType.SYSTEM_EVENT # Используем SYSTEM_EVENT
     )
     assert len(updated_players) == 0
-    cast(AsyncMock, mock_log_event).assert_not_called()
-    cast(AsyncMock, mock_get_rule).assert_not_called() # mock_get_rule is also an AsyncMock
-    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called() # type: ignore
+    cast(AsyncMock, mock_get_rule).assert_not_called() # type: ignore # mock_get_rule is also an AsyncMock
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -374,9 +374,9 @@ async def test_award_xp_party_not_found_or_empty(
     )
     assert len(updated_players) == 0
 
-    cast(AsyncMock, mock_log_event).assert_not_called()
-    cast(AsyncMock, mock_get_rule).assert_not_called() # mock_get_rule is also an AsyncMock
-    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called() # type: ignore
+    cast(AsyncMock, mock_get_rule).assert_not_called() # type: ignore # mock_get_rule is also an AsyncMock
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
@@ -401,7 +401,7 @@ async def test_check_for_level_up_max_level_reached(
     assert level_up_achieved is False
     assert player_fixture.level == 5
     assert player_fixture.xp == 500
-    cast(AsyncMock, mock_log_event).assert_not_called()
+    cast(AsyncMock, mock_log_event).assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
 @patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
@@ -490,10 +490,10 @@ async def test_spend_attribute_points_success(
             "remaining_unspent_xp": 2,
         },
         entity_ids_json={"player_id": player_fixture.id}
-    )
+    ) # type: ignore
     # session.commit() и session.refresh() не должны вызываться внутри spend_attribute_points
-    cast(AsyncMock, mock_session_fixture.commit).assert_not_called()
-    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called()
+    cast(AsyncMock, mock_session_fixture.commit).assert_not_called() # type: ignore
+    cast(AsyncMock, mock_session_fixture.refresh).assert_not_called() # type: ignore
 
 
 @pytest.mark.asyncio

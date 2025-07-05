@@ -151,16 +151,17 @@ class TestPlayerModel(unittest.IsolatedAsyncioTestCase):
         retrieved_player = result.scalar_one_or_none()
 
         self.assertIsNotNone(retrieved_player)
-        for key, value in player_data.items():
-            self.assertEqual(getattr(retrieved_player, key), value)
+        if retrieved_player is not None: # Explicit guard for Pyright
+            for key, value in player_data.items():
+                self.assertEqual(getattr(retrieved_player, key), value)
 
-        self.assertIsNotNone(retrieved_player.location)
-        if retrieved_player.location:
-            self.assertEqual(retrieved_player.location.id, self.test_location_id)
+            self.assertIsNotNone(retrieved_player.location)
+            if retrieved_player.location: # This inner guard is fine
+                self.assertEqual(retrieved_player.location.id, self.test_location_id)
 
-        self.assertIsNotNone(retrieved_player.party)
-        if retrieved_player.party:
-             self.assertEqual(retrieved_player.party.id, self.test_party_id)
+            self.assertIsNotNone(retrieved_player.party)
+            if retrieved_player.party: # This inner guard is fine
+                 self.assertEqual(retrieved_player.party.id, self.test_party_id)
 
 
     async def test_player_unique_constraint_guild_discord_id(self):

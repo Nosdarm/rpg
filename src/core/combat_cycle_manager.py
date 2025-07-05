@@ -91,10 +91,10 @@ async def start_combat(
         current_hp = max_hp
         armor_class = 10 # Default
 
+        dex_modifier = 0 # Initialize dex_modifier once before conditional assignment
         if isinstance(entity, Player):
             # In a real scenario, fetch from player.stats, player.equipment etc.
             # For now, using placeholder values or direct model fields if available
-            dex_modifier = 0 # Initialize dex_modifier
             player_default_max_hp = await rules.get_rule(session=session, guild_id=guild_id, key="player:stats:default_max_hp", default=100)
             max_hp = getattr(entity, 'max_hp', player_default_max_hp) # Assuming Player model might have max_hp
             current_hp = getattr(entity, 'current_hp', max_hp) # And current_hp
@@ -102,7 +102,6 @@ async def start_combat(
             dex_modifier = (getattr(entity, 'dexterity', 10) - 10) // 2 # Example dexterity modifier for initiative
 
         elif isinstance(entity, GeneratedNpc):
-            dex_modifier = 0 # Initialize dex_modifier
             entity_props = entity.properties_json or {}
             npc_stats_block = entity_props.get("stats", {})
             max_hp = npc_stats_block.get("hp", 50)
@@ -191,7 +190,7 @@ async def start_combat(
                 player.current_status = PlayerStatus.COMBAT # Changed IN_COMBAT to COMBAT
                 # Store current combat ID on player model if such a field exists
                 if hasattr(player, 'current_combat_id'):
-                    player.current_combat_id = combat_encounter.id
+                    player.current_combat_id = combat_encounter.id # type: ignore
                 else:
                     logger.warning(f"Player model (id: {player.id}) does not have 'current_combat_id' attribute.")
                 session.add(player)
@@ -214,7 +213,7 @@ async def start_combat(
                 if party and party.turn_status != PartyTurnStatus.IN_COMBAT: # Check to avoid redundant updates
                     party.turn_status = PartyTurnStatus.IN_COMBAT # Now valid
                     if hasattr(party, 'current_combat_id'): # If party model tracks current combat
-                         party.current_combat_id = combat_encounter.id
+                         party.current_combat_id = combat_encounter.id # type: ignore
                     else:
                         logger.warning(f"Party model (id: {party.id}) does not have 'current_combat_id' attribute.")
                     session.add(party)
@@ -560,8 +559,8 @@ async def _handle_combat_end_consequences(
             if player:
                 player.current_status = PlayerStatus.EXPLORING # Or other appropriate post-combat status
                 if hasattr(player, 'current_combat_id'):
-                    if player.current_combat_id == combat_encounter.id:
-                        player.current_combat_id = None
+                    if player.current_combat_id == combat_encounter.id: # type: ignore
+                        player.current_combat_id = None # type: ignore
                 else:
                     logger.warning(f"Player model (id: {player.id}) does not have 'current_combat_id' attribute for reset.")
                 session.add(player)
@@ -572,9 +571,9 @@ async def _handle_combat_end_consequences(
                         party_still_in_any_combat = False # Placeholder for more robust check
 
                         if hasattr(party, 'current_combat_id'):
-                            if party.current_combat_id == combat_encounter.id:
+                            if party.current_combat_id == combat_encounter.id: # type: ignore
                                 party.turn_status = PartyTurnStatus.IDLE
-                                party.current_combat_id = None
+                                party.current_combat_id = None # type: ignore
                             # If party.current_combat_id is different, it means the party is in another combat, so don't change status.
                             # This assumes party.current_combat_id accurately reflects the party's single combat engagement.
                         elif not hasattr(party, 'current_combat_id'):

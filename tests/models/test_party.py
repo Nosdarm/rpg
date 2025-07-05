@@ -145,16 +145,17 @@ class TestPartyModel(unittest.IsolatedAsyncioTestCase):
         retrieved_party = result.scalar_one_or_none()
 
         self.assertIsNotNone(retrieved_party)
-        for key, value in party_data.items():
-            self.assertEqual(getattr(retrieved_party, key), value)
+        if retrieved_party is not None: # Explicit guard for Pyright
+            for key, value in party_data.items():
+                self.assertEqual(getattr(retrieved_party, key), value)
 
-        self.assertIsNotNone(retrieved_party.location)
-        if retrieved_party.location:
-            self.assertEqual(retrieved_party.location.id, self.test_location_id)
+            self.assertIsNotNone(retrieved_party.location)
+            if retrieved_party.location: # This inner guard is fine
+                self.assertEqual(retrieved_party.location.id, self.test_location_id)
 
-        self.assertIsNotNone(retrieved_party.leader)
-        if retrieved_party.leader:
-             self.assertEqual(retrieved_party.leader.id, self.test_leader_player_id)
+            self.assertIsNotNone(retrieved_party.leader)
+            if retrieved_party.leader: # This inner guard is fine
+                 self.assertEqual(retrieved_party.leader.id, self.test_leader_player_id)
 
 
     async def test_party_repr(self):

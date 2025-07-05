@@ -3,6 +3,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+import datetime # ADDED IMPORT
 
 
 from src.models import (
@@ -433,7 +434,7 @@ async def apply_status(
         if can_refresh_duration:
             existing_status_instance.duration_turns = duration # Update to new full duration
             existing_status_instance.remaining_turns = duration # Reset remaining turns
-            existing_status_instance.applied_at = func.now() # Update applied_at time
+            existing_status_instance.applied_at = datetime.datetime.now(datetime.timezone.utc) # type: ignore # FIX: Use Python datetime
             existing_status_instance.source_ability_id = source_ability_id # Update source if it changed
             existing_status_instance.source_entity_id = source_entity_id
             if source_entity_type:

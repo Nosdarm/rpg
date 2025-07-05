@@ -29,7 +29,7 @@ class CRUDBase(Generic[ModelType]):
         """
         Create a new record in the database.
 
-        :param db: The database session.
+        :param session: The database session.
         :param obj_in: A dictionary containing the data for the new object.
         :param guild_id: Optional guild ID to associate the object with, if the model supports it.
         :return: The created object.
@@ -39,21 +39,21 @@ class CRUDBase(Generic[ModelType]):
             obj_in_data["guild_id"] = guild_id
 
         db_obj = self.model(**obj_in_data)
-        db.add(db_obj)
-        await db.flush() # Use flush to get ID before commit if needed, and to ensure guild_id constraint is checked early
-        await db.refresh(db_obj)
+        session.add(db_obj)
+        await session.flush() # Use flush to get ID before commit if needed, and to ensure guild_id constraint is checked early
+        await session.refresh(db_obj)
         log_id = getattr(db_obj, 'id', 'N/A') if hasattr(db_obj, 'id') else 'N/A'
         logger.info(f"Created {self.model.__name__} with ID {log_id}"
                     f"{f' for guild {guild_id}' if guild_id else ''}")
         return db_obj
 
     async def get(
-        self, db: AsyncSession, id: Any, *, guild_id: Optional[int] = None
+        self, session: AsyncSession, id: Any, *, guild_id: Optional[int] = None
     ) -> Optional[ModelType]:
         """
         Get a record by its ID.
 
-        :param db: The database session.
+        :param session: The database session.
         :param id: The ID of the object.
         :param guild_id: Optional guild ID to filter by, if the model supports it.
                          If the model has 'guild_id' and this is provided, it will be used in the query.
@@ -77,16 +77,16 @@ class CRUDBase(Generic[ModelType]):
         if guild_id is not None and hasattr(self.model, "guild_id"):
             statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return result.scalar_one_or_none()
 
     async def get_multi(
-        self, db: AsyncSession, *, skip: int = 0, limit: int = 100, guild_id: Optional[int] = None
+        self, session: AsyncSession, *, skip: int = 0, limit: int = 100, guild_id: Optional[int] = None
     ) -> List[ModelType]:
         """
         Get multiple records with optional pagination and guild filtering.
 
-        :param db: The database session.
+        :param session: The database session.
         :param skip: Number of records to skip.
         :param limit: Maximum number of records to return.
         :param guild_id: Optional guild ID to filter by.
@@ -97,16 +97,16 @@ class CRUDBase(Generic[ModelType]):
             statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         statement = statement.offset(skip).limit(limit)
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return list(result.scalars().all())
 
     async def update(
-        self, db: AsyncSession, *, db_obj: ModelType, obj_in: Union[Dict[str, Any], ModelType]
+        self, session: AsyncSession, *, db_obj: ModelType, obj_in: Union[Dict[str, Any], ModelType]
     ) -> ModelType:
         """
         Update an existing record in the database.
 
-        :param db: The database session.
+        :param session: The database session.
         :param db_obj: The existing database object to update.
         :param obj_in: A dictionary or model instance containing the new data.
         :return: The updated object.
@@ -126,26 +126,26 @@ class CRUDBase(Generic[ModelType]):
             else:
                 logger.warning(f"Field {field} not found in model {self.model.__name__} during update.")
 
-        db.add(db_obj) # Add to session if it was detached or to mark as dirty
-        await db.flush()
-        await db.refresh(db_obj)
+        session.add(db_obj) # Add to session if it was detached or to mark as dirty
+        await session.flush()
+        await session.refresh(db_obj)
         log_id = getattr(db_obj, 'id', 'N/A') if hasattr(db_obj, 'id') else 'N/A'
         logger.info(f"Updated {self.model.__name__} with ID {log_id}")
         return db_obj
 
-    async def delete(self, db: AsyncSession, *, id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
+    async def delete(self, session: AsyncSession, *, id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
         """
         Delete a record by its ID.
 
-        :param db: The database session.
+        :param session: The database session.
         :param id: The ID of the object to delete.
         :param guild_id: Optional guild ID for targeted deletion.
         :return: The deleted object, or None if not found.
         """
-        obj = await self.get(db, id=id, guild_id=guild_id)
+        obj = await self.get(session, id=id, guild_id=guild_id)
         if obj:
-            await db.delete(obj)
-            await db.flush()
+            await session.delete(obj)
+            await session.flush()
             logger.info(f"Deleted {self.model.__name__} with ID {id}"
                         f"{f' for guild {guild_id}' if guild_id else ''}")
             return obj
@@ -154,12 +154,12 @@ class CRUDBase(Generic[ModelType]):
         return None
 
     async def get_by_attribute(
-        self, db: AsyncSession, *, attribute: Union[str, InstrumentedAttribute], value: Any, guild_id: Optional[int] = None
+        self, session: AsyncSession, *, attribute: Union[str, InstrumentedAttribute], value: Any, guild_id: Optional[int] = None
     ) -> Optional[ModelType]:
         """
         Get a single record by a specific attribute and its value.
 
-        :param db: The database session.
+        :param session: The database session.
         :param attribute: The model attribute (column name as string or InstrumentedAttribute).
         :param value: The value to filter by.
         :param guild_id: Optional guild ID to further filter by.
@@ -171,17 +171,17 @@ class CRUDBase(Generic[ModelType]):
         if guild_id is not None and hasattr(self.model, "guild_id"):
             statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return result.scalar_one_or_none()
 
     async def get_multi_by_attribute(
-        self, db: AsyncSession, *, attribute: Union[str, InstrumentedAttribute], value: Any,
+        self, session: AsyncSession, *, attribute: Union[str, InstrumentedAttribute], value: Any,
         guild_id: Optional[int] = None, skip: int = 0, limit: int = 100
     ) -> List[ModelType]:
         """
         Get multiple records by a specific attribute and its value.
 
-        :param db: The database session.
+        :param session: The database session.
         :param attribute: The model attribute.
         :param value: The value to filter by.
         :param guild_id: Optional guild ID to further filter by.
@@ -196,16 +196,16 @@ class CRUDBase(Generic[ModelType]):
             statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
         statement = statement.offset(skip).limit(limit)
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return list(result.scalars().all())
 
     async def get_many_by_ids(
-        self, db: AsyncSession, *, ids: List[Any], guild_id: Optional[int] = None
+        self, session: AsyncSession, *, ids: List[Any], guild_id: Optional[int] = None
     ) -> List[ModelType]:
         """
         Get multiple records by a list of their IDs.
 
-        :param db: The database session.
+        :param session: The database session.
         :param ids: A list of IDs to fetch.
         :param guild_id: Optional guild ID to filter by.
         :return: A list of objects. Returns empty list if ids is empty.
@@ -227,7 +227,7 @@ class CRUDBase(Generic[ModelType]):
         if guild_id is not None and hasattr(self.model, "guild_id"):
             statement = statement.where(getattr(self.model, "guild_id") == guild_id)
 
-        result = await db.execute(statement) # This was missing await previously for execute
+        result = await session.execute(statement) # This was missing await previously for execute
         # For execute returning a result, scalars().all() is correct.
         # If result itself was awaitable (e.g. from a different ORM or raw driver), then await result would be needed.
         # SQLAlchemy's execute() on an AsyncSession returns a Result object, not a coroutine.
@@ -238,9 +238,9 @@ class CRUDBase(Generic[ModelType]):
 # from models.guild import GuildConfig
 #
 # class CRUDGuildConfig(CRUDBase[GuildConfig]):
-#     async def get_by_guild_id(self, db: AsyncSession, *, guild_id: int) -> Optional[GuildConfig]:
+#     async def get_by_guild_id(self, session: AsyncSession, *, guild_id: int) -> Optional[GuildConfig]:
 #         # GuildConfig's primary key *is* guild_id, so self.get() can be used directly.
-#         return await self.get(db, id=guild_id) # No need for additional guild_id filter here
+#         return await self.get(session, id=guild_id) # No need for additional guild_id filter here
 #
 # guild_config_crud = CRUDGuildConfig(GuildConfig)
 
@@ -248,20 +248,20 @@ class CRUDBase(Generic[ModelType]):
 # from models.rule_config import RuleConfig
 #
 # class CRUDRuleConfig(CRUDBase[RuleConfig]):
-#     async def get_by_guild_and_key(self, db: AsyncSession, *, guild_id: int, key: str) -> Optional[RuleConfig]:
+#     async def get_by_guild_and_key(self, session: AsyncSession, *, guild_id: int, key: str) -> Optional[RuleConfig]:
 #         statement = select(self.model).where(self.model.guild_id == guild_id, self.model.key == key)
-#         result = await db.execute(statement)
+#         result = await session.execute(statement)
 #         return result.scalar_one_or_none()
 #
-#     async def get_all_for_guild(self, db: AsyncSession, *, guild_id: int) -> List[RuleConfig]:
-#         return await self.get_multi_by_attribute(db, attribute="guild_id", value=guild_id, limit=1000) # Adjust limit as needed
+#     async def get_all_for_guild(self, session: AsyncSession, *, guild_id: int) -> List[RuleConfig]:
+#         return await self.get_multi_by_attribute(session, attribute="guild_id", value=guild_id, limit=1000) # Adjust limit as needed
 #
 # rule_config_crud = CRUDRuleConfig(RuleConfig)
 
 # Generic functions as requested by Task 0.3 (not tied to CRUDBase class instances)
 # These will use CRUDBase internally or operate directly.
 
-async def create_entity(db: AsyncSession, model: Type[ModelType], data: Dict[str, Any], guild_id: Optional[int] = None) -> ModelType:
+async def create_entity(session: AsyncSession, model: Type[ModelType], data: Dict[str, Any], guild_id: Optional[int] = None) -> ModelType:
     """
     Generic function to create an entity.
     If guild_id is provided and the model has a 'guild_id' attribute, it will be set.
@@ -274,9 +274,9 @@ async def create_entity(db: AsyncSession, model: Type[ModelType], data: Dict[str
         # If data has guild_id but model doesn't, remove it to prevent errors
         del data["guild_id"]
 
-    return await crud.create(db, obj_in=data) # guild_id in data will be handled by crud.create if model supports it
+    return await crud.create(session, obj_in=data) # guild_id in data will be handled by crud.create if model supports it
 
-async def get_entity_by_id(db: AsyncSession, model: Type[ModelType], entity_id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
+async def get_entity_by_id(session: AsyncSession, model: Type[ModelType], entity_id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
     """
     Generic function to get an entity by its ID.
     If guild_id is provided and the model has 'guild_id', it filters by it.
@@ -284,9 +284,9 @@ async def get_entity_by_id(db: AsyncSession, model: Type[ModelType], entity_id: 
     """
     crud = CRUDBase(model)
     # The CRUDBase.get method already handles guild_id if the model supports it.
-    return await crud.get(db, id=entity_id, guild_id=guild_id)
+    return await crud.get(session, id=entity_id, guild_id=guild_id)
 
-async def update_entity(db: AsyncSession, entity: ModelType, data: Dict[str, Any]) -> ModelType:
+async def update_entity(session: AsyncSession, entity: ModelType, data: Dict[str, Any]) -> ModelType:
     """
     Generic function to update an existing entity.
     Note: This function expects the `entity` SQLAlchemy model instance, not its ID.
@@ -301,48 +301,48 @@ async def update_entity(db: AsyncSession, entity: ModelType, data: Dict[str, Any
             logger.warning(f"Attempt to change guild_id during update of {type(entity).__name__} ID {entity_id_for_log} blocked.")
             del data["guild_id"]
 
-    return await crud.update(db, db_obj=entity, obj_in=data)
+    return await crud.update(session, db_obj=entity, obj_in=data)
 
-async def delete_entity(db: AsyncSession, model: Type[ModelType], entity_id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
+async def delete_entity(session: AsyncSession, model: Type[ModelType], entity_id: Any, guild_id: Optional[int] = None) -> Optional[ModelType]:
     """
     Generic function to delete an entity by its ID.
     If guild_id is provided, it's used to ensure the correct entity is targeted for deletion.
     """
     crud = CRUDBase(model)
     # The CRUDBase.delete method handles guild_id for targeting the get prior to delete.
-    return await crud.delete(db, id=entity_id, guild_id=guild_id)
+    return await crud.delete(session, id=entity_id, guild_id=guild_id)
 
 # Example usage:
-# async def example_usage(db: AsyncSession):
+# async def example_usage(session: AsyncSession):
 #     from models.guild import GuildConfig
 #     new_config_data = {"id": 12345, "main_language": "fr"} # id is guild_id for GuildConfig
 #     # For GuildConfig, guild_id is the PK, so it's passed as 'id' to create_entity if that's how the model is structured,
 #     # or it could be passed via the guild_id parameter if 'id' is a separate auto-incrementing PK.
 #     # Assuming GuildConfig.id is the Discord Guild ID (PK)
-#     created_config = await create_entity(db, GuildConfig, new_config_data)
+#     created_config = await create_entity(session, GuildConfig, new_config_data)
 #
-#     retrieved_config = await get_entity_by_id(db, GuildConfig, entity_id=12345)
+#     retrieved_config = await get_entity_by_id(session, GuildConfig, entity_id=12345)
 #
 #     if retrieved_config:
-#         updated_config = await update_entity(db, retrieved_config, {"master_channel_id": 98765})
+#         updated_config = await update_entity(session, retrieved_config, {"master_channel_id": 98765})
 #
 #     # For RuleConfig which has a separate auto-inc PK and a guild_id FK
 #     from models.rule_config import RuleConfig
 #     new_rule_data = {"key": "welcome_message", "value_json": {"text": "Hello!"}}
-#     created_rule = await create_entity(db, RuleConfig, new_rule_data, guild_id=12345)
+#     created_rule = await create_entity(session, RuleConfig, new_rule_data, guild_id=12345)
 #
-#     retrieved_rule = await get_entity_by_id(db, RuleConfig, entity_id=created_rule.id, guild_id=12345)
+#     retrieved_rule = await get_entity_by_id(session, RuleConfig, entity_id=created_rule.id, guild_id=12345)
 #
 #     if retrieved_rule:
-#         await delete_entity(db, RuleConfig, entity_id=retrieved_rule.id, guild_id=12345)
+#         await delete_entity(session, RuleConfig, entity_id=retrieved_rule.id, guild_id=12345)
 
 async def get_entity_by_id_and_type_str(
-    db: AsyncSession,
+    session: AsyncSession,
     *,
     entity_type_str: str,
     entity_id: Any,
     guild_id: Optional[int] = None
-) -> Optional[Union[ModelType, Any]]: # Return ModelType or Any if mapping is complex
+) -> Optional[Base]: # FIX: Changed return type to Optional[Base]
     """
     Generic function to get an entity by its ID and string type.
     Maps entity_type_str to a SQLAlchemy model class.
@@ -353,9 +353,9 @@ async def get_entity_by_id_and_type_str(
     # from ..models.location import Location
     # from ..models.item import Item
 
-    model_map: Dict[str, Type[ModelType]] = {
-        "PLAYER": Player, # type: ignore[dict-item] # Player is ModelType
-        "NPC": GeneratedNpc, # type: ignore[dict-item] # GeneratedNpc is ModelType
+    model_map: Dict[str, Type[Base]] = { # FIX: Changed Type[ModelType] to Type[Base]
+        "PLAYER": Player,
+        "NPC": GeneratedNpc,
         # "LOCATION": Location,
         # "ITEM": Item,
     }

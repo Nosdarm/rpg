@@ -38,10 +38,10 @@ def test_get_localized_string_with_plain_string():
 
 def test_get_localized_string_with_mock_locale_str():
     ls = MockLocaleStr("hello", {"en": "Hello", "ru": "Привет"})
-    assert _get_localized_string(ls, "en") == "Hello"
-    assert _get_localized_string(ls, "ru") == "Привет"
-    assert _get_localized_string(ls, "fr") == "hello"  # Fallback to default message
-    assert _get_localized_string(ls, None) == "hello" # Fallback to default message
+    assert _get_localized_string(ls, "en") == "Hello" # type: ignore
+    assert _get_localized_string(ls, "ru") == "Привет" # type: ignore
+    assert _get_localized_string(ls, "fr") == "hello"  # type: ignore # Fallback to default message
+    assert _get_localized_string(ls, None) == "hello" # type: ignore # Fallback to default message
 
 def test_get_localized_string_with_none_value():
     assert _get_localized_string(None, "en") is None
@@ -128,7 +128,7 @@ async def test_extract_command_details_command_with_params_and_locale_desc():
 # Tests for get_bot_commands (More complex, involves mocking bot.tree)
 @pytest.mark.asyncio
 async def test_get_bot_commands_empty():
-    mock_bot = AsyncMock(spec=discord.ext.commands.Bot)
+    mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
     mock_bot.tree.get_commands = MagicMock(return_value=[]) # Ensure it's not awaitable if get_commands is sync
 
@@ -142,7 +142,7 @@ async def test_get_bot_commands_with_simple_command():
     mock_cmd_obj.description = "A test command"
     mock_cmd_obj.parameters = []
 
-    mock_bot = AsyncMock(spec=discord.ext.commands.Bot)
+    mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
     mock_bot.tree.get_commands = MagicMock(return_value=[mock_cmd_obj])
 
@@ -165,7 +165,7 @@ async def test_get_bot_commands_with_group():
     mock_group.description = "A group"
     mock_group.commands = [mock_sub_cmd] # commands is a list of Command or Group
 
-    mock_bot = AsyncMock(spec=discord.ext.commands.Bot)
+    mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
     mock_bot.tree.get_commands = MagicMock(return_value=[mock_group])
 
@@ -202,7 +202,7 @@ async def test_get_bot_commands_mixed_commands_and_groups_and_sorting():
     mock_cmd_zeta.description = "Zeta command"
     mock_cmd_zeta.parameters = []
 
-    mock_bot = AsyncMock(spec=discord.ext.commands.Bot)
+    mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
     # Return in unsorted order to test sorting
     mock_bot.tree.get_commands = MagicMock(return_value=[mock_cmd_zeta, mock_group_config, mock_cmd_ping])

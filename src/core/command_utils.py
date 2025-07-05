@@ -149,13 +149,16 @@ async def get_bot_commands(
     # logger.debug(f"Using language code for command extraction: {final_language_code}")
 
     # bot.tree.get_commands() возвращает список AppCommand объектов (Command или Group)
-    all_app_commands_in_tree: List[dc_app_commands.AppCommand] = bot.tree.get_commands()
+    # It can also return ContextMenuCommand, all are AppCommand subclasses.
+    all_app_commands_in_tree: List[dc_app_commands.AppCommand] = bot.tree.get_commands() # type: ignore
     # logger.debug(f"Found {len(all_app_commands_in_tree)} top-level app commands in bot.tree.")
 
-    for app_cmd_or_group in all_app_commands_in_tree:
-        command_infos.extend(
-            _extract_command_details(app_cmd_or_group, language=final_language_code)
-        )
+    for app_cmd_candidate in all_app_commands_in_tree:
+        if isinstance(app_cmd_candidate, (dc_app_commands.Command, dc_app_commands.Group)):
+            command_infos.extend(
+                _extract_command_details(app_cmd_candidate, language=final_language_code)
+            )
+        # else: ContextMenuCommands are ignored for now
 
     # Сортируем команды по имени для консистентности
     command_infos.sort(key=lambda c: c.name)
