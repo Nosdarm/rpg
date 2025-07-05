@@ -61,7 +61,13 @@ class EventCog(commands.Cog):
         if message.author == self.bot.user:
             return  # Игнорировать сообщения от самого себя
 
-        if not message.guild: # Ignore DMs for NLU processing for now
+        # If the message is an application command (slash command), let discord.py handle it.
+        # Do not process it with NLU or custom prefix checks.
+        if message.type == discord.MessageType.application_command:
+            logger.debug(f"Message type is application_command (ID: {message.id}), NLU skipped.")
+            return
+
+        if not message.guild: # Ignore DMs for NLU processing for now, after application command check
             return
 
         # Standard command processing will still happen due to how Cogs work.
