@@ -70,9 +70,26 @@ class EventCog(commands.Cog):
         # This is a simple check; more robust would be to see if it matches bot's command_prefix
         # However, with app commands, prefix check is less relevant for slash commands.
         # This check is more for traditional prefixed commands if they are also supported.
-        if message.content.startswith(self.bot.command_prefix if isinstance(self.bot.command_prefix, str) else tuple(self.bot.command_prefix)): # type: ignore
-             # logger.debug(f"Message starts with command prefix, NLU skipped: {message.content}")
-             return
+
+        # Get the actual command prefix(es) for the current message
+        # self.bot.command_prefix is likely a callable (e.g., commands.when_mentioned_or(...))
+        actual_prefixes = self.bot.command_prefix(self.bot, message)
+
+        # Check if the message starts with any of the determined prefixes
+        is_command = False
+        if isinstance(actual_prefixes, str):
+            if message.content.startswith(actual_prefixes):
+                is_command = True
+        elif isinstance(actual_prefixes, (list, tuple)): # commands.when_mentioned_or can return a list
+            for prefix in actual_prefixes:
+                if message.content.startswith(prefix):
+                    is_command = True
+                    break
+        # If actual_prefixes is None or something else, it won't be treated as a command start.
+
+        if is_command:
+            # logger.debug(f"Message starts with command prefix, NLU skipped: {message.content}")
+            return
 
         # Call the transactional helper function to handle NLU logic
         # We need to pass the bot instance if the helper needs it (e.g., for notifications, not needed here)
