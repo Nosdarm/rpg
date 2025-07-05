@@ -278,10 +278,21 @@ async def process_combat_action(
         # or ensure rules are configured. For now, rely on resolve_check's rule-based modifier calculation.
         # A potential modification to resolve_check would be to accept an optional `base_modifier_override`.
 
+        from src.models.enums import RelationshipEntityType # Import the enum
+
+        try:
+            actor_rel_entity_type = RelationshipEntityType(actor_type.upper())
+            target_rel_entity_type = RelationshipEntityType(target_type.upper()) if target_type else None
+        except ValueError:
+            msg = f"Invalid entity type string for relationship enum: actor_type='{actor_type}', target_type='{target_type}'"
+            logger.error(msg)
+            combat_action_result.description_i18n = {"en": "Internal error: Invalid entity type for check."}
+            return combat_action_result
+
         attack_roll_result = await core_check_resolver.resolve_check(
-            session=session, guild_id=guild_id, check_type=check_type, # FIX: db to session
-            actor_entity_id=actor_id, actor_entity_type=actor_type, # FIX: Renamed parameters
-            target_entity_id=target_id, target_entity_type=target_type,
+            session=session, guild_id=guild_id, check_type=check_type,
+            actor_entity_id=actor_id, actor_entity_type=actor_rel_entity_type,
+            target_entity_id=target_id, target_entity_type=target_rel_entity_type,
             difficulty_dc=dc_value,
             check_context={"actor_participant_data": actor_participant_data, "target_participant_data": target_participant_data}
         )

@@ -71,7 +71,7 @@ async def handle_intra_location_action(
     """
     feedback = {"message": "Unknown action or error.", "success": False}
 
-    player = await player_crud.get(db=session, id=player_id, guild_id=guild_id)
+    player = await player_crud.get(session=session, id=player_id, guild_id=guild_id)
     if not player:
         logger.error(f"Player {player_id} not found for guild {guild_id} in handle_intra_location_action.")
         return {"message": _format_feedback("player_not_found"), "success": False}
@@ -80,7 +80,7 @@ async def handle_intra_location_action(
         logger.error(f"Player {player_id} has no current_location_id.")
         return {"message": _format_feedback("location_not_found"), "success": False}
 
-    location = await location_crud.get(db=session, id=player.current_location_id, guild_id=guild_id)
+    location = await location_crud.get(session=session, id=player.current_location_id, guild_id=guild_id)
     if not location:
         logger.error(f"Location {player.current_location_id} not found for player {player_id}, guild {guild_id}.")
         return {"message": _format_feedback("location_not_found"), "success": False}
@@ -186,13 +186,13 @@ async def handle_intra_location_action(
                             if target_object_data and target_object_data.get("type"):
                                 current_check_context["target_object_type_for_interaction"] = target_object_data.get("type")
 
-
+                            from src.models.enums import RelationshipEntityType # Ensure enum is available for type hint consistency
                             check_result = await resolve_check(
-                                session=session, # FIX: db to session
+                                session=session,
                                 guild_id=guild_id,
                                 check_type=check_type,
-                                actor_entity_id=player.id, # FIX: Renamed and added
-                                actor_entity_type="player", # FIX: Renamed and added (ensure this matches expected type, e.g. RelationshipEntityType.PLAYER.value)
+                                actor_entity_id=player.id,
+                                actor_entity_type=RelationshipEntityType.PLAYER, # Use Enum member
                                 difficulty_dc=dc,
                                 # target_entity_id and target_entity_type are for actual game entities,
                                 # not necessarily the 'target_object_data' from location details.
@@ -209,22 +209,23 @@ async def handle_intra_location_action(
                         if check_result:
                             log_details["check_result"] = check_result.model_dump(mode='json')
                             consequences_key = ""
-                            if check_result.outcome in ["SUCCESS", "CRITICAL_SUCCESS"]:
+                            # Accessing status from CheckOutcome object
+                            if check_result.outcome.status in ["success", "critical_success"]:
                                 consequences_key = interaction_rule.get("success_consequences_key", "generic_interaction_success")
                                 feedback_msg_key = interaction_rule.get("feedback_success", "interact_check_success")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.value.lower()), # FIX: .value
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()),
                                     "success": True
                                 }
                             else: # FAILURE, CRITICAL_FAILURE
                                 consequences_key = interaction_rule.get("failure_consequences_key", "generic_interaction_failure")
                                 feedback_msg_key = interaction_rule.get("feedback_failure", "interact_check_failure")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.value.lower()), # FIX: .value
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()),
                                     "success": False # Interaction failed duef to check
                                 }
                             log_details["applied_consequences_key"] = consequences_key
-                            logger.info(f"Interaction check outcome: {check_result.outcome}. Consequences to apply (placeholder): {consequences_key}")
+                            logger.info(f"Interaction check outcome: {check_result.outcome.status}. Consequences to apply (placeholder): {consequences_key}")
                             # TODO: Implement actual application of consequences based on consequences_key
                         else: # check_result was None due to error in resolve_check
                              feedback = {"message": f"Something went wrong trying to interact with {target_entity_name}.", "success": False}

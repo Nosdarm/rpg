@@ -112,7 +112,6 @@ async def test_trigger_ai_generation_flow_success(
         session=mock_session,
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
-        # entity_type="location", # Removed, not in SUT signature
         location_id=DEFAULT_LOCATION_ID,
         player_id=DEFAULT_PLAYER_ID_PK
     )
@@ -175,7 +174,6 @@ async def test_trigger_ai_generation_validation_failed(
             session=mock_session,
             bot=mock_bot,
             guild_id=DEFAULT_GUILD_ID,
-            # entity_type="general_description", # Removed, not in SUT signature
             location_id=DEFAULT_LOCATION_ID,
             player_id=None
         )
@@ -246,7 +244,7 @@ async def test_save_approved_generation_success(
 
     update_pending_gen_call = None
     update_player_call = None  # Initialize update_player_call
-    for call_obj in mock_update_entity.call_args_list: # type: ignore
+    for call_obj in mock_update_entity.call_args_list: # type: ignore[attr-defined]
         if call_obj.args[1] == mock_pending_gen:
             update_pending_gen_call = call_obj
         elif call_obj.args[1] == mock_player:

@@ -10,7 +10,7 @@ from ..rules import get_rule # Added import for get_rule
 
 class CRUDPlayer(CRUDBase[Player]):
     async def get_by_discord_id(
-        self, db: AsyncSession, *, guild_id: int, discord_id: int
+        self, session: AsyncSession, *, guild_id: int, discord_id: int
     ) -> Optional[Player]:
         """
         Get a player by their Discord ID and Guild ID.
@@ -19,11 +19,11 @@ class CRUDPlayer(CRUDBase[Player]):
             select(self.model)
             .where(self.model.guild_id == guild_id, self.model.discord_id == discord_id)
         )
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return result.scalar_one_or_none()
 
     async def get_multi_by_location(
-        self, db: AsyncSession, *, guild_id: int, location_id: int, skip: int = 0, limit: int = 100
+        self, session: AsyncSession, *, guild_id: int, location_id: int, skip: int = 0, limit: int = 100
     ) -> List[Player]:
         """
         Get multiple players in a specific location within a guild.
@@ -34,11 +34,11 @@ class CRUDPlayer(CRUDBase[Player]):
             .offset(skip)
             .limit(limit)
         )
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return list(result.scalars().all())
 
     async def get_multi_by_party_id(
-        self, db: AsyncSession, *, guild_id: int, party_id: int, skip: int = 0, limit: int = 100
+        self, session: AsyncSession, *, guild_id: int, party_id: int, skip: int = 0, limit: int = 100
     ) -> List[Player]:
         """
         Get multiple players belonging to a specific party within a guild.
@@ -49,12 +49,12 @@ class CRUDPlayer(CRUDBase[Player]):
             .offset(skip)
             .limit(limit)
         )
-        result = await db.execute(statement)
+        result = await session.execute(statement)
         return list(result.scalars().all())
 
     async def create_with_defaults(
         self,
-        db: AsyncSession,
+        session: AsyncSession,
         *,
         guild_id: int,
         discord_id: int,
@@ -80,20 +80,20 @@ class CRUDPlayer(CRUDBase[Player]):
         }
 
         base_attributes = await get_rule(
-            db,
+            session,
             guild_id=guild_id,
             key="character_attributes:base_values",
             default={}
         )
         player_data["attributes_json"] = base_attributes if base_attributes is not None else {}
 
-        return await super().create(db, obj_in=player_data) # guild_id is in player_data, CRUDBase.create will use it.
+        return await super().create(session, obj_in=player_data) # guild_id is in player_data, CRUDBase.create will use it.
 
-    async def get_by_id_and_guild(self, db: AsyncSession, *, id: int, guild_id: int) -> Optional[Player]:
+    async def get_by_id_and_guild(self, session: AsyncSession, *, id: int, guild_id: int) -> Optional[Player]:
         """
         Retrieves a player by their ID and Guild ID.
         Ensures the player belongs to the specified guild.
         """
-        return await self.get(db, id=id, guild_id=guild_id)
+        return await self.get(session, id=id, guild_id=guild_id)
 
 player_crud = CRUDPlayer(Player)

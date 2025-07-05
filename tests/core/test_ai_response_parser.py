@@ -56,11 +56,16 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         # Test minimal valid data
         faction_min = ParsedFactionData(**VALID_FACTION_DATA_MINIMAL)
         self.assertEqual(faction_min.static_id, "test_fac_01")
+        # name_i18n is not Optional, so direct access is fine if VALID_FACTION_DATA_MINIMAL is correct
         self.assertEqual(faction_min.name_i18n["en"], "Test Faction")
 
         # Test full valid data
         faction_full = ParsedFactionData(**VALID_FACTION_DATA_FULL)
         self.assertEqual(faction_full.leader_npc_static_id, "npc_leader_01")
+        # resources_json is Optional, but VALID_FACTION_DATA_FULL provides it.
+        # If VALID_FACTION_DATA_FULL guarantees resources_json, direct access is okay after validation.
+        # However, to be safe with type hints if data could vary, a check is good.
+        assert faction_full.resources_json is not None
         self.assertEqual(faction_full.resources_json["wood"], 500)
 
     def test_parsed_faction_data_invalid(self):

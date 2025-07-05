@@ -135,7 +135,7 @@ async def get_batch_localized_entity_names(
 
         try:
             # Assuming CRUDBase and its derivatives have get_many_by_ids
-            entities = await crud_instance.get_many_by_ids(db=session, ids=ids, guild_id=guild_id)
+            entities = await crud_instance.get_many_by_ids(session=session, ids=ids, guild_id=guild_id)
             for entity_obj in entities:
                 entity_id = getattr(entity_obj, 'id', None) # Or static_id if that's the PK used in entity_refs
                 if entity_id is None: # Should not happen if get_many_by_ids works with PKs

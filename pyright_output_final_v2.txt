@@ -1,0 +1,42 @@
+/app/tests/core/test_ability_system.py
+  /app/tests/core/test_ability_system.py:220:89 - error: Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]" (reportGeneralTypeIssues)
+/app/tests/core/test_ai_orchestrator.py
+  /app/tests/core/test_ai_orchestrator.py:94:18 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:211:18 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:287:16 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:289:25 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:358:16 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:360:25 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:401:68 - error: Cannot access attribute "call_args_list" for class "MethodType"
+    Attribute "call_args_list" is unknown (reportAttributeAccessIssue)
+  /app/tests/core/test_ai_orchestrator.py:504:18 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:832:18 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:833:18 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+  /app/tests/core/test_ai_orchestrator.py:834:25 - error: Argument missing for parameter "entity_type" (reportCallIssue)
+/app/tests/core/test_ai_response_parser.py
+  /app/tests/core/test_ai_response_parser.py:64:26 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+/app/tests/core/test_command_utils.py
+  /app/tests/core/test_command_utils.py:26:58 - error: Expression of type "None" cannot be assigned to parameter of type "dict[Unknown, Unknown]"
+    "None" is not assignable to "dict[Unknown, Unknown]" (reportArgumentType)
+/app/tests/core/test_interaction_handlers.py
+  /app/tests/core/test_interaction_handlers.py:368:17 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+/app/tests/core/test_npc_combat_strategy.py
+  /app/tests/core/test_npc_combat_strategy.py:595:39 - error: Cannot access attribute "id" for class "Dict[str, Any]"
+    Attribute "id" is unknown (reportAttributeAccessIssue)
+  /app/tests/core/test_npc_combat_strategy.py:601:74 - error: Cannot access attribute "id" for class "Dict[str, Any]"
+    Attribute "id" is unknown (reportAttributeAccessIssue)
+  /app/tests/core/test_npc_combat_strategy.py:602:20 - error: "__getitem__" method not defined on type "Player" (reportIndexIssue)
+  /app/tests/core/test_npc_combat_strategy.py:602:20 - error: "__getitem__" method not defined on type "GeneratedNpc" (reportIndexIssue)
+/app/tests/models/test_command_info.py
+  /app/tests/models/test_command_info.py:31:18 - error: Argument missing for parameter "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:42:14 - error: Argument missing for parameter "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:54:16 - error: Argument missing for parameter "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:60:12 - error: Argument missing for parameter "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:77:16 - error: Argument missing for parameter "language_code" (reportCallIssue)
+  /app/tests/models/test_command_info.py:77:46 - error: Argument missing for parameter "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:115:9 - error: Arguments missing for parameters "description", "required" (reportCallIssue)
+  /app/tests/models/test_command_info.py:118:9 - error: Arguments missing for parameters "description", "type" (reportCallIssue)
+  /app/tests/models/test_command_info.py:121:9 - error: Arguments missing for parameters "name", "description" (reportCallIssue)
+  /app/tests/models/test_command_info.py:125:9 - error: Argument missing for parameter "name" (reportCallIssue)
+  /app/tests/models/test_command_info.py:129:9 - error: Argument missing for parameter "commands" (reportCallIssue)
+30 errors, 0 warnings, 0 informations

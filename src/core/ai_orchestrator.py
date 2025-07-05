@@ -383,7 +383,7 @@ async def save_approved_generation(
                             final_e1_id = existing_faction.id
                             final_e1_type = RelationshipEntityType.GENERATED_FACTION
                     elif entity_data.entity1_type.lower() == "npc": # Existing NPC not in this batch
-                        existing_npc = await actual_npc_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=entity_data.entity1_static_id)
+                        existing_npc = await actual_npc_crud.get_by_static_id(session=session, guild_id=guild_id, static_id=entity_data.entity1_static_id)
                         if existing_npc:
                             final_e1_id = existing_npc.id
                             final_e1_type = RelationshipEntityType.GENERATED_NPC
@@ -398,7 +398,7 @@ async def save_approved_generation(
                             final_e2_id = existing_faction.id
                             final_e2_type = RelationshipEntityType.GENERATED_FACTION
                     elif entity_data.entity2_type.lower() == "npc": # Existing NPC not in this batch
-                        existing_npc = await actual_npc_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=entity_data.entity2_static_id)
+                        existing_npc = await actual_npc_crud.get_by_static_id(session=session, guild_id=guild_id, static_id=entity_data.entity2_static_id)
                         if existing_npc:
                             final_e2_id = existing_npc.id
                             final_e2_type = RelationshipEntityType.GENERATED_NPC

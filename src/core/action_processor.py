@@ -216,11 +216,11 @@ async def _handle_attack_action_wrapper(
 
     target_model = None
     if target_type_from_nlu == "npc":
-        target_model = await npc_crud.get_by_id_and_guild(db=session, id=target_id_from_nlu, guild_id=guild_id)
+        target_model = await npc_crud.get_by_id_and_guild(session=session, id=target_id_from_nlu, guild_id=guild_id)
         if target_model:
             target_entity_data = {"id": target_model.id, "type": "npc", "name": target_model.name_i18n.get("en", "NPC"), "model": target_model}
     elif target_type_from_nlu == "player":
-        target_model = await player_crud.get_by_id_and_guild(session, id=target_id_from_nlu, guild_id=guild_id) # Changed call
+        target_model = await player_crud.get_by_id_and_guild(session=session, id=target_id_from_nlu, guild_id=guild_id) # Changed call
         if target_model:
             target_entity_data = {"id": target_model.id, "type": "player", "name": target_model.name, "model": target_model}
 
@@ -234,11 +234,11 @@ async def _handle_attack_action_wrapper(
     # 2. Check Existing Combat
     # Check for actor
     actor_combat = await combat_encounter_crud.get_active_combat_for_entity( # Changed call
-        db=session, guild_id=guild_id, entity_id=actor_player.id, entity_type="player"
+        session=session, guild_id=guild_id, entity_id=actor_player.id, entity_type="player"
     )
     # Check for target
     target_combat = await combat_encounter_crud.get_active_combat_for_entity( # Changed call
-        db=session, guild_id=guild_id, entity_id=target_entity_data["id"], entity_type=target_entity_data["type"]
+        session=session, guild_id=guild_id, entity_id=target_entity_data["id"], entity_type=target_entity_data["type"]
     )
 
     if actor_combat and target_combat and actor_combat.id != target_combat.id:
@@ -452,7 +452,7 @@ async def _load_and_clear_all_actions(
         # This import might need adjustment based on actual project structure and dependencies.
         from .crud.crud_party import party_crud # Assuming this is safe
 
-        loaded_parties = await party_crud.get_many_by_ids(db=session, ids=list(party_entity_ids), guild_id=guild_id)
+        loaded_parties = await party_crud.get_many_by_ids(session=session, ids=list(party_entity_ids), guild_id=guild_id)
         for party in loaded_parties:
             parties_map[party.id] = party
             if party.player_ids_json:
@@ -466,7 +466,7 @@ async def _load_and_clear_all_actions(
     # Dynamically import player_crud
     from .crud.crud_player import player_crud
 
-    loaded_players_list = await player_crud.get_many_by_ids(db=session, ids=list(all_player_ids_to_process_actions_for), guild_id=guild_id)
+    loaded_players_list = await player_crud.get_many_by_ids(session=session, ids=list(all_player_ids_to_process_actions_for), guild_id=guild_id)
     players_map: Dict[int, Player] = {p.id: p for p in loaded_players_list}
 
     for player_id, player_obj in players_map.items():
