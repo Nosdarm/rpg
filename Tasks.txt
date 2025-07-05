@@ -99,7 +99,7 @@ This block presents tasks for implementing a comprehensive quest system with ste
 
 {Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n). - Moved to Done.txt}
 
-Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild).
+{Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild). - Moved to Done.txt}
 Description: AI generates quests for a specific guild according to rules.
 Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
 
