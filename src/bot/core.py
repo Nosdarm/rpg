@@ -60,6 +60,18 @@ class BotCore(commands.Bot):
             except Exception as e:
                 logger.error(f"Непредвиденная ошибка при загрузке расширения '{extension}': {e}", exc_info=True)
 
+        # Синхронизация команд приложения (слеш-команд) после загрузки всех расширений
+        try:
+            # Sync all commands globally.
+            # For guild-specific commands, you might use: await self.tree.sync(guild=discord.Object(id=YOUR_GUILD_ID))
+            # If no guild is specified, commands are synced globally.
+            synced = await self.tree.sync()
+            logger.info(f"Синхронизировано {len(synced)} команд приложения (слеш-команд).")
+            for cmd in synced: # Log synced commands for verification
+                logger.info(f"  - Синхронизирована команда: {cmd.name} (ID: {cmd.id})")
+        except Exception as e:
+            logger.error(f"Ошибка при синхронизации команд приложения: {e}", exc_info=True)
+
         logger.info("setup_hook завершен.")
 
     async def on_ready(self):
