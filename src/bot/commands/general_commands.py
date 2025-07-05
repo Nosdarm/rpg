@@ -173,15 +173,13 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
     @app_commands.command(name="ping", description="Проверяет задержку ответа бота.")
     async def ping_command(self, interaction: discord.Interaction):
-        # Diagnostic: Try to log immediately and send a direct response
-        logger.info(f"--- PING COMMAND REACHED --- User: {interaction.user} (ID: {interaction.user.id}), Guild: {interaction.guild_id}, Channel: {interaction.channel_id}")
-        try:
-            # Try to respond directly without deferring for this test
-            latency_ms = round(self.bot.latency * 1000)
-            await interaction.response.send_message(f"Pong! Diagnostic Ping. Latency: {latency_ms}ms", ephemeral=True)
-            logger.info(f"--- PING COMMAND: Successfully sent diagnostic response. Latency: {latency_ms}ms ---")
-        except Exception as e:
-            logger.error(f"--- PING COMMAND ERROR: {e} ---", exc_info=True)
+        """
+        Отправляет задержку бота в миллисекундах.
+        """
+        latency_ms = round(self.bot.latency * 1000)
+        # Keeping a concise log for when ping is called.
+        logger.info(f"/ping invoked by {interaction.user} (ID: {interaction.user.id}). Latency: {latency_ms}ms")
+        await interaction.response.send_message(f"Понг! Задержка: {latency_ms}ms", ephemeral=True)
 
     @app_commands.command(name="help", description="Shows a list of commands or details for a specific command.")
     @app_commands.describe(command_name="The specific command to get help for (e.g., 'ping' or 'party create').")
@@ -204,24 +202,22 @@ class GeneralCog(commands.Cog, name="General Commands"):
                 bot=self.bot,
                 language=lang_code
             )
-            logger.info(f"Retrieved {len(all_commands)} commands via get_bot_commands.")
-            if logger.isEnabledFor(logging.DEBUG) and all_commands: # Avoid logging large list if not in debug
-                try:
-                    command_names_for_log = [cmd.name for cmd in all_commands]
-                    logger.debug(f"Command names retrieved: {command_names_for_log}")
-                except Exception as log_ex:
-                    logger.debug(f"Could not serialize command names for logging: {log_ex}")
+            logger.debug(f"Retrieved {len(all_commands)} commands via get_bot_commands.")
+            # Optional: More detailed logging of command names if needed at DEBUG level
+            # if logger.isEnabledFor(logging.DEBUG) and all_commands:
+            #     try:
+            #         command_names_for_log = [cmd.name for cmd in all_commands]
+            #         logger.debug(f"Command names retrieved for help: {command_names_for_log}")
+            #     except Exception as log_ex:
+            #         logger.debug(f"Could not serialize command names for logging in help: {log_ex}")
 
-            logger.info("--- HELP: CHECKPOINT 1 --- About to check 'if not all_commands'")
             if not all_commands:
-                logger.warning("No commands returned by get_bot_commands. Sending 'no commands found' message.")
+                logger.warning("No commands returned by get_bot_commands for /help. Sending 'no commands found' message.")
                 await interaction.followup.send("No commands found or unable to retrieve command list.", ephemeral=True)
                 return
 
-            logger.info(f"--- HELP: CHECKPOINT 2 --- About to check 'if command_name' (value: {command_name})")
             if command_name:
                 logger.debug(f"Processing specific help for command_name: '{command_name}'")
-                # Specific command help
                 target_command_name = command_name.lower()
                 found_cmd_info: Optional[CommandInfo] = None
                 for cmd_info in all_commands:
@@ -230,11 +226,11 @@ class GeneralCog(commands.Cog, name="General Commands"):
                         break
 
                 if found_cmd_info:
-                    logger.info(f"Found specific command info for '{command_name}': Name='{found_cmd_info.name}', Desc='{found_cmd_info.description}', Params={len(found_cmd_info.parameters) if found_cmd_info.parameters else 0}")
+                    logger.debug(f"Found specific command info for '{command_name}'.")
                     embed = discord.Embed(
                         title=f"Help for `/{found_cmd_info.name}`",
                         description=found_cmd_info.description or "No description available.",
-                        color=discord.Color.green() # Different color for specific help
+                        color=discord.Color.green()
                     )
                     if found_cmd_info.parameters:
                         param_details = []
@@ -254,48 +250,38 @@ class GeneralCog(commands.Cog, name="General Commands"):
                     await interaction.followup.send(embed=embed, ephemeral=True)
                     logger.debug(f"Sent specific help embed for '{command_name}'.")
                 else:
-                    logger.warning(f"Command `/{command_name}` not found in all_commands. Sending 'not found' message.")
+                    logger.warning(f"Command `/{command_name}` not found for /help. Sending 'not found' message.")
                     await interaction.followup.send(f"Command `/{command_name}` not found. Use `/help` to see all available commands.", ephemeral=True)
             else:
-                logger.info("--- HELP: CHECKPOINT 3 --- Entering general help block")
-                logger.debug("Processing general help (listing all commands).") # Keep this if log level is DEBUG
-
-                logger.info("--- HELP: Attempting to create general help embed ---") # NEW LOG
+                logger.debug("Processing general help (listing all commands).")
                 embed = discord.Embed(
                     title="Bot Commands Help",
                     description=f"Here's a list of available commands. Use `/help command_name` for more details on a specific command.\nLanguage: {lang_code}",
                     color=discord.Color.blue()
                 )
                 embed.set_footer(text=f"Total commands: {len(all_commands)}")
-                logger.info(f"--- HELP: Embed created. Title: '{embed.title}', Num All Cmds: {len(all_commands)} ---") # NEW LOG
 
                 command_list_str = []
                 current_length = 0
-                logger.info("--- HELP: Starting to loop through commands for embed description ---") # NEW LOG
-                for i, cmd_info in enumerate(all_commands):
+                for cmd_info in all_commands:
                     desc = cmd_info.description or "No description available."
                     entry = f"**/{cmd_info.name}** - {desc}"
-                    logger.debug(f"--- HELP: Processing command for embed: {cmd_info.name} (Entry length: {len(entry)}) ---") # DEBUG LOG
-                    if current_length + len(entry) + 2 < 4000: # +2 for \n
+                    if current_length + len(entry) + 2 < 4000: # Embed description limit
                         command_list_str.append(entry)
                         current_length += len(entry) + 2
                     else:
-                        command_list_str.append("...") # Indicate truncation
-                        logger.warning(f"--- HELP: Help message truncated. Index: {i}, Current Length: {current_length}, Total Commands: {len(all_commands)} ---") # NEW LOG
+                        command_list_str.append("...")
+                        logger.warning(f"General help message truncated due to length limits. Displaying {len(command_list_str)-1} commands out of {len(all_commands)}.")
                         break
-
-                logger.info(f"--- HELP: Finished loop. {len(command_list_str)} entries for embed. Current length: {current_length} ---") # NEW LOG
 
                 if command_list_str:
                     embed.description += "\n\n" + "\n".join(command_list_str)
-                    logger.info("--- HELP: Added command list to embed description ---") # NEW LOG
-                else:
-                    logger.warning("--- HELP: Command list string is empty for general help embed! ---") # NEW LOG
+                else: # Should not happen if all_commands is not empty
+                    logger.warning("Command list string is empty for general help embed, though all_commands was not empty.")
                     embed.description += "\n\nNo commands to display."
 
-                logger.info("--- HELP: Attempting to send general help embed ---") # NEW LOG
                 await interaction.followup.send(embed=embed, ephemeral=True)
-                logger.info("--- HELP: Successfully sent general help embed ---") # CHANGED TO INFO
+                logger.debug("Successfully sent general help embed.") # Changed back to debug for successful send
 
         except Exception as e:
             # Log the error first thing in the except block
