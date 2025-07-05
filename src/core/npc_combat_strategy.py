@@ -779,7 +779,7 @@ async def _simulate_action_outcome(
                         if '+' in dmg_formula: expected_damage += float(dmg_formula.split('+')[-1])
                         elif '-' in dmg_formula: expected_damage -= float(dmg_formula.split('-')[-1])
                     except (ValueError, IndexError, TypeError):
-                        expected_damage = 5.0
+                        expected_damage = 5.0 # Default damage on parsing error
                 else:
                     try:
                         expected_damage = float(dmg_formula)
@@ -851,14 +851,34 @@ async def _evaluate_action_effectiveness(
                 heal_amount = 0.0
                 try:
                     heal_formula = effect.get("value", "5")
-                    if isinstance(heal_formula, (int, float)): heal_amount = float(heal_formula)
+                    if isinstance(heal_formula, (int, float)):
+                        heal_amount = float(heal_formula)
                     elif isinstance(heal_formula, str):
-                         if 'd' in heal_formula:
-                             parts = heal_formula.split('d'); dice_face = int(parts[1].split('+')[0]); num_dice = int(parts[0])
-                             heal_amount = num_dice * (dice_face / 2.0 + 0.5)
-                             if '+' in heal_formula: heal_amount += float(heal_formula.split('+')[-1])
-                         else: heal_amount = float(heal_formula)
-                except (ValueError, TypeError, IndexError): heal_amount = 5.0
+                        if 'd' in heal_formula.lower(): # Use lower() for case-insensitivity like 'D'
+                            parts = heal_formula.lower().split('d')
+                            num_dice = int(parts[0])
+
+                            dice_part_str = parts[1]
+                            modifier = 0
+
+                            # Extract dice face and modifier (e.g., from "6+2" or "4-1" or just "8")
+                            if '+' in dice_part_str:
+                                val_parts = dice_part_str.split('+', 1)
+                                dice_face = int(val_parts[0])
+                                modifier = float(val_parts[1])
+                            elif '-' in dice_part_str:
+                                val_parts = dice_part_str.split('-', 1)
+                                dice_face = int(val_parts[0])
+                                modifier = -float(val_parts[1])
+                            else:
+                                dice_face = int(dice_part_str)
+
+                            heal_amount = num_dice * (dice_face / 2.0 + 0.5) # Average roll
+                            heal_amount += modifier
+                        else:
+                            heal_amount = float(heal_formula) # If not dice, try to parse as plain number
+                except (ValueError, TypeError, IndexError):
+                    heal_amount = 5.0 # Default on any parsing error
 
                 actor_props = actor_npc.properties_json if actor_npc.properties_json else {}
                 actor_stats = actor_props.get("stats", {})

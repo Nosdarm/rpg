@@ -39,9 +39,9 @@ class CRUDBase(Generic[ModelType]):
             obj_in_data["guild_id"] = guild_id
 
         db_obj = self.model(**obj_in_data)
-        session.add(db_obj)
-        await session.flush() # Use flush to get ID before commit if needed, and to ensure guild_id constraint is checked early
-        await session.refresh(db_obj)
+        db.add(db_obj)
+        await db.flush() # Use flush to get ID before commit if needed, and to ensure guild_id constraint is checked early
+        await db.refresh(db_obj)
         log_id = getattr(db_obj, 'id', 'N/A') if hasattr(db_obj, 'id') else 'N/A'
         logger.info(f"Created {self.model.__name__} with ID {log_id}"
                     f"{f' for guild {guild_id}' if guild_id else ''}")
@@ -366,7 +366,7 @@ async def get_entity_by_id_and_type_str(
         logger.warning(f"Unsupported entity type string '{entity_type_str}' for get_entity_by_id_and_type_str.")
         return None
 
-    return await get_entity_by_id(db, model_class, entity_id, guild_id=guild_id)
+    return await get_entity_by_id(session, model_class, entity_id, guild_id=guild_id)
 
 
 logger.info("CRUDBase and generic CRUD functions (create_entity, get_entity_by_id, update_entity, delete_entity, get_entity_by_id_and_type_str) defined.")
