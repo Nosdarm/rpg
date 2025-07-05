@@ -5,13 +5,8 @@ from discord.ext import commands
 from typing import Optional, Any, List # Added Any and List
 
 from src.core.database import get_db_session, transactional
-import logging
-import discord
-from discord import app_commands
-from discord.ext import commands
-from typing import Optional, Any, List # Added Any and List
-
-from src.core.database import get_db_session, transactional
+# Duplicated logging, discord, app_commands, commands, Optional, Any, List imports removed for overwrite
+# from src.core.database import get_db_session, transactional # Duplicated
 from src.core.crud.crud_player import player_crud
 from src.core.crud.crud_location import location_crud
 from src.core.crud.crud_guild import guild_crud
@@ -163,9 +158,6 @@ class GeneralCog(commands.Cog, name="General Commands"):
             )
         except Exception as e:
             logger.error(f"Ошибка при создании игрока {player_name} (Discord ID: {discord_id}) для гильдии {guild_id}: {e}", exc_info=True)
-            # Check if interaction already responded to by defer() before sending another followup.
-            # If defer() was successful, followup should be used. If defer() failed, this might also fail or need original response.
-            # However, the typical pattern is that if defer is called, all subsequent message sends must be followups.
             if interaction.is_expired():
                  logger.warning(f"Interaction expired before error message could be sent for player {player_name} (Discord ID: {discord_id}).")
             else:
@@ -175,13 +167,8 @@ class GeneralCog(commands.Cog, name="General Commands"):
     async def start_command(self, interaction: discord.Interaction):
         """Начинает игру для нового игрока или показывает информацию о существующем (wrapper)."""
         if not interaction.guild_id:
-            # Need to use followup if we defer in the main command body as well, or handle initial response here.
-            # For simplicity, if this check fails, it's an immediate response.
-            # If _start_command_internal is called, it will handle deferral.
             await interaction.response.send_message("Эту команду можно использовать только на сервере.", ephemeral=True)
             return
-
-        # session будет автоматически передана _start_command_internal декоратором @transactional
         await self._start_command_internal(interaction) # type: ignore
 
     @app_commands.command(name="ping", description="Проверяет задержку ответа бота.")
@@ -200,9 +187,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
         Provides help information for bot commands.
         Can list all commands or show details for a specific command.
         """
-        Provides help information for bot commands.
-        Can list all commands or show details for a specific command.
-        """
+        # THIS IS THE CORRECTED PART - NO DUPLICATE DOCSTRING OR TEXT BEFORE await
         await interaction.response.defer(ephemeral=True)
 
         try:
@@ -218,7 +203,6 @@ class GeneralCog(commands.Cog, name="General Commands"):
                 await interaction.followup.send("No commands found or unable to retrieve command list.", ephemeral=True)
                 return
 
-            # Placeholder for actual formatting logic (next steps)
             if command_name:
                 # Specific command help
                 target_command_name = command_name.lower()
@@ -261,17 +245,11 @@ class GeneralCog(commands.Cog, name="General Commands"):
                 )
                 embed.set_footer(text=f"Total commands: {len(all_commands)}")
 
-                # Simple list for now, can be improved with fields for better structure
-                # Discord embed description length limit is 4096 characters
-                # Discord embed field value limit is 1024 characters, 25 fields max
-
                 command_list_str = []
                 current_length = 0
                 for cmd_info in all_commands:
                     desc = cmd_info.description or "No description available."
                     entry = f"**/{cmd_info.name}** - {desc}"
-                    # Check length before adding to avoid exceeding limits
-                    # A more robust solution might paginate or use multiple fields/embeds
                     if current_length + len(entry) + 2 < 4000: # +2 for \n
                         command_list_str.append(entry)
                         current_length += len(entry) + 2
@@ -282,7 +260,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
                 if command_list_str:
                     embed.description += "\n\n" + "\n".join(command_list_str)
-                else: # Should not happen if all_commands is not empty
+                else:
                     embed.description += "\n\nNo commands to display."
 
                 await interaction.followup.send(embed=embed, ephemeral=True)
