@@ -23,7 +23,7 @@ class Party(Base):
 
     # Stores a list of Player primary key IDs.
     player_ids_json: Mapped[Optional[List[int]]] = mapped_column(JSON, nullable=True)
-    leader_player_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("players.id", name="fk_party_leader_player_id"), nullable=True, index=True)
+    leader_player_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("players.id", name="fk_party_leader_player_id", use_alter=True), nullable=True, index=True)
 
     current_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)
 
