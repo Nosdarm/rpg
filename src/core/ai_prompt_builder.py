@@ -706,8 +706,8 @@ async def _get_hidden_relationships_context_for_dialogue(
             is_player_entity1 = (rel.entity1_id == player_id and rel.entity1_type == RelationshipEntityType.PLAYER)
             is_player_entity2 = (rel.entity2_id == player_id and rel.entity2_type == RelationshipEntityType.PLAYER)
 
-            is_npc_entity1 = (rel.entity1_id == npc_id and rel.entity1_type == RelationshipEntityType.GENERATED_NPC) # Corrected indent here
-            is_npc_entity2 = (rel.entity2_id == npc_id and rel.entity1_type == RelationshipEntityType.GENERATED_NPC) # Corrected indent here
+            is_npc_entity1 = (rel.entity1_id == npc_id and rel.entity1_type == RelationshipEntityType.GENERATED_NPC)
+            is_npc_entity2 = (rel.entity2_id == npc_id and rel.entity2_type == RelationshipEntityType.GENERATED_NPC) # Corrected to rel.entity2_type
 
             if (is_npc_entity1 and is_player_entity2) or \
                (is_npc_entity2 and is_player_entity1):
