@@ -153,8 +153,86 @@ def mock_ai_rules() -> Dict[str, Any]:
             "status_strategic_value": {"stun": 50, "poison": 20},
             "low_hp_heal_urgency_multiplier": 2.0
         },
-        "simulation": { "enabled": False } # Keep simulation off for most basic tests for simplicity
+        "simulation": { "enabled": False }, # Keep simulation off for most basic tests for simplicity
+        "relationship_influence": { # Added section for relationship influence rules
+            "npc_combat": {
+                "behavior": {
+                    "enabled": True,
+                    "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
+                    "target_score_modifier_formula": "-(relationship_value * 0.2)",
+                    "action_choice": {
+                        "friendly_positive_threshold": 30, # Lowered for easier testing
+                        "hostile_negative_threshold": -30, # Lowered for easier testing
+                        "actions_if_friendly": [
+                            {"action_type": "ability", "ability_static_id": "self_heal_low", "weight_multiplier": 1.5}, # Prefer healing self
+                            {"action_type": "attack", "weight_multiplier": 0.5} # Less likely to attack
+                        ],
+                        "actions_if_hostile": [
+                             {"action_type": "ability", "ability_static_id": "strong_hit", "weight_multiplier": 1.5}, # Prefer strong hit
+                             {"action_type": "attack", "weight_multiplier": 1.2}
+                        ]
+                    }
+                }
+            }
+        }
     }
+
+# --- Tests for _get_npc_ai_rules ---
+@pytest.mark.asyncio
+async def test_get_npc_ai_rules_merges_defaults_and_specific_relationship_rules(mock_session, mock_actor_npc, mock_combat_encounter):
+    # Base rules for npc_default_strategy (will be returned by get_rule for this key)
+    base_npc_rules_from_db = {
+        "target_selection": {"priority_order": ["lowest_hp_percentage"]},
+        "action_selection": {"offensive_bias": 0.6}
+    }
+    # Specific relationship influence rules for the guild (will be returned by get_rule for its key)
+    specific_rel_rules_from_db = {
+        "enabled": True,
+        "hostility_threshold_modifier_formula": "-(relationship_value / 15)", # Override default
+        "action_choice": {
+            "friendly_positive_threshold": 40, # Override default
+            "actions_if_friendly": [{"action_type": "attack", "weight_multiplier": 0.1}] # Override
+        }
+    }
+    # Expected default relationship rules if specific one is not fully defined (used by _get_npc_ai_rules internally)
+    default_rel_influence_rules_in_code = {
+        "enabled": True,
+        "hostility_threshold_modifier_formula": "-(relationship_value / 10)",
+        "target_score_modifier_formula": "-(relationship_value * 0.2)",
+        "action_choice": {
+            "friendly_positive_threshold": 50, # Default internal to _get_npc_ai_rules
+            "hostile_negative_threshold": -50, # Default internal to _get_npc_ai_rules
+            "actions_if_friendly": [],
+            "actions_if_hostile": []
+        }
+    }
+
+    async def mock_get_rule_side_effect(db, guild_id, key, default=None):
+        if key == "ai_behavior:npc_default_strategy":
+            return base_npc_rules_from_db
+        if key == "relationship_influence:npc_combat:behavior":
+            return specific_rel_rules_from_db
+        return default
+
+    with patch('src.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
+        compiled_rules = await _get_npc_ai_rules(mock_session, 100, mock_actor_npc, mock_combat_encounter)
+
+    # Check base rules are present
+    assert compiled_rules["target_selection"]["priority_order"] == ["lowest_hp_percentage"]
+    assert compiled_rules["action_selection"]["offensive_bias"] == 0.6
+
+    # Check relationship influence rules
+    rel_behavior = compiled_rules["relationship_influence"]["npc_combat"]["behavior"]
+    assert rel_behavior["enabled"] is True
+    # Check overridden values from specific_rel_rules_from_db
+    assert rel_behavior["hostility_threshold_modifier_formula"] == "-(relationship_value / 15)"
+    assert rel_behavior["action_choice"]["friendly_positive_threshold"] == 40
+    assert rel_behavior["action_choice"]["actions_if_friendly"] == [{"action_type": "attack", "weight_multiplier": 0.1}]
+    # Check values that should come from default_rel_influence_rules_in_code because not overridden by specific_rel_rules_from_db
+    assert rel_behavior["target_score_modifier_formula"] == default_rel_influence_rules_in_code["target_score_modifier_formula"]
+    assert rel_behavior["action_choice"]["hostile_negative_threshold"] == default_rel_influence_rules_in_code["action_choice"]["hostile_negative_threshold"]
+    assert rel_behavior["action_choice"]["actions_if_hostile"] == default_rel_influence_rules_in_code["action_choice"]["actions_if_hostile"]
+
 
 # --- Tests for _get_available_abilities ---
 def test_get_available_abilities_all_available(mock_actor_npc, mock_ai_rules):
@@ -232,6 +310,81 @@ async def test_is_hostile_different_faction_npc_hostile_by_default(mock_session,
     with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
         hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_hostile, mock_ai_rules)
         assert hostile is True # Different faction, default rule makes it hostile
+
+@pytest.mark.asyncio
+async def test_is_hostile_relationship_formula_makes_friendly(mock_session, mock_actor_npc, mock_target_player, mock_ai_rules):
+    target_player_combat_info = {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 100}
+    # Rule: hostility_threshold_modifier_formula: "-(relationship_value / 10)"
+    # Base hostile threshold: -20. Base friendly: 20
+    # Relationship value: 50 (very friendly)
+    # Hostility bias mod = -(50/10) = -5
+    # Final hostile threshold = -20 + (-5) = -25
+    # Final friendly threshold = 20 - (-5) = 25
+    # Since rel_value (50) >= final_friendly_threshold (25), should be False (not hostile)
+
+    # Ensure the specific formula is in ai_rules for this test
+    mock_ai_rules_custom = mock_ai_rules.copy() # Avoid modifying fixture for other tests
+    mock_ai_rules_custom["relationship_influence"]["npc_combat"]["behavior"]["hostility_threshold_modifier_formula"] = "-(relationship_value / 10)" # Default from fixture
+    mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_hostile_threshold"] = -20
+    mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_friendly_threshold"] = 20
+
+
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_player_combat_info, mock_target_player, mock_ai_rules_custom)
+        assert hostile is False
+
+@pytest.mark.asyncio
+async def test_is_hostile_relationship_formula_makes_hostile(mock_session, mock_actor_npc, mock_target_npc_friendly_faction, mock_ai_rules):
+    target_npc_combat_info = {"id": mock_target_npc_friendly_faction.id, "type": EntityType.NPC.value, "hp": 30}
+    # Same faction, normally friendly. Relationship value: -50 (very hostile)
+    # Hostility bias mod = -(-50/10) = 5
+    # Final hostile threshold = -20 + 5 = -15
+    # Final friendly threshold = 20 - 5 = 15
+    # Since rel_value (-50) <= final_hostile_threshold (-15), should be True (hostile)
+    mock_ai_rules_custom = mock_ai_rules.copy()
+    mock_ai_rules_custom["relationship_influence"]["npc_combat"]["behavior"]["hostility_threshold_modifier_formula"] = "-(relationship_value / 10)"
+    mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_hostile_threshold"] = -20
+    mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_friendly_threshold"] = 20
+    mock_ai_rules_custom["target_selection"]["hostility_rules"]["same_faction_is_friendly"] = True
+
+
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_friendly_faction, mock_ai_rules_custom)
+        assert hostile is True
+
+# --- Tests for _calculate_target_score ---
+@pytest.mark.asyncio
+async def test_calculate_target_score_relationship_formula_modifies_threat(mock_session, mock_actor_npc, mock_target_player, mock_ai_rules, mock_combat_encounter):
+    target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}}
+    metric = "highest_threat_score"
+
+    # Base threat factors: damage_dealt_to_self_factor: 1.5
+    # target_score_modifier_formula: "-(relationship_value * 0.2)"
+    # Relationship value: 50 (friendly with player)
+    # Expected adjustment = -(50 * 0.2) = -10
+
+    # Assume base threat (e.g. from damage) is 30
+    target_info["combat_data"]["threat_generated_towards_actor"] = 20 # 20 * 1.5 = 30 base threat
+
+    mock_ai_rules_custom = mock_ai_rules.copy()
+    mock_ai_rules_custom["relationship_influence"]["npc_combat"]["behavior"]["target_score_modifier_formula"] = "-(relationship_value * 0.2)"
+
+
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        score_friendly = await _calculate_target_score(mock_session, 100, mock_actor_npc, target_info, metric, mock_ai_rules_custom, mock_combat_encounter)
+
+    # Relationship value: -50 (hostile with player)
+    # Expected adjustment = -(-50 * 0.2) = +10
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        score_hostile = await _calculate_target_score(mock_session, 100, mock_actor_npc, target_info, metric, mock_ai_rules_custom, mock_combat_encounter)
+
+    base_threat_calculated = 20 * 1.5 # 30
+    expected_score_friendly = base_threat_calculated - (50 * 0.2) # 30 - 10 = 20
+    expected_score_hostile = base_threat_calculated - (-50 * 0.2) # 30 + 10 = 40
+
+    assert score_friendly == pytest.approx(expected_score_friendly)
+    assert score_hostile == pytest.approx(expected_score_hostile)
+
 
 # --- Tests for _get_potential_targets ---
 @pytest.mark.asyncio
@@ -390,5 +543,116 @@ async def test_get_npc_combat_action_no_targets_available(mock_session, mock_act
                     # We'd expect it to be called with session, actor_npc, combat_encounter, ai_rules, guild_id, and the list
                     # For this test, the key is that it returns [] and causes the "No targets available" outcome.
                     assert action_result == {"action_type": "idle", "reason": "No targets available."}
+
+# --- Tests for _choose_action with relationship influence ---
+@pytest.mark.asyncio
+async def test_choose_action_relationship_friendly_prefers_non_attack_or_heal(
+    mock_session, mock_actor_npc, mock_target_player, mock_ai_rules, mock_combat_encounter
+):
+    actor_combat_data = {"id": mock_actor_npc.id, "type": EntityType.NPC.value, "hp": 30, "max_hp": 50, "resources": {"mana": 10}, "cooldowns": {}} # HP is at 60%
+    target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}}
+
+    # AI rules from fixture:
+    # "actions_if_friendly": [
+    #     {"action_type": "ability", "ability_static_id": "self_heal_low", "weight_multiplier": 1.5},
+    #     {"action_type": "attack", "weight_multiplier": 0.5}
+    # ]
+    # "friendly_positive_threshold": 30
+
+    # Relationship: 50 (friendly)
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        # Mock _evaluate_action_effectiveness to return predictable scores BEFORE relationship weight.
+        # Let's say basic attack normally has higher score than self_heal_low.
+        async def mock_eval_effectiveness(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
+            if action_details.get("type") == "attack":
+                return 10.0 # Base score for attack
+            elif action_details.get("ability_props", {}).get("static_id") == "self_heal_low":
+                return 8.0  # Base score for self_heal_low
+            elif action_details.get("ability_props", {}).get("static_id") == "strong_hit":
+                 return 12.0 # Base score for strong_hit
+            elif action_details.get("ability_props", {}).get("static_id") == "quick_stab":
+                 return 7.0 # Base score for quick_stab
+            return 1.0 # Default for other abilities
+
+        with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
+            chosen_action = await _choose_action(mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules, mock_combat_encounter)
+
+    # Expected scores after relationship weight:
+    # Attack: 10.0 * 0.5 = 5.0
+    # Self_heal_low: 8.0 * 1.5 = 12.0
+    # Strong_hit: 12.0 (no friendly rule, so weight 1.0)
+    # Quick_stab: 7.0 (no friendly rule, so weight 1.0)
+    # Best action should be self_heal_low due to multiplier if actor HP is not too low.
+    # Oh, wait, self_heal_low is self-target. Does _choose_action consider target for self-abilities?
+    # _evaluate_action_effectiveness takes target_info. For self-heal, this might be less relevant for damage part.
+    # The current _choose_action doesn't explicitly differentiate self-target abilities for relationship modification.
+    # The rule applies weight to "self_heal_low". Let's assume it will be preferred.
+
+    # Re-evaluating: The heal threshold rule (self_hp_below_for_heal_ability: 0.4)
+    # Actor HP is 30/50 = 0.6, which is NOT below 0.4. So, heal might not be prioritized by that logic.
+    # The relationship multiplier for 'self_heal_low' is 1.5.
+    # Attack score: 10 * 0.5 = 5
+    # Heal score: 8 * 1.5 = 12
+    # Strong Hit score: 12 (no multiplier)
+    # Quick Stab score: 7 (no multiplier)
+    # So, 'strong_hit' should be chosen as 12 is its base score and it's higher than weighted heal if heal isn't forced by low HP.
+    # The test for `actions_if_friendly` currently has `self_heal_low`.
+    # If the NPC is friendly, it should prefer healing itself (or buffing) over attacking the friendly target.
+    # Let's adjust the mock scores for _evaluate_action_effectiveness so that heal becomes best.
+    # Say, heal base is 9. Attack base is 10. Strong hit base is 8.
+    # Heal weighted: 9 * 1.5 = 13.5
+    # Attack weighted: 10 * 0.5 = 5
+    # Strong Hit: 8
+    # Then Heal should be chosen.
+
+    async def mock_eval_effectiveness_v2(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
+        if action_details.get("type") == "attack": return 10.0
+        elif action_details.get("ability_props", {}).get("static_id") == "self_heal_low": return 9.0
+        elif action_details.get("ability_props", {}).get("static_id") == "strong_hit": return 8.0
+        elif action_details.get("ability_props", {}).get("static_id") == "quick_stab": return 7.0
+        return 1.0
+
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)): # Friendly
+        with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness_v2)):
+            chosen_action = await _choose_action(mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules, mock_combat_encounter)
+
+    assert chosen_action.get("ability_props", {}).get("static_id") == "self_heal_low"
+
+
+@pytest.mark.asyncio
+async def test_choose_action_relationship_hostile_prefers_strong_attack(
+    mock_session, mock_actor_npc, mock_target_player, mock_ai_rules, mock_combat_encounter
+):
+    actor_combat_data = {"id": mock_actor_npc.id, "type": EntityType.NPC.value, "hp": 50, "max_hp":50, "resources": {"mana": 10}, "cooldowns": {}}
+    target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}}
+
+    # AI rules from fixture:
+    # "actions_if_hostile": [
+    #     {"action_type": "ability", "ability_static_id": "strong_hit", "weight_multiplier": 1.5},
+    #     {"action_type": "attack", "weight_multiplier": 1.2}
+    # ]
+    # "hostile_negative_threshold": -30
+
+    # Relationship: -50 (hostile)
+    with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        async def mock_eval_effectiveness(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
+            # Base scores: Strong Hit (10), Attack (9), Quick Stab (8), Heal (7)
+            if action_details.get("ability_props", {}).get("static_id") == "strong_hit": return 10.0
+            if action_details.get("type") == "attack": return 9.0
+            if action_details.get("ability_props", {}).get("static_id") == "quick_stab": return 8.0
+            if action_details.get("ability_props", {}).get("static_id") == "self_heal_low": return 7.0
+            return 1.0
+
+        with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
+            chosen_action = await _choose_action(mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules, mock_combat_encounter)
+
+    # Expected scores after relationship weight:
+    # Strong Hit: 10.0 * 1.5 = 15.0
+    # Attack: 9.0 * 1.2 = 10.8
+    # Quick Stab: 8.0 (no hostile rule, so weight 1.0)
+    # Heal: 7.0 (no hostile rule, so weight 1.0)
+    # Best action should be "strong_hit".
+    assert chosen_action.get("ability_props", {}).get("static_id") == "strong_hit"
+
 
 # (Add more comprehensive tests for other functions and edge cases)

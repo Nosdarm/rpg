@@ -220,10 +220,43 @@ async def _format_log_entry_with_names_cache(
         dealing_term = await get_term("terms.combat.dealing_damage", {"en": "dealing", "ru": "нанося"})
         damage_term = await get_term("terms.general.damage", {"en": "damage", "ru": "урона"})
 
+        base_message = ""
         if damage is not None:
-            return f"{actor_name} {uses_term} '{action_name}' {on_term} {target_name}, {dealing_term} {damage} {damage_term}."
+            base_message = f"{actor_name} {uses_term} '{action_name}' {on_term} {target_name}, {dealing_term} {damage} {damage_term}."
         else:
-            return f"{actor_name} {uses_term} '{action_name}' {on_term} {target_name}."
+            base_message = f"{actor_name} {uses_term} '{action_name}' {on_term} {target_name}."
+
+        # Append CheckResult details if available
+        check_result_data = _safe_get(log_entry_details_json, ["check_result"])
+        if isinstance(check_result_data, dict):
+            roll = _safe_get(check_result_data, ["roll_used"])
+            total_mod = _safe_get(check_result_data, ["total_modifier"])
+            final_val = _safe_get(check_result_data, ["final_value"])
+            dc = _safe_get(check_result_data, ["difficulty_class"])
+
+            term_roll = await get_term("terms.checks.roll", {"en": "Roll", "ru": "Бросок"})
+            term_modifier = await get_term("terms.checks.modifier", {"en": "Mod", "ru": "Мод."})
+            term_total = await get_term("terms.checks.total", {"en": "Total", "ru": "Итог"})
+            term_vs_dc = await get_term("terms.checks.vs_dc", {"en": "vs DC", "ru": "против СЛ"})
+
+            check_details_str = f" ({term_roll}: {roll}, {term_modifier}: {total_mod}, {term_total}: {final_val} {term_vs_dc}: {dc})"
+
+            modifier_details_list = _safe_get(check_result_data, ["modifier_details"], [])
+            if isinstance(modifier_details_list, list) and modifier_details_list:
+                mod_descs = []
+                for mod_detail in modifier_details_list:
+                    if isinstance(mod_detail, dict):
+                        desc = _safe_get(mod_detail, ["description"], "")
+                        val = _safe_get(mod_detail, ["value"], 0)
+                        if desc: # Only add if description is not empty
+                             mod_descs.append(f"{desc} ({'+' if val >= 0 else ''}{val})")
+                if mod_descs:
+                    term_bonuses_penalties = await get_term("terms.checks.bonuses_penalties", {"en": "Bonuses/Penalties", "ru": "Бонусы/Штрафы"})
+                    check_details_str += f" [{term_bonuses_penalties}: {'; '.join(mod_descs)}]"
+
+            base_message += check_details_str
+
+        return base_message
 
     elif event_type_str == "COMBAT_END":
         location_id = log_entry_details_json.get("location_id")

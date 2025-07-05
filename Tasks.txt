@@ -91,15 +91,7 @@ This block presents tasks related to factions, relationships between entities, a
 {Task 34: 🎭 8.2 Relationships Model (Guild-Scoped). - Moved to Done.txt}
 {Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild). - Moved to Done.txt}
 {Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped). - Moved to Done.txt}
-
-Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n).
-Description: Implement the use of relationship values from the DB (34) as parameters or conditions in various game mechanics according to game rules. (Moved from 8.5).
-Modules (12, 28, 48, 42, 44, 21) REQUIRE guild_id. When executing their logic, they:
-Load current relationships (34) between involved entities FROM THE DB, STRICTLY BY guild_id.
-Use rules FROM rules_config (13/0.3) FOR THIS GUILD on how the relationship value (from 34) translates into a numerical modifier (for checks 12), multiplier (for prices 42), or condition (for AI action choice 28, dialogue availability 46).
-
-
-Feedback (49) about relationship influence should be in the player's language.
+{Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n). - Moved to Done.txt}
 
 Task 38: 🎭 8.6 Complex Internal Faction Relationships.
 Description: Generation and use of specific NPC relationships to other factions or NPCs within their own factions for more complex behavior. (Moved from 8.6).

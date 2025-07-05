@@ -24,6 +24,8 @@ from src.core.check_resolver import (
     ENTITY_TYPE_NPC,
     CheckError
 )
+from src.models.relationship import Relationship, RelationshipEntityType # Added
+from src.core.crud.crud_relationship import CRUDRelationship # Added
 
 # Default values for rule fetching, can be overridden in tests
 DEFAULT_RULE_VALUES = {
@@ -69,13 +71,19 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         self.mock_get_entity_attribute = self.patch_get_entity_attribute.start()
 
         # Default mock behaviors
-        self.mock_get_rule.side_effect = lambda db, guild_id, key: DEFAULT_RULE_VALUES.get(key)
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: DEFAULT_RULE_VALUES.get(key, default)
+
+        self.patch_crud_relationship_get_relationships = patch('src.core.check_resolver.crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
+        self.mock_crud_relationship_get_relationships = self.patch_crud_relationship_get_relationships.start()
+        self.mock_crud_relationship_get_relationships.return_value = [] # Default to no relationships
 
 
     async def asyncTearDown(self):
         self.patch_get_rule.stop()
         self.patch_roll_dice.stop()
         self.patch_get_entity_attribute.stop()
+        if hasattr(self, 'patch_crud_relationship_get_relationships'): # Ensure it was started
+            self.patch_crud_relationship_get_relationships.stop()
 
     async def test_simple_success(self):
         check_type = "some_check"
@@ -277,6 +285,178 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         # Check that no modifier detail was added for the missing base_stat, or it was added with value 0
         self.assertFalse(any(md.source == "base_stat:non_existent_stat" and md.value != 0 for md in result.modifier_details))
 
+    # --- Tests for Relationship Influence ---
+
+    async def test_relationship_influence_roll_modifier_formula_positive(self):
+        check_type = "persuasion"
+        dc = 15
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: {
+            f"checks:{check_type}:dice_notation": "1d20",
+            f"checks:{check_type}:base_attribute": "charisma_mod", # Assuming charisma_mod is fetched
+            f"relationship_influence:checks:{check_type}": {
+                "enabled": True,
+                "relationship_type_pattern": "personal_feeling",
+                "roll_modifier_formula": "(rel_value // 20)" # e.g., rel_value=50 -> +2 mod
+            }
+        }.get(key, DEFAULT_RULE_VALUES.get(key, default))
+
+        self.mock_get_entity_attribute.return_value = 1 # Player's charisma_mod
+        self.mock_roll_dice.return_value = (10, [10])
+
+        # Mock relationship
+        mock_relationship = Relationship(
+            entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id,
+            entity2_type=RelationshipEntityType.NPC, entity2_id=self.npc_id,
+            relationship_type="personal_feeling", value=50, guild_id=self.guild_id
+        )
+        self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC, # Target for relationship
+            difficulty_dc=dc
+        )
+
+        # Expected: roll(10) + charisma_mod(1) + rel_mod(50//20 = 2) = 13. Fails vs DC 15.
+        # But we are checking the modifier application.
+        self.assertEqual(result.total_modifier, 1 + 2) # charisma_mod + relationship_mod
+        self.assertEqual(result.final_value, 13)
+        self.assertEqual(result.outcome.status, "failure")
+        self.assertTrue(any(md.source == "relationship:personal_feeling" and md.value == 2 for md in result.modifier_details))
+        self.assertIn(f"relationship_influence:checks:{check_type}", result.rule_config_snapshot)
+        self.assertEqual(result.rule_config_snapshot.get("relationship_roll_modifier_applied"), 2)
+
+    async def test_relationship_influence_threshold_modifier_friendly(self):
+        check_type = "diplomacy"
+        dc = 12
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: {
+            f"checks:{check_type}:dice_notation": "1d20",
+            f"checks:{check_type}:base_attribute": "speech_mod",
+            f"relationship_influence:checks:{check_type}": {
+                "enabled": True,
+                "relationship_type_pattern": "faction_standing",
+                "modifiers": [
+                    {"threshold_min": 30, "threshold_max": 100, "modifier": 3, "description_key": "terms.rel_check_mod.faction_ally"}
+                ]
+            },
+            "terms.rel_check_mod.faction_ally": "Faction Ally Bonus" # Mock localization
+        }.get(key, DEFAULT_RULE_VALUES.get(key, default))
+
+        self.mock_get_entity_attribute.return_value = 0 # Player's speech_mod
+        self.mock_roll_dice.return_value = (10, [10])
+        mock_relationship = Relationship(
+            entity1_type=RelationshipEntityType.PLAYER, entity1_id=self.player_id,
+            entity2_type=RelationshipEntityType.FACTION, entity2_id=1, # Target is faction 1
+            relationship_type="faction_standing", value=70, guild_id=self.guild_id
+        )
+        self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            target_entity_id=1, target_entity_type="FACTION", # Target for relationship is Faction 1
+            difficulty_dc=dc
+        )
+        # Expected: roll(10) + speech_mod(0) + rel_mod(3) = 13. Success vs DC 12.
+        self.assertEqual(result.total_modifier, 3)
+        self.assertEqual(result.final_value, 13)
+        self.assertEqual(result.outcome.status, "success")
+        self.assertTrue(any(md.source == "relationship:faction_standing" and md.value == 3 and md.description == "Faction Ally Bonus" for md in result.modifier_details))
+        self.assertEqual(result.rule_config_snapshot.get("relationship_threshold_modifier_applied"), 3)
+
+    async def test_relationship_influence_disabled(self):
+        check_type = "persuasion"
+        dc = 15
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: {
+            f"checks:{check_type}:dice_notation": "1d20",
+            f"checks:{check_type}:base_attribute": "charisma_mod",
+            f"relationship_influence:checks:{check_type}": {
+                "enabled": False, # Rule is disabled
+                "relationship_type_pattern": "personal_feeling",
+                "roll_modifier_formula": "(rel_value // 20)"
+            }
+        }.get(key, DEFAULT_RULE_VALUES.get(key, default))
+
+        self.mock_get_entity_attribute.return_value = 1 # charisma_mod
+        self.mock_roll_dice.return_value = (10, [10])
+        mock_relationship = Relationship(relationship_type="personal_feeling", value=50, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            difficulty_dc=dc
+        )
+        # Expected: roll(10) + charisma_mod(1) = 11. No relationship mod.
+        self.assertEqual(result.total_modifier, 1)
+        self.assertEqual(result.final_value, 11)
+        self.assertNotIn("relationship_roll_modifier_applied", result.rule_config_snapshot)
+        self.assertFalse(any(md.source.startswith("relationship:") for md in result.modifier_details))
+
+    async def test_relationship_influence_pattern_mismatch(self):
+        check_type = "intimidation"
+        dc = 10
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: {
+            f"checks:{check_type}:dice_notation": "1d20",
+            f"checks:{check_type}:base_attribute": "strength_mod",
+            f"relationship_influence:checks:{check_type}": {
+                "enabled": True,
+                "relationship_type_pattern": "rivalry", # Expecting 'rivalry' type
+                "roll_modifier_formula": "(rel_value // 10)"
+            }
+        }.get(key, DEFAULT_RULE_VALUES.get(key, default))
+
+        self.mock_get_entity_attribute.return_value = 2 # strength_mod
+        self.mock_roll_dice.return_value = (8, [8])
+        # Relationship is 'personal_feeling', not 'rivalry'
+        mock_relationship = Relationship(relationship_type="personal_feeling", value=30, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            difficulty_dc=dc
+        )
+        # Expected: roll(8) + strength_mod(2) = 10. No relationship mod due to pattern mismatch.
+        self.assertEqual(result.total_modifier, 2)
+        self.assertEqual(result.final_value, 10) # Success (10 vs 10)
+        self.assertEqual(result.outcome.status, "success")
+        self.assertEqual(result.rule_config_snapshot.get("relationship_applicable_value"), "not_found")
+        self.assertFalse(any(md.source.startswith("relationship:") for md in result.modifier_details))
+
+    async def test_relationship_influence_formula_error(self):
+        check_type = "deception"
+        dc = 10
+        self.mock_get_rule.side_effect = lambda db, guild_id, key, default=None: {
+            f"checks:{check_type}:dice_notation": "1d20",
+            f"checks:{check_type}:base_attribute": "deception_skill",
+            f"relationship_influence:checks:{check_type}": {
+                "enabled": True,
+                "relationship_type_pattern": "trust_level",
+                "roll_modifier_formula": "rel_value / 'bad_string'" # This will cause eval error
+            }
+        }.get(key, DEFAULT_RULE_VALUES.get(key, default))
+
+        self.mock_get_entity_attribute.return_value = 3 # deception_skill
+        self.mock_roll_dice.return_value = (7, [7])
+        mock_relationship = Relationship(relationship_type="trust_level", value=20, guild_id=self.guild_id, entity1_id=self.player_id, entity1_type=RelationshipEntityType.PLAYER, entity2_id=self.npc_id, entity2_type=RelationshipEntityType.NPC)
+        self.mock_crud_relationship_get_relationships.return_value = [mock_relationship]
+
+        result = await resolve_check(
+            db=self.mock_db_session, guild_id=self.guild_id, check_type=check_type,
+            entity_doing_check_id=self.player_id, entity_doing_check_type=ENTITY_TYPE_PLAYER,
+            target_entity_id=self.npc_id, target_entity_type=ENTITY_TYPE_NPC,
+            difficulty_dc=dc
+        )
+        # Expected: roll(7) + skill(3) = 10. No relationship mod due to formula error.
+        self.assertEqual(result.total_modifier, 3)
+        self.assertEqual(result.final_value, 10)
+        self.assertEqual(result.outcome.status, "success")
+        self.assertIn("relationship_roll_modifier_error", result.rule_config_snapshot)
+        self.assertFalse(any(md.source.startswith("relationship:") for md in result.modifier_details))
 
 if __name__ == "__main__":
     unittest.main()
