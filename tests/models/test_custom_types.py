@@ -3,6 +3,7 @@ import os
 import pytest
 import pytest_asyncio
 import json
+from typing import AsyncGenerator # Import AsyncGenerator
 
 # Add the project root to sys.path FIRST
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -39,7 +40,7 @@ async def db_engine_custom_types():
     await engine.dispose()
 
 @pytest_asyncio.fixture
-async def db_session_custom_types(db_engine_custom_types) -> AsyncSession:
+async def db_session_custom_types(db_engine_custom_types) -> AsyncGenerator[AsyncSession, None]:
     SessionLocal = async_sessionmaker(
         bind=db_engine_custom_types, class_=AsyncSession, expire_on_commit=False
     )

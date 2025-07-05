@@ -3,6 +3,7 @@ import os
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
+from typing import AsyncGenerator # Import AsyncGenerator
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if PROJECT_ROOT not in sys.path:
@@ -46,7 +47,7 @@ async def db_engine():
     await engine.dispose()
 
 @pytest_asyncio.fixture
-async def db_session(db_engine) -> AsyncSession:
+async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
     SessionLocal = async_sessionmaker(
         bind=db_engine, class_=AsyncSession, expire_on_commit=False
     )

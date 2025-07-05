@@ -152,9 +152,4 @@ def test_list_bot_commands_bot_not_available(client: TestClient): # mocker не 
 
 # Для запуска тестов напрямую, если нужно (хотя pytest test_file.py предпочтительнее)
 if __name__ == "__main__":
-    assert response.status_code == 500
-    assert response.json()["detail"] == "Bot instance not available."
-
-# Для запуска тестов напрямую, если нужно (хотя pytest test_file.py предпочтительнее)
-if __name__ == "__main__":
     pytest.main([__file__])
