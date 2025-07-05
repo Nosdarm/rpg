@@ -1,5 +1,8 @@
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.story_log import StoryLog
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,6 @@ async def log_event(
         f"Attempting to log event. Guild: {guild_id}, EventType: {event_type}, Player: {player_id}, Party: {party_id}, Location: {location_id}"
     )
 
-    from src.models.story_log import StoryLog
     from src.models.enums import EventType
 
     try:
