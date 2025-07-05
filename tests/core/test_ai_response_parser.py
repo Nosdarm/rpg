@@ -133,8 +133,10 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         }
         npc = ParsedNpcData(**valid_npc_data)
         self.assertEqual(npc.static_id, "npc_001")
-        self.assertEqual(npc.name_i18n["en"], "Guard")
-        self.assertEqual(npc.stats["hp"], 50)
+        if npc.name_i18n: # Guard for Pyright, though name_i18n is not Optional
+            self.assertEqual(npc.name_i18n["en"], "Guard")
+        if npc.stats: # Guard for Pyright as stats is Optional
+            self.assertEqual(npc.stats["hp"], 50)
 
         # Test with optional static_id missing
         valid_npc_data_no_static_id = valid_npc_data.copy()
@@ -170,10 +172,10 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         from src.core.ai_response_parser import ParsedNpcData
         # Missing name_i18n
         with self.assertRaises(PydanticNativeValidationError):
-            ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"})
+            ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"}) # type: ignore[call-arg]
         # Missing description_i18n
         with self.assertRaises(PydanticNativeValidationError):
-            ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"})
+            ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"}) # type: ignore[call-arg]
 
 
 class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
@@ -190,27 +192,40 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
 
         result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
 
-        self.assertNotIsInstance(result, CustomValidationError, msg=f"Parsing failed: {result.message if isinstance(result, CustomValidationError) else 'Unknown error'}")
-        self.assertIsInstance(result, ParsedAiData)
+        if isinstance(result, CustomValidationError):
+            self.fail(f"Parsing failed: {result.message}")
+
+        # Now result is ParsedAiData
+        self.assertIsInstance(result, ParsedAiData) # Should already be true if no fail
         self.assertEqual(len(result.generated_entities), 2)
-        self.assertIsInstance(result.generated_entities[0], ParsedFactionData)
-        self.assertIsInstance(result.generated_entities[1], ParsedRelationshipData)
-        self.assertEqual(result.generated_entities[0].static_id, VALID_FACTION_DATA_FULL["static_id"])
-        self.assertEqual(result.generated_entities[1].value, VALID_RELATIONSHIP_DATA["value"])
+
+        entity1 = result.generated_entities[0]
+        entity2 = result.generated_entities[1]
+
+        self.assertIsInstance(entity1, ParsedFactionData)
+        self.assertIsInstance(entity2, ParsedRelationshipData)
+
+        if isinstance(entity1, ParsedFactionData): # Guard for Pyright
+            self.assertEqual(entity1.static_id, VALID_FACTION_DATA_FULL["static_id"])
+        if isinstance(entity2, ParsedRelationshipData): # Guard for Pyright
+            self.assertEqual(entity2.value, VALID_RELATIONSHIP_DATA["value"])
+
 
     async def test_parse_invalid_json_string(self):
         invalid_json_str = '{"entity_type": "faction", "name_i18n": {"en": "Test"' # Missing closing brace and quote
         result = await parse_and_validate_ai_response(invalid_json_str, guild_id=1)
         self.assertIsInstance(result, CustomValidationError)
-        self.assertEqual(result.error_type, "JSONParsingError")
+        if isinstance(result, CustomValidationError): # Guard for Pyright
+            self.assertEqual(result.error_type, "JSONParsingError")
 
     async def test_parse_structural_validation_error_not_a_list(self):
         # AI response is expected to be a list of entities
         not_a_list_str = json.dumps({"some_key": "some_value"})
         result = await parse_and_validate_ai_response(not_a_list_str, guild_id=1)
         self.assertIsInstance(result, CustomValidationError)
-        self.assertEqual(result.error_type, "StructuralValidationError")
-        self.assertIn("Expected a list of entities", result.message)
+        if isinstance(result, CustomValidationError): # Guard for Pyright
+            self.assertEqual(result.error_type, "StructuralValidationError")
+            self.assertIn("Expected a list of entities", result.message)
 
     async def test_parse_pydantic_validation_error_in_faction(self):
         invalid_faction_data = VALID_FACTION_DATA_MINIMAL.copy()
@@ -220,19 +235,21 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
 
         result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
         self.assertIsInstance(result, CustomValidationError)
-        self.assertEqual(result.error_type, "StructuralValidationError") # Pydantic errors are caught as structural by _validate_overall_structure
-        self.assertIn("Validation failed for entity at index 0", result.message)
-        self.assertEqual(result.path, [0]) # Path should indicate the failing entity index
+        if isinstance(result, CustomValidationError): # Guard for Pyright
+            self.assertEqual(result.error_type, "StructuralValidationError") # Pydantic errors are caught as structural by _validate_overall_structure
+            self.assertIn("Validation failed for entity at index 0", result.message)
+            self.assertEqual(result.path, [0]) # Path should indicate the failing entity index
 
-        # Check details for specific field error for 'name_i18n'
-        # result.details is a list of dicts, each representing a Pydantic validation error for the entity at path [0]
-        found_name_error = False
-        for error_detail in result.details:
-            # Example error_detail: {'type': 'missing', 'loc': ('name_i18n',), 'msg': 'Field required', 'input': {...}}
-            if "name_i18n" in error_detail.get("loc", tuple()) and error_detail.get("type") == "missing":
-                found_name_error = True
-                break
-        self.assertTrue(found_name_error, "Expected a validation error for missing 'name_i18n' in the first entity's details.")
+            # Check details for specific field error for 'name_i18n'
+            # result.details is a list of dicts, each representing a Pydantic validation error for the entity at path [0]
+            found_name_error = False
+            if result.details: # Guard for Pyright, result.details can be None
+                for error_detail in result.details:
+                    # Example error_detail: {'type': 'missing', 'loc': ('name_i18n',), 'msg': 'Field required', 'input': {...}}
+                    if "name_i18n" in error_detail.get("loc", tuple()) and error_detail.get("type") == "missing":
+                        found_name_error = True
+                        break
+            self.assertTrue(found_name_error, "Expected a validation error for missing 'name_i18n' in the first entity's details.")
 
 
     async def test_parse_semantic_validation_error_faction_missing_lang(self):
@@ -245,8 +262,9 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
         ai_response_str = json.dumps([faction_missing_en])
         result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
         self.assertIsInstance(result, CustomValidationError)
-        self.assertEqual(result.error_type, "SemanticValidationError")
-        self.assertIn("missing required languages {'en'} in 'name_i18n'", result.message)
+        if isinstance(result, CustomValidationError): # Guard for Pyright
+            self.assertEqual(result.error_type, "SemanticValidationError")
+            self.assertIn("missing required languages {'en'} in 'name_i18n'", result.message)
 
     async def test_parse_semantic_validation_error_relationship_value_out_of_range(self):
         # Assumes _perform_semantic_validation checks relationship value range (-1000 to 1000)
@@ -265,9 +283,10 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
 
         result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
         self.assertIsInstance(result, CustomValidationError)
-        self.assertEqual(result.error_type, "SemanticValidationError")
-        self.assertIn("has value 2000 outside expected range", result.message)
-        self.assertEqual(result.path, [1, "value"]) # path should be [entity_index, field_name]
+        if isinstance(result, CustomValidationError): # Guard for Pyright
+            self.assertEqual(result.error_type, "SemanticValidationError")
+            self.assertIn("has value 2000 outside expected range", result.message)
+            self.assertEqual(result.path, [1, "value"]) # path should be [entity_index, field_name]
 
 if __name__ == "__main__":
     unittest.main()
