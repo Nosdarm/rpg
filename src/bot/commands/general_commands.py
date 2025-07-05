@@ -91,8 +91,11 @@ class GeneralCog(commands.Cog, name="General Commands"):
     @transactional # Apply transactional to the internal method
     async def _start_command_internal(self, interaction: discord.Interaction, *, session: AsyncSession):
         """Внутренняя логика команды start, работает с сессией."""
+        # Defer interaction immediately, make it ephemeral so only user sees "thinking..."
+        await interaction.response.defer(ephemeral=True)
+
         if not interaction.guild_id: # This check might be redundant if called from wrapper that already checks
-            await interaction.response.send_message("Эта команда должна использоваться на сервере (внутренняя проверка).", ephemeral=True)
+            await interaction.followup.send("Эта команда должна использоваться на сервере (внутренняя проверка).", ephemeral=True)
             return
 
         guild_id = interaction.guild_id
@@ -111,7 +114,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
         existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id)
 
         if existing_player:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Привет, {player_name}! Ты уже в игре. Твой персонаж уровня {existing_player.level}.",
                 ephemeral=True
             )
@@ -139,7 +142,7 @@ class GeneralCog(commands.Cog, name="General Commands"):
 
         try:
             new_player = await player_crud.create_with_defaults(
-                session=session, # FIX: db to session
+                session=session,
                 guild_id=guild_id,
                 discord_id=discord_id,
                 name=player_name,
@@ -150,21 +153,31 @@ class GeneralCog(commands.Cog, name="General Commands"):
             session.add(new_player)
 
             logger.info(f"Новый игрок {player_name} (Discord ID: {discord_id}) создан для гильдии {guild_id} в локации ID {starting_location_id}.")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Добро пожаловать в игру, {player_name}! Твой персонаж создан и находится в локации: {starting_location_name}. "
                 f"Твой язык установлен на {player_locale}. Удачи в приключениях!",
                 ephemeral=True
             )
         except Exception as e:
             logger.error(f"Ошибка при создании игрока {player_name} (Discord ID: {discord_id}) для гильдии {guild_id}: {e}", exc_info=True)
-            await interaction.response.send_message("Произошла ошибка при создании твоего персонажа. Пожалуйста, попробуй позже.", ephemeral=True)
+            # Check if interaction already responded to by defer() before sending another followup.
+            # If defer() was successful, followup should be used. If defer() failed, this might also fail or need original response.
+            # However, the typical pattern is that if defer is called, all subsequent message sends must be followups.
+            if interaction.is_expired():
+                 logger.warning(f"Interaction expired before error message could be sent for player {player_name} (Discord ID: {discord_id}).")
+            else:
+                await interaction.followup.send("Произошла ошибка при создании твоего персонажа. Пожалуйста, попробуй позже.", ephemeral=True)
 
     @app_commands.command(name="start", description="Начать игру или проверить существующего персонажа.")
     async def start_command(self, interaction: discord.Interaction):
         """Начинает игру для нового игрока или показывает информацию о существующем (wrapper)."""
         if not interaction.guild_id:
+            # Need to use followup if we defer in the main command body as well, or handle initial response here.
+            # For simplicity, if this check fails, it's an immediate response.
+            # If _start_command_internal is called, it will handle deferral.
             await interaction.response.send_message("Эту команду можно использовать только на сервере.", ephemeral=True)
             return
+
         # session будет автоматически передана _start_command_internal декоратором @transactional
         await self._start_command_internal(interaction) # type: ignore
 
