@@ -1,268 +1,302 @@
-from typing import List, Optional, Dict, Any, Union
 import logging
-
-# Import the Pydantic models from their new location
-from ..models.check_results import ModifierDetail, CheckOutcome, CheckResult
-
-
-logger = logging.getLogger(__name__)
-
-# Forward declaration for entities, will be refined
-# EntityModel = Any # Placeholder for actual entity models like Player, Npc etc.
-
-# Definitions of ModifierDetail, CheckOutcome, CheckResult have been moved.
-# Pydantic models ModifierDetail, CheckOutcome, CheckResult are now in src.models.check_results
-# (Original definitions were here and are now removed)
+import re
+from typing import List, Optional, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .rules import get_rule, get_all_rules_for_guild
-from .dice_roller import roll_dice
-from ..models.player import Player
-from ..models.generated_npc import GeneratedNpc
-# Add other entity models as needed, e.g., from ..models.object import ObjectModel
-from .crud_base_definitions import get_entity_by_id # Using the generic get_entity_by_id
-from .crud.crud_relationship import crud_relationship # Added for relationship fetching
-from ..models.enums import RelationshipEntityType # Added for relationship entity types
-import re # For relationship_type_pattern matching
+from src.core.crud import crud_relationship
+from src.core.crud.crud_base import get_entity_by_id_and_type_str # Corrected path
+from src.core.dice_roller import roll_dice
+from src.core.rules import get_rule
+from src.models import GeneratedNpc, Player, Relationship
+from src.models.check_results import CheckResult, ModifierDetail, CheckOutcome
+from src.models.enums import RelationshipEntityType
 
-# Entity types mapping (can be expanded or made more dynamic)
-# For now, a simple string mapping. Could use an Enum later.
-ENTITY_TYPE_PLAYER = "PLAYER" # Matches RelationshipEntityType.PLAYER.value
-ENTITY_TYPE_NPC = "NPC" # Matches RelationshipEntityType.NPC.value
-ENTITY_TYPE_OBJECT = "OBJECT" # Example, might need to align with RelationshipEntityType if used there
+logger = logging.getLogger(__name__)
+
+DEFAULT_RULE_VALUES = {
+    "checks:critical_success_threshold": 20,
+    "checks:critical_failure_threshold": 1,
+    "checks:dice_notation": "1d20"
+}
 
 class CheckError(Exception):
     """Custom exception for errors during check resolution."""
     pass
 
 
-async def _get_entity_attribute(
-    db: AsyncSession,
-    entity_id: int,
-    entity_type: str,
-    attribute_name: str,
-    guild_id: int
-) -> Optional[Any]:
+async def _get_entity_attribute(entity_model: Optional[Any], attribute_name: str) -> Optional[int]:
     """
-    Helper to fetch a specific attribute from an entity.
-    This is a simplified placeholder. A more robust system would involve:
-    - Standardized way to access stats/attributes across different models.
-    - Calculation of 'effective stats' considering skills, items, statuses.
+    Safely retrieves a numeric attribute from an entity model.
+    This could be expanded to handle different attribute types or lookups.
     """
-    model_class: Optional[type] = None
-    if entity_type.upper() == ENTITY_TYPE_PLAYER:
-        model_class = Player
-    elif entity_type.upper() == ENTITY_TYPE_NPC:
-        model_class = GeneratedNpc
-    # Add more entity types here
-    # elif entity_type.upper() == ENTITY_TYPE_OBJECT:
-    # model_class = ObjectModel # Assuming an ObjectModel exists
-
-    if not model_class:
-        logger.warning(f"Unsupported entity type '{entity_type}' for attribute fetch.")
+    if not entity_model:
         return None
 
-    entity = await get_entity_by_id(db, model_class, entity_id, guild_id=guild_id)
-    if not entity:
-        logger.warning(f"Entity {entity_type}:{entity_id} not found in guild {guild_id}.")
-        return None
+    # Example: Check for direct attribute, then properties_json
+    if hasattr(entity_model, attribute_name):
+        value = getattr(entity_model, attribute_name)
+        if isinstance(value, int):
+            return value
 
-    if hasattr(entity, attribute_name):
-        return getattr(entity, attribute_name)
-    else:
-        # Fallback: Check common stat structures if models have e.g. a 'stats_json' field
-        if hasattr(entity, "stats_json") and isinstance(entity.stats_json, dict) and attribute_name in entity.stats_json:
-            return entity.stats_json[attribute_name]
-        logger.warning(f"Attribute '{attribute_name}' not found on entity {entity_type}:{entity_id}.")
-        return None
+    # Check in properties_json if it exists and is a dict
+    if hasattr(entity_model, 'properties_json') and isinstance(entity_model.properties_json, dict):
+        value = entity_model.properties_json.get(attribute_name)
+        if isinstance(value, int):
+            return value
+
+    # Could add more complex logic here, e.g., for derived stats or looking up in a stats dict
+    return None
 
 
 async def resolve_check(
-    db: AsyncSession, # Added db session
+    db: AsyncSession,
     guild_id: int,
     check_type: str,
-    entity_doing_check_id: int,
-    entity_doing_check_type: str,
+    # Actor context (entity performing the check)
+    actor_entity_id: int,
+    actor_entity_type: RelationshipEntityType, # Use Enum for type safety
+    actor_entity_model: Optional[Any] = None, # Allow passing pre-loaded model
+    actor_name_override: Optional[str] = None, # For display if model not loaded/available
+
+    # Target context (entity being targeted by the check, if any)
     target_entity_id: Optional[int] = None,
-    target_entity_type: Optional[str] = None,
+    target_entity_type: Optional[RelationshipEntityType] = None, # Use Enum
+    target_entity_model: Optional[Any] = None, # Allow passing pre-loaded model
+    target_name_override: Optional[str] = None,
+
     difficulty_dc: Optional[int] = None,
-    check_context: Optional[Dict[str, Any]] = None
+    check_context: Optional[Dict[str, Any]] = None # General context dictionary
 ) -> CheckResult:
     """
     Resolves a game check (e.g., skill check, attack roll) based on RuleConfig rules for a guild.
+    actor_entity_model and target_entity_model can be passed if already loaded, otherwise they
+    will be fetched based on ID/Type.
     """
+
     logger.info(
         f"Resolving check for guild {guild_id}, type '{check_type}', "
-        f"entity {entity_doing_check_type}:{entity_doing_check_id}, DC: {difficulty_dc}"
+        f"actor {actor_entity_type.value}:{actor_entity_id}, target {target_entity_type.value if target_entity_type else 'N/A'}:{target_entity_id if target_entity_id else 'N/A'}, DC: {difficulty_dc}"
     )
     check_context = check_context or {}
     modifier_details: List[ModifierDetail] = []
     total_modifier: int = 0
 
     # 1. Fetch relevant rules from RuleConfig
-    # Example rule keys we might expect for a check_type:
-    # - f"checks:{check_type}:dice_notation" (e.g., "1d20")
-    # - f"checks:{check_type}:base_attribute" (e.g., "strength", "dexterity")
-    # - f"checks:{check_type}:critical_success_threshold" (e.g., 20)
-    # - f"checks:{check_type}:critical_failure_threshold" (e.g., 1)
-    # - f"checks:{check_type}:dc_formula" (if DC is dynamic, not used if difficulty_dc is passed)
-    # - f"checks:{check_type}:adv_disadv_sources" (list of context keys that grant adv/disadv)
-
-    # For simplicity, we'll fetch individual rules. Caching all rules might be better for performance.
     dice_notation_rule_key = f"checks:{check_type}:dice_notation"
     base_attribute_rule_key = f"checks:{check_type}:base_attribute"
     crit_success_rule_key = f"checks:{check_type}:critical_success_threshold"
     crit_failure_rule_key = f"checks:{check_type}:critical_failure_threshold"
 
-    dice_notation = await get_rule(db, guild_id=guild_id, key=dice_notation_rule_key) or "1d20" # Default to 1d20
-    base_attribute_name = await get_rule(db, guild_id=guild_id, key=base_attribute_rule_key) # e.g., "strength"
+    dice_notation = await get_rule(db, guild_id=guild_id, key=dice_notation_rule_key) or DEFAULT_RULE_VALUES["checks:dice_notation"]
+    base_attribute_name = await get_rule(db, guild_id=guild_id, key=base_attribute_rule_key)
 
-    # Store rules used for logging/transparency
     rules_snapshot = {
         dice_notation_rule_key: dice_notation,
         base_attribute_rule_key: base_attribute_name,
     }
 
     # 2. Calculate Modifiers
-    # 2.a. Base attribute modifier
-    if base_attribute_name:
-        attribute_value = await _get_entity_attribute(
-            db, entity_doing_check_id, entity_doing_check_type, base_attribute_name, guild_id
+    if not actor_entity_model and actor_entity_id and actor_entity_type:
+        actor_entity_model = await get_entity_by_id_and_type_str(
+            db, entity_type_str=actor_entity_type.value, entity_id=actor_entity_id, guild_id=guild_id
         )
+    if not target_entity_model and target_entity_id and target_entity_type:
+        target_entity_model = await get_entity_by_id_and_type_str(
+            db, entity_type_str=target_entity_type.value, entity_id=target_entity_id, guild_id=guild_id
+        )
+
+    current_actor_name = actor_name_override
+    if not current_actor_name and actor_entity_model:
+        name_attr = getattr(actor_entity_model, 'name', getattr(actor_entity_model, 'name_i18n', None))
+        if isinstance(name_attr, dict):
+            current_actor_name = name_attr.get(check_context.get("lang", "en"), name_attr.get("en", f"{actor_entity_type.value}_{actor_entity_id}"))
+        elif isinstance(name_attr, str):
+            current_actor_name = name_attr
+    if not current_actor_name: current_actor_name = f"{actor_entity_type.value}_{actor_entity_id}"
+
+    if base_attribute_name:
+        attribute_value = await _get_entity_attribute(actor_entity_model, base_attribute_name)
         if isinstance(attribute_value, int):
-            # Assuming attributes are direct modifiers for now.
-            # A common TTRPG conversion is (Stat - 10) // 2. This needs to be rule-defined.
-            # For now, let's assume 'attribute_value' *is* the modifier if it's from a field like 'strength_modifier'.
-            # If it's a raw stat like 'strength:14', it needs conversion rule.
-            # Simplified: if attribute_name is 'strength', assume it's the raw stat.
-            # This part NEEDS to be defined by RuleConfig: how to derive modifier from attribute.
-            # Placeholder: if attribute is e.g. 14, modifier is +2. If it's 8, modifier is -1.
-            # For now, if attribute_value is int, we assume it's already a modifier for simplicity in this phase.
-            # If not, we need a rule: f"attributes:{base_attribute_name}:modifier_formula" -> "(value - 10) // 2"
-
-            # Simple placeholder: Assume the fetched value is the modifier itself.
-            # This needs refinement based on how stats are stored (raw vs. modifier)
-            # and how RuleConfig defines conversion.
             stat_modifier = attribute_value
-
-            # Example: If 'strength' is 14, and rule is (val-10)/2, then mod is 2.
-            # Let's assume for now RuleConfig gives `base_attribute_modifier_value` directly or we fetch pre-calculated mod.
-            # For this phase, if attribute_value is an int, we use it.
             modifier_details.append(
-                ModifierDetail(source=f"base_stat:{base_attribute_name}", value=stat_modifier, description=f"{base_attribute_name} base stat contribution")
+                ModifierDetail(source=f"base_stat:{base_attribute_name}", value=stat_modifier, description=f"{base_attribute_name} base stat contribution for {current_actor_name}")
             )
             total_modifier += stat_modifier
-            rules_snapshot[f"base_attribute_value:{base_attribute_name}"] = attribute_value # Log raw value
+            rules_snapshot[f"base_attribute_value:{base_attribute_name}"] = attribute_value
         else:
-            logger.warning(f"Could not determine modifier for base attribute '{base_attribute_name}' for entity {entity_doing_check_type}:{entity_doing_check_id}.")
-            # We might add a default 0 modifier or raise an error depending on game rules.
-            # modifier_details.append(ModifierDetail(source=f"base_stat:{base_attribute_name}", value=0, description="Attribute not found or not integer"))
+            logger.warning(f"Could not determine modifier for base attribute '{base_attribute_name}' for actor {current_actor_name}.")
 
-
-    # 2.b. Contextual modifiers (from check_context)
-    # RuleConfig should define which keys in check_context provide modifiers.
-    # Example: "checks:{check_type}:context_modifiers" -> {"tool_bonus": "integer", "cover_penalty": "integer"}
-
-    # Look for a general bonus_roll_modifier first
     if "bonus_roll_modifier" in check_context and isinstance(check_context["bonus_roll_modifier"], int):
         bonus_mod = check_context["bonus_roll_modifier"]
         modifier_details.append(ModifierDetail(source="context:bonus_roll_modifier", value=bonus_mod, description="Bonus/penalty from interaction context"))
         total_modifier += bonus_mod
-    else: # Fallback to situational_bonus/penalty if bonus_roll_modifier not present
+    else:
         if "situational_bonus" in check_context and isinstance(check_context["situational_bonus"], int):
             bonus = check_context["situational_bonus"]
             modifier_details.append(ModifierDetail(source="context:situational_bonus", value=bonus, description="Situational bonus from context"))
             total_modifier += bonus
         if "situational_penalty" in check_context and isinstance(check_context["situational_penalty"], int):
             penalty = check_context["situational_penalty"]
-            modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty), description="Situational penalty from context")) # Ensure penalty is negative
+            modifier_details.append(ModifierDetail(source="context:situational_penalty", value=-abs(penalty), description="Situational penalty from context"))
             total_modifier -= abs(penalty)
 
-    # TODO: Add placeholders for other modifier sources (skills, items, statuses, relationships)
-    # These would also fetch rules from RuleConfig on how they apply to 'check_type'
-    # Example: actor_attributes from context could be parsed here based on rules for the check_type
-    # if "actor_attributes" in check_context and isinstance(check_context["actor_attributes"], dict):
-    #     # Logic to parse actor_attributes based on rules for this check_type
-    #     pass
+    relevant_npc_for_hidden_rels_model_local: Optional[Any] = None
+    relevant_npc_id_local: Optional[int] = None
+    relevant_npc_type_enum_local: Optional[RelationshipEntityType] = None
+    other_entity_for_hidden_rels_model_local: Optional[Any] = None
+    other_entity_id_local: Optional[int] = None
+    other_entity_type_enum_local: Optional[RelationshipEntityType] = None
 
-    # 2.c. Relationship-based modifiers
+    if isinstance(actor_entity_model, GeneratedNpc):
+        relevant_npc_for_hidden_rels_model_local = actor_entity_model
+        relevant_npc_id_local = actor_entity_id
+        relevant_npc_type_enum_local = actor_entity_type
+        if target_entity_model:
+            other_entity_for_hidden_rels_model_local = target_entity_model
+            other_entity_id_local = target_entity_id
+            other_entity_type_enum_local = target_entity_type
+    elif isinstance(target_entity_model, GeneratedNpc):
+        relevant_npc_for_hidden_rels_model_local = target_entity_model
+        relevant_npc_id_local = target_entity_id
+        relevant_npc_type_enum_local = target_entity_type
+        if actor_entity_model:
+            other_entity_for_hidden_rels_model_local = actor_entity_model
+            other_entity_id_local = actor_entity_id
+            other_entity_type_enum_local = actor_entity_type
+
+    if relevant_npc_id_local is not None and relevant_npc_type_enum_local is not None:
+        npc_all_relationships = await crud_relationship.get_relationships_for_entity(
+            db=db, guild_id=guild_id, entity_id=relevant_npc_id_local, entity_type=relevant_npc_type_enum_local
+        )
+        hidden_prefixes = ("secret_", "internal_", "personal_debt", "hidden_fear", "betrayal_")
+        for rel in npc_all_relationships:
+            if not rel.relationship_type.startswith(hidden_prefixes):
+                continue
+            applies_to_current_interaction = False
+            rel_target_id_for_this_rel = None
+            rel_target_type_for_this_rel = None
+            if other_entity_id_local is not None and other_entity_type_enum_local is not None:
+                is_rel_entity1_npc = (rel.entity1_id == relevant_npc_id_local and rel.entity1_type == relevant_npc_type_enum_local)
+                is_rel_entity2_other = (rel.entity2_id == other_entity_id_local and rel.entity2_type == other_entity_type_enum_local)
+                is_rel_entity2_npc = (rel.entity2_id == relevant_npc_id_local and rel.entity2_type == relevant_npc_type_enum_local)
+                is_rel_entity1_other = (rel.entity1_id == other_entity_id_local and rel.entity1_type == other_entity_type_enum_local)
+                if (is_rel_entity1_npc and is_rel_entity2_other):
+                    applies_to_current_interaction = True
+                    rel_target_id_for_this_rel = other_entity_id_local
+                    rel_target_type_for_this_rel = other_entity_type_enum_local
+                elif (is_rel_entity2_npc and is_rel_entity1_other):
+                    applies_to_current_interaction = True
+                    rel_target_id_for_this_rel = other_entity_id_local
+                    rel_target_type_for_this_rel = other_entity_type_enum_local
+            if not applies_to_current_interaction:
+                continue
+            base_rel_type_for_rule = rel.relationship_type.split(':')[0]
+            rule_key_exact = f"hidden_relationship_effects:checks:{rel.relationship_type}"
+            rule_key_generic = f"hidden_relationship_effects:checks:{base_rel_type_for_rule}"
+            specific_rule_conf = await get_rule(db, guild_id, rule_key_exact, default=None)
+            generic_rule_conf = await get_rule(db, guild_id, rule_key_generic, default=None)
+            rule_conf = None
+            if specific_rule_conf and isinstance(specific_rule_conf, dict) and specific_rule_conf.get("enabled", False):
+                rule_conf = specific_rule_conf
+            elif generic_rule_conf and isinstance(generic_rule_conf, dict) and generic_rule_conf.get("enabled", False):
+                rule_conf = generic_rule_conf
+            if rule_conf:
+                applies_to_checks = rule_conf.get("applies_to_check_types", [])
+                if check_type not in applies_to_checks and "*" not in applies_to_checks:
+                    continue
+                actor_is_hidden_relationship_target = (actor_entity_id == rel_target_id_for_this_rel and actor_entity_type == rel_target_type_for_this_rel)
+                eval_context = {"__builtins__": {}, "value": rel.value, "player_matches_relationship": actor_is_hidden_relationship_target}
+                modifier_value_for_log = 0
+                roll_mod_formula = rule_conf.get("roll_modifier_formula")
+                if roll_mod_formula:
+                    try:
+                        mod = int(eval(roll_mod_formula, eval_context))
+                        total_modifier += mod
+                        modifier_value_for_log = mod
+                        logger.debug(f"Hidden rel '{rel.relationship_type}' (val:{rel.value}) roll_mod:{mod} for check '{check_type}'")
+                    except Exception as e:
+                        logger.error(f"Eval error in hidden_rel roll_mod_formula '{roll_mod_formula}': {e}")
+                dc_mod_formula = rule_conf.get("dc_modifier_formula")
+                if dc_mod_formula:
+                    try:
+                        dc_mod = int(eval(dc_mod_formula, eval_context))
+                        total_modifier -= dc_mod
+                        modifier_value_for_log = -dc_mod
+                        logger.debug(f"Hidden rel '{rel.relationship_type}' (val:{rel.value}) dc_mod:{dc_mod} for check '{check_type}'")
+                    except Exception as e:
+                        logger.error(f"Eval error in hidden_rel dc_mod_formula '{dc_mod_formula}': {e}")
+                if modifier_value_for_log != 0:
+                    other_entity_name_str = "Unknown"
+                    current_other_model_for_name = None
+                    if rel_target_id_for_this_rel == other_entity_id_local:
+                        current_other_model_for_name = other_entity_for_hidden_rels_model_local
+                    elif rel_target_id_for_this_rel == actor_entity_id:
+                         current_other_model_for_name = actor_entity_model
+                    if current_other_model_for_name:
+                        name_attr = getattr(current_other_model_for_name, 'name', getattr(current_other_model_for_name, 'name_i18n', 'N/A'))
+                        if isinstance(name_attr, dict):
+                            other_entity_name_str = name_attr.get(check_context.get("lang", "en"), name_attr.get("en", "Unknown Target"))
+                        elif isinstance(name_attr, str):
+                            other_entity_name_str = name_attr
+                    mod_detail_desc = (
+                        f"Influence from hidden relationship ({rel.relationship_type} value {rel.value} "
+                        f"with {other_entity_name_str}) on {check_type} check. "
+                        f"Effective roll change: {modifier_value_for_log}."
+                    )
+                    modifier_details.append(ModifierDetail(
+                        source=f"Hidden Relationship ({rel.relationship_type})",
+                        value=modifier_value_for_log,
+                        description=mod_detail_desc
+                    ))
+                    if rules_snapshot:
+                        if "hidden_relationship_effects_applied" not in rules_snapshot:
+                                rules_snapshot["hidden_relationship_effects_applied"] = []
+                        rules_snapshot["hidden_relationship_effects_applied"].append({
+                            "relationship_type": rel.relationship_type, "value": rel.value,
+                            "rule_key_used": rule_key_exact if specific_rule_conf else rule_key_generic,
+                            "modifier_applied_to_roll": modifier_value_for_log
+                        })
+
     relationship_influence_rule_key = f"relationship_influence:checks:{check_type}"
     relationship_rule = await get_rule(db, guild_id, relationship_influence_rule_key)
-
     if relationship_rule and isinstance(relationship_rule, dict) and relationship_rule.get("enabled"):
-        rules_snapshot[relationship_influence_rule_key] = relationship_rule # Log the rule
-
-        # Determine the target entity for relationship check
-        # This could be the direct target of the check, or another entity specified in context
+        rules_snapshot[relationship_influence_rule_key] = relationship_rule
         rel_target_entity_id: Optional[int] = None
         rel_target_entity_type_str: Optional[str] = None
-
-        # Default to the main target of the check if one is provided
         if target_entity_id is not None and target_entity_type is not None:
             rel_target_entity_id = target_entity_id
-            rel_target_entity_type_str = target_entity_type
-
-        # Allow override from rule if specified (e.g. relationship with an NPC overseeing a task)
-        # This part is conceptual: rule might specify a context key for relationship target
-        # context_rel_target_key = relationship_rule.get("context_relationship_target_key")
-        # if context_rel_target_key and check_context and context_rel_target_key in check_context:
-        #     # Assuming check_context[context_rel_target_key] is a dict like {"id": X, "type": "Y"}
-        #     rel_target_entity_id = check_context[context_rel_target_key].get("id")
-        #     rel_target_entity_type_str = check_context[context_rel_target_key].get("type")
-
+            rel_target_entity_type_str = target_entity_type.value
         if rel_target_entity_id is not None and rel_target_entity_type_str is not None:
             try:
-                actor_rel_type = RelationshipEntityType(entity_doing_check_type.upper())
-                target_rel_type = RelationshipEntityType(rel_target_entity_type_str.upper())
-
-                # Fetch all relationships between actor and target
-                # We filter by relationship_type_pattern later
+                actor_rel_type_enum = actor_entity_type
+                target_rel_type_enum = RelationshipEntityType(rel_target_entity_type_str.upper())
                 relationships = await crud_relationship.get_relationships_for_entity(
                     db=db,
                     guild_id=guild_id,
-                    entity_type=actor_rel_type, # Get all relationships for the actor
-                    entity_id=entity_doing_check_id
-                    # We will filter these down to the specific target and type pattern
+                    entity_type=actor_rel_type_enum,
+                    entity_id=actor_entity_id
                 )
-
-                relationship_type_pattern_str = relationship_rule.get("relationship_type_pattern", ".*") # Default to match any
-
+                relationship_type_pattern_str = relationship_rule.get("relationship_type_pattern", ".*")
                 applicable_relationship_value: Optional[int] = None
-
                 for rel in relationships:
-                    # Check if this relationship is with the correct rel_target_entity
                     is_with_target = False
-                    if rel.entity1_type == actor_rel_type and rel.entity1_id == entity_doing_check_id and \
-                       rel.entity2_type == target_rel_type and rel.entity2_id == rel_target_entity_id:
+                    if rel.entity1_type == actor_rel_type_enum and rel.entity1_id == actor_entity_id and \
+                       rel.entity2_type == target_rel_type_enum and rel.entity2_id == rel_target_entity_id:
                         is_with_target = True
-                    elif rel.entity2_type == actor_rel_type and rel.entity2_id == entity_doing_check_id and \
-                         rel.entity1_type == target_rel_type and rel.entity1_id == rel_target_entity_id:
+                    elif rel.entity2_type == actor_rel_type_enum and rel.entity2_id == actor_entity_id and \
+                         rel.entity1_type == target_rel_type_enum and rel.entity1_id == rel_target_entity_id:
                         is_with_target = True
-
                     if is_with_target:
-                        # Check if relationship_type matches the pattern
                         if re.fullmatch(relationship_type_pattern_str, rel.relationship_type):
                             applicable_relationship_value = rel.value
                             rules_snapshot[f"applicable_relationship:{rel.relationship_type}"] = rel.value
-                            break # Found the first matching relationship value
-
+                            break
                 if applicable_relationship_value is not None:
-                    rel_value = applicable_relationship_value # For use in formulas
-
-                    # Apply roll modifier formula if present
+                    rel_value = applicable_relationship_value
                     roll_mod_formula = relationship_rule.get("roll_modifier_formula")
                     if roll_mod_formula and isinstance(roll_mod_formula, str):
                         try:
-                            # Evaluate formula. Be careful with eval! Ensure formula is safe.
-                            # A safer way is a simple expression parser or specific keywords.
-                            # For now, assuming formulas like "(relationship_value / 25)"
-                            # We replace 'relationship_value' with the actual value.
-                            # This is a simplified and potentially unsafe eval.
-                            # In a real system, use a dedicated math expression parser.
-                            # For now, a simple replacement and int conversion.
-                            # Example: "(rel_value // 20)" or "rel_value / 20"
-                            # Make sure rel_value is defined in the eval context
                             modifier_val = int(eval(roll_mod_formula, {"__builtins__": {}}, {"rel_value": rel_value}))
                             total_modifier += modifier_val
                             modifier_details.append(ModifierDetail(
@@ -274,36 +308,24 @@ async def resolve_check(
                         except Exception as e:
                             logger.error(f"Error evaluating relationship roll_modifier_formula '{roll_mod_formula}': {e}")
                             rules_snapshot["relationship_roll_modifier_error"] = str(e)
-
-                    # Else, use threshold-based modifiers if no roll_mod_formula or it failed
-                    # (This logic assumes formula takes precedence if it successfully evaluates)
-                    # We can refine this: only use thresholds if formula is NOT defined.
                     elif "modifiers" in relationship_rule and isinstance(relationship_rule["modifiers"], list):
                         for mod_def in relationship_rule["modifiers"]:
                             if mod_def.get("threshold_min", -float('inf')) <= rel_value <= mod_def.get("threshold_max", float('inf')):
                                 modifier_val = mod_def.get("modifier", 0)
                                 total_modifier += modifier_val
                                 desc_key = mod_def.get("description_key", f"Relationship value {rel_value}")
-                                # Fetch localized description for the modifier if description_key is a term
-                                # For now, just use the key or a generic description
                                 term_desc = await get_rule(db, guild_id, desc_key, default=desc_key) if "terms." in desc_key else desc_key
-
                                 modifier_details.append(ModifierDetail(
                                     source=f"relationship:{relationship_type_pattern_str}",
                                     value=modifier_val,
                                     description=str(term_desc)
                                 ))
                                 rules_snapshot["relationship_threshold_modifier_applied"] = modifier_val
-                                break # Apply first matching threshold
-
-                    # TODO: DC modifier (less common for checks, more for opposed rolls or static target numbers)
-                    # dc_mod_formula = relationship_rule.get("dc_modifier_formula")
-                    # if dc_mod_formula and difficulty_dc is not None: ...
+                                break
                 else:
-                    logger.debug(f"No applicable relationship found matching pattern '{relationship_type_pattern_str}' between {actor_rel_type.value}:{entity_doing_check_id} and {target_rel_type.value}:{rel_target_entity_id}")
+                    logger.debug(f"No applicable relationship found matching pattern '{relationship_type_pattern_str}' between {actor_rel_type_enum.value}:{actor_entity_id} and {target_rel_type_enum.value}:{rel_target_entity_id}")
                     rules_snapshot["relationship_applicable_value"] = "not_found"
-
-            except ValueError as e: # For RelationshipEntityType conversion
+            except ValueError as e:
                 logger.warning(f"Invalid entity type for relationship check: {e}")
                 rules_snapshot["relationship_error"] = "invalid_entity_type_for_rel_check"
             except Exception as e:
@@ -313,78 +335,53 @@ async def resolve_check(
             logger.debug(f"No target entity defined for relationship influence on check '{check_type}'.")
             rules_snapshot["relationship_target"] = "not_defined_for_check"
 
-
-    # 3. Roll Dice
     try:
         dice_roll_total, individual_rolls = roll_dice(dice_notation)
     except ValueError as e:
         logger.error(f"Invalid dice notation '{dice_notation}' from rules for check '{check_type}': {e}")
         raise CheckError(f"Configuration error for check '{check_type}': Invalid dice notation '{dice_notation}'.") from e
 
-    # For now, assume no advantage/disadvantage. The first roll or sum is used.
-    # If dice_notation is like "1d20", individual_rolls[0] is the key.
-    # If "2d6", dice_roll_total is the sum.
-    # The definition of "roll_used" needs to be clear. For a single die like 1d20, it's the result of that die.
-    # For multiple dice summed (like 2d6 for damage), "roll_used" could be the sum *before* flat modifiers.
-    # Let's assume for typical d20 checks, roll_used is the single die face.
     roll_used = individual_rolls[0] if len(individual_rolls) == 1 and "d" in dice_notation else dice_roll_total
-    # This ^ is a simplification. RuleConfig should specify how to interpret raw_rolls (e.g., for adv/disadv)
-
-    # 4. Calculate Final Value
     final_value = roll_used + total_modifier
-
-    # 5. Determine Outcome
-    # Default to failure
     outcome_status = "failure"
     outcome_description = f"Check ({check_type}) failed with {final_value}."
-
-    crit_success_threshold = await get_rule(db, guild_id=guild_id, key=crit_success_rule_key) or 20
-    crit_failure_threshold = await get_rule(db, guild_id=guild_id, key=crit_failure_rule_key) or 1
+    crit_success_threshold = await get_rule(db, guild_id=guild_id, key=crit_success_rule_key) or DEFAULT_RULE_VALUES["checks:critical_success_threshold"]
+    crit_failure_threshold = await get_rule(db, guild_id=guild_id, key=crit_failure_rule_key) or DEFAULT_RULE_VALUES["checks:critical_failure_threshold"]
     rules_snapshot[crit_success_rule_key] = crit_success_threshold
     rules_snapshot[crit_failure_rule_key] = crit_failure_threshold
-
-    is_d20_roll = "d20" in dice_notation.lower() # Approximation
+    is_d20_roll = "d20" in dice_notation.lower()
 
     if difficulty_dc is not None:
         if final_value >= difficulty_dc:
             outcome_status = "success"
             outcome_description = f"Check ({check_type}) succeeded with {final_value} against DC {difficulty_dc}."
-        # Crit success/failure logic (can override normal success/failure based on rules)
         if is_d20_roll and roll_used >= crit_success_threshold:
-             # RuleConfig might specify if nat 20 auto-succeeds or just adds bonus
             outcome_status = "critical_success"
             outcome_description = f"Critical success on {check_type} (rolled {roll_used}, final {final_value})!"
         elif is_d20_roll and roll_used <= crit_failure_threshold:
-            # RuleConfig might specify if nat 1 auto-fails
             outcome_status = "critical_failure"
             outcome_description = f"Critical failure on {check_type} (rolled {roll_used}, final {final_value})!"
     else:
-        # This is a contested check or a check without a fixed DC.
-        # The outcome might be determined by comparing to another entity's roll, or just the value itself.
-        # Placeholder: if no DC, we can't determine success/failure easily without more rules.
-        # For now, let's just record the value.
-        outcome_status = "value_determined" # Or some other status
+        outcome_status = "value_determined"
         outcome_description = f"Check ({check_type}) resulted in {final_value} (no DC provided for comparison)."
-        # If it was a nat 20/1 on a d20, still flag it.
         if is_d20_roll and roll_used >= crit_success_threshold:
-            outcome_status = "critical_success_value" # Or similar
+            outcome_status = "critical_success_value"
             outcome_description = f"Critical roll on {check_type} (rolled {roll_used}, final {final_value})!"
         elif is_d20_roll and roll_used <= crit_failure_threshold:
             outcome_status = "critical_failure_value"
             outcome_description = f"Critical fumble on {check_type} (rolled {roll_used}, final {final_value})!"
 
-
     return CheckResult(
         guild_id=guild_id,
         check_type=check_type,
-        entity_doing_check_id=entity_doing_check_id,
-        entity_doing_check_type=entity_doing_check_type,
+        entity_doing_check_id=actor_entity_id,
+        entity_doing_check_type=actor_entity_type.value,
         target_entity_id=target_entity_id,
-        target_entity_type=target_entity_type,
+        target_entity_type=target_entity_type.value if target_entity_type else None,
         difficulty_class=difficulty_dc,
         dice_notation=dice_notation,
         raw_rolls=individual_rolls,
-        roll_used=roll_used, # This needs to be the value of the die for d20 checks before mods for crit checks
+        roll_used=roll_used,
         total_modifier=total_modifier,
         modifier_details=modifier_details,
         final_value=final_value,
@@ -392,62 +389,3 @@ async def resolve_check(
         rule_config_snapshot=rules_snapshot,
         check_context_provided=check_context
     )
-
-
-if __name__ == '__main__':
-    # Example usage (will be more useful once integrated)
-    import asyncio
-    from unittest.mock import MagicMock
-
-    async def main(db: Optional[AsyncSession] = None):
-        # If no db is provided (as in this example), use a mock
-        mock_db_session = MagicMock(spec=AsyncSession) if db is None else db
-
-        example_result = await resolve_check(
-            db=mock_db_session, # Pass the db session
-            guild_id=123,
-            check_type="lockpicking",
-            entity_doing_check_id=1,
-            entity_doing_check_type="PLAYER",
-            target_entity_id=101,
-            target_entity_type="OBJECT",
-            difficulty_dc=15,
-            check_context={"tool_quality": "good", "situational_bonus": 2}
-        )
-        print(example_result.model_dump_json(indent=2))
-
-        example_crit_fail = await resolve_check(
-            db=mock_db_session, # Pass the db session
-            guild_id=123,
-            check_type="attack",
-            entity_doing_check_id=2,
-            entity_doing_check_type="NPC",
-            target_entity_id=1,
-            target_entity_type="PLAYER",
-            difficulty_dc=10 # Target AC
-        )
-        # To simulate crit fail, we'd need to mock dice roll or make the placeholder logic more complex
-        # For now, this just shows the structure.
-        # Let's assume the placeholder logic for dice roll could be modified to simulate a 1 for this example.
-        # (This is not how it will work in prod, just for this __main__ block)
-
-        # A better way to test this here would be to modify the mock_entity_stats or difficulty_dc
-        # to force different outcomes with the current simple placeholder logic.
-        # For instance, to make the first check fail:
-        example_fail_result = await resolve_check(
-            db=mock_db_session, # Pass the db session
-            guild_id=123,
-            check_type="lockpicking",
-            entity_doing_check_id=1,
-            entity_doing_check_type="PLAYER",
-            target_entity_id=101,
-            target_entity_type="OBJECT",
-            difficulty_dc=25, # Higher DC
-            check_context={"tool_quality": "poor", "situational_bonus": -1}
-        )
-        print("\nExample Fail:")
-        print(example_fail_result.model_dump_json(indent=2))
-
-
-    if __name__ == "__main__": # Redundant check, but common pattern
-        asyncio.run(main())

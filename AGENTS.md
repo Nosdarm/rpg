@@ -41,7 +41,7 @@
 
 ---
 ## Текущий план
-*(Этот раздел очищен после выполнения Task 37)*
+*(Этот раздел очищен после выполнения Task 38)*
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -55,12 +55,80 @@
     - **Описание**: В рамках Task 37 была спроектирована логика влияния отношений на торговлю (корректировка цен) и диалоги (тон NPC, доступность опций). Однако, так как модули `trade_system` и `dialogue_system` еще не были полностью реализованы или идентифицированы на момент выполнения Task 37, фактическая интеграция этой логики была отложена.
     - **Необходимые действия**:
         1.  **Торговая система**: После реализации `handle_trade_action` (Task 44), интегрировать в нее загрузку правила `relationship_influence:trade:price_adjustment`, получение отношения между игроком и NPC-торговцем, вычисление множителя цены и его применение.
-        2.  **Диалоговая система**: После реализации `generate_npc_dialogue` (Task 50) и/или `handle_dialogue_input` (Task 51), интегрировать загрузку правила `relationship_influence:dialogue:availability_and_tone`, определение `tone_hint` на основе отношений и добавление его в промпт для LLM. Реализовать проверку `dialogue_option_availability` после определения структуры опций диалога.
+        2.  **Диалоговая система**: После реализации `generate_npc_dialogue` (Task 50) и/или `handle_dialogue_input` (Task 51), интегрировать загрузку правила `relationship_influence:dialogue:availability_and_tone`, определение `tone_hint` на основе отношений и добавление его в промпт для LLM. Реализовать проверку `dialogue_option_availability` после определения структуры опций диалога. (Частично пересекается с подготовкой в Task 38)
     - **Срок**: Выполнить при реализации Task 44 (торговля) и Task 50/51 (диалоги).
+- **Обновление Pydantic `parse_obj_as`**:
+    - **Описание**: В файле `src/core/ai_response_parser.py` используется метод `parse_obj_as`, который является устаревшим в Pydantic V2 и будет удален в V3.0.
+    - **Необходимые действия**: Заменить `parse_obj_as(GeneratedEntity, entity_data)` на `TypeAdapter(GeneratedEntity).validate_python(entity_data)`. Это потребует импорта `TypeAdapter` из `pydantic`.
+    - **Срок**: Выполнить при следующем значительном рефакторинге или обновлении зависимостей Pydantic.
 
 ---
 
 ## Лог действий
+
+## Task 38: 🎭 8.6 Complex Internal Faction Relationships
+- **Определение задачи**: Generation and use of specific NPC relationships to other factions or NPCs within their own factions for more complex behavior. AI generates and parses these relationships. Stored in Relationship. Influence defined in RuleConfig. Used by AI Strategy (28), Action Processing Module (21) / Dialogue (46).
+- **Реализация**:
+    - **Шаг 1: Расширение структур для AI-генерации**:
+        - В `src/core/ai_prompt_builder.py` (функция `prepare_ai_prompt`):
+            - Обновлен запрос к AI для явной генерации `static_id` для NPC.
+            - Добавлен запрос на генерацию `generated_relationships` для создаваемых NPC (NPC-NPC, NPC-Faction) с использованием `relationship_schema` и указанием на использование `static_id`.
+            - Обновлены инструкции по формату вывода JSON для включения ключа `generated_relationships`.
+        - В `src/core/ai_response_parser.py` (модель `ParsedNpcData`):
+            - Добавлено опциональное поле `static_id: Optional[str]`.
+            - Добавлен валидатор для `static_id`.
+        - В `src/core/ai_prompt_builder.py` (функция `_get_entity_schema_terms`):
+            - В `npc_schema` добавлено поле `static_id`.
+    - **Шаг 2: Определение типов "скрытых" отношений и правил их влияния в `RuleConfig`**:
+        - Спроектированы типы скрытых отношений (например, `secret_positive_to_entity`, `secret_negative_to_entity`, `personal_debt_to_entity`, `hidden_fear_of_entity`, `internal_faction_loyalty`, `betrayal_inclination`).
+        - Спроектирована структура правил в `RuleConfig` с префиксом `hidden_relationship_effects:` для влияния на:
+            - Бой (`hidden_relationship_effects:npc_combat:<type_pattern>`) с полями `target_score_modifier_formula`, `action_weight_multipliers`, `hostility_override`.
+            - Диалоги (`hidden_relationship_effects:dialogue:<type_pattern>`) с полями `prompt_modifier_hints_i18n`, `unlocks_dialogue_options_tags`, `dialogue_option_availability_formula`.
+            - Проверки навыков (`hidden_relationship_effects:checks:<type_pattern>`) с полями `applies_to_check_types`, `roll_modifier_formula`, `dc_modifier_formula`.
+    - **Шаг 3: Интеграция в `npc_combat_strategy.py`**:
+        - Функция `_get_npc_ai_rules` обновлена:
+            - Принимает `actor_hidden_relationships`.
+            - Загружает правила `hidden_relationship_effects:npc_combat:*` из `RuleConfig`.
+            - Сохраняет обработанные правила в `ai_rules["parsed_hidden_relationship_combat_effects"]`.
+        - Функция `_is_hostile` обновлена для учета `hostility_override` из скрытых отношений.
+        - Функция `_calculate_target_score` обновлена для применения `target_score_modifier_formula` из скрытых отношений.
+        - Функция `_choose_action` обновлена:
+            - Добавлено поле `category` к генерируемым действиям.
+            - Реализовано применение `action_weight_multipliers` из скрытых отношений.
+        - Функция `get_npc_combat_action` обновлена для загрузки всех отношений NPC (через `crud_relationship.get_relationships_for_entity`), фильтрации скрытых и передачи их в `_get_npc_ai_rules`.
+    - **Шаг 4: Интеграция в систему диалогов (подготовка к Task 50, 51)**:
+        - В `src/core/ai_prompt_builder.py` добавлена новая функция `_get_hidden_relationships_context_for_dialogue`.
+        - Функция загружает скрытые отношения NPC (к игроку или другим сущностям) и соответствующие правила `hidden_relationship_effects:dialogue:*` из `RuleConfig`.
+        - Формирует контекст, включающий `prompt_modifier_hints_i18n` и информацию для управления диалоговыми опциями, который будет использоваться при генерации промптов для LLM в диалоговой системе.
+    - **Шаг 5: Интеграция в `check_resolver.py`**:
+        - В `src/core/crud/crud_base.py` (ранее `crud_base_definitions.py`) уже существует функция `get_entity_by_id_and_type_str`.
+        - Функция `resolve_check` в `src/core/check_resolver.py` обновлена:
+            - Изменена сигнатура для явного приема `actor_entity_type` и `target_entity_type` как `RelationshipEntityType`.
+            - Реализована загрузка моделей актора и цели проверки с использованием `get_entity_by_id_and_type_str`.
+            - Добавлена логика для загрузки скрытых отношений между NPC (актором или целью проверки) и другой стороной проверки.
+            - Применяются правила `hidden_relationship_effects:checks:*` для модификации `total_modifier` на основе `roll_modifier_formula` или `dc_modifier_formula`.
+            - Обновлено формирование `ModifierDetail` для отражения влияния скрытых отношений.
+            - В `CheckResult` поля `entity_doing_check_id` и `entity_doing_check_type` теперь корректно заполняются из `actor_entity_id` и `actor_entity_type.value`.
+            - Исправлен импорт `get_entity_by_id_and_type_str` на `from src.core.crud.crud_base import get_entity_by_id_and_type_str`.
+    - **Шаг 6: Обновление `ai_orchestrator.py` (для сохранения генерации)**:
+        - Функция `save_approved_generation` в `src/core/ai_orchestrator.py` обновлена:
+            - Реализован двухпроходный механизм сохранения: сначала NPC (и другие основные сущности), затем отношения и прочие зависимые сущности.
+            - NPC сохраняются с их `static_id`, которые добавляются в карту `static_id_to_db_id_map`.
+            - При сохранении `ParsedRelationshipData` используются `static_id` для разрешения ссылок на `db_id` (как для только что созданных NPC, так и для существующих NPC/фракций через CRUD-функции).
+            - Реализована проверка на существующие отношения перед созданием новых (обновление значения/типа, если отношение уже есть).
+    - **Шаг 7: Написание Unit-тестов**:
+        - В `tests/core/test_ai_response_parser.py` добавлены тесты для `ParsedNpcData.static_id`.
+        - В `tests/core/test_ai_prompt_builder.py` добавлены тесты для `prepare_ai_prompt` (проверка запроса `static_id` и отношений NPC) и для новой функции `_get_hidden_relationships_context_for_dialogue`.
+        - В `tests/core/test_check_resolver.py` обновлены существующие тесты для соответствия новой сигнатуре `resolve_check` и добавлены новые тесты для проверки влияния `hidden_relationship_effects` на проверки навыков.
+        - В `tests/core/test_npc_combat_strategy.py` добавлена фикстура `mock_ai_rules_with_hidden_effects` и тесты для проверки влияния скрытых отношений на `_get_npc_ai_rules`, `_is_hostile`, `_calculate_target_score`, `_choose_action`.
+        - В `tests/core/test_ai_orchestrator.py` добавлены тесты для `save_approved_generation`, проверяющие сохранение NPC с `static_id` и корректное создание/обновление `Relationship` на основе `ParsedRelationshipData` с разрешением `static_id`.
+    - **Шаг 8 (отладка тестов)**:
+        - Установлены зависимости `sqlalchemy`, `psycopg2-binary` через `pip install`.
+        - Исправлена ошибка `ModuleNotFoundError: No module named 'src.core.crud.crud_base_definitions'` в `src/core/check_resolver.py` путем исправления импорта на `from src.core.crud.crud_base import get_entity_by_id_and_type_str`.
+        - Исправлены ошибки в тестах `tests/core/test_ai_orchestrator.py`: `AssertionError` для `mock_create_entity.call_count` (уточнена проверка вызова для NPC), `NameError: name 'Relationship' is not defined` (добавлен импорт), `AttributeError: type object 'RelationshipEntityType' has no attribute 'NPC'` (заменено на `GENERATED_NPC`).
+        - Исправлены ошибки в тестах `tests/core/test_ai_prompt_builder.py`: `AssertionError` для строки в промпте (уточнена ожидаемая строка), `AttributeError` для патча `actual_crud_relationship` (исправлен путь на `crud_relationship`).
+        - Исправлены ошибки в тестах `tests/core/test_check_resolver.py`: `ValidationError` для `CheckResult` (поля `entity_doing_check_id` и `entity_doing_check_type` теперь корректно заполняются в `resolve_check`), `TypeError` в моках `mock_load_entity` (исправлена сигнатура мока), `AttributeError` для `RelationshipEntityType.NPC` (заменено на `GENERATED_NPC`), `NameError` в `resolve_check` (исправлено использование `actor_entity_type` и `actor_entity_id`).
+        - Все 22 ранее падавших теста в указанных файлах успешно пройдены.
 
 ## Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n)
 - **Определение задачи**: Implement the use of relationship values from the DB (34) as parameters or conditions in various game mechanics according to game rules.
@@ -645,7 +713,7 @@
     - Задача 26 удалена из `Tasks.txt`.
     - Задача 26 добавлена в `Done.txt`.
 
-## Задача 19 (старая): 📚 7.3 Turn and Report Formatting (Guild-Scoped) - Revisit
+## Задача 19 (старый лог): 📚 7.3 Turn and Report Formatting (Guild-Scoped) - Revisit
 - **Цель пересмотра**: Расширить поддержку форматирования для большего числа типов событий в `src/core/report_formatter.py`.
 - **Определение приоритетных типов событий**:
     - На основе анализа `_collect_entity_refs_from_log_entry` и `_format_log_entry_with_names_cache` были определены следующие типы событий для добавления форматирования: `COMBAT_START`, `QUEST_ACCEPTED`, `QUEST_STEP_COMPLETED`, `QUEST_COMPLETED`, `LEVEL_UP`, `XP_GAINED`, `RELATIONSHIP_CHANGE`, `STATUS_APPLIED`.
@@ -807,3 +875,292 @@
 
 ## Задача 36: Пользовательская задача: Исправление ошибок Pyright и стабилизация тестов
 - ... (содержимое этого лога опущено для краткости) ...
+
+[end of AGENTS.md]
+
+[start of Tasks.txt]
+Project: AI-Driven Text RPG Bot - Backend Technical Specification (FINAL VERSION with AI CONTEXT MANAGEMENT VIA UI)
+Overall Project Context: This is a scalable backend service for a Discord bot supporting numerous independent RPG worlds (per guild). The world is procedurally generated by AI (OpenAI API) and managed by a system of game mechanics (combat, quests, dialogues) based on configurable rules. All data is persistently stored in a scalable DB, isolated for each guild. Multilingual support (RU/EN), NLU input, a Turn System, and Master tools allowing manual situation resolution are supported.
+
+Decomposed Backend Development Task List (For AI Agent - Autonomous Tasks)
+
+Phase 0: Architecture and Initialization (Foundation MVP)
+
+(Task 0.3 moved to Done.txt)
+
+🌍 Phase 1: Game World (Static & Generated)
+{Task 1.1 Location Model (i18n, Guild-Scoped) - Moved to Done.txt}
+{Task 1.2 Player and Party System (ORM, Commands, Guild-Scoped) - Moved to Done.txt}
+{Task 1.3 Movement Logic - Moved to Done.txt}
+
+🧠 Phase 2: AI Integration - Generation Core
+
+{Task 2.3 AI Response Parsing and Validation Module - Moved to Done.txt}
+
+{Task 2.6 AI Generation, Moderation, and Saving Logic - Moved to Done.txt}
+
+
+
+🎲 Phase 6: Action Resolution Systems (Core Mechanics)
+{Task 🎲 6.3.1 Dice Roller Module. (None) - Moved to Done.txt}
+
+{Task 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47) - Moved to Done.txt}
+
+{Task ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 19, 20, 21, 25, 26, 27, 30, 31, 32, 35, 36, 37, 39, 40, 41, 42, 44, 46, 47, 48, 50, 52, 53, 54) - Moved to Done.txt}
+
+{Task ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41) - Moved to Done.txt}
+
+
+Task Block: Phase 3: Abilities and Checks Mechanics
+This block presents tasks related to defining and using abilities, statuses, and attribute/skill check mechanics.
+
+{Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped) - Moved to Done.txt}
+
+{Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped) - Moved to Done.txt}
+
+{Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped) - Moved to Done.txt}
+
+Task Block: Phase 4: World and Location Model
+This block presents tasks related to defining and managing locations and the world map.
+
+{Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped) - Moved to Done.txt}
+
+Task Block: Phase 5: Combat System
+This block presents tasks related to combat mechanics.
+
+{Task 27: ⚔️ 5.2 Combat Engine Module. - Moved to Done.txt}
+
+{Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI). - Moved to Done.txt}
+
+{Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine). - Moved to Done.txt}
+
+Task Block: Phase 13: Experience and Character Development System
+This block presents tasks related to character experience, leveling up, and attribute distribution.
+Within an ATOMIC TRANSACTION (0.3), SCOPED TO THIS GUILD: Creates a CombatEncounter record (24) with this guild_id and a link to the location. Loads participants by guild_id (1.2/5/14), populates participants_json. Determines initiative (via 12 based on rules 13/41). Copies combat rules from RuleConfig into rules_config_snapshot_json. Sets participant status to 'combat'. Logs (19).
+Returns the created CombatEncounter.
+
+
+API process_combat_turn(guild_id: int, combat_id: int): Called by the Turn Module (14) to process one combat turn.
+Loads combat (24) by guild_id. Determines the active participant.
+If it's a player/party turn: The Turn Module (14/21) awaits player input, recognizes combat action (13/21), and passes it to this module (29). If there's a party action conflict, 21 has already resolved it. Calls 25 (Combat Engine) with guild_id and the action.
+If it's an NPC turn: Calls 26 (AI Strategy) with guild_id to get an action. Calls 25 with this action.
+After EACH action in combat: Logs the action result (from 25) to the general log (19) and the combat log (24). Updates participant states in the DB (0.3/14/15) (these updates are done within the transaction in 25).
+Output feedback (47) in the player's language.
+Check for combat conclusion. Remove 'combat' status.
+Handle Combat End Consequences:
+XP: Calls 30 (XP System). Awarding according to rules 13/41 AMONG COMBAT PARTICIPANTS (in this guild) based on distribution rules 13/41.
+Loot: Generated (according to rules 13/41, can use Item/ItemProperty 42, Context 16) or taken from defeated NPC inventories (15). Distributed AMONG VICTORS WITHIN THE PARTY (or placed in the location) according to rules 13/41. Optionally - trigger manual moderation (47) for rare loot distribution.
+WS/Relationships: Update WorldState (36) / Relationships (36) according to rules 13/41 (on behalf of the player/party who killed opponents).
+Quest Progress (36/39): Completion of combat-related steps.
+
+
+
+
+
+Task Block: Phase 13: Experience and Character Development System
+This block presents tasks related to character experience, leveling up, and attribute distribution.
+
+{Task 30: ⚡️ 13.1 Experience System Structure (Rules). - Moved to Done.txt}
+{Task 31: ⚡️ 13.2 XP Awarding and Progress. - Moved to Done.txt}
+{Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n). - Moved to Done.txt}
+
+Task Block: Phase 8: Factions, Relationships, and Social Mechanics
+This block presents tasks related to factions, relationships between entities, and their influence on gameplay.
+
+{Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n). - Moved to Done.txt}
+
+{Task 34: 🎭 8.2 Relationships Model (Guild-Scoped). - Moved to Done.txt}
+{Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild). - Moved to Done.txt}
+{Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped). - Moved to Done.txt}
+{Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n). - Moved to Done.txt}
+{Task 38: 🎭 8.6 Complex Internal Faction Relationships. - Moved to Done.txt}
+
+Task Block: Phase 9: Detailed Quest System with Consequences
+This block presents tasks for implementing a comprehensive quest system with steps, consequences, and links to other mechanics.
+
+Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n).
+Description: GeneratedQuest, Questline, QuestStep models. MUST INCLUDE guild_id. Link to player OR party in this guild. Step structure with required_mechanics_json, abstract_goal_json, consequences_json. _i18n text fields.
+
+Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild).
+Description: AI generates quests for a specific guild according to rules.
+Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
+
+Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped).
+Description: Tracking the progress of active quests and applying consequences.
+API handle_player_event_for_quest(guild_id: int, player_id/party_id, log_entry_id: int). Called FROM 21 (Action Processing Module - after EVERY action) AND FROM 27 (Combat Cycle - after combat). Accepts guild_id and the ID of the just-occurred event's log entry.
+Loads active quests (39) for this player/party IN THIS GUILD.
+For each active quest: Checks if the event (from log 17) matches the required_mechanics_json requirement of the current step (from DB 39), comparing the event type from the log and its details with the mechanic description in the step, according to RuleConfig rules (13/0.3/41).
+If the step is complete:
+If step has abstract_goal_json: Evaluate the abstract goal. Collect logs (17) for the recent period for this player/party (related to the quest?). Optionally: Call LLM (48) for judgment, using a prompt with guild context, logs, goal description. The LLM result (or rules 13/41) determines the success/failure of the evaluation.
+If the step is successfully completed (and goal evaluation is successful): Update step status in the DB. Apply STEP CONSEQUENCES (from the step's consequences_json 39): Parse the step's consequences_json. Call corresponding modules (36 for WorldState, 34 for relationships, 29 for XP, 15/42 for gold/items) PASSING guild_id AND SPECIFYING THE PLAYER OR PARTY AS THE SOURCE of change. All according to RuleConfig rules (13/0.3/41). Log event (19). Provide feedback (47).
+Check if there's a next step in the branch. If yes, update the current step.
+
+
+If this is the last step: Mark the quest as completed. Apply the CONSEQUENCES OF THE ENTIRE QUEST (similarly to a step). Start the next quest in the arc (39). Award rewards (according to distribution rules 13/41!).
+
+
+
+Task Block: Phase 10: Economy, Items, and Trade
+This block presents tasks related to economy, items, and trade mechanics.
+
+Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n).
+Description: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
+
+Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild).
+Description: AI generates items and NPC traders for a guild according to rules.
+Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules 13/41 FOR THIS GUILD, including traders (with roles, inventory), base prices (calculated by rules 13/41), i18n texts. Entities get guild_id.
+
+Task 44: 💰 10.3 Trade System (Guild-Scoped).
+Description: Managing a trade session.
+API handle_trade_action(guild_id: int, session: Session, player_id: int, target_npc_id: int, action_type: str, item_id: Optional[int] = None, count: Optional[int] = None). Called from 21 (Action Processing Module) or 46 (Dialogue Module). REQUIRES guild_id and session.
+Implements logic: opening trade interface, processing "buy"/"sell". Prices are calculated DYNAMICALLY according to rules 13/41/36, considering relationships (30/31).
+Within the provided transaction (session): Check feasibility of transaction, calculate final price, move items (call 15 add/remove), update gold (15/0.2/0.3). If the transaction fails (e.g., item already bought by another party member) -> ROLLBACK (of the action transaction in 15).
+Log (19) for the guild. Provide feedback (47). Change Relationships (30/31) according to rules 13/41 for trades.
+
+Task Block: Phase 14: Global Entities and Dynamic World
+This block presents tasks related to entities that move around the world independently of players (caravans, patrols, random NPCs), and their simulation.
+
+Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n).
+Description: Models for entities moving in the world within each guild.
+Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition.
+
+Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
+Description: Module simulating the life and movement of global entities for each guild.
+Async Worker(s): Iterates through the list of all active guilds. For each guild_id:
+Loads Global Entities, rules (13/0.3/41) for this guild.
+Simulates GE movement.
+Simulates interactions (with other GEs, entities, players) IN THE CONTEXT OF THIS GUILD: Detection check (12 by 13/41), Reaction (determined by rules 13/41 and relationships 30/31/32), Triggers (Combat 27, Dialogue 46, Quest 31, World Event).
+Log events (19).
+
+
+
+Task Block: Phase 15: Management and Monitoring Tools
+This block presents tasks for implementing tools for the game Master.
+
+Task 47: 🛠️ 15.1 Master Command System.
+Description: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild. Commands automatically receive the guild_id from the command context. Support multilingual input for arguments and display results in the Master's language.
+API for CRUD over ALL DB models (7 and others). Require guild_id.
+API for viewing/editing records in the RuleConfig table (0.2/7/13). Allow the Master to configure all game rules for their guild.
+Manual trigger/modification commands for entities operate WITHIN THE guild_id CONTEXT.
+API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending conflict record (created in 21) by guild_id. Sets status to 'resolved' and the outcome. Signals the Turn Processing Module (21), which was waiting for resolution, to continue processing.
+
+Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
+Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
+Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.
+AI generation analyzers (18): Check the quality and balance of generated content against rules 13/41.
+Results are output in the Master's language (49).
+
+Task 49: 🛠️ 15.3 Monitoring Tools (Guild-Scoped).
+Description: Provide the Master with information about the game state and history in their guild.
+Viewing commands (Log 17, WS 36, Map 4.1, Entities, Statistics): Automatically filter data BY the command's guild_id. Use 47 to format reports in the Master's language.
+
+Task Block: Phase 11: Dynamic Dialogue and NPC Memory
+This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.
+
+Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules).
+Description: Prepare the prompt for the LLM to generate NPC dialogue lines.
+API generate_npc_dialogue(guild_id: int, context: dict) -> str. REQUIRES guild_id. Called from 46 (Dialogue Module).
+Prompt context: WorldState (36), Global Entities (40), NPC profile (data 1.2/14, current relationships 30/31/32, memory 52), Player/Party profile (1.2/5), Quest context (39) if related, dialogue rules (checks, influence) from RuleConfig 13/0.3. Player input text (from 46).
+LLM Request: Generate a line IN THE PLAYER'S LANGUAGE (0.1/0.2), relevant to the context, character, relationship. Use i18n names of entities (from DB 4/7/14/39) FOR THIS GUILD.
+
+Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped).
+Description: Implement logic for managing the state of a dialogue session for a player/party.
+API start_dialogue(guild_id: int, player_id: int, target_npc_id: int). Called from 21 (Action Processing Module) or a command. Sets player(s) status to 'dialogue' (0.2/1.1). Creates a temporary dialogue record.
+API handle_dialogue_input(guild_id: int, player_id: int, message_text: str) -> dict. Called FROM 21 (Action Processing Module) upon receiving text from a player in 'dialogue' status. Processes the text as a line, calls 50 to generate the NPC response.
+API end_dialogue(guild_id: int, player_id: int). Removes 'dialogue' status.
+
+Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild).
+Description: Storing NPC interaction history with players/parties. (Renamed from 11.4, moved from 47).
+Implement PlayerNpcMemory/PartyNpcMemory models (0.2/7). BOTH INCLUDE guild_id. Utilities require guild_id.
+API add_to_npc_memory(guild_id: int, player_id/party_id, npc_id, event_type: str, details: dict). Called by other modules upon significant events (dialogue 46, quest 41, combat 27, relationship change 31).
+Utility get_npc_memory(guild_id: int, player_id/party_id, npc_id) -> List[MemoryEntry]: Loads memory for this NPC and Player/Party IN THIS GUILD. Used in 50 (for LLM context).
+
+Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped).
+Description: Processing player input in dialogue mode. This is part of module 13 (NLU) logic.
+If player status is 'dialogue', NLU (13) does not save the action to collected_actions_json, but passes it directly to the Dialogue Management Module (46) via the handle_dialogue_input API (46). NLU (13) still recognizes Intents/Entities and passes them to 46.
+
+Task Block: Phase UI (User Interface)
+This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
+
+Task 55: 🖥️ UI.1 UI Technology Stack Selection and Basic Structure. (None)
+* Description: Select a framework/library for developing the client UI application (e.g., React, Vue for web; Electron, PyQt for desktop). Define the basic architecture of the UI application (components, routing, state management).
+* Result: Technology stack selected, basic UI project framework created.
+
+Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?)
+* Description: Create the main structure of the UI application (navigation, page layouts). Implement a UI user authentication system (e.g., via Discord OAuth2 to link to the Master's Discord account). Implement selection of the guild the Master is working with in the current UI session. The UI must store the Guild ID and automatically pass it in all subsequent requests to the backend API.
+* Result: A working UI login and guild selection system, ready for page development.
+
+Task 57: 🖥️ UI.3 UI for Player and Character Management. (Depends on API 1.3)
+* Description: Create UI pages for viewing lists of players and characters for the selected guild. Implement functionality for displaying data (using API 1.3 for reading). Implement forms for creating, editing, and deleting Player and GeneratedNpc records (calling API 1.3 for create/update/delete). The UI must correctly handle i18n fields for displaying and editing texts in different languages.
+* Result: Interface for managing players and characters via UI.
+
+Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
+* Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
+* Load the rule structure (from 13/0.3) and current values (via API 41, e.g., /master view_rules or a dedicated RuleConfig API). Display the rule structure in a convenient format (e.g., JSON tree structure).
+* Implement user-friendly controls (forms, input fields, sliders, dropdowns) for editing various types of rule parameters (numbers, strings, booleans, JSON).
+* Implement a save button for changes (calling the RuleConfig editing API 41).
+* Result: Graphical interface for configuring game rules by the Master.
+
+Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Depends on API 10)
+* Description: Create a UI page for managing AI generation and moderation.
+* Implement controls for triggering AI generation (calling API 10 trigger_location_generation). Ability to specify generation parameters (location, type).
+* Display a list of pending moderation requests for this guild (via API 41, e.g., /master review_ai).
+* Upon selecting a pending request: Display the generated content (NPCs, quests, items, descriptions) in a readable format (using API 47 for formatting or getting data directly from 18 ai_data_json). Display validation issues (from issues_json 18).
+* Implement "Approve", "Reject", "Edit" buttons (calling corresponding API 41). Editing should allow modifying entity fields in the pending request, including _i18n texts.
+* Result: Graphical interface for managing AI content generation and moderation.
+
+Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42)
+* Description: Create UI pages for viewing and editing character/NPC inventories and the general list of items in the guild.
+* Interface for viewing the inventory of a selected character/NPC (calling API 15 get_player_inventory or similar for NPCs). Display items with their details (properties, i18n descriptions).
+* Interface for viewing/editing the list of all items in the guild (calling CRUD API 41 for the Item model 42). Implement forms for creating/editing Items, including _i18n names/descriptions.
+* Ability to move items between inventories via UI (calling API 15 add/remove).
+* Result: Graphical interface for managing inventory and items in the guild.
+
+Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21)
+* Description: Create UI pages for managing factions and relationships.
+* Interface for viewing/editing the list of factions (calling CRUD API 41 for the GeneratedFaction model 20). Forms for editing factions (including _i18n).
+* Interface for viewing/editing the list of relationships (calling CRUD API 41 for the Relationship model 21). Display relationships between entities in the guild, forms for changing them. Possibly a visual representation of relationships.
+* Result: Graphical interface for managing factions and relationships.
+
+Task 62: 🖥️ UI.8 UI for Quest Management. (Depends on API 39)
+* Description: Create UI pages for managing quests.
+* Interface for viewing the list of all quests in the guild (calling CRUD API 41 for GeneratedQuest 39).
+* Interface for viewing/editing quest details, including steps, requirements (required_mechanics_json), abstract goals (abstract_goal_json), consequences (consequences_json). Convenient forms for editing these JSON structures. Editing _i18n texts.
+* Interface for tracking quest progress for players/parties.
+* Result: Graphical interface for managing quests in the guild.
+
+Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45)
+* Description: Create UI pages for managing global entities.
+* Interface for viewing/editing the list of Global Entities (MobileGroup, GlobalNpc, GlobalEvent) in the guild (calling CRUD API 41 for models 45).
+* Display their state, routes, goals. Forms for editing.
+
+Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43)
+* Description: Create UI pages for monitoring game state and viewing logs.
+* Interface for viewing WorldState (API 43).
+* Interface for viewing the event log (API 43). Implement filtering and pagination for the log. Format log entries (API 47) for display.
+* Possibly, visualization of the guild map (based on Location data 4.1). Display the position of players, parties, global entities.
+
+Task 65: 🖥️ UI.11 UI for Balance Tools. (Depends on API 48)
+* Description: Create UI pages for accessing balance and testing tools.
+* Interfaces for running simulations (combat, checks, conflicts - calling API 48) with configurable parameters. Display simulation results.
+* Display reports from the AI analyzer (API 48).
+
+Task 66: 🖥️ UI.12 UI for Conflict Resolution. (Depends on API 41)
+* Description: Create a UI page for manual resolution of conflict actions.
+* Display a list of pending conflicts for this guild (loading PendingConflict records via API 41).
+* Upon selecting a conflict: Display conflict details (player actions, conflict type) in a readable format.
+* Provide controls (buttons, dropdown list) for selecting the conflict outcome (based on master_outcome_types from RuleConfig 13/41).
+* "Resolve" button (calling API 41 master_resolve_conflict).
+
+Task 67: 🖥️ UI.13 Backend API for Command List. (Depends on 0.1)
+* Description: Develop a backend API endpoint that provides structured information about bot commands.
+* Implement an API endpoint (e.g., /api/commands). Loads the list of all available Discord bot commands (from the Discord API via the bot library). For each command: get name, description, parameters, permissions.
+* The API should return information in the bot's language (guild's) or support requesting information in a specific language.
+* Result: Backend API for retrieving command data.
+
+Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Depends on API 67)
+* Description: In the UI, create a section for displaying the list of commands.
+* Load the list of commands via API 67. Display it in a readable format (table, list). Present command descriptions and parameters.
+* Result: A command help section appears in the UI.
+
+[end of Tasks.txt]

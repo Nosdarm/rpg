@@ -331,6 +331,7 @@ def _get_entity_schema_terms() -> Dict[str, Any]:
         "npc_schema": {
             "description": "Schema for Non-Player Characters (NPCs).",
             "fields": {
+                "static_id": {"type": "string", "description": "Unique static identifier for this NPC, e.g., 'guard_captain_reynold'. Should be unique at least within the current generation batch for relationship linking."},
                 "name_i18n": {"type": "object", "description": "Localized names (e.g., {'en': 'Name', 'ru': 'Имя'})"},
                 "description_i18n": {"type": "object", "description": "Localized descriptions."},
                 "level": {"type": "integer", "description": "NPC's level."},
@@ -341,6 +342,7 @@ def _get_entity_schema_terms() -> Dict[str, Any]:
                 "abilities_static_ids": {"type": "array", "items": "string", "description": "List of static_ids of abilities NPC has."}
             },
             "example": {
+                "static_id": "old_man_willow_01",
                 "name_i18n": {"en": "Old Man Willow", "ru": "Старик Ива"},
                 "description_i18n": {"en": "A weathered old man who seems to know more than he lets on.", "ru": "Пожилой мужчина, который, кажется, знает больше, чем говорит."},
                 "level": 5,
@@ -539,20 +541,22 @@ async def prepare_ai_prompt(
 
         prompt_parts.append("\n### Generation Request:")
         prompt_parts.append(f"Based on the context above, please generate content for the location '{location_context.get('name', '')}'. Focus on enriching the current location. You can generate a mix of the following entities:")
-        prompt_parts.append(f"  1. NPCs: Interesting characters that fit the location and world lore.")
+        prompt_parts.append(f"  1. NPCs: Interesting characters that fit the location and world lore. Ensure each generated NPC has a unique 'static_id' (e.g., 'npc_guard_captain_01', 'mysterious_hermit').")
         prompt_parts.append(f"  2. Quests: Short to medium quests that can be initiated or progressed in this location.")
         prompt_parts.append(f"  3. Items: Unique or noteworthy items that could be found or are relevant here.")
         prompt_parts.append(f"  4. Events: Small dynamic occurrences, discoveries, or minor encounters suitable for this location.")
-        # prompt_parts.append(f"  5. Sub-Locations: If appropriate, minor points of interest within '{location_context.get('name', '')}'.") # If generating new locations/sub-locations
+        prompt_parts.append(f"  5. Relationships: Specific relationships for the NPCs you generate. These can be NPC-NPC (among those generated in this batch) or NPC-Faction (with existing factions if context provides them, or factions generated in this batch if applicable). Use the 'relationship_schema'. These relationships can represent hidden loyalties, grudges, affiliations, etc. Use appropriate 'relationship_type' values (e.g., 'secret_rivalry', 'hidden_alliance_with_faction_X', 'personal_debt_to_npc_Y').")
 
         prompt_parts.append("\n### Output Format Instructions:")
-        prompt_parts.append("Please provide your response as a single JSON object. The top-level keys should be entity types (e.g., 'generated_npcs', 'generated_quests', 'generated_items', 'generated_events'). Each key should map to a list of generated entities of that type.")
+        prompt_parts.append("Please provide your response as a single JSON object. The top-level keys should be entity types (e.g., 'generated_npcs', 'generated_quests', 'generated_items', 'generated_events', 'generated_relationships'). Each key should map to a list of generated entities of that type.")
         prompt_parts.append("For each entity, adhere to its schema provided below. ALL user-facing text (names, descriptions, dialogue, etc.) MUST be provided in an _i18n JSON object with keys for the primary language '{guild_main_lang}' AND 'en' (English).")
+        prompt_parts.append("When generating NPCs and their relationships: ensure 'static_id' values for NPCs are used consistently in the 'generated_relationships' list (e.g., if you generate an NPC with static_id 'hermit_01', a relationship involving this NPC should use 'hermit_01' as entity_static_id).")
         prompt_parts.append("Example of _i18n field: \"name_i18n\": {\""+guild_main_lang+"\": \"Localized Name\", \"en\": \"English Name\"}")
         prompt_parts.append("Ensure generated content is consistent with the provided context, rules, and entity schemas.")
 
         prompt_parts.append("\n### Entity Schemas for Generation:")
         prompt_parts.append("```json")
+        # Убедиться, что entity_schemas включает relationship_schema, что он уже делает
         prompt_parts.append(json.dumps(entity_schemas, indent=2))
         prompt_parts.append("```")
 
@@ -658,3 +662,113 @@ async def prepare_faction_relationship_generation_prompt(
     except Exception as e:
         logger.exception(f"Error in prepare_faction_relationship_generation_prompt for guild {guild_id}: {e}")
         return f"Error generating faction/relationship AI prompt: {str(e)}"
+
+
+async def _get_hidden_relationships_context_for_dialogue(
+    session: AsyncSession,
+    guild_id: int,
+    lang: str,
+    npc_id: int,
+    player_id: Optional[int] = None,
+    # party_id: Optional[int] = None, # Placeholder for future use
+    # other_relevant_entity_ids: Optional[List[Tuple[int, RelationshipEntityType]]] = None # Placeholder
+) -> List[Dict[str, Any]]:
+    """
+    Gathers context about hidden relationships of an NPC for dialogue generation,
+    including relevant rule-based hints for the AI.
+    """
+    hidden_relationships_context = []
+
+    # Correctly import the actual CRUD operations for relationships
+    from .crud.crud_relationship import crud_relationship as actual_crud_relationship
+    from ..models.enums import RelationshipEntityType # Ensure this is the correct Enum
+
+    npc_all_relationships = await actual_crud_relationship.get_relationships_for_entity(
+        db=session, # crud_relationship.py uses 'db' as session parameter name
+        guild_id=guild_id,
+        entity_id=npc_id,
+        entity_type=RelationshipEntityType.NPC # Use the imported Enum
+    )
+
+    if not npc_all_relationships:
+        return []
+
+    hidden_prefixes = ("secret_", "internal_", "personal_debt", "hidden_fear", "betrayal_")
+    relevant_hidden_rels: List[Relationship] = []
+
+    for rel in npc_all_relationships:
+        if not rel.relationship_type.startswith(hidden_prefixes):
+            continue
+
+        is_relevant_to_dialogue = False
+        # Check if the relationship involves the player, if player_id is provided
+        if player_id:
+            is_player_entity1 = (rel.entity1_id == player_id and rel.entity1_type == RelationshipEntityType.PLAYER)
+            is_player_entity2 = (rel.entity2_id == player_id and rel.entity2_type == RelationshipEntityType.PLAYER)
+
+            is_npc_entity1 = (rel.entity1_id == npc_id and rel.entity1_type == RelationshipEntityType.NPC)
+            is_npc_entity2 = (rel.entity2_id == npc_id and rel.entity2_type == RelationshipEntityType.NPC)
+
+            if (is_npc_entity1 and is_player_entity2) or \
+               (is_npc_entity2 and is_player_entity1):
+                is_relevant_to_dialogue = True
+        else:
+            # If no player_id, all hidden relationships of the NPC might be relevant for broader context
+            is_relevant_to_dialogue = True
+            # Future: could filter for relationships with other_relevant_entity_ids if provided
+
+        if is_relevant_to_dialogue:
+            relevant_hidden_rels.append(rel)
+
+    if not relevant_hidden_rels:
+        return []
+
+    for rel in relevant_hidden_rels:
+        # Determine the "other" entity in the relationship relative to the NPC
+        other_entity_id = rel.entity1_id if rel.entity2_id == npc_id else rel.entity2_id
+        other_entity_type_enum = rel.entity1_type if rel.entity2_id == npc_id else rel.entity2_type
+
+        rel_ctx = {
+            "relationship_type": rel.relationship_type,
+            "value": rel.value,
+            "target_entity_id": other_entity_id,
+            "target_entity_type": other_entity_type_enum.value,
+            "prompt_hints": "",
+            "unlocks_tags": [],
+            "options_availability_formula": None
+        }
+
+        base_rel_type_for_rule = rel.relationship_type.split(':')[0]
+        rule_key_exact = f"hidden_relationship_effects:dialogue:{rel.relationship_type}"
+        rule_key_generic = f"hidden_relationship_effects:dialogue:{base_rel_type_for_rule}"
+
+        specific_rule = await get_rule(session, guild_id, rule_key_exact, default=None)
+        generic_rule = await get_rule(session, guild_id, rule_key_generic, default=None)
+
+        chosen_rule_data = None
+        if specific_rule and isinstance(specific_rule, dict) and specific_rule.get("enabled", False):
+            chosen_rule_data = specific_rule
+        elif generic_rule and isinstance(generic_rule, dict) and generic_rule.get("enabled", False):
+            chosen_rule_data = generic_rule
+
+        if chosen_rule_data:
+            hints_i18n = chosen_rule_data.get("prompt_modifier_hints_i18n")
+            if hints_i18n and isinstance(hints_i18n, dict):
+                hint_template = get_localized_text(hints_i18n, lang, "en") # get_localized_text is already in this file
+
+                # Basic placeholder replacement. A more robust templating engine might be better for complex cases.
+                # For now, simple replace for {value} and a generic description.
+                # A better way for description would be to map relationship_type to a human-readable phrase.
+                relationship_description = rel.relationship_type.replace("_", " ").replace("secret ", "") # Simple description
+
+                formatted_hint = hint_template.replace("{value}", str(rel.value))
+                formatted_hint = formatted_hint.replace("{relationship_description_en}", relationship_description)
+                formatted_hint = formatted_hint.replace("{relationship_description_ru}", relationship_description) # Needs actual i18n for description
+                rel_ctx["prompt_hints"] = formatted_hint
+
+            rel_ctx["unlocks_tags"] = chosen_rule_data.get("unlocks_dialogue_options_tags", [])
+            rel_ctx["options_availability_formula"] = chosen_rule_data.get("dialogue_option_availability_formula")
+
+        hidden_relationships_context.append(rel_ctx)
+
+    return hidden_relationships_context

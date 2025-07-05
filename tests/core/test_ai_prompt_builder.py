@@ -140,5 +140,188 @@ class TestAIProompBuilderFactionRel(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Error generating", prompt) # Ensure no error message in prompt
 
 
+class TestAIProompBuilderLocationContent(unittest.IsolatedAsyncioTestCase):
+
+    def setUp(self):
+        self.entity_schemas = _get_entity_schema_terms()
+        # Extract specific schemas needed for location content generation
+        self.npc_schema_json = json.dumps(self.entity_schemas.get("npc_schema"), indent=2)
+        self.quest_schema_json = json.dumps(self.entity_schemas.get("quest_schema"), indent=2)
+        self.item_schema_json = json.dumps(self.entity_schemas.get("item_schema"), indent=2)
+        self.event_schema_json = json.dumps(self.entity_schemas.get("event_schema"), indent=2)
+        self.relationship_schema_json = json.dumps(self.entity_schemas.get("relationship_schema"), indent=2)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_player_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_relationships_context', new_callable=AsyncMock) # Standard relationships
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_game_rules_terms', new_callable=AsyncMock)
+    async def test_prepare_ai_prompt_requests_npc_static_id_and_relationships(
+        self, mock_get_game_rules, mock_get_world_state, mock_get_relationships,
+        mock_get_quests, mock_get_nearby_entities, mock_get_party, mock_get_player,
+        mock_get_location_context, mock_get_guild_main_language
+    ):
+        # Setup mocks for all dependencies of prepare_ai_prompt
+        mock_get_guild_main_language.return_value = "en"
+        mock_get_location_context.return_value = {"name": "Test Location", "static_id": "test_loc_01", "description": "A place."}
+        # Parameters to test_prepare_ai_prompt_requests_npc_static_id_and_relationships are:
+        # mock_get_game_rules, mock_get_world_state, mock_get_relationships,
+        # mock_get_quests, mock_get_nearby_entities, mock_get_party, mock_get_player,
+        # mock_get_location_context, mock_get_guild_main_language
+        # So, the ones to set are mock_get_player and mock_get_party.
+        mock_get_player.return_value = {}
+        mock_get_party.return_value = {}
+        mock_get_nearby_entities.return_value = {"npcs": []}
+        mock_get_quests.return_value = []
+        mock_get_relationships.return_value = []
+        mock_get_world_state.return_value = {"global_plot": "pending"}
+        mock_get_game_rules.return_value = {"main_language_code": "en"}
+
+        mock_session = MockAsyncSession()
+        guild_id = 1
+        location_id_for_context = 10
+
+        from src.core.ai_prompt_builder import prepare_ai_prompt # Import here to use patches
+
+        prompt = await prepare_ai_prompt(mock_session, guild_id, location_id_for_context)
+
+        self.assertIsInstance(prompt, str)
+        self.assertNotIn("Error: Location not found.", prompt)
+
+        # Check for NPC static_id request in Generation Request
+        self.assertIn("Ensure each generated NPC has a unique 'static_id'", prompt)
+
+        # Check for Relationship generation request
+        self.assertIn("5. Relationships: Specific relationships for the NPCs you generate.", prompt)
+        self.assertIn("Use the 'relationship_schema'.", prompt)
+
+        # Check Output Format Instructions for relationships
+        self.assertIn("'generated_relationships'", prompt) # In the list of top-level keys
+        self.assertIn("When generating NPCs and their relationships: ensure 'static_id' values for NPCs are used consistently", prompt)
+
+        # Check that npc_schema in the prompt includes static_id
+        # The full entity_schemas are dumped, so we need to check the content of npc_schema within it.
+        # This is harder to check directly in the final string due to JSON formatting.
+        # We rely on the setUp ensuring self.entity_schemas is correct and that it's dumped.
+        # A more direct check would be to inspect the call to json.dumps if that was possible,
+        # or to parse the JSON from the prompt and check the schema there.
+        # For now, let's assume if "static_id" is in the description of npc_schema (as added in previous step), it's fine.
+        self.assertIn("\"static_id\": {\"type\": \"string\", \"description\": \"Unique static identifier for this NPC", prompt)
+        self.assertIn("\"relationship_schema\"", prompt) # Ensure relationship_schema is also there
+
+# Placeholder for TestHiddenRelationshipsContext - to be added next
+class TestHiddenRelationshipsContext(unittest.IsolatedAsyncioTestCase):
+
+    @patch('src.core.ai_prompt_builder.actual_crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
+    @patch('src.core.rules.get_rule') # Corrected patch path
+    async def test_get_hidden_relationships_context_basic(
+        self, mock_get_rule, mock_get_rels_for_entity
+    ):
+        from src.core.ai_prompt_builder import _get_hidden_relationships_context_for_dialogue
+        from src.models import Relationship # Import real Relationship for mock return
+        from src.models.enums import RelationshipEntityType # Import real Enum
+
+        mock_session = MockAsyncSession()
+        guild_id = 1
+        lang = "en"
+        npc_id = 100
+        player_id = 1
+
+        # Mock relationships returned for the NPC
+        mock_npc_relationships = [
+            Relationship(id=1, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+                         entity2_id=player_id, entity2_type=RelationshipEntityType.PLAYER,
+                         relationship_type="secret_positive_to_entity", value=70),
+            Relationship(id=2, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+                         entity2_id=5, entity2_type=RelationshipEntityType.FACTION, # Assuming faction ID 5
+                         relationship_type="secret_negative_to_faction:faction_evil", value=90),
+            Relationship(id=3, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+                         entity2_id=101, entity2_type=RelationshipEntityType.NPC, # Another NPC
+                         relationship_type="personal_debt_to_entity", value=50),
+            Relationship(id=4, guild_id=guild_id, entity1_id=npc_id, entity1_type=RelationshipEntityType.NPC,
+                         entity2_id=player_id, entity2_type=RelationshipEntityType.PLAYER,
+                         relationship_type="normal_interaction_log", value=10), # Not a hidden one
+        ]
+        mock_get_rels_for_entity.return_value = mock_npc_relationships
+
+        # Mock RuleConfig responses
+        # Rule for "secret_positive_to_entity" with player
+        rule_for_secret_positive = {
+            "enabled": True, "priority": 10,
+            "prompt_modifier_hints_i18n": {"en": "This NPC secretly likes you (value: {value}).", "ru": "Вы тайно нравитесь этому NPC (значение: {value})."},
+            "unlocks_dialogue_options_tags": ["secret_help"],
+            "dialogue_option_availability_formula": "value > 50"
+        }
+        # Rule for "secret_negative_to_faction" (generic part of "secret_negative_to_faction:faction_evil")
+        rule_for_secret_negative_generic = {
+            "enabled": True, "priority": 5,
+            "prompt_modifier_hints_i18n": {"en": "This NPC secretly despises the {relationship_description_en} (value: {value}).", "ru": "Этот NPC тайно презирает {relationship_description_ru} (значение: {value})."}
+        }
+
+        # Rule for "personal_debt_to_entity" (specific to NPC 101)
+        # No specific rule, so generic should not be found either if we only mock this for specific type.
+        # Let's assume no rule for personal_debt_to_entity.
+
+        def get_rule_side_effect(session_arg, g_id_arg, key_arg, default=None):
+            if key_arg == "hidden_relationship_effects:dialogue:secret_positive_to_entity":
+                return rule_for_secret_positive
+            # For "secret_negative_to_faction:faction_evil", first exact match, then generic
+            if key_arg == "hidden_relationship_effects:dialogue:secret_negative_to_faction:faction_evil":
+                return None # No exact rule
+            if key_arg == "hidden_relationship_effects:dialogue:secret_negative_to_faction":
+                return rule_for_secret_negative_generic
+            return default
+
+        mock_get_rule.side_effect = get_rule_side_effect
+
+        context_list = await _get_hidden_relationships_context_for_dialogue(
+            mock_session, guild_id, lang, npc_id, player_id
+        )
+
+        self.assertEqual(len(context_list), 1) # Only "secret_positive_to_entity" with player is processed due to player_id filter
+
+        # Check the content of the processed "secret_positive_to_entity"
+        rel1_ctx = context_list[0]
+        self.assertEqual(rel1_ctx["relationship_type"], "secret_positive_to_entity")
+        self.assertEqual(rel1_ctx["value"], 70)
+        self.assertEqual(rel1_ctx["target_entity_id"], player_id)
+        self.assertEqual(rel1_ctx["target_entity_type"], RelationshipEntityType.PLAYER.value)
+        self.assertIn("This NPC secretly likes you (value: 70).", rel1_ctx["prompt_hints"])
+        self.assertIn("secret_help", rel1_ctx["unlocks_tags"])
+        self.assertEqual(rel1_ctx["options_availability_formula"], "value > 50")
+
+        # Test without player_id (should include all hidden relationships of NPC)
+        mock_get_rels_for_entity.return_value = mock_npc_relationships # Reset mock for new call
+        mock_get_rule.side_effect = get_rule_side_effect # Reset side effect for new call
+
+        context_list_no_player = await _get_hidden_relationships_context_for_dialogue(
+            mock_session, guild_id, lang, npc_id, player_id=None # No player_id
+        )
+
+        self.assertEqual(len(context_list_no_player), 3) # secret_positive, secret_negative, personal_debt
+
+        # Find and check "secret_negative_to_faction:faction_evil"
+        neg_rel_ctx = next((r for r in context_list_no_player if r["relationship_type"] == "secret_negative_to_faction:faction_evil"), None)
+        self.assertIsNotNone(neg_rel_ctx)
+        self.assertEqual(neg_rel_ctx["value"], 90)
+        self.assertEqual(neg_rel_ctx["target_entity_id"], 5) # Faction ID
+        self.assertEqual(neg_rel_ctx["target_entity_type"], RelationshipEntityType.FACTION.value)
+        # Description for "secret_negative_to_faction" is "secret_negative_to_faction" due to simple replace
+        self.assertIn("This NPC secretly despises the secret_negative_to_faction (value: 90).", neg_rel_ctx["prompt_hints"])
+
+        # Check "personal_debt_to_entity" - should have no hints as no rule was mocked for it
+        debt_rel_ctx = next((r for r in context_list_no_player if r["relationship_type"] == "personal_debt_to_entity"), None)
+        self.assertIsNotNone(debt_rel_ctx)
+        self.assertEqual(debt_rel_ctx["value"], 50)
+        self.assertEqual(debt_rel_ctx["target_entity_id"], 101) # NPC ID
+        self.assertEqual(debt_rel_ctx["target_entity_type"], RelationshipEntityType.NPC.value)
+        self.assertEqual(debt_rel_ctx["prompt_hints"], "") # No rule, so no hints
+        self.assertEqual(debt_rel_ctx["unlocks_tags"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

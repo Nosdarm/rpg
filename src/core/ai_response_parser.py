@@ -27,11 +27,19 @@ class BaseGeneratedEntity(BaseModel):
 
 class ParsedNpcData(BaseGeneratedEntity):
     entity_type: str = Field("npc", frozen=True)
+    static_id: Optional[str] = None # Added for linking relationships
     name_i18n: Dict[str, str]
     description_i18n: Dict[str, str]
     # Example: stats might be a simple dict for now
     stats: Optional[Dict[str, Any]] = None
     # Add other NPC specific fields as expected from AI
+
+    @field_validator('static_id', mode='before')
+    @classmethod
+    def check_static_id(cls, v):
+        if v is not None and (not isinstance(v, str) or not v.strip()):
+            raise ValueError("static_id must be a non-empty string if provided.")
+        return v
 
     @field_validator('name_i18n', 'description_i18n')
     @classmethod

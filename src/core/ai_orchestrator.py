@@ -4,15 +4,21 @@ from typing import Union, Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Assuming models and enums will be imported correctly
-from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item # Add other generated entity models
-from ..models.enums import ModerationStatus, PlayerStatus
+from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship as RelationshipModel # Renamed to avoid conflict
+from ..models.enums import ModerationStatus, PlayerStatus, RelationshipEntityType
 from .database import transactional
 # Corrected import path for generic CRUD functions
 from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
 from .ai_prompt_builder import prepare_ai_prompt
-from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData # Import specific parsed types, and CustomValidationError
+from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedRelationshipData
 from discord.ext import commands # For bot instance type hint
 from ..bot.utils import notify_master # Import the new utility
+
+# CRUD imports moved to module level for easier patching in tests
+from .crud.crud_faction import crud_faction
+from .crud.crud_npc import npc_crud as actual_npc_crud
+from .crud.crud_relationship import crud_relationship
+
 # Placeholder for game events
 # from .game_events import on_enter_location
 
@@ -375,16 +381,156 @@ async def save_approved_generation(
             #    location_data_for_db = { ... } # map fields
             #    new_db_entity = await create_entity(session, Location, location_data_for_db)
             #    if new_db_entity: saved_entity_ids["location"].append(new_db_entity.id)
+            #    # Add to static_id_to_db_id_map if Location has static_id and it's relevant
+            #    # if new_db_entity and getattr(entity_data, 'static_id', None):
+            #    #     static_id_to_db_id_map[entity_data.static_id] = new_db_entity.id
 
-            else:
-                logger.warning(f"Unsupported entity_type '{entity_type_val}' encountered during saving of PendingGeneration ID {pending_generation_id}")
+
+            # This was missing before: initialize the map
+            static_id_to_db_id_map: Dict[str, Dict[str, Any]] = {} # Stores {"static_id": {"db_id": id, "type": type_enum}}
+
+
+            # First pass: Save entities that can be referenced by relationships (NPCs, Factions if any)
+            # and populate static_id_to_db_id_map.
+            # (Factions are not part of this flow, but NPCs are)
+            for entity_data in ai_data_model.generated_entities:
+                if isinstance(entity_data, ParsedNpcData):
+                    npc_data_for_db = {
+                        "guild_id": guild_id,
+                        "name_i18n": entity_data.name_i18n,
+                        "description_i18n": entity_data.description_i18n,
+                        "properties_json": {"stats": entity_data.stats} if entity_data.stats else {},
+                        "static_id": entity_data.static_id, # Save AI-generated static_id
+                    }
+                    # Consider checking for existing NPC by static_id to avoid duplicates if needed
+                    # For now, assume AI provides unique static_ids or this is handled by DB constraints/app logic
+                    new_npc_db = await create_entity(session, GeneratedNpc, npc_data_for_db)
+                    if new_npc_db:
+                        saved_entity_ids["npc"].append(new_npc_db.id) # type: ignore
+                        if new_npc_db.static_id: # Check if static_id was actually saved
+                            static_id_to_db_id_map[new_npc_db.static_id] = {"db_id": new_npc_db.id, "type": RelationshipEntityType.NPC} # type: ignore
+                        logger.info(f"Saved NPC: {entity_data.name_i18n.get('en', 'Unknown NPC')} with ID {new_npc_db.id}, StaticID: {new_npc_db.static_id}")
+                    else:
+                        logger.error(f"Failed to save NPC with static_id {entity_data.static_id}")
+
+                # elif isinstance(entity_data, ParsedFactionData): # If factions were part of this generation
+                    # ... save faction and add to static_id_to_db_id_map ...
+
+            await session.flush() # Ensure NPCs (and other primary entities) have DB IDs before saving relationships
+
+            # Second pass: Save other entities (Quests, Items) and Relationships
+            from .crud.crud_faction import crud_faction # For resolving faction static_ids
+            from .crud.crud_npc import npc_crud as actual_npc_crud # For resolving existing NPC static_ids
+            from .crud.crud_relationship import crud_relationship # For creating relationships
+            from ..models.enums import RelationshipEntityType # Ensure this is imported for relationship saving
+
+            for entity_data in ai_data_model.generated_entities:
+                entity_type_val = entity_data.entity_type
+
+                if entity_type_val == "npc": # Already handled in first pass
+                    continue
+
+                if entity_type_val == "quest" and isinstance(entity_data, ParsedQuestData):
+                    # ... (existing quest saving logic) ...
+                    quest_data_for_db = {
+                        "guild_id": guild_id, "title_i18n": entity_data.title_i18n,
+                        "description_i18n": entity_data.summary_i18n,
+                        "rewards_json": entity_data.rewards_json,
+                        "ai_metadata_json": {"raw_steps": entity_data.steps_description_i18n}
+                    }
+                    new_db_entity = await create_entity(session, GeneratedQuest, quest_data_for_db)
+                    if new_db_entity: saved_entity_ids["quest"].append(new_db_entity.id) # type: ignore
+                    logger.info(f"Saved Quest: {entity_data.title_i18n.get('en', 'Unknown Quest')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
+
+
+                elif entity_type_val == "item" and isinstance(entity_data, ParsedItemData):
+                    # ... (existing item saving logic) ...
+                    item_data_for_db = {
+                        "guild_id": guild_id, "name_i18n": entity_data.name_i18n,
+                        "description_i18n": entity_data.description_i18n,
+                        "item_type_i18n": {"en": entity_data.item_type, "ru": entity_data.item_type},
+                        "properties_json": entity_data.properties_json,
+                    }
+                    new_db_entity = await create_entity(session, Item, item_data_for_db)
+                    if new_db_entity: saved_entity_ids["item"].append(new_db_entity.id) # type: ignore
+                    logger.info(f"Saved Item: {entity_data.name_i18n.get('en', 'Unknown Item')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
+
+                elif entity_type_val == "relationship" and isinstance(entity_data, ParsedRelationshipData):
+                    e1_info = static_id_to_db_id_map.get(entity_data.entity1_static_id)
+                    e2_info = static_id_to_db_id_map.get(entity_data.entity2_static_id)
+
+                    final_e1_id: Optional[int] = None
+                    final_e1_type: Optional[RelationshipEntityType] = None
+                    final_e2_id: Optional[int] = None
+                    final_e2_type: Optional[RelationshipEntityType] = None
+
+                    # Resolve Entity 1
+                    if e1_info:
+                        final_e1_id = e1_info["db_id"]
+                        final_e1_type = e1_info["type"]
+                    elif entity_data.entity1_type.lower() == "faction":
+                        existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.entity1_static_id)
+                        if existing_faction:
+                            final_e1_id = existing_faction.id
+                            final_e1_type = RelationshipEntityType.FACTION
+                    elif entity_data.entity1_type.lower() == "npc": # Existing NPC not in this batch
+                        existing_npc = await actual_npc_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=entity_data.entity1_static_id)
+                        if existing_npc:
+                            final_e1_id = existing_npc.id
+                            final_e1_type = RelationshipEntityType.NPC
+
+                    # Resolve Entity 2
+                    if e2_info:
+                        final_e2_id = e2_info["db_id"]
+                        final_e2_type = e2_info["type"]
+                    elif entity_data.entity2_type.lower() == "faction":
+                        existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.entity2_static_id)
+                        if existing_faction:
+                            final_e2_id = existing_faction.id
+                            final_e2_type = RelationshipEntityType.FACTION
+                    elif entity_data.entity2_type.lower() == "npc": # Existing NPC not in this batch
+                        existing_npc = await actual_npc_crud.get_by_static_id(db=session, guild_id=guild_id, static_id=entity_data.entity2_static_id)
+                        if existing_npc:
+                            final_e2_id = existing_npc.id
+                            final_e2_type = RelationshipEntityType.NPC
+
+                    if final_e1_id is not None and final_e1_type and final_e2_id is not None and final_e2_type:
+                        rel_obj_in = {
+                            "guild_id": guild_id,
+                            "entity1_id": final_e1_id, "entity1_type": final_e1_type,
+                            "entity2_id": final_e2_id, "entity2_type": final_e2_type,
+                            "relationship_type": entity_data.relationship_type,
+                            "value": entity_data.value
+                        }
+                        # Check for existing relationship (crud_relationship might need an update to handle this better or a create_or_update)
+                        # For now, simple create, assuming no duplicates or DB handles it.
+                        # Or, use the logic from generate_factions_and_relationships for get_then_update_or_create
+                        existing_rel = await crud_relationship.get_relationship_between_entities(
+                            session, guild_id=guild_id,
+                            entity1_id=final_e1_id, entity1_type=final_e1_type,
+                            entity2_id=final_e2_id, entity2_type=final_e2_type
+                        )
+                        if existing_rel:
+                             logger.info(f"Relationship exists between {final_e1_type.value}:{final_e1_id} and {final_e2_type.value}:{final_e2_id}. Updating type to '{entity_data.relationship_type}' and value from {existing_rel.value} to {entity_data.value}.")
+                             existing_rel.value = entity_data.value
+                             existing_rel.relationship_type = entity_data.relationship_type
+                             session.add(existing_rel)
+                             # Optionally add to a saved_entity_ids["relationship"] list
+                        else:
+                             await crud_relationship.create(session, obj_in=rel_obj_in)
+                             logger.info(f"Saved Relationship: {entity_data.relationship_type} between {final_e1_type.value}:{final_e1_id} and {final_e2_type.value}:{final_e2_id}, value {entity_data.value}")
+                    else:
+                        logger.warning(f"Could not resolve one or both entities for relationship: {entity_data.entity1_static_id} ({entity_data.entity1_type}) <-> {entity_data.entity2_static_id} ({entity_data.entity2_type}). Skipping.")
+                else:
+                    logger.warning(f"Unsupported entity_type '{entity_type_val}' encountered during saving of PendingGeneration ID {pending_generation_id}")
 
         master_notes_message = (
             f"Successfully saved entities: "
-            f"NPC IDs: {saved_entity_ids['npc']}, "
-            f"Quest IDs: {saved_entity_ids['quest']}, "
-            f"Item IDs: {saved_entity_ids['item']}"
-            # f"Location IDs: {saved_entity_ids['location']}" # If locations are saved
+            f"NPC IDs: {saved_entity_ids.get('npc', [])}, "
+            f"Quest IDs: {saved_entity_ids.get('quest', [])}, "
+            f"Item IDs: {saved_entity_ids.get('item', [])}. "
+            # Add relationship count if tracked
+            f"Relationships processed (see logs for details)."
         )
         await update_entity(session, pending_gen, {
             "status": ModerationStatus.SAVED,
