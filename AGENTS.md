@@ -41,16 +41,33 @@
 
 ---
 ## Текущий план
-*(Этот раздел очищен после завершения Task 39)*
+*(Этот раздел очищен)*
+---
+## Лог действий
+
+## Проверка и завершение "Доработка Player.attributes_json для Task 32" (Отложенная задача)
+- **Задача**: Убедиться, что поле `Player.attributes_json` корректно реализовано, мигрировано и протестировано.
+- **Выполненные действия**:
+    1.  **Анализ кода**:
+        *   Проверена модель `src/models/player.py`: поле `attributes_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)` уже существует.
+        *   Проверен `src/core/crud/crud_player.py`: метод `create_with_defaults` корректно инициализирует `attributes_json` из `RuleConfig` (ключ `character_attributes:base_values`).
+        *   Проверен `src/core/experience_system.py`: функция `spend_attribute_points` корректно использует `player.attributes_json`.
+    2.  **Проверка миграции**:
+        *   Найдена существующая миграция `alembic/versions/e221edc41551_add_attributes_json_to_player.py`.
+        *   Содержимое миграции проверено и признано корректным (`op.add_column('players', sa.Column('attributes_json', sa.JSON(), nullable=False, server_default=sa.text("'{}'::jsonb")))`).
+    3.  **Проверка Unit-тестов**:
+        *   Проанализированы тесты в `tests/models/test_player.py`, `tests/core/crud/test_crud_player.py`, `tests/core/test_experience_system.py`, `tests/bot/commands/test_character_commands.py`.
+        *   Тесты, релевантные для `Player.attributes_json`, существуют и адекватно покрывают функциональность (создание модели, инициализация в CRUD, использование в системе опыта и командах).
+        *   Запущены релевантные группы тестов:
+            *   `python -m unittest tests/models/test_player.py` - OK (5 passed)
+            *   `python -m unittest tests/core/crud/test_crud_player.py` - OK (9 passed)
+            *   `python -m pytest tests/core/test_experience_system.py` - OK (16 passed)
+            *   `python -m pytest tests/bot/commands/test_character_commands.py` - OK (7 passed)
+        *   Общий запуск `pytest tests/` выявил 8 ошибок в других модулях (`test_global_event.py`, `test_global_npc.py`, `test_mobile_group.py`, `test_quest.py`), не связанных с `Player.attributes_json`. Эти ошибки требуют отдельного рассмотрения.
+- **Статус**: Отложенная задача "Доработка Player.attributes_json для Task 32" полностью выполнена и проверена. Соответствующая функциональность покрыта тестами.
+
 ---
 ## Отложенные задачи
-- **Доработка Player.attributes_json для Task 32**:
-    - **Описание**: В рамках Task 32 была реализована логика команды `/levelup`, которая предполагает наличие у модели `Player` поля `attributes_json` для хранения атрибутов персонажа (сила, ловкость и т.д.). Однако само поле и соответствующая миграция не были созданы.
-    - **Необходимые действия**:
-        1. Добавить поле `attributes_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)` в модель `src/models/player.py`.
-        2. Создать и применить миграцию Alembic для добавления этого столбца в таблицу `players`.
-        3. Рассмотреть инициализацию базовых атрибутов в `player.attributes_json` при создании нового персонажа (например, в `player_crud.create_with_defaults`, используя значения из `RuleConfig` по ключу типа `character_attributes:base_values`).
-    - **Срок**: Выполнить перед полноценным тестированием и использованием функционала `/levelup`. Желательно как можно скорее.
 - **Интеграция влияния отношений с системами торговли и диалогов (связано с Task 37)**:
     - **Описание**: В рамках Task 37 была спроектирована логика влияния отношений на торговлю (корректировка цен) и диалоги (тон NPC, доступность опций). Однако, так как модули `trade_system` и `dialogue_system` еще не были полностью реализованы или идентифицированы на момент выполнения Task 37, фактическая интеграция этой логики была отложена.
     - **Необходимые действия**:
