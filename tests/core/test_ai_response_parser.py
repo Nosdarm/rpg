@@ -264,10 +264,10 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item.properties_json["damage"], "1d8")
 
     def test_parsed_item_data_invalid(self):
-        # Missing static_id
-        with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
+        # Missing static_id - Pydantic v2+ генерирует ошибку "Field required"
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Field required"):
             ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
-        # Empty static_id
+        # Empty static_id - это должно вызывать кастомный валидатор
         with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
             ParsedItemData(entity_type="item", static_id=" ", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
         # Invalid base_value

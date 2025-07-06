@@ -256,83 +256,109 @@ async def handle_trade_action(
             message_params={"npc_id": target_npc_id}
         )
 
-    player_name_loc = get_localized_text(player.name_i18n if hasattr(player, "name_i18n") and player.name_i18n else {"en": player.name, "ru": player.name}, player.selected_language or "en") or player.name
+    # player_name_loc извлекается здесь для использования в сообщениях об ошибках и успехах
+    # Для player.name_i18n может не существовать, поэтому нужен fallback на player.name
+    player_name_i18n_fallback = {"en": player.name, "ru": player.name}
+    if hasattr(player, 'name_i18n') and player.name_i18n:
+        player_name_i18n_fallback = player.name_i18n
+    player_name_loc = get_localized_text(player_name_i18n_fallback, player.selected_language or "en") or player.name
+
     npc_name_loc = get_localized_text(npc.name_i18n, player.selected_language or "en") or f"NPC {npc.id}"
 
-
     # Check if NPC is a trader
-    # For now, check npc_type_i18n. A more robust way might be a flag in properties_json.
-    is_trader = False
+    is_trader_by_type = False
     if npc.npc_type_i18n:
         for lang_code, type_name in npc.npc_type_i18n.items():
-            if type_name and type_name.lower() in ["merchant", "trader", "торговец", "продавец"]:
-                is_trader = True
+            if type_name and type_name.lower().strip() in ["merchant", "trader", "торговец", "продавец", "лавочник"]:
+                is_trader_by_type = True
                 break
 
-    if not is_trader and (npc.properties_json and npc.properties_json.get("is_trader") == True):
-        is_trader = True
+    is_trader_by_property = npc.properties_json.get("is_trader", False) if npc.properties_json else False
 
-
-    if not is_trader:
-        npc_name = get_localized_text(npc.name_i18n, player.selected_language or "en") or f"NPC {npc.id}"
+    if not (is_trader_by_type or is_trader_by_property):
         return TradeActionResult(
             success=False,
             message_key="trade_error_npc_not_trader",
             action_type="error",
-            error_details=f"NPC {target_npc_id} ({npc_name}) is not a trader.",
-            message_params={"npc_name": npc_name}
+            error_details=f"NPC {target_npc_id} ({npc_name_loc}) is not a trader.",
+            message_params={"npc_name": npc_name_loc}
         )
 
     # Action-specific logic
     if action_type == "view_inventory":
+        logger.info(f"Trade action 'view_inventory': player {player.id} with NPC {npc.id} in guild {guild_id}.")
         npc_inventory_display_list: List[InventoryViewData] = []
         player_inventory_display_list: List[InventoryViewData] = []
 
-        # Get NPC inventory
-        npc_inv_items = await inventory_item_crud.get_inventory_for_owner(
+        # Get NPC inventory (items player can buy)
+        npc_raw_inv_items = await inventory_item_crud.get_inventory_for_owner(
             session=session, guild_id=guild_id, owner_entity_id=npc.id, owner_entity_type=OwnerEntityType.GENERATED_NPC
         )
-        for inv_item in npc_inv_items:
-            if inv_item.item: # Ensure item is loaded
-                price_for_player_to_buy = await _calculate_item_price(
-                    session=session, guild_id=guild_id, player=player, npc=npc, item=inv_item.item, transaction_type="buy"
-                )
-                npc_inventory_display_list.append(
-                    InventoryViewData(
-                        item_static_id=inv_item.item.static_id,
-                        item_db_id=inv_item.item.id,
-                        name_i18n=inv_item.item.name_i18n,
-                        description_i18n=inv_item.item.description_i18n,
-                        quantity_available=inv_item.quantity,
-                        npc_sell_price_per_unit=price_for_player_to_buy, # NPC sells this to player
-                        npc_buy_price_per_unit=None
-                    )
-                )
+        logger.debug(f"NPC {npc.id} raw inventory items count: {len(npc_raw_inv_items)}")
+        for inv_item_instance in npc_raw_inv_items:
+            base_item_model = inv_item_instance.item # Assumes item is loaded via relationship
+            if not base_item_model: # Should not happen with proper relationship loading
+                logger.warning(f"InventoryItem {inv_item_instance.id} for NPC {npc.id} is missing its base Item. Skipping.")
+                continue
 
-        # Get Player inventory (items they can sell)
-        player_inv_items = await inventory_item_crud.get_inventory_for_owner(
+            price_for_player_to_buy = await _calculate_item_price(
+                session=session, guild_id=guild_id, player=player, npc=npc, item=base_item_model, transaction_type="buy"
+            )
+            npc_inventory_display_list.append(
+                InventoryViewData(
+                    item_static_id=base_item_model.static_id,
+                    item_db_id=base_item_model.id, # ID of the base Item
+                    name_i18n=base_item_model.name_i18n,
+                    description_i18n=base_item_model.description_i18n,
+                    quantity_available=inv_item_instance.quantity,
+                    npc_sell_price_per_unit=price_for_player_to_buy, # Price for player to buy from NPC
+                    npc_buy_price_per_unit=None # Not applicable for NPC's items view
+                )
+            )
+        logger.debug(f"Processed {len(npc_inventory_display_list)} items for NPC inventory display.")
+
+        # Get Player inventory (items player can sell to NPC)
+        player_raw_inv_items = await inventory_item_crud.get_inventory_for_owner(
             session=session, guild_id=guild_id, owner_entity_id=player.id, owner_entity_type=OwnerEntityType.PLAYER
         )
-        for inv_item in player_inv_items:
-            if inv_item.item: # Ensure item is loaded
-                price_for_player_to_sell = await _calculate_item_price(
-                    session=session, guild_id=guild_id, player=player, npc=npc, item=inv_item.item, transaction_type="sell"
-                )
-                player_inventory_display_list.append(
-                    InventoryViewData(
-                        item_static_id=inv_item.item.static_id,
-                        item_db_id=inv_item.item.id,
-                        name_i18n=inv_item.item.name_i18n,
-                        description_i18n=inv_item.item.description_i18n,
-                        quantity_available=inv_item.quantity,
-                        npc_sell_price_per_unit=None,
-                        npc_buy_price_per_unit=price_for_player_to_sell # NPC buys this from player
-                    )
-                )
+        logger.debug(f"Player {player.id} raw inventory items count: {len(player_raw_inv_items)}")
+        for inv_item_instance in player_raw_inv_items:
+            base_item_model = inv_item_instance.item
+            if not base_item_model:
+                logger.warning(f"InventoryItem {inv_item_instance.id} for Player {player.id} is missing its base Item. Skipping.")
+                continue
 
-        player_name_loc = get_localized_text(player.name_i18n if hasattr(player, "name_i18n") and player.name_i18n else {"en": player.name, "ru": player.name}, player.selected_language or "en") or player.name
-        npc_name_loc = get_localized_text(npc.name_i18n, player.selected_language or "en") or f"NPC {npc.id}"
+            price_for_player_to_sell = await _calculate_item_price(
+                session=session, guild_id=guild_id, player=player, npc=npc, item=base_item_model, transaction_type="sell"
+            )
+            player_inventory_display_list.append(
+                InventoryViewData(
+                    item_static_id=base_item_model.static_id,
+                    item_db_id=base_item_model.id, # ID of the base Item
+                    name_i18n=base_item_model.name_i18n,
+                    description_i18n=base_item_model.description_i18n,
+                    quantity_available=inv_item_instance.quantity,
+                    npc_sell_price_per_unit=None, # Not applicable for player's items view
+                    npc_buy_price_per_unit=price_for_player_to_sell # Price for player to sell to NPC
+                )
+            )
+        logger.debug(f"Processed {len(player_inventory_display_list)} items for player inventory display.")
 
+        # Log the view event
+        await log_event(
+            session,
+            guild_id=guild_id,
+            event_type=EventType.TRADE_INITIATED.value, # Or a more specific "VIEW_INVENTORY" if added
+            details_json={
+                "player_id": player.id,
+                "npc_id": npc.id,
+                "player_name": player_name_loc,
+                "npc_name": npc_name_loc,
+                "action": "view_inventory"
+            },
+            player_id=player.id,
+            entity_ids_json={"players": [player.id], "generated_npcs": [npc.id]}
+        )
 
         return TradeActionResult(
             success=True,
@@ -340,6 +366,7 @@ async def handle_trade_action(
             action_type="view_inventory",
             npc_inventory_display=npc_inventory_display_list,
             player_inventory_display=player_inventory_display_list,
+            player_gold_after_trade=player.gold, # Current gold of the player
             message_params={
                 "player_name": player_name_loc,
                 "npc_name": npc_name_loc,
@@ -357,9 +384,10 @@ async def handle_trade_action(
             )
 
         target_item_model: Optional[Item] = None
+        # Предпочтение static_id для покупки у NPC, так как это обычно шаблонный предмет
         if item_static_id:
             target_item_model = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=item_static_id)
-        elif item_db_id:
+        elif item_db_id: # item_db_id здесь относится к ID из таблицы Item (базовый предмет)
             target_item_model = await item_crud.get(session, id=item_db_id, guild_id=guild_id)
 
         if not target_item_model:
@@ -368,22 +396,22 @@ async def handle_trade_action(
                 message_key="trade_error_item_not_found_in_system",
                 action_type="error",
                 error_details=f"Item with static_id '{item_static_id}' or db_id '{item_db_id}' not found.",
-                message_params={"item_identifier": item_static_id or item_db_id}
+                message_params={"item_identifier": item_static_id or (str(item_db_id) if item_db_id else "N/A")}
             )
 
         item_name_loc = get_localized_text(target_item_model.name_i18n, player.selected_language or "en") or f"Item {target_item_model.id}"
 
-        # Find item in NPC's inventory
-        npc_inv_items = await inventory_item_crud.get_inventory_for_owner(
+        # Find item stack in NPC's inventory
+        npc_inv_stacks = await inventory_item_crud.get_inventory_for_owner(
             session, guild_id=guild_id, owner_entity_id=npc.id, owner_entity_type=OwnerEntityType.GENERATED_NPC
         )
-        npc_item_stack: Optional[InventoryItem] = None
-        for inv_item in npc_inv_items:
-            if inv_item.item_id == target_item_model.id:
-                npc_item_stack = inv_item
+        npc_item_stack_to_buy: Optional[InventoryItem] = None
+        for stack in npc_inv_stacks:
+            if stack.item_id == target_item_model.id: # Сравниваем ID базового предмета
+                npc_item_stack_to_buy = stack
                 break
 
-        if not npc_item_stack:
+        if not npc_item_stack_to_buy:
             return TradeActionResult(
                 success=False,
                 message_key="trade_error_npc_does_not_have_item",
@@ -391,7 +419,7 @@ async def handle_trade_action(
                 message_params={"npc_name": npc_name_loc, "item_name": item_name_loc}
             )
 
-        if npc_item_stack.quantity < count:
+        if npc_item_stack_to_buy.quantity < count:
             return TradeActionResult(
                 success=False,
                 message_key="trade_error_npc_not_enough_items",
@@ -400,7 +428,7 @@ async def handle_trade_action(
                     "npc_name": npc_name_loc,
                     "item_name": item_name_loc,
                     "requested_count": count,
-                    "available_count": npc_item_stack.quantity
+                    "available_count": npc_item_stack_to_buy.quantity
                 }
             )
 
@@ -416,14 +444,15 @@ async def handle_trade_action(
                 action_type="error",
                 message_params={
                     "item_name": item_name_loc,
-                    "total_cost": total_cost,
+                    "total_cost": f"{total_cost:.2f}",
                     "player_gold": player.gold
                 }
             )
 
         # Perform transaction (already under @transactional)
-        player.gold -= int(round(total_cost)) # Ensure gold is integer
+        player.gold -= int(round(total_cost))
 
+        # Уменьшаем количество у NPC
         await inventory_item_crud.remove_item_from_owner(
             session,
             guild_id=guild_id,
@@ -432,6 +461,7 @@ async def handle_trade_action(
             item_id=target_item_model.id,
             quantity=count
         )
+        # Добавляем предмет игроку
         await inventory_item_crud.add_item_to_owner(
             session,
             guild_id=guild_id,
@@ -439,12 +469,10 @@ async def handle_trade_action(
             owner_entity_type=OwnerEntityType.PLAYER,
             item_id=target_item_model.id,
             quantity=count,
-            # instance_specific_properties_json might be needed if item has them from NPC
-            # For now, assume base item transfer
-            instance_specific_properties_json=npc_item_stack.instance_specific_properties_json if npc_item_stack else {}
+            instance_specific_properties_json=npc_item_stack_to_buy.instance_specific_properties_json # Передаем свойства от NPC
         )
 
-        await session.flush() # Flush to ensure player.gold is updated before logging if needed by log_event or other steps
+        await session.flush()
         await session.refresh(player)
 
 
@@ -458,13 +486,13 @@ async def handle_trade_action(
             "quantity": count,
             "price_per_unit": price_per_unit,
             "total_cost": total_cost,
-            "player_gold_before": player.gold + int(round(total_cost)), # Approximate, as it was just subtracted
+            "player_gold_before": player.gold + int(round(total_cost)),
             "player_gold_after": player.gold
         }
         logged_event = await log_event(
             session,
             guild_id=guild_id,
-            event_type=EventType.TRADE_ITEM_BOUGHT.value, # Assuming EventType.TRADE_ITEM_BOUGHT exists
+            event_type=EventType.TRADE_ITEM_BOUGHT.value,
             details_json=log_details,
             player_id=player.id,
             entity_ids_json={"players": [player.id], "generated_npcs": [npc.id], "items": [target_item_model.id]}
@@ -479,7 +507,7 @@ async def handle_trade_action(
                 entity_doing_type=RelationshipEntityType.PLAYER,
                 target_entity_id=npc.id,
                 target_entity_type=RelationshipEntityType.GENERATED_NPC,
-                event_type="TRADE_ITEM_BOUGHT", # RuleConfig key: relationship_rules:TRADE_ITEM_BOUGHT
+                event_type="TRADE_ITEM_BOUGHT",
                 event_details_log_id=logged_event.id
             )
         else:
@@ -504,14 +532,14 @@ async def handle_trade_action(
             message_params={
                 "item_name": item_name_loc,
                 "count": count,
-                "total_cost": total_cost,
+                "total_cost": f"{total_cost:.2f}",
                 "npc_name": npc_name_loc,
                 "player_gold": player.gold
             }
         )
 
     elif action_type == "sell":
-        if not inventory_item_db_id or not count or count <= 0:
+        if not inventory_item_db_id or not count or count <= 0: # inventory_item_db_id - это ID из InventoryItem
             return TradeActionResult(
                 success=False,
                 message_key="trade_error_sell_invalid_params",
@@ -520,8 +548,8 @@ async def handle_trade_action(
                  message_params={"inventory_item_id": inventory_item_db_id or 0, "count": count or 0}
             )
 
-        # Get the specific stack from player's inventory
-        player_item_stack = await inventory_item_crud.get(session, id=inventory_item_db_id) # Generic get by primary key
+        # Get the specific stack from player's inventory by its own ID
+        player_item_stack = await inventory_item_crud.get(session, id=inventory_item_db_id)
 
         if not player_item_stack or \
            player_item_stack.guild_id != guild_id or \
@@ -529,18 +557,22 @@ async def handle_trade_action(
            player_item_stack.owner_entity_type != OwnerEntityType.PLAYER:
             return TradeActionResult(
                 success=False,
-                message_key="trade_error_player_does_not_own_item_stack",
+                message_key="trade_error_player_does_not_own_item_stack", # Ключ для "игрок не владеет этим стаком"
                 action_type="error",
                 message_params={"inventory_item_id": inventory_item_db_id}
             )
 
-        if not player_item_stack.item: # Should be eager loaded or check if None
-            # This case should ideally not happen if relationships are set up correctly
-            # or if items are always loaded with inventory_items. For safety:
+        # Ensure the base item is loaded. The relationship InventoryItem.item should ideally be eager/joined loaded.
+        base_item: Item
+        if not player_item_stack.item:
+            # This explicit load is a fallback if relationship wasn't loaded.
             loaded_base_item = await item_crud.get(session, id=player_item_stack.item_id, guild_id=guild_id)
             if not loaded_base_item:
+                 # This indicates a data integrity issue if an InventoryItem points to a non-existent Item
+                 logger.error(f"Data integrity issue: InventoryItem {player_item_stack.id} points to non-existent Item {player_item_stack.item_id}")
                  return TradeActionResult(success=False, message_key="trade_error_base_item_not_found", action_type="error", message_params={"item_id": player_item_stack.item_id})
             base_item = loaded_base_item
+            # player_item_stack.item = base_item # No need to assign back if only reading from base_item
         else:
             base_item = player_item_stack.item
 
@@ -566,14 +598,18 @@ async def handle_trade_action(
         # Perform transaction
         player.gold += int(round(total_revenue))
 
+        # Уменьшаем количество у игрока
+        # remove_item_from_owner в crud_inventory_item использует item_id (ID базового Item).
+        # Это корректно, т.к. у игрока может быть только один InventoryItem для данного item_id из-за unique constraint.
         await inventory_item_crud.remove_item_from_owner(
             session,
             guild_id=guild_id,
             owner_entity_id=player.id,
             owner_entity_type=OwnerEntityType.PLAYER,
-            item_id=base_item.id, # remove_item_from_owner uses item_id
+            item_id=base_item.id,
             quantity=count
         )
+        # Добавляем предмет NPC
         await inventory_item_crud.add_item_to_owner(
             session,
             guild_id=guild_id,
@@ -581,7 +617,7 @@ async def handle_trade_action(
             owner_entity_type=OwnerEntityType.GENERATED_NPC,
             item_id=base_item.id,
             quantity=count,
-            instance_specific_properties_json=player_item_stack.instance_specific_properties_json
+            instance_specific_properties_json=player_item_stack.instance_specific_properties_json # Передаем свойства от игрока
         )
 
         await session.flush()
@@ -593,17 +629,17 @@ async def handle_trade_action(
             "npc_id": npc.id,
             "item_static_id": base_item.static_id,
             "item_db_id": base_item.id,
-            "item_name_i18n": base_item.name_i18n,
+            "item_name_i18n": base_item.name_i18n, # Для полноты
             "quantity": count,
             "price_per_unit": price_per_unit,
             "total_revenue": total_revenue,
-            "player_gold_before": player.gold - int(round(total_revenue)), # Approximate
+            "player_gold_before": player.gold - int(round(total_revenue)),
             "player_gold_after": player.gold
         }
         logged_event = await log_event(
             session,
             guild_id=guild_id,
-            event_type=EventType.TRADE_ITEM_SOLD.value, # Assuming EventType.TRADE_ITEM_SOLD exists
+            event_type=EventType.TRADE_ITEM_SOLD.value,
             details_json=log_details,
             player_id=player.id,
             entity_ids_json={"players": [player.id], "generated_npcs": [npc.id], "items": [base_item.id]}
@@ -618,7 +654,7 @@ async def handle_trade_action(
                 entity_doing_type=RelationshipEntityType.PLAYER,
                 target_entity_id=npc.id,
                 target_entity_type=RelationshipEntityType.GENERATED_NPC,
-                event_type="TRADE_ITEM_SOLD", # RuleConfig key: relationship_rules:TRADE_ITEM_SOLD
+                event_type="TRADE_ITEM_SOLD",
                 event_details_log_id=logged_event.id
             )
         else:
@@ -631,7 +667,7 @@ async def handle_trade_action(
             name_i18n=base_item.name_i18n,
             quantity=count,
             price_per_unit=price_per_unit,
-            total_price=total_revenue # For sell, this is revenue
+            total_price=total_revenue
         )
 
         return TradeActionResult(
@@ -639,11 +675,11 @@ async def handle_trade_action(
             message_key="trade_sell_success",
             action_type="sell",
             player_gold_after_trade=player.gold,
-            item_traded=traded_item_info,
+            item_traded=traded_item_info, # Используем общее поле
             message_params={
                 "item_name": item_name_loc,
                 "count": count,
-                "total_revenue": total_revenue,
+                "total_revenue": f"{total_revenue:.2f}", # Форматируем
                 "npc_name": npc_name_loc,
                 "player_gold": player.gold
             }
