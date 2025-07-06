@@ -141,53 +141,66 @@ async def test_start_combat_successful_creation(
 
     # Check participants_json
     participants_json = combat_encounter.participants_json
-    assert participants_json is not None
-    participant_entities = participants_json.get("entities", [])
-    assert len(participant_entities) == 2
+    assert participants_json is not None, "participants_json should not be None"
 
-    player_p_data = next((p for p in participant_entities if isinstance(p, dict) and p.get("id") == mock_player_entity.id), None)
-    npc_p_data = next((p for p in participant_entities if isinstance(p, dict) and p.get("id") == mock_npc_entity.id), None)
+    participant_entities_list = []
+    if participants_json: # Guard for Pyright and runtime
+        participant_entities_list = participants_json.get("entities", [])
+    assert len(participant_entities_list) == 2
 
-    assert player_p_data is not None
-    if player_p_data:
+    player_p_data = next((p for p in participant_entities_list if isinstance(p, dict) and p.get("id") == mock_player_entity.id), None)
+    npc_p_data = next((p for p in participant_entities_list if isinstance(p, dict) and p.get("id") == mock_npc_entity.id), None)
+
+    assert player_p_data is not None, "Player participant data not found"
+    if player_p_data: # Guard for Pyright
         assert player_p_data.get("type") == "player"
         assert player_p_data.get("max_hp") == 100 # From mock_player_entity.max_hp
         assert player_p_data.get("initiative_modifier") == 2 # (14-10)//2
 
-    assert npc_p_data is not None
-    if npc_p_data:
+    assert npc_p_data is not None, "NPC participant data not found"
+    if npc_p_data: # Guard for Pyright
         assert npc_p_data.get("type") == "npc"
         assert npc_p_data.get("max_hp") == 50 # From mock_npc_entity.properties_json
         assert npc_p_data.get("initiative_modifier") == 1 # (12-10)//2
 
     # Check turn_order_json (Player should be first due to higher initiative roll)
     turn_order_json = combat_encounter.turn_order_json
-    assert turn_order_json is not None
-    order_list = turn_order_json.get("order", [])
-    assert len(order_list) == 2
+    assert turn_order_json is not None, "turn_order_json should not be None"
 
-    if len(order_list) > 0:
-        assert order_list[0].get("id") == mock_player_entity.id
-        assert order_list[0].get("type") == "player"
-    if len(order_list) > 1:
-        assert order_list[1].get("id") == mock_npc_entity.id
-        assert order_list[1].get("type") == "npc"
+    order_list = []
+    current_index = None
+    current_turn_number = None
+    if turn_order_json: # Guard for Pyright and runtime
+        order_list = turn_order_json.get("order", [])
+        current_index = turn_order_json.get("current_index")
+        current_turn_number = turn_order_json.get("current_turn_number")
+
+    assert len(order_list) == 2
+    if len(order_list) > 0: # Guard for Pyright
+        first_in_order = order_list[0]
+        if first_in_order: # Guard for Pyright
+            assert first_in_order.get("id") == mock_player_entity.id
+            assert first_in_order.get("type") == "player"
+    if len(order_list) > 1: # Guard for Pyright
+        second_in_order = order_list[1]
+        if second_in_order: # Guard for Pyright
+            assert second_in_order.get("id") == mock_npc_entity.id
+            assert second_in_order.get("type") == "npc"
 
     assert combat_encounter.current_turn_entity_id == mock_player_entity.id
     assert combat_encounter.current_turn_entity_type == "player"
-    assert turn_order_json.get("current_index") == 0
-    assert turn_order_json.get("current_turn_number") == 1
-
+    assert current_index == 0
+    assert current_turn_number == 1
 
     # Check rules snapshot (basic check)
     rules_snapshot = combat_encounter.rules_config_snapshot_json
-    assert rules_snapshot is not None
-    if rules_snapshot: # Guard for Pyright
-        assert "combat:initiative:dice" in rules_snapshot
+    assert rules_snapshot is not None, "rules_config_snapshot_json should not be None"
+    if rules_snapshot: # Guard for Pyright and runtime
+        assert "combat:initiative:dice" in rules_snapshot, "'combat:initiative:dice' not in rules_snapshot"
         assert rules_snapshot.get("combat:initiative:dice") == "1d20"
 
     # Check player status update
-    assert mock_player_entity.current_status == PlayerStatus.COMBAT # Changed IN_COMBAT
+    assert mock_player_entity.current_status == PlayerStatus.COMBAT
     if hasattr(mock_player_entity, 'current_combat_id'): # Guard for missing attribute
          assert mock_player_entity.current_combat_id == combat_encounter.id # type: ignore
     else:
@@ -199,11 +212,16 @@ async def test_start_combat_successful_creation(
 
     # Check log_event call
     mock_log_event.assert_called_once() # type: ignore
-    log_call_args = mock_log_event.call_args.kwargs # kwargs
-    assert log_call_args["event_type"] == EventType.COMBAT_START.name # Changed to .name
-    assert log_call_args["guild_id"] == guild_id
-    assert log_call_args["details_json"]["combat_id"] == combat_encounter.id
-    assert len(log_call_args["details_json"]["participants"]) == 2
+    log_call_args = mock_log_event.call_args # Access .call_args directly
+    assert log_call_args is not None, "log_event was not called with arguments"
+
+    log_kwargs = log_call_args.kwargs
+    assert log_kwargs.get("event_type") == EventType.COMBAT_START.name
+    assert log_kwargs.get("guild_id") == guild_id
+
+    details_json = log_kwargs.get("details_json", {})
+    assert details_json.get("combat_id") == combat_encounter.id
+    assert len(details_json.get("participants", [])) == 2
 
     # Check that session.add was called for combat_encounter and player
     # Approximate check: number of calls to session.add
@@ -254,16 +272,20 @@ async def test_start_combat_initiative_tie_break_order(
 
     combat_encounter = await start_combat(mock_session, 100, 10, participant_entities)
 
-    order = []
-    if combat_encounter.turn_order_json and "order" in combat_encounter.turn_order_json:
-        order = combat_encounter.turn_order_json["order"]
+    order_list = []
+    if combat_encounter.turn_order_json and isinstance(combat_encounter.turn_order_json.get("order"), list):
+        order_list = combat_encounter.turn_order_json["order"]
 
-    assert len(order) == 3
+    assert len(order_list) == 3, "Turn order should contain 3 participants"
     # Since all have score 12, and Python's sort is stable, the order should be the input order.
-    if len(order) == 3: # Guard for Pyright
-        assert order[0].get("id") == mock_player_entity.id
-        assert order[1].get("id") == mock_npc_entity.id
-        assert order[2].get("id") == mock_player_entity_2.id
+    if len(order_list) == 3: # Guard for Pyright
+        first_in_order = order_list[0]
+        second_in_order = order_list[1]
+        third_in_order = order_list[2]
+        if first_in_order: assert first_in_order.get("id") == mock_player_entity.id
+        if second_in_order: assert second_in_order.get("id") == mock_npc_entity.id
+        if third_in_order: assert third_in_order.get("id") == mock_player_entity_2.id
+
     assert combat_encounter.current_turn_entity_id == mock_player_entity.id
 
     # If Player 2 had higher dex and they all rolled to the same score

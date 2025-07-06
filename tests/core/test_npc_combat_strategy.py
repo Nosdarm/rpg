@@ -314,11 +314,19 @@ async def test_get_npc_ai_rules_loads_hidden_relationship_effects(mock_session, 
     assert len(hidden_effects_list) == 1
 
     effect_entry = hidden_effects_list[0]
-    assert effect_entry["rule_data"] == rule_for_hidden_secret_positive # Exact rule should be chosen
-    assert effect_entry["applies_to_relationship"]["type"] == "secret_positive_to_entity"
-    assert effect_entry["applies_to_relationship"]["value"] == 75
-    assert effect_entry["applies_to_relationship"]["target_entity_id"] == mock_target_player.id
-    assert effect_entry["applies_to_relationship"]["target_entity_type"] == EntityType.PLAYER.value
+    assert isinstance(effect_entry, dict), "Effect entry should be a dictionary"
+
+    rule_data = effect_entry.get("rule_data")
+    applies_to_relationship = effect_entry.get("applies_to_relationship")
+
+    assert rule_data == rule_for_hidden_secret_positive # Exact rule should be chosen
+
+    assert isinstance(applies_to_relationship, dict), "applies_to_relationship should be a dictionary"
+    if isinstance(applies_to_relationship, dict): # Guard for Pyright
+        assert applies_to_relationship.get("type") == "secret_positive_to_entity"
+        assert applies_to_relationship.get("value") == 75
+        assert applies_to_relationship.get("target_entity_id") == mock_target_player.id
+        assert applies_to_relationship.get("target_entity_type") == EntityType.PLAYER.value
 
 
 # --- Tests for _get_available_abilities ---

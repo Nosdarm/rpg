@@ -211,18 +211,22 @@ async def test_process_combat_action_attack_hit(
     assert result.damage_dealt == (4 + 3) # Damage (4) + Str_Mod (+3 for Str 16)
 
     npc_data_after_attack = None
+    entities_list = []
     if mock_combat_encounter.participants_json and "entities" in mock_combat_encounter.participants_json:
-        npc_data_after_attack = next((p for p in mock_combat_encounter.participants_json["entities"] if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
+        entities_list = mock_combat_encounter.participants_json.get("entities", [])
+    npc_data_after_attack = next((p for p in entities_list if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
 
     assert npc_data_after_attack is not None, "NPC data not found in participants_json after attack"
 
     expected_npc_hp = 0
     npc_initial_props = mock_npc.properties_json if mock_npc.properties_json else {}
+    # Ensure npc_initial_props is a dict before calling .get()
     npc_initial_stats = npc_initial_props.get("stats", {}) if isinstance(npc_initial_props, dict) else {}
+    # Ensure npc_initial_stats is a dict before calling .get()
     npc_initial_hp = npc_initial_stats.get("current_hp", 0) if isinstance(npc_initial_stats, dict) else 0
     expected_npc_hp = npc_initial_hp - (4 + 3)
 
-    if npc_data_after_attack: # Should be true due to assert above
+    if npc_data_after_attack: # Should be true due to assert above, but good for type checker
         assert npc_data_after_attack.get("current_hp") == expected_npc_hp
 
     mock_log_event.assert_called_once()
@@ -250,8 +254,8 @@ async def test_process_combat_action_actor_not_found(mock_session: AsyncMock, mo
         assert result.success is False
         # The exact message might vary based on implementation, adjust if needed.
         # Based on current implementation: "Actor {actor_type} not found."
-        if result.description_i18n: # Guard for Pyright
-            assert "Actor player not found" in result.description_i18n.get("en", "")
+        description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+        assert "Actor player not found" in description_text
 
 # @pytest.mark.skip(reason="process_combat_action guard clauses not fully implemented in stub") # Unskip
 @pytest.mark.asyncio
@@ -270,8 +274,8 @@ async def test_process_combat_action_combat_not_found(mock_session: AsyncMock, m
     )
     assert result.success is False
     # Based on current implementation: "Combat encounter ID not found or does not belong to guild ID."
-    if result.description_i18n: # Guard for Pyright
-        assert "Combat encounter ID not found or does not belong to guild ID." in result.description_i18n.get("en", "")
+    description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+    assert "Combat encounter ID not found or does not belong to guild ID." in description_text
 
 
 @pytest.mark.asyncio
@@ -297,8 +301,8 @@ async def test_process_combat_action_target_not_in_combat(
             actor_id=mock_player.id, actor_type="player", action_data=action_data
         )
         assert result.success is False
-        if result.description_i18n: # Guard for Pyright
-            assert "Target not found in this combat" in result.description_i18n.get("en", "")
+        description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+        assert "Target not found in this combat" in description_text
 
 @pytest.mark.asyncio
 async def test_process_combat_action_target_already_defeated(
@@ -308,7 +312,8 @@ async def test_process_combat_action_target_already_defeated(
 
     # Modify npc in participants_json to have 0 HP
     if mock_combat_encounter.participants_json and "entities" in mock_combat_encounter.participants_json:
-        for p_data in mock_combat_encounter.participants_json["entities"]:
+        entities_list = mock_combat_encounter.participants_json.get("entities", [])
+        for p_data in entities_list:
             if isinstance(p_data, dict) and p_data.get("id") == mock_npc.id and p_data.get("type") == "npc":
                 p_data["current_hp"] = 0
                 break
@@ -323,8 +328,8 @@ async def test_process_combat_action_target_already_defeated(
             actor_id=mock_player.id, actor_type="player", action_data=action_data
         )
         assert result.success is True # Action is "successful" in that it was processed, but target was already down.
-        if result.description_i18n: # Guard for Pyright
-            assert "Target is already defeated" in result.description_i18n.get("en", "")
+        description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+        assert "Target is already defeated" in description_text
         assert result.damage_dealt is None # No damage dealt
 
 
@@ -381,18 +386,22 @@ async def test_process_combat_action_attack_miss(
 
     npc_data_after_attack = None
     expected_npc_hp_val = 0
+    entities_list = []
     if mock_combat_encounter.participants_json and "entities" in mock_combat_encounter.participants_json:
-        npc_data_after_attack = next((p for p in mock_combat_encounter.participants_json["entities"] if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
+        entities_list = mock_combat_encounter.participants_json.get("entities", [])
+    npc_data_after_attack = next((p for p in entities_list if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
 
-    if mock_npc.properties_json and "stats" in mock_npc.properties_json and isinstance(mock_npc.properties_json["stats"], dict):
-        expected_npc_hp_val = mock_npc.properties_json["stats"].get("current_hp", 0)
+    npc_initial_props = mock_npc.properties_json if mock_npc.properties_json else {}
+    npc_initial_stats = npc_initial_props.get("stats", {}) if isinstance(npc_initial_props, dict) else {}
+    expected_npc_hp_val = npc_initial_stats.get("current_hp", 0) if isinstance(npc_initial_stats, dict) else 0
+
 
     if npc_data_after_attack: # Guard for Pyright
         assert npc_data_after_attack.get("current_hp") == expected_npc_hp_val # HP unchanged
 
     mock_log_event.assert_called_once()
-    if result.description_i18n and result.description_i18n.get("en"): # Guard for Pyright
-        assert "misses" in result.description_i18n["en"].lower()
+    description_text = result.description_i18n.get("en", "").lower() if result.description_i18n else ""
+    assert "misses" in description_text
 
 
 # @pytest.mark.skip(reason="process_combat_action not yet implemented for this specific critical hit scenario") # Unskip
@@ -471,18 +480,24 @@ async def test_process_combat_action_attack_crit_hit(
     # Damage for multiply_total_damage: (base_roll (5) + damage_mod (3)) * crit_multiplier (2.0) = 16
     expected_damage = (5 + 3) * 2
     assert result.damage_dealt == expected_damage
-    if result.description_i18n: # Guard for Pyright
-        assert "critically strikes" in result.description_i18n.get("en", "")
-    if result.additional_details: # Guard for Pyright
-        assert result.additional_details.get("crit_effect") == "multiply_total_damage"
+
+    description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+    assert "critically strikes" in description_text
+
+    additional_details_val = result.additional_details.get("crit_effect") if result.additional_details else None
+    assert additional_details_val == "multiply_total_damage"
 
     npc_data_after_attack = None
     initial_npc_hp = 0
+    entities_list = []
     if mock_combat_encounter.participants_json and "entities" in mock_combat_encounter.participants_json:
-        npc_data_after_attack = next((p for p in mock_combat_encounter.participants_json["entities"] if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
+        entities_list = mock_combat_encounter.participants_json.get("entities", [])
+    npc_data_after_attack = next((p for p in entities_list if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
 
-    if mock_npc.properties_json and "stats" in mock_npc.properties_json and isinstance(mock_npc.properties_json["stats"], dict):
-        initial_npc_hp = mock_npc.properties_json["stats"].get("current_hp", 0)
+    npc_initial_props = mock_npc.properties_json if mock_npc.properties_json else {}
+    npc_initial_stats = npc_initial_props.get("stats", {}) if isinstance(npc_initial_props, dict) else {}
+    initial_npc_hp = npc_initial_stats.get("current_hp", 0) if isinstance(npc_initial_stats, dict) else 0
+
 
     expected_npc_hp_after_crit = initial_npc_hp - expected_damage
     if npc_data_after_attack: # Guard for Pyright
@@ -541,17 +556,21 @@ async def test_process_combat_action_attack_crit_fail(
     # --- Assert ---
     assert result.success is False # Attack critically failed
     assert result.damage_dealt is None
-    if result.description_i18n: # Guard for Pyright
-        assert "critically fails" in result.description_i18n.get("en", "")
+    description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+    assert "critically fails" in description_text
     mock_roll_dice.assert_not_called() # No damage roll on critical failure
 
     npc_data_after_attack = None
     expected_npc_hp_val = 0
+    entities_list = []
     if mock_combat_encounter.participants_json and "entities" in mock_combat_encounter.participants_json:
-        npc_data_after_attack = next((p for p in mock_combat_encounter.participants_json["entities"] if isinstance(p,dict) and p.get("id") == mock_npc.id), None)
+        entities_list = mock_combat_encounter.participants_json.get("entities", [])
+    npc_data_after_attack = next((p for p in entities_list if isinstance(p, dict) and p.get("id") == mock_npc.id), None)
 
-    if mock_npc.properties_json and "stats" in mock_npc.properties_json and isinstance(mock_npc.properties_json["stats"], dict):
-        expected_npc_hp_val = mock_npc.properties_json["stats"].get("current_hp", 0)
+    npc_initial_props = mock_npc.properties_json if mock_npc.properties_json else {}
+    npc_initial_stats = npc_initial_props.get("stats", {}) if isinstance(npc_initial_props, dict) else {}
+    expected_npc_hp_val = npc_initial_stats.get("current_hp", 0) if isinstance(npc_initial_stats, dict) else 0
+
 
     if npc_data_after_attack: # Guard for Pyright
         assert npc_data_after_attack.get("current_hp") == expected_npc_hp_val # HP unchanged
@@ -583,22 +602,16 @@ async def test_process_combat_action_unknown_action( # Removed mock_get_entity f
 
         # --- Assert ---
         assert result.success is False
-        if result.description_i18n: # Guard for Pyright
-            assert "Action type 'dance' is not recognized" in result.description_i18n.get("en", "")
-        # No log event should be created for an unrecognized action that doesn't change game state
-        # However, the current implementation logs *after* action processing.
-        # For an unknown action, it returns early. So, log_event should NOT be called.
-        # This requires a patch for log_event for this specific test.
-        # For now, let's assume no log_event if it returns early.
-        # If log_event is called unconditionally at the end, this test would need adjustment or the code would.
-        # The current code returns early, so log_event is not called.
-        # Let's add a patch for log_event to be sure it's not called.
+        description_text = result.description_i18n.get("en", "") if result.description_i18n else ""
+        assert "Action type 'dance' is not recognized" in description_text
+
+        # Patch log_event to assert it's not called for unknown actions that return early
         with patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock) as mock_log_event_unknown:
-            result_rerun = await process_combat_action( # Rerun with log_event patched
+            # Re-run the action processing part that might call log_event
+            # Note: This re-run is primarily for the mock_log_event_unknown.assert_not_called()
+            # The result object is already obtained from the first call.
+            await process_combat_action(
                 guild_id=1, session=mock_session, combat_instance_id=mock_combat_encounter.id,
                 actor_id=mock_player.id, actor_type="player", action_data=action_data
             )
-            assert result_rerun.success is False # Re-assert from rerun
-            if result_rerun.description_i18n: # Guard for Pyright
-                assert "Action type 'dance' is not recognized" in result_rerun.description_i18n.get("en", "")
             mock_log_event_unknown.assert_not_called()

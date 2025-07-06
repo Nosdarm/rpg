@@ -112,6 +112,7 @@ async def test_trigger_ai_generation_flow_success(
         session=mock_session,
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
+        entity_type="location_description", # Added missing entity_type
         location_id=DEFAULT_LOCATION_ID,
         player_id=DEFAULT_PLAYER_ID_PK
     )
@@ -174,6 +175,7 @@ async def test_trigger_ai_generation_validation_failed(
             session=mock_session,
             bot=mock_bot,
             guild_id=DEFAULT_GUILD_ID,
+            entity_type="location_description", # Added missing entity_type
             location_id=DEFAULT_LOCATION_ID,
             player_id=None
         )

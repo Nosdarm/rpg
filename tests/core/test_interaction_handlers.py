@@ -306,10 +306,17 @@ async def test_interact_object_rule_not_found(
     assert result["success"] is True
     assert "You try to interact with Old Chest, but nothing interesting happens." in result["message"]
     mock_get_rule.assert_called_once_with(session=mock_session, guild_id=DEFAULT_GUILD_ID, key="interactions:chest_generic")
+
     mock_log_event.assert_called_once()
-    assert mock_log_event.call_args is not None
-    log_kwargs = mock_log_event.call_args.kwargs
-    details_json_val = log_kwargs.get("details_json"); assert details_json_val is not None; assert isinstance(details_json_val, dict)
+    call_args_tuple = mock_log_event.call_args
+    assert call_args_tuple is not None, "log_event.call_args should not be None if called once"
+
+    log_kwargs = call_args_tuple.kwargs
+    assert isinstance(log_kwargs, dict), "log_event.call_args.kwargs should be a dict"
+
+    details_json_val = log_kwargs.get("details_json")
+    assert isinstance(details_json_val, dict), "details_json should be present in log_kwargs and be a dict"
+
     assert details_json_val.get("rule_found") is False
 
 @pytest.mark.asyncio
