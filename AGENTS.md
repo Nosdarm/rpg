@@ -50,124 +50,53 @@ API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending
 ---
 ## Лог действий
 
-## Task 47: 🛠️ 15.1 Master Command System
-- **Определение задачи**: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild.
-- **Выполненные шаги (1-5)**:
-    1.  **Подготовка и общие компоненты**:
-        *   Файл `src/bot/commands/master_admin_commands.py` уже существовал. Его структура была проверена и обновлена: класс `MasterAdminCog` и группа `master_admin` определены корректно.
-        *   Для группы `master_admin` установлены `default_permissions=discord.Permissions(administrator=True)` и `guild_only=True`. Использование кастомного декоратора `@is_administrator` было удалено из команд в пользу `default_permissions`.
-        *   `MasterAdminCog` уже был добавлен в `BOT_COGS` в `src/config/settings.py`.
-        *   Создана функция `get_localized_master_message` в `src/core/localization_utils.py` (позже выяснилось, что более общая `get_localized_message_template` уже существует и используется, что соответствует цели). Команды адаптированы для использования `get_localized_message_template`.
-    2.  **Реализация CRUD-команд для `Player`**:
-        *   Подгруппа `player_group` в `MasterAdminCog` уже существовала.
-        *   Команда `player view <player_id: int>`: Проверена, использует `get_localized_message_template`, отображает информацию в Embed.
-        *   Команда `player list [page: int = 1] [limit: int = 10]`: Проверена и доработана для использования `get_localized_message_template`.
-        *   Команда `player update <player_id: int> <field_name: str> <new_value: str>`: Проверена и доработана для использования `get_localized_message_template`, набор обновляемых полей включает `name`, `level`, `xp`, `unspent_xp`, `language`, `current_location_id`, `current_party_id` (с поддержкой `None`).
-    3.  **Реализация команд для `RuleConfig`**:
-        *   Подгруппа `ruleconfig_group` в `MasterAdminCog` уже существовала.
-        *   Команда `ruleconfig get <key: str>`: Проверена и доработана для использования `get_localized_message_template`.
-        *   Команда `ruleconfig set <key: str> <value_json_str: str>`: Проверена и доработана для использования `get_localized_message_template`.
-        *   Команда `ruleconfig list [page: int = 1] [limit: int = 10]`: Проверена и доработана для использования `get_localized_message_template`.
-        *   Команда `ruleconfig delete <key: str>`: Реализована с использованием `get_localized_message_template`.
-    4.  **Реализация команд для `PendingConflict` (базовая, без сигнализации)**:
-        *   Модель `PendingConflict` в `src/models/pending_conflict.py` проверена, соответствует требованиям.
-        *   Создан `CRUDPendingConflict` в `src/core/crud/crud_pending_conflict.py` с методами `get_by_id_and_guild`, `get_multi_by_guild_and_status_paginated`, `get_count_by_guild_and_status`. Добавлен в `src/core/crud/__init__.py`.
-        *   Подгруппа `conflict_group` в `MasterAdminCog` уже существовала.
-        *   Команда `conflict view <conflict_id: int>`: Проверена и доработана для использования `pending_conflict_crud` и `get_localized_message_template`.
-        *   Команда `conflict resolve <conflict_id: int> <outcome_status: str> [resolution_notes: Optional[str]]`: Проверена и доработана для использования `pending_conflict_crud` и `get_localized_message_template`. Сигнализация TPM отложена.
-        *   Команда `conflict list [status: Optional[str]] [page: int = 1] [limit: int = 10]`: Реализована с использованием `pending_conflict_crud`, пагинации и `get_localized_message_template`.
-    5.  **Написание Unit-тестов (начальный этап)**:
-        *   Файл `tests/bot/commands/test_master_admin_commands.py` уже существовал.
-        *   `asyncSetUp` был адаптирован (удален ненужный патч `@is_administrator`).
-        *   Существующие тесты для `player_view` и `ruleconfig_set` обновлены для корректной работы с моками локализации.
-        *   Добавлен тест для команды `ping_command`.
-    6.  **Реализация CRUD-команд для Party**:
-        *   Подгруппа `party_group` в `MasterAdminCog` создана.
-        *   Команды `party view <id>`, `party list [page] [limit]`, `party create [...]`, `party update <id> <field> <value>`, `party delete <id>` реализованы с использованием `party_crud` и `get_localized_message_template`.
-    7.  **Реализация CRUD-команд для GeneratedNpc**:
-        *   Подгруппа `npc_group` в `MasterAdminCog` создана.
-        *   Команды `npc view <id>`, `npc list [page] [limit]`, `npc create [...]`, `npc update <id> <field> <value>`, `npc delete <id>` реализованы с использованием `npc_crud` и `get_localized_message_template`.
-    8.  **Реализация CRUD-команд для Location**:
-        *   Подгруппа `location_group` в `MasterAdminCog` создана.
-        *   Команды `location view <id>`, `location list [page] [limit]`, `location create [...]`, `location update <id> <field> <value>`, `location delete <id>` реализованы с использованием `location_crud` и `get_localized_message_template`.
-    9.  **Реализация CRUD-команд для Item**:
-        *   Подгруппа `item_group` в `MasterAdminCog` создана.
-        *   Команды `item view <id>`, `item list [page] [limit]`, `item create [...]`, `item update <id> <field> <value>`, `item delete <id>` реализованы с использованием `item_crud` и `get_localized_message_template`.
-    10. **Реализация CRUD-команд для GeneratedFaction**:
-        *   Подгруппа `faction_group` в `MasterAdminCog` создана.
-        *   Команды `faction view <id>`, `faction list [page] [limit]`, `faction create [...]`, `faction update <id> <field> <value>`, `faction delete <id>` реализованы с использованием `crud_faction` и `get_localized_message_template`.
-    11. **Реализация CRUD-команд для Relationship**:
-        *   Подгруппа `relationship_group` в `MasterAdminCog` создана.
-        *   Команды `relationship view <id>`, `relationship list [...]`, `relationship create [...]`, `relationship update <id> <field> <value>`, `relationship delete <id>` реализованы с использованием `crud_relationship` и `get_localized_message_template`.
-    12. **Реализация CRUD-команд для Questline и GeneratedQuest**:
-        *   Подгруппа `quest_group` в `MasterAdminCog` создана.
-        *   Реализованы команды для `Questline`: `questline_view <id>`, `questline_list`, `questline_create [...]`, `questline_update <id> <field> <value>`, `questline_delete <id>`.
-        *   Реализованы команды для `GeneratedQuest`: `generated_quest_view <id>`, `generated_quest_list`, `generated_quest_create [...]`, `generated_quest_update <id> <field> <value>`, `generated_quest_delete <id>`.
-        *   Использованы `questline_crud`, `generated_quest_crud` и `get_localized_message_template`.
-    13. **Реализация команд для CombatEncounter**:
-        *   Подгруппа `combat_encounter_group` в `MasterAdminCog` создана.
-        *   Команды `combat_encounter view <id>`, `combat_encounter list [status]`, `combat_encounter delete <id>` реализованы.
-    14. **Реализация CRUD-команд для GlobalNpc**:
-        *   Подгруппа `global_npc_group` в `MasterAdminCog` создана.
-        *   Команды `global_npc view <id>`, `global_npc list`, `global_npc create [...]`, `global_npc update <id> <field> <value>`, `global_npc delete <id>` реализованы.
-    15. **Реализация CRUD-команд для MobileGroup**:
-        *   Подгруппа `mobile_group_group` в `MasterAdminCog` создана.
-        *   Команды `mobile_group view <id>`, `mobile_group list`, `mobile_group create [...]`, `mobile_group update <id> <field> <value>`, `mobile_group delete <id>` реализованы.
-    16. **Реализация CRUD-команд для InventoryItem**:
-        *   Подгруппа `inventory_item_group` в `MasterAdminCog` создана.
-        *   Команды `inventory_item view <id>`, `inventory_item list [...]`, `inventory_item create [...]`, `inventory_item update <id> <field> <value>`, `inventory_item delete <id>` реализованы.
-    17. **Реализация CRUD-команд для Ability**:
-        *   Подгруппа `ability_group` в `MasterAdminCog` создана.
-        *   Команды `ability view <id>`, `ability list [scope]`, `ability create [...]`, `ability update <id> <field> <value>`, `ability delete <id>` реализованы.
-    18. **Реализация CRUD-команд для StatusEffect (Definition)**:
-        *   Подгруппа `status_effect_definition_group` в `MasterAdminCog` создана.
-        *   Команды `status_effect_definition view <id>`, `status_effect_definition list [scope]`, `status_effect_definition create [...]`, `status_effect_definition update <id> <field> <value>`, `status_effect_definition delete <id>` реализованы.
-    19. **Реализация команд для ActiveStatusEffect (Instance)**:
-        *   Подгруппа `active_status_effect_group` в `MasterAdminCog` создана.
-        *   Команды `active_status_effect view_instance <id>`, `active_status_effect list_instances [...]`, `active_status_effect remove_instance <id>` реализованы.
-    20. **Реализация команд для StoryLog (View/List Only)**:
-        *   Подгруппа `story_log_group` в `MasterAdminCog` создана.
-        *   Команды `story_log view <id>`, `story_log list [...]` реализованы.
-- **Предварительный план (оставшиеся шаги)**:
-    1.  **Подготовка и общие компоненты**: (ВЫПОЛНЕНО)
-        *   Создать новый Cog `MasterAdminCog` в `src/bot/commands/master_admin_commands.py`.
-        *   Определить основную группу команд `/master_admin`. (ВЫПОЛНЕНО)
-        *   Реализовать проверку прав администратора/мастера для всех команд в этом Cog (например, через `discord.app_commands.checks.has_permissions(administrator=True)` или кастомный чек).
-        *   Добавить `MasterAdminCog` в `BOT_COGS` в `src/config/settings.py` для загрузки.
-        *   Продумать стратегию локализации для ответов команд (использование `localization_utils` и `RuleConfig` для шаблонов сообщений).
-    2.  **Реализация CRUD-команд для основных моделей**:
-        *   Для каждой ключевой модели (Player, Party, GeneratedNpc, Location, Item, GeneratedFaction, Relationship, Questline, GeneratedQuest, CombatEncounter, GlobalNpc, MobileGroup, etc.):
-            *   Создать подгруппу команд (например, `/master_admin player <subcommand>`).
-            *   Реализовать команды `view <id>`, `list [page] [limit]`, `create [...]`, `update <id> <field> <value>`, `delete <id>`.
-            *   Команды `create` и `update` должны принимать необходимые параметры, включая i18n поля, если они есть в модели.
-            *   Все операции должны быть строго привязаны к `guild_id` из контекста команды.
-            *   Использовать существующие CRUD-модули (`player_crud`, `party_crud` и т.д.).
-    3.  **Реализация команд для `RuleConfig`**:
-        *   Создать подгруппу `/master_admin ruleconfig`.
-        *   Команда `get <key>`: Показывает значение правила для текущей гильдии.
-        *   Команда `set <key> <value_json>`: Устанавливает значение правила. Валидация JSON.
-        *   Команда `list [page] [limit]`: Показывает список всех правил для гильдии.
-        *   Команда `delete <key>`: Удаляет правило (возвращает к значению по умолчанию, если такое есть, или полностью удаляет).
-    4.  **Реализация команды `/master_admin resolve_conflict`**:
-        *   Зависит от реализации механизма конфликтов в Task 21 (`action_processor.py`).
-        *   Команда `/master_admin conflict resolve <conflict_id> <outcome_key_or_json> [notes_for_log]`.
-        *   Находит `PendingConflict` по ID и `guild_id`.
-        *   Обновляет его статус на "resolved" и сохраняет результат (`outcome_json`, `resolution_notes`, `resolved_by_user_id`, `resolved_at`).
-        *   **Сигнализация `Turn Processing Module`**: предусмотреть механизм (возможно, через `asyncio.Event` или очередь), чтобы уведомить ожидающий процессор ходов о разрешении конфликта. (Детали зависят от реализации Task 21).
-        *   Команда `/master_admin conflict view <conflict_id>`: Показывает детали конфликта.
-        *   Команда `/master_admin conflict list [status] [page] [limit]`: Показывает список конфликтов.
-    5.  **Реализация прочих команд управления**:
-        *   `/master_admin trigger_ai_generation <entity_type> [context_json]`: Для ручного запуска генерации сущностей (локации, NPC, квесты и т.д.), вызывая соответствующие функции из `world_generation.py` или `ai_orchestrator.py`.
-        *   `/master_admin player_set_location <player_id> <location_id_or_static_id>`: Перемещает игрока.
-        *   `/master_admin world_event_trigger <event_type> [details_json]`: Для ручного запуска глобальных событий.
-    6.  **Локализация и форматирование ответов**:
-        *   Все ответы команд должны быть локализованы с использованием `localization_utils.get_localized_text` и шаблонов из `RuleConfig`.
-        *   Для отображения списков и сложных данных использовать Discord Embeds.
-    7.  **Написание Unit-тестов**:
-        *   Создать `tests/bot/commands/test_master_admin_commands.py`.
-        *   Написать тесты для каждой команды, мокируя взаимодействия с Discord API, CRUD-операциями и другими системами.
-    8.  **Обновление `AGENTS.md`**: Запись о выполненных шагах.
-    9.  **Представление изменений (Commit)**.
+## Рефакторинг Master Admin Commands (Пользовательская задача от 2024-07-16)
+- **Цель**: Декомпозировать большой файл `src/bot/commands/master_admin_commands.py` на более мелкие и управляемые Cog'и по сущностям для улучшения читаемости и поддерживаемости.
+- **Стратегия**:
+    1. Создать новую директорию `src/bot/commands/master_commands/` для хранения новых Cog'ов.
+    2. Для каждой основной сущности (Player, RuleConfig, Party и т.д.), управляемой через команды мастера, создать отдельный файл Cog в новой директории (например, `player_master_commands.py`).
+    3. Каждый новый Cog будет определять свою собственную корневую группу команд (например, `/master_player`, `/master_ruleconfig`) вместо общей группы `/master_admin`. Это упростит структуру и регистрацию команд.
+    4. Перенести соответствующий код команд из `master_admin_commands.py` в новые файлы Cog'ов.
+    5. Обновить `src/config/settings.py` для загрузки новых Cog'ов.
+    6. Очистить/удалить старый `master_admin_commands.py` после полного переноса функционала.
+- **Выполненные шаги**:
+    - Создана директория `src/bot/commands/master_commands/` и файл `__init__.py` в ней.
+    - **Player Commands**:
+        - Создан `src/bot/commands/master_commands/player_master_commands.py`.
+        - Создан `MasterPlayerCog` с группой команд `/master_player`.
+        - Команды `player view`, `player list`, `player update` перенесены из `master_admin_commands.py`.
+    - **RuleConfig Commands**:
+        - Создан `src/bot/commands/master_commands/ruleconfig_master_commands.py`.
+        - Создан `MasterRuleConfigCog` с группой команд `/master_ruleconfig`.
+        - Команды `ruleconfig get`, `ruleconfig set`, `ruleconfig list`, `ruleconfig delete` перенесены.
+    - **PendingConflict Commands**:
+        - Создан `src/bot/commands/master_commands/conflict_master_commands.py`.
+        - Создан `MasterConflictCog` с группой команд `/master_conflict`.
+        - Команды `conflict view`, `conflict resolve`, `conflict list` перенесены.
+    - **Party Commands**:
+        - Создан `src/bot/commands/master_commands/party_master_commands.py`.
+        - Создан `MasterPartyCog` с группой команд `/master_party`.
+        - Команды `party view`, `party list`, `party create`, `party update`, `party delete` перенесены.
+    - В `src/config/settings.py` старая ссылка на `master_admin_commands` закомментирована, добавлены пути к новым Cog'ам:
+        - `"src.bot.commands.master_commands.player_master_commands"`
+        - `"src.bot.commands.master_commands.ruleconfig_master_commands"`
+        - `"src.bot.commands.master_commands.conflict_master_commands"`
+        - `"src.bot.commands.master_commands.party_master_commands"`
+        - `"src.bot.commands.master_commands.npc_master_commands"`
+        - `"src.bot.commands.master_commands.location_master_commands"`
+        - `"src.bot.commands.master_commands.item_master_commands"`
+        - `"src.bot.commands.master_commands.faction_master_commands"`
+        - `"src.bot.commands.master_commands.relationship_master_commands"`
+        - `"src.bot.commands.master_commands.quest_master_commands"`
+        - `"src.bot.commands.master_commands.combat_master_commands"`
+        - `"src.bot.commands.master_commands.global_npc_master_commands"`
+        - `"src.bot.commands.master_commands.mobile_group_master_commands"`
+        - `"src.bot.commands.master_commands.inventory_master_commands"`
+        - `"src.bot.commands.master_commands.ability_master_commands"`
+        - `"src.bot.commands.master_commands.status_effect_master_commands"`
+        - `"src.bot.commands.master_commands.story_log_master_commands"`
+    - Файл `src/bot/commands/master_admin_commands.py` был полностью очищен, так как вся его функциональность перенесена.
+- **Статус**: Рефакторинг команд Мастера завершен. Код стал более модульным и организованным.
 
 ## Проверка и завершение "Доработка Player.attributes_json для Task 32" (Отложенная задача)
 - **Задача**: Убедиться, что поле `Player.attributes_json` корректно реализовано, мигрировано и протестировано.
