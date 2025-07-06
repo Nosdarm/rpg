@@ -41,7 +41,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
     # --- Player CRUD ---
     # parent=master_admin should inherit default_permissions
-    player_group = app_commands.Group(name="player", description="Master commands for managing players.", parent=master_admin)
+    player_group = app_commands.Group(name="player", description="Master commands for managing players.", parent=master_admin) # Corrected: parent was master_admin_group
 
     @player_group.command(name="view", description="View details of a specific player.")
     @app_commands.describe(player_id="The database ID of the player to view.")
@@ -49,8 +49,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def player_view(self, interaction: discord.Interaction, player_id: int):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check if group is guild_only=True
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.crud.crud_player import player_crud # Local import
         from src.core.database import get_db_session # Local import
@@ -107,8 +108,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def player_list(self, interaction: discord.Interaction, page: int = 1, limit: int = 10):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 25: limit = 25 # Max embed field limit consideration
@@ -184,8 +186,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def player_update(self, interaction: discord.Interaction, player_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.crud.crud_player import player_crud
         from src.core.database import get_db_session, transactional # transactional might be used if update_entity is not
@@ -313,8 +316,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def ruleconfig_get(self, interaction: discord.Interaction, key: str):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.rules import get_rule # Local import
         from src.core.database import get_db_session # Local import
@@ -360,8 +364,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def ruleconfig_set(self, interaction: discord.Interaction, key: str, value_json: str):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.rules import update_rule_config # Local import
         from src.core.database import get_db_session # Local import for the context, though update_rule_config is @transactional
@@ -411,8 +416,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def ruleconfig_list(self, interaction: discord.Interaction, page: int = 1, limit: int = 10):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10 # Embeds can get very long with many JSON values
@@ -492,6 +498,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def ruleconfig_delete(self, interaction: discord.Interaction, key: str):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
+        # Removed: (There wasn't one here, but ensuring consistency)
 
         from src.core.rules import rule_config_crud # Using CRUD directly for delete
         from src.core.database import get_db_session
@@ -565,8 +572,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                                notes: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.database import get_db_session # Keep for session management
         # from src.models.pending_conflict import PendingConflict # Not needed directly
@@ -697,8 +705,9 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
     async def conflict_view(self, interaction: discord.Interaction, pending_conflict_id: int):
         await interaction.response.defer(ephemeral=True)
         # No need for guild_id check
-            await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
-            return
+        # Removed:
+        #     await interaction.followup.send("Command must be used in a guild.", ephemeral=True)
+        #     return
 
         from src.core.database import get_db_session
         # from src.models.pending_conflict import PendingConflict # Not needed directly
