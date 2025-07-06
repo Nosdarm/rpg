@@ -195,6 +195,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         from src.core.crud.crud_player import player_crud
         from src.core.database import get_db_session, transactional # transactional might be used if update_entity is not
         from src.core.crud_base_definitions import update_entity # Using generic update
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         allowed_fields = {
             "name": str,
@@ -237,26 +238,29 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                     parsed_value = int(new_value)
             # Add more type conversions as needed (e.g., for enums like PlayerStatus)
             else:
-                internal_error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "player_update:error_type_conversion_not_implemented", lang_code,
-                    "Internal error: Type conversion for field '{field_name}' not implemented."
-                )
+                async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                    internal_error_msg = await get_localized_message_template(
+                        temp_session_for_error_msg, interaction.guild_id, "player_update:error_type_conversion_not_implemented", lang_code,
+                        "Internal error: Type conversion for field '{field_name}' not implemented."
+                    )
                 await interaction.followup.send(internal_error_msg.format(field_name=field_to_update), ephemeral=True)
                 return
 
         except ValueError:
-            invalid_value_msg = await get_localized_message_template(
-                session, interaction.guild_id, "player_update:error_invalid_value_for_type", lang_code,
-                "Invalid value '{value}' for field '{field_name}'. Expected type: {expected_type}."
-            )
+            async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                invalid_value_msg = await get_localized_message_template(
+                    temp_session_for_error_msg, interaction.guild_id, "player_update:error_invalid_value_for_type", lang_code,
+                    "Invalid value '{value}' for field '{field_name}'. Expected type: {expected_type}."
+                )
             expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None'
             await interaction.followup.send(invalid_value_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str), ephemeral=True)
             return
         except json.JSONDecodeError:
-            invalid_json_msg = await get_localized_message_template(
-                session, interaction.guild_id, "player_update:error_invalid_json", lang_code,
-                "Invalid JSON string '{value}' for field '{field_name}'."
-            )
+            async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                invalid_json_msg = await get_localized_message_template(
+                    temp_session_for_error_msg, interaction.guild_id, "player_update:error_invalid_json", lang_code,
+                    "Invalid JSON string '{value}' for field '{field_name}'."
+                )
             await interaction.followup.send(invalid_json_msg.format(value=new_value, field_name=field_to_update), ephemeral=True)
             return
 
