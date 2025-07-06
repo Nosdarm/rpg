@@ -764,7 +764,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
 
 if __name__ == "__main__":
-    unittest.main() # Changed from pytest execution
+    unittest.main()
 
 
 class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
