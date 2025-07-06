@@ -1,5 +1,7 @@
-import json
 import logging
+import json # Added for player_view and other JSON parsing
+from typing import Dict, Any, Optional # Added for type hinting
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -30,7 +32,7 @@ class MasterAdminCog(commands.Cog):
         if interaction.guild_id is None: # Дополнительная проверка, хотя guild_only=True уже есть
             await interaction.response.send_message("This command must be used in a guild.", ephemeral=True)
             return
-
+        
         await interaction.response.send_message(f"Pong! Master Admin Cog is active in guild {interaction.guild_id}.", ephemeral=True)
 
     # --- Player CRUD ---
@@ -81,7 +83,7 @@ class MasterAdminCog(commands.Cog):
             embed.add_field(name=await get_label("party_id", "Current Party ID"), value=str(player.current_party_id) if player.current_party_id else "N/A", inline=True)
             embed.add_field(name=await get_label("status", "Status"), value=player.current_status.value if player.current_status else "N/A", inline=True)
             embed.add_field(name=await get_label("language", "Language"), value=player.language or "N/A", inline=True)
-
+            
             attributes_label = await get_label("attributes_json", "Attributes JSON")
             attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:no_attributes", lang_code, "No attributes")
             if player.attributes_json:
@@ -89,9 +91,9 @@ class MasterAdminCog(commands.Cog):
                     attributes_str = json.dumps(player.attributes_json, indent=2, ensure_ascii=False)
                 except TypeError:
                     attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:error_attributes_serialization", lang_code, "Error displaying attributes (non-serializable).")
-
+            
             embed.add_field(name=attributes_label, value=f"```json\n{attributes_str[:1000]}\n```" + ("..." if len(attributes_str) > 1000 else ""), inline=False)
-
+            
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @player_group.command(name="list", description="List players in this guild.")
@@ -113,7 +115,7 @@ class MasterAdminCog(commands.Cog):
         async with get_db_session() as session:
             offset = (page - 1) * limit
             players = await player_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
-
+            
             total_players_stmt = select(func.count(player_crud.model.id)).where(player_crud.model.guild_id == interaction.guild_id)
             total_players_result = await session.execute(total_players_stmt)
             total_players = total_players_result.scalar_one_or_none() or 0
@@ -126,10 +128,10 @@ class MasterAdminCog(commands.Cog):
             embed.set_footer(text=f"Displaying {len(players)} of {total_players} total players.")
 
             for p in players:
-                embed.add_field(name=f"ID: {p.id} | {p.name}",
-                                value=f"Discord: <@{p.discord_id}>\nLevel: {p.level}, Status: {p.current_status.value}",
+                embed.add_field(name=f"ID: {p.id} | {p.name}", 
+                                value=f"Discord: <@{p.discord_id}>\nLevel: {p.level}, Status: {p.current_status.value}", 
                                 inline=False)
-
+            
             if len(embed.fields) == 0 : # Should be caught by "not players" but as a safeguard
                  await interaction.followup.send(f"No players found to display on page {page}.", ephemeral=True)
                  return
@@ -202,7 +204,7 @@ class MasterAdminCog(commands.Cog):
             if not player:
                 await interaction.followup.send(f"Player with ID {player_id} not found in this guild.", ephemeral=True)
                 return
-
+            
             # Use the generic update_entity function
             try:
                 # update_entity is already @transactional or expects session to handle commit
@@ -248,10 +250,10 @@ class MasterAdminCog(commands.Cog):
                 value_str = json.dumps(rule_value, indent=2, ensure_ascii=False)
             except TypeError:
                 value_str = "Error displaying value (non-serializable)."
-
+            
             embed.add_field(name="Key", value=key, inline=False)
             embed.add_field(name="Value", value=f"```json\n{value_str[:1000]}\n```" + ("..." if len(value_str) > 1000 else ""), inline=False)
-
+            
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @ruleconfig_group.command(name="set", description="Set or update a RuleConfig value.")
@@ -283,7 +285,7 @@ class MasterAdminCog(commands.Cog):
                 logger.error(f"Error calling update_rule_config for key {key}: {e}", exc_info=True)
                 await interaction.followup.send(f"An error occurred while setting rule '{key}': {e}", ephemeral=True)
                 return
-
+        
         await interaction.followup.send(f"RuleConfig '{key}' has been set/updated successfully.", ephemeral=True)
 
     @ruleconfig_group.command(name="list", description="List all RuleConfig entries for this guild.")
@@ -310,7 +312,7 @@ class MasterAdminCog(commands.Cog):
 
         rules_list = sorted(all_rules.items()) # Sort by key for consistent paging
         total_rules = len(rules_list)
-
+        
         start_index = (page - 1) * limit
         end_index = start_index + limit
         paginated_rules = rules_list[start_index:end_index]
@@ -330,7 +332,7 @@ class MasterAdminCog(commands.Cog):
             except TypeError:
                 value_str = "Error: Non-serializable value."
             embed.add_field(name=key, value=f"```json\n{value_str}\n```", inline=False)
-
+        
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     # --- PendingConflict Management ---
@@ -344,9 +346,9 @@ class MasterAdminCog(commands.Cog):
         notes="Optional notes about the resolution."
     )
     @is_administrator()
-    async def conflict_resolve(self, interaction: discord.Interaction,
-                               pending_conflict_id: int,
-                               outcome_status: str,
+    async def conflict_resolve(self, interaction: discord.Interaction, 
+                               pending_conflict_id: int, 
+                               outcome_status: str, 
                                # resolved_action_json: Optional[str] = None, # TODO
                                notes: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
@@ -379,7 +381,7 @@ class MasterAdminCog(commands.Cog):
                         allowed_values = ", ".join([s.name for s in valid_resolution_statuses])
                         await interaction.followup.send(f"Invalid outcome_status '{outcome_status}'. Allowed values for master resolution: {allowed_values}", ephemeral=True)
                         return
-
+            
             if not resolved_status_enum:
                 allowed_values = ", ".join([s.name for s in valid_resolution_statuses])
                 await interaction.followup.send(f"Outcome status '{outcome_status}' not recognized or not a valid master resolution. Allowed: {allowed_values}", ephemeral=True)
@@ -428,10 +430,10 @@ class MasterAdminCog(commands.Cog):
 
                     updated_conflict = await update_entity(session, entity=conflict, data=update_data)
                     # update_entity should have added to session and flushed. session.begin() will commit.
-
+                    
                     # Placeholder for actual signaling:
                     logger.info(f"Conflict {updated_conflict.id} resolved by Master. Current status: {updated_conflict.status.value}. Notes: '{updated_conflict.resolution_notes}'. Action Processor signaling mechanism TBD.")
-
+                
                 # If we reach here, the transaction was successful
                 await interaction.followup.send(f"Conflict ID {pending_conflict_id} has been resolved with status '{resolved_status_enum.name}'. Notes: {notes or 'N/A'}", ephemeral=True)
 
@@ -441,7 +443,7 @@ class MasterAdminCog(commands.Cog):
                 await interaction.followup.send(f"An error occurred while resolving conflict {pending_conflict_id}: {e}", ephemeral=True)
                 # No explicit rollback call needed here due to session.begin()
                 return
-
+    
     @conflict_group.command(name="view", description="View details of a specific pending conflict.")
     @app_commands.describe(pending_conflict_id="The ID of the pending conflict to view.")
     @is_administrator()
@@ -475,7 +477,7 @@ class MasterAdminCog(commands.Cog):
                     involved_str = json.dumps(conflict.involved_entities_json, indent=2, ensure_ascii=False)
                 except TypeError: involved_str = "Error: Non-serializable data"
             embed.add_field(name="Involved Entities", value=f"```json\n{involved_str[:1000]}\n```" + ("..." if len(involved_str) > 1000 else ""), inline=False)
-
+            
             actions_str = "Not available"
             if conflict.conflicting_actions_json:
                 try:
@@ -485,7 +487,7 @@ class MasterAdminCog(commands.Cog):
 
             if conflict.resolution_notes:
                 embed.add_field(name="Resolution Notes", value=conflict.resolution_notes[:1020] + ("..." if len(conflict.resolution_notes) > 1020 else ""), inline=False)
-
+            
             if conflict.resolved_action_json:
                 resolved_action_str = "Not available"
                 try:
