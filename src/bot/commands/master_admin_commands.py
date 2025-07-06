@@ -119,6 +119,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         from src.core.crud.crud_player import player_crud # Local import
         from src.core.database import get_db_session # Local import
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
         from sqlalchemy import func, select # For count
 
         async with get_db_session() as session:
@@ -329,6 +330,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         from src.core.rules import get_rule # Local import
         from src.core.database import get_db_session # Local import
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         async with get_db_session() as session:
             # get_rule returns the value directly, or None if not found (using default=None)
@@ -377,20 +379,14 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         from src.core.rules import update_rule_config # Local import
         from src.core.database import get_db_session # Local import for the context, though update_rule_config is @transactional
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         lang_code = str(interaction.locale)
         try:
             new_value = json.loads(value_json)
         except json.JSONDecodeError:
-            invalid_json_msg = await get_localized_message_template(
-                session, interaction.guild_id, "ruleconfig_set:error_invalid_json", lang_code, # Assuming session is available from defer or a wrapper
-                "Invalid JSON string provided for value: {json_string}"
-            )
-            # Need to get session for get_localized_message_template if not available.
-            # For now, let's assume we will wrap this part or pass session if needed.
-            # However, the plan is to use the session from `async with get_db_session()`.
-            # So, localization calls should be within that block.
-            # Let's move localization into the session block.
+            # The erroneous call that used an undefined 'session' has been removed.
+            # The correct call is within the temp_session_for_error_msg block below.
             async with get_db_session() as temp_session_for_error_msg: # Temporary session just for this error message if JSON parsing fails early
                  invalid_json_msg = await get_localized_message_template(
                     temp_session_for_error_msg, interaction.guild_id, "ruleconfig_set:error_invalid_json", lang_code,
@@ -432,19 +428,17 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         from src.core.rules import get_all_rules_for_guild # Local import
         from src.core.database import get_db_session # Local import
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             all_rules_dict = await get_all_rules_for_guild(session, guild_id=interaction.guild_id)
 
         if not all_rules_dict:
-            no_rules_msg = await get_localized_message_template(
-                session, interaction.guild_id, "ruleconfig_list:no_rules_found", lang_code, # Needs session, so call inside or pass one
-                "No RuleConfig entries found for this guild."
-            )
-            # Similar to ruleconfig_set, if we want to localize this early error, we need a session.
-            # For consistency, moving all localization calls that need session into the main session block.
+            # The erroneous call that used an undefined 'session' has been removed.
+            # The correct call is within the temp_session_for_error_msg block below.
             async with get_db_session() as temp_session_for_error_msg:
+                lang_code = str(interaction.locale) # ensure lang_code is in this scope
                 no_rules_msg = await get_localized_message_template(
                     temp_session_for_error_msg, interaction.guild_id, "ruleconfig_list:no_rules_found", lang_code,
                     "No RuleConfig entries found for this guild."
@@ -509,7 +503,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         from src.core.rules import rule_config_crud # Using CRUD directly for delete
         from src.core.database import get_db_session
-        # from src.core.localization_utils import get_localized_message_template # Already imported or use self.
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
@@ -723,7 +717,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         from src.core.database import get_db_session
         # from src.models.pending_conflict import PendingConflict # Not needed directly
         from src.core.crud.crud_pending_conflict import pending_conflict_crud # Use the specific CRUD
-        # from src.core.localization_utils import get_localized_message_template # Already available in cog or via self
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
@@ -798,7 +792,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         from src.core.database import get_db_session
         from src.core.crud.crud_pending_conflict import pending_conflict_crud
         from src.models.enums import ConflictStatus
-        # from src.core.localization_utils import get_localized_message_template
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
 
         if page < 1: page = 1
         if limit < 1: limit = 1
