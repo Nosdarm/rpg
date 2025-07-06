@@ -270,7 +270,8 @@ async def test_get_npc_ai_rules_merges_defaults_and_specific_relationship_rules(
     assert rel_behavior["target_score_modifier_formula"] == default_rel_influence_rules_in_code["target_score_modifier_formula"]
     assert rel_behavior["action_choice"]["hostile_negative_threshold"] == default_rel_influence_rules_in_code["action_choice"]["hostile_negative_threshold"]
     assert rel_behavior["action_choice"]["actions_if_hostile"] == default_rel_influence_rules_in_code["action_choice"]["actions_if_hostile"]
-    assert "parsed_hidden_relationship_combat_effects" not in compiled_rules # No hidden rels passed
+    # Check that parsed_hidden_relationship_combat_effects is an empty list when no hidden relationships are passed
+    assert compiled_rules.get("parsed_hidden_relationship_combat_effects") == []
 
 
 @pytest.mark.asyncio

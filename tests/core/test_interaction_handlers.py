@@ -9,6 +9,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.models.check_results import CheckOutcome # Removed CheckOutcomeStatus
 
 from src.core.interaction_handlers import handle_intra_location_action
 from src.models import Player, Location, LocationType # Added LocationType
@@ -186,7 +187,7 @@ async def test_interact_object_with_check_success(
     }
     mock_get_rule.return_value = mock_rule
     mock_successful_check_result = MagicMock()
-    mock_successful_check_result.outcome = CheckOutcome(status="success", description="Test Success") # Corrected
+    mock_successful_check_result.outcome = CheckOutcome(status="success", description="Test Success") # Reverted
     mock_successful_check_result.model_dump.return_value = {"outcome": {"status":"success", "description":"Test Success"}, "roll_value": 18, "dc": 15}
     mock_resolve_check.return_value = mock_successful_check_result
     action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
@@ -231,7 +232,7 @@ async def test_interact_object_with_check_failure(
     }
     mock_get_rule.return_value = mock_rule
     mock_failed_check_result = MagicMock()
-    mock_failed_check_result.outcome = CheckOutcome(status="failure", description="Test Failure") # Corrected
+    mock_failed_check_result.outcome = CheckOutcome(status="failure", description="Test Failure") # Reverted
     mock_failed_check_result.model_dump.return_value = {"outcome": {"status":"failure", "description":"Test Failure"}, "roll_value": 5, "dc": 18}
     mock_resolve_check.return_value = mock_failed_check_result
     action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
