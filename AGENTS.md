@@ -41,7 +41,7 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет заполняться планом для следующей задачи)*
+*(Этот раздел очищен после завершения Task 39)*
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -188,6 +188,32 @@
     - Файл `tests/core/test_trade_system.py` уже содержал релевантные тесты.
 - **Статус**: Реализация Task 44 завершена. Модуль `trade_system` функционален и покрыт тестами.
 
+## Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n)
+- **Определение задачи**: GeneratedQuest, Questline, QuestStep models. MUST INCLUDE guild_id. Link to player OR party in this guild. Step structure with required_mechanics_json, abstract_goal_json, consequences_json. _i18n text fields.
+- **План**:
+    1.  Анализ требований Task 39.
+    2.  Проверка существующих моделей квестов в `src/models/quest.py`.
+    3.  Реализация или доработка моделей `Questline`, `GeneratedQuest`, `QuestStep`, `PlayerQuestProgress` в `src/models/quest.py`: добавление недостающих полей (включая `party_id` и временные метки `accepted_at`/`completed_at` для `PlayerQuestProgress`), наследование `TimestampMixin`, унификация имен полей `_i18n`.
+    4.  Создание миграции Alembic для отражения изменений в БД.
+    5.  Создание/проверка CRUD-операций в `src/core/crud/crud_quest.py` (добавление методов для `party_id` в `CRUDPlayerQuestProgress`) и их экспорт в `src/core/crud/__init__.py`.
+    6.  Написание Unit-тестов для моделей (`tests/models/test_quest.py`) и CRUD-операций (`tests/core/crud/test_crud_quest.py`).
+    7.  Обновление `AGENTS.md`.
+- **Реализация**:
+    - **Шаг 1-2**: Проведен анализ требований. Выявлено, что модели `Questline`, `GeneratedQuest`, `QuestStep`, `PlayerQuestProgress` уже существуют в `src/models/quest.py`, но требуют доработок.
+    - **Шаг 3**: Модели в `src/models/quest.py` доработаны:
+        - Все модели (`Questline`, `GeneratedQuest`, `QuestStep`, `PlayerQuestProgress`) теперь наследуют `TimestampMixin` (для `created_at`, `updated_at`).
+        - В `Questline` добавлены поля: `title_i18n` (переименовано из `name_i18n`), `starting_quest_static_id`, `is_main_storyline`, `required_previous_questline_static_id`, `properties_json`.
+        - В `GeneratedQuest` добавлены поля: `is_repeatable`, `properties_json`.
+        - В `QuestStep` добавлены поля: `next_step_order`, `properties_json`.
+        - В `PlayerQuestProgress` добавлены поля: `party_id` (и связь `party`), `accepted_at`, `completed_at`. Поле `player_id` сделано `nullable`. Добавлены `UniqueConstraint` для (`guild_id`, `party_id`, `quest_id`) и `CheckConstraint` (`player_id IS NOT NULL OR party_id IS NOT NULL`).
+        - Связь `Player.quest_progress` проверена, уже существовала.
+    - **Шаг 4**: Создан файл миграции Alembic `alembic/versions/20240710100000_add_quest_system_models_and_updates.py`. Миграция включает добавление новых столбцов, изменение существующих (например, `name_i18n` -> `title_i18n` в `questlines`, `player_id` nullable в `player_quest_progress`), создание необходимых ограничений и индексов. Пользователю даны инструкции по замене `down_revision` и проверке имен constraint'ов.
+    - **Шаг 5**: Файл `src/core/crud/crud_quest.py` доработан: в `CRUDPlayerQuestProgress` добавлены методы `get_by_party_and_quest` и `get_all_for_party`. Проверено, что все CRUD квестов корректно экспортируются из `src/core/crud/__init__.py`; обновлено информационное сообщение логгера.
+    - **Шаг 6**: Созданы Unit-тесты:
+        - `tests/models/test_quest.py`: тесты для проверки создания экземпляров моделей, корректности полей (включая i18n, JSON, timestamp), и базовой работы relationships.
+        - `tests/core/crud/test_crud_quest.py`: тесты для кастомных методов CRUD-операций с использованием моков `AsyncSession`.
+    - **Шаг 7**: `AGENTS.md` обновлен (этот лог, очищен "Текущий план").
+- **Статус**: Задача 39 выполнена. Модели данных для системы квестов определены и реализованы, создана миграция БД, CRUD-операции обновлены, написаны базовые unit-тесты.
 
 ## Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n) - Экономика: Модели Item и InventoryItem
 - **Определение задачи**: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
