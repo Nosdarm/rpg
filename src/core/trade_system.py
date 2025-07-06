@@ -461,7 +461,7 @@ async def handle_trade_action(
             "player_gold_before": player.gold + int(round(total_cost)), # Approximate, as it was just subtracted
             "player_gold_after": player.gold
         }
-        await log_event(
+        logged_event = await log_event(
             session,
             guild_id=guild_id,
             event_type=EventType.TRADE_ITEM_BOUGHT.value, # Assuming EventType.TRADE_ITEM_BOUGHT exists
@@ -600,7 +600,7 @@ async def handle_trade_action(
             "player_gold_before": player.gold - int(round(total_revenue)), # Approximate
             "player_gold_after": player.gold
         }
-        await log_event(
+        logged_event = await log_event(
             session,
             guild_id=guild_id,
             event_type=EventType.TRADE_ITEM_SOLD.value, # Assuming EventType.TRADE_ITEM_SOLD exists
