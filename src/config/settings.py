@@ -180,6 +180,7 @@ BOT_COGS = [
     # "src.bot.commands.map_commands", # Added Map Master commands - Disabled to prevent conflict with master_map_commands
     "src.bot.commands.master_map_commands", # Cog for Master Map Management
     "src.bot.commands.character_commands", # Cog for character-related commands like /levelup
+    "src.bot.commands.master_admin_commands", # Cog for Master Admin general commands
 ]
 
 # Master User IDs - comma-separated string in .env, parsed into a list here

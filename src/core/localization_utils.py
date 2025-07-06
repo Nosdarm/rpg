@@ -88,6 +88,75 @@ def get_localized_text(
     #             return lang_text
     return ""
 
+async def get_localized_message_template(
+    session: AsyncSession,
+    guild_id: int,
+    message_key: str,
+    language_code: str,
+    default_template: str,
+    rule_prefix: str = "master_cmd_feedback:" # Можно сделать настраиваемым, если нужно
+) -> str:
+    """
+    Retrieves a localized message template from RuleConfig.
+
+    Args:
+        session: The database session.
+        guild_id: The ID of the guild.
+        message_key: The specific key for the message (e.g., "player_view:title").
+        language_code: The preferred language code (e.g., "ru", "en-US").
+        default_template: The default template string to return if not found.
+        rule_prefix: The prefix for RuleConfig keys for these messages.
+
+    Returns:
+        The localized message template string.
+    """
+    from .rules import get_rule # Local import to avoid circular dependency at module load time
+
+    full_rule_key = f"{rule_prefix}{message_key}"
+
+    # get_rule returns the value_json, which should be a dict of lang_code: template_string
+    # e.g., {"en": "Player not found: {player_id}", "ru": "Игрок не найден: {player_id}"}
+    i18n_templates: Optional[Dict[str, str]] = await get_rule(session, guild_id, full_rule_key, default=None)
+
+    if i18n_templates is None or not isinstance(i18n_templates, dict):
+        logger.debug(f"No RuleConfig found for '{full_rule_key}' or not a dict for guild {guild_id}. Using default template.")
+        return default_template
+
+    # Use existing get_localized_text to extract the specific language string from the dict
+    # Assuming primary language of bot/system is 'en' as fallback if specific lang_code not in dict
+    # This could be made more sophisticated (e.g. guild's primary language from GuildConfig)
+    primary_fallback_lang = "en" # Or fetch from GuildConfig if available
+
+    # Try exact language_code (e.g., "en-US", "ru")
+    template = i18n_templates.get(language_code)
+    if template:
+        return template
+
+    # Try base language_code (e.g., "en" from "en-US")
+    base_language_code = language_code.split('-')[0]
+    if base_language_code != language_code:
+        template = i18n_templates.get(base_language_code)
+        if template:
+            logger.debug(f"Using base language '{base_language_code}' for rule '{full_rule_key}' as '{language_code}' was not found.")
+            return template
+
+    # Try primary fallback language
+    template = i18n_templates.get(primary_fallback_lang)
+    if template:
+        logger.debug(f"Using primary fallback language '{primary_fallback_lang}' for rule '{full_rule_key}'.")
+        return template
+
+    # If still not found, try to return any available language from the rule
+    # This part is similar to the old get_localized_text internal fallback
+    if i18n_templates:
+        for lang_code_available, lang_text_available in i18n_templates.items():
+            if lang_text_available: # Ensure there's actually text
+                logger.debug(f"Using first available language '{lang_code_available}' from rule '{full_rule_key}' as a last resort.")
+                return lang_text_available
+
+    logger.warning(f"RuleConfig '{full_rule_key}' found for guild {guild_id}, but no suitable language template found for '{language_code}' or fallbacks. Using default template.")
+    return default_template
+
 
 async def get_batch_localized_entity_names(
     session: AsyncSession,
