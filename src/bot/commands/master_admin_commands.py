@@ -583,6 +583,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         # from src.models.pending_conflict import PendingConflict # Not needed directly
         from src.models.enums import ConflictStatus
         from src.core.crud.crud_pending_conflict import pending_conflict_crud # Use specific CRUD
+        from src.core.localization_utils import get_localized_message_template # IMPORT ADDED
         # from src.core.crud_base_definitions import update_entity # Will use pending_conflict_crud.update
         from typing import Dict, Any, Optional
 
@@ -605,27 +606,30 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                         break
                     else: # Matched a ConflictStatus name/value, but not one of the allowed master resolution types
                         allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
-                        invalid_outcome_msg = await get_localized_message_template(
-                            session, interaction.guild_id, "conflict_resolve:error_invalid_outcome_for_master", lang_code,
-                            "Invalid outcome_status '{provided_status}'. Allowed values for master resolution: {allowed_list}"
-                        )
+                        async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                            invalid_outcome_msg = await get_localized_message_template(
+                                temp_session_for_error_msg, interaction.guild_id, "conflict_resolve:error_invalid_outcome_for_master", lang_code,
+                                "Invalid outcome_status '{provided_status}'. Allowed values for master resolution: {allowed_list}"
+                            )
                         await interaction.followup.send(invalid_outcome_msg.format(provided_status=outcome_status, allowed_list=allowed_values_str), ephemeral=True)
                         return
 
             if not resolved_status_enum: # Did not match any ConflictStatus name/value
                 allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
-                unrecognized_outcome_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "conflict_resolve:error_unrecognized_outcome", lang_code,
-                    "Outcome status '{provided_status}' not recognized or not a valid master resolution. Allowed: {allowed_list}"
-                )
+                async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                    unrecognized_outcome_msg = await get_localized_message_template(
+                        temp_session_for_error_msg, interaction.guild_id, "conflict_resolve:error_unrecognized_outcome", lang_code,
+                        "Outcome status '{provided_status}' not recognized or not a valid master resolution. Allowed: {allowed_list}"
+                    )
                 await interaction.followup.send(unrecognized_outcome_msg.format(provided_status=outcome_status, allowed_list=allowed_values_str), ephemeral=True)
                 return
 
         except ValueError: # Should not happen with current logic, but as a safeguard
-            internal_error_msg = await get_localized_message_template(
-                session, interaction.guild_id, "conflict_resolve:error_internal_status_check", lang_code,
-                "Internal error processing outcome_status: '{provided_status}'."
-            )
+            async with get_db_session() as temp_session_for_error_msg: # Temporary session for error message
+                internal_error_msg = await get_localized_message_template(
+                    temp_session_for_error_msg, interaction.guild_id, "conflict_resolve:error_internal_status_check", lang_code,
+                    "Internal error processing outcome_status: '{provided_status}'."
+                )
             await interaction.followup.send(internal_error_msg.format(provided_status=outcome_status), ephemeral=True)
             return
 
