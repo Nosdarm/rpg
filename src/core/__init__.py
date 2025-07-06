@@ -48,7 +48,7 @@ from .report_formatter import format_turn_report
 from . import ability_system # Import the new ability_system module
 from .ability_system import activate_ability, apply_status, remove_status # Import public functions
 from . import world_generation # Added new module
-from .world_generation import generate_location, generate_factions_and_relationships, generate_quests_for_guild # Updated function name & added new
+from .world_generation import generate_location, generate_factions_and_relationships, generate_quests_for_guild, generate_economic_entities # Updated function name & added new
 from . import map_management # Import the map_management module
 from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
 from . import combat_engine # Import the new combat_engine module
@@ -120,6 +120,7 @@ __all__ = [
     "generate_location",
     "generate_factions_and_relationships", # Added
     "generate_quests_for_guild", # Task 40
+    "generate_economic_entities", # Added for Task 43
     "map_management", # Added
     "add_location_master", # Added
     "remove_location_master", # Added

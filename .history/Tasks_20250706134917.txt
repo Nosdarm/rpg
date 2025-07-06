@@ -110,6 +110,13 @@ This block presents tasks related to economy, items, and trade mechanics.
 
 {Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n). - Moved to Done.txt}
 
+<<<<<<< HEAD
+Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild).
+Description: AI generates items and NPC traders for a guild according to rules.
+Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules 13/41 FOR THIS GUILD, including traders (with roles, inventory), base prices (calculated by rules 13/41), i18n texts. Entities get guild_id.
+
+=======
+>>>>>>> 913fd77c3678901ab93dd478ebde6a8b2c18dc65
 {Task 44: 💰 10.3 Trade System (Guild-Scoped). - Moved to Done.txt}
 
 Task Block: Phase 14: Global Entities and Dynamic World

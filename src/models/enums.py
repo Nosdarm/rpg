@@ -100,6 +100,7 @@ class EventType(enum.Enum):
     MASTER_ACTION_LOCATIONS_CONNECTED = "master_action_locations_connected" # Master connected
     MASTER_ACTION_LOCATIONS_DISCONNECTED = "master_action_locations_disconnected" # Master disconnected
     WORLD_EVENT_FACTIONS_GENERATED = "world_event_factions_generated" # AI generated factions and relationships
+    WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED = "world_event_economic_entities_generated" # Added for Task 43
 
 
     # TODO: Add more event types as needed for other modules
