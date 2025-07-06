@@ -4,12 +4,14 @@ from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .enums import PlayerStatus # Import the PlayerStatus enum
+from .enums import PlayerStatus, OwnerEntityType # Import the PlayerStatus enum
+from .inventory_item import InventoryItem # For inventory relationship, ensure it's fully imported
 
 if TYPE_CHECKING:
     from .location import Location
     from .party import Party
     from .quest import PlayerQuestProgress # Added for quest_progress relationship
+    # InventoryItem is now fully imported
 
 class Player(Base):
     __tablename__ = "players"
@@ -49,6 +51,12 @@ class Player(Base):
     # It's fine for SQLAlchemy as it resolves strings at runtime.
     party: Mapped[Optional["Party"]] = relationship(foreign_keys=[current_party_id], back_populates="players", lazy="selectin") # Assuming Party.players backref
     quest_progress: Mapped[List["PlayerQuestProgress"]] = relationship(back_populates="player", cascade="all, delete-orphan")
+    inventory_items: Mapped[List["InventoryItem"]] = relationship(
+        primaryjoin=f"and_(Player.id==InventoryItem.owner_entity_id, InventoryItem.owner_entity_type=='{OwnerEntityType.PLAYER.value}')",
+        foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type],
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
 
     __table_args__ = (
         UniqueConstraint("guild_id", "discord_id", name="uq_player_guild_discord"),

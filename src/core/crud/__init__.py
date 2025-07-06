@@ -6,6 +6,7 @@ from .crud_party import party_crud
 from .crud_pending_generation import pending_generation_crud
 from .crud_npc import npc_crud
 from .crud_item import item_crud
+from .crud_inventory_item import inventory_item_crud # Added inventory_item_crud
 from .crud_ability import ability_crud
 from .crud_status_effect import status_effect_crud, active_status_effect_crud
 from .crud_guild import guild_crud # Added guild_crud
@@ -21,7 +22,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.info(
     "CRUD subpackage initialized. Loaded: location_crud, player_crud, party_crud, guild_crud, "
-    "pending_generation_crud, npc_crud, item_crud, ability_crud, "
+    "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
     "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction."
 )
 
@@ -32,6 +33,7 @@ __all__ = [
     "pending_generation_crud",
     "npc_crud",
     "item_crud",
+    "inventory_item_crud", # Added inventory_item_crud
     "ability_crud",
     "status_effect_crud",
     "active_status_effect_crud",

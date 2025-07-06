@@ -184,4 +184,16 @@ Description: Implemented the core logic for tracking and completing quests in `s
   - Defined and documented `RuleConfig` structures for quest mechanic matching, abstract goal evaluation, and consequence value determination in `AGENTS.md`.
   - Created `tests/core/test_quest_system.py` with unit tests for `handle_player_event_for_quest` and its helper functions, covering key scenarios with mocks.
 Result: A functional quest tracking and completion system is in place, capable of advancing quests based on game events and applying defined consequences. Further enhancements include full LLM/rule-based goal evaluation and implementation of pending consequence handlers (items, world state).
+
+## Phase 10: Economy, Items, and Trade
+- Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n).
+Description: Доработаны модели `Item` и `InventoryItem` для хранения информации о предметах и их нахождении в инвентаре сущностей.
+  - В `src/models/item.py` (модель `Item`): добавлены поля `slot_type` (Text, для типа слота экипировки) и `is_stackable` (Boolean, стакается ли предмет).
+  - В `src/models/inventory_item.py` (модель `InventoryItem`): добавлено поле `equipped_status` (Text, для отслеживания экипировки).
+  - В `src/models/player.py` (модель `Player`) и `src/models/generated_npc.py` (модель `GeneratedNpc`): добавлены `relationships` `inventory_items` для удобного доступа к инвентарю.
+  - Создана и заполнена миграция Alembic (`768728ada8e2_add_fields_to_items_and_inventory_items.py`) для обновления схемы БД.
+  - Проверен `CRUDItem` (`src/core/crud/crud_item.py`), признан достаточным. Создан `CRUDInventoryItem` (`src/core/crud/crud_inventory_item.py`) с методами `get_inventory_for_owner`, `add_item_to_owner`, `remove_item_from_owner`. Обновлен `src/core/crud/__init__.py`.
+  - Определены и задокументированы в `AGENTS.md` структуры правил `RuleConfig` для экономической системы (базовые стоимости, модификаторы цен, шаблоны инвентаря NPC, региональная доступность).
+  - Написаны Unit-тесты для моделей `Item`, `InventoryItem` и их CRUD операций. После исправлений ошибок конфигурации SQLAlchemy `relationship` и мелких ошибок в тестах, все тесты (597) успешно пройдены.
+Result: Модели данных для предметов и инвентаря реализованы и протестированы. Определена структура правил экономики для `RuleConfig`.
 [end of Done.txt]

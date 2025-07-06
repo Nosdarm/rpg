@@ -37,6 +37,11 @@ class Item(Base):
     # For a potion: {"effect": "heal", "amount": "2d4+2", "duration_seconds": 0}
     # For armor: {"armor_class": 15, "type": "medium", "weight": 20}
 
+    slot_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
+    # e.g., "weapon", "shield", "armor", "helmet", "gloves", "boots", "ring", "amulet", "consumable"
+
+    is_stackable: Mapped[bool] = mapped_column(default=True, nullable=False)
+
     __table_args__ = (
         Index("ix_items_guild_id_static_id", "guild_id", "static_id", unique=True),
     )
