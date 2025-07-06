@@ -108,6 +108,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
                  self.session.add(RuleConfig(guild_id=gid, key=rule_lang_key, value_json=self.default_lang))
 
         await self.session.commit()
+        self.session_commit_mock.reset_mock() # Сбрасываем мок после коммита в asyncSetUp
 
         # Mock for location_crud and other cruds if needed by tests
         self.mock_location_crud = MagicMock()
@@ -474,7 +475,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=12345))
     @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
     @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
     async def test_generate_factions_and_relationships_success(
@@ -563,9 +564,10 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
     @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
-    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock) # Added this mock
+    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=67890)) # Added mock for log_event
     async def test_generate_factions_and_relationships_existing_static_id(
-        self, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order
+        self, mock_log_event, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order & added mock_log_event
     ):
         guild_id = self.test_guild_id
         existing_static_id = "existing_fac_sid"
@@ -763,3 +765,201 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
 if __name__ == "__main__":
     unittest.main() # Changed from pytest execution
+
+
+class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
+    engine: Optional[AsyncEngine] = None
+    SessionLocal: Optional[async_sessionmaker[AsyncSession]] = None
+    test_guild_id = 401
+    default_lang = "en"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        cls.SessionLocal = async_sessionmaker(
+            bind=cls.engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.engine:
+            import asyncio
+            asyncio.run(cls.engine.dispose())
+
+    async def asyncSetUp(self):
+        assert self.SessionLocal is not None
+        self.session: AsyncSession = self.SessionLocal()
+        self.session_commit_mock = AsyncMock()
+        self.session_rollback_mock = AsyncMock()
+        self.session.commit = self.session_commit_mock # type: ignore
+        self.session.rollback = self.session_rollback_mock # type: ignore
+
+        assert self.engine is not None
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        guild = await self.session.get(GuildConfig, self.test_guild_id)
+        if not guild:
+            self.session.add(GuildConfig(id=self.test_guild_id, main_language=self.default_lang, name=f"Guild {self.test_guild_id}"))
+            await self.session.commit() # Commit this setup data
+        self.session_commit_mock.reset_mock()
+
+
+    async def asyncTearDown(self):
+        if hasattr(self, 'session') and self.session:
+            await self.session.rollback()
+            await self.session.close()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_economic_entities_success(
+        self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities # SUT
+        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedInventoryItemEntry
+        from src.models import Item, GeneratedNpc
+
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "economic_entities_prompt"
+
+        # Mock AI response structure
+        ai_response_json_str = json.dumps([
+            {
+                "entity_type": "item", "static_id": "test_sword",
+                "name_i18n": {"en": "Test Sword"}, "description_i18n": {"en": "A sword for testing."},
+                "item_type": "weapon", "base_value": 50
+            },
+            {
+                "entity_type": "npc_trader", "static_id": "test_smith",
+                "name_i18n": {"en": "Test Smith"}, "description_i18n": {"en": "A smith for testing."},
+                "role_i18n": {"en": "Blacksmith"},
+                "generated_inventory_items": [
+                    {"item_static_id": "test_sword", "quantity_min": 1, "quantity_max": 1, "chance_to_appear": 1.0}
+                ]
+            }
+        ])
+        mock_ai_call.return_value = ai_response_json_str
+
+        # Mock parsed data
+        parsed_item = ParsedItemData(entity_type="item", static_id="test_sword", name_i18n={"en":"Test Sword"}, description_i18n={"en":"Desc"}, item_type="weapon", base_value=50)
+        parsed_trader = ParsedNpcTraderData(
+            entity_type="npc_trader", static_id="test_smith", name_i18n={"en":"Test Smith"}, description_i18n={"en":"Desc"}, role_i18n={"en":"Blacksmith"},
+            generated_inventory_items=[GeneratedInventoryItemEntry(item_static_id="test_sword", quantity_min=1, quantity_max=1, chance_to_appear=1.0)]
+        )
+        mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_item, parsed_trader], raw_ai_output=ai_response_json_str)
+
+        # Mock CRUD operations
+        mock_item_crud.get_by_static_id = AsyncMock(return_value=None)
+        mock_item_db = Item(id=1, guild_id=guild_id, static_id="test_sword", name_i18n={"en":"Test Sword"})
+        mock_item_crud.create = AsyncMock(return_value=mock_item_db)
+
+        mock_npc_crud.get_by_static_id = AsyncMock(return_value=None)
+        mock_npc_db = GeneratedNpc(id=10, guild_id=guild_id, static_id="test_smith", name_i18n={"en":"Test Smith"})
+        mock_npc_crud.create = AsyncMock(return_value=mock_npc_db)
+
+        mock_inv_item_crud.add_item_to_owner = AsyncMock()
+
+        items, traders, error = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(items)
+        self.assertIsNotNone(traders)
+        if items: self.assertEqual(len(items), 1)
+        if traders: self.assertEqual(len(traders), 1)
+
+        mock_item_crud.create.assert_called_once()
+        mock_npc_crud.create.assert_called_once()
+        mock_inv_item_crud.add_item_to_owner.assert_called_once()
+
+        # Check inventory item call details
+        call_args = mock_inv_item_crud.add_item_to_owner.call_args.kwargs
+        self.assertEqual(call_args['guild_id'], guild_id)
+        self.assertEqual(call_args['owner_entity_id'], mock_npc_db.id)
+        self.assertEqual(call_args['item_id'], mock_item_db.id)
+        self.assertEqual(call_args['quantity'], 1) # Since min=1, max=1
+
+        mock_log_event.assert_called_once()
+        log_details = mock_log_event.call_args.kwargs['details_json']
+        self.assertEqual(log_details['generated_items_count'], 1)
+        self.assertEqual(log_details['generated_traders_count'], 1)
+
+        self.session_commit_mock.assert_called_once()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    async def test_generate_economic_entities_ai_parse_error(
+        self, mock_parse_validate, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities # SUT
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "prompt_for_parse_error"
+
+        validation_error = CustomValidationError(error_type="TestParseError", message="AI response parsing failed badly.")
+        mock_parse_validate.return_value = validation_error
+
+        items, traders, error_msg = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(items)
+        self.assertIsNone(traders)
+        self.assertIsNotNone(error_msg)
+        if error_msg: self.assertIn("AI response parsing failed badly.", error_msg)
+        self.session_rollback_mock.assert_not_called() # Error returned before DB ops
+        self.session_commit_mock.assert_not_called()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_economic_entities_handles_existing_item_and_npc(
+        self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities
+        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData
+        from src.models import Item, GeneratedNpc
+
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "prompt_existing"
+        ai_response_json_str = json.dumps([
+            {"entity_type": "item", "static_id": "existing_item", "name_i18n": {"en": "Existing Item"}, "description_i18n": {"en":"Desc"}, "item_type": "misc"},
+            {"entity_type": "npc_trader", "static_id": "existing_trader", "name_i18n": {"en": "Existing Trader"}, "description_i18n": {"en":"Desc"}, "role_i18n": {"en": "Vendor"}}
+        ])
+        mock_ai_call.return_value = ai_response_json_str
+
+        parsed_item_exist = ParsedItemData(entity_type="item", static_id="existing_item", name_i18n={"en":"Existing Item"}, description_i18n={"en":"Desc"}, item_type="misc")
+        parsed_trader_exist = ParsedNpcTraderData(entity_type="npc_trader", static_id="existing_trader", name_i18n={"en":"Existing Trader"}, description_i18n={"en":"Desc"}, role_i18n={"en":"Vendor"})
+        mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_item_exist, parsed_trader_exist], raw_ai_output=ai_response_json_str)
+
+        mock_existing_item_db = Item(id=2, guild_id=guild_id, static_id="existing_item", name_i18n={"en":"DB Item"})
+        mock_item_crud.get_by_static_id.return_value = mock_existing_item_db
+        mock_item_crud.create = AsyncMock() # Should not be called for this item
+
+        mock_existing_npc_db = GeneratedNpc(id=20, guild_id=guild_id, static_id="existing_trader", name_i18n={"en":"DB Trader"})
+        mock_npc_crud.get_by_static_id.return_value = mock_existing_npc_db
+        mock_npc_crud.create = AsyncMock() # Should not be called for this NPC
+
+        items, traders, error = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(items)
+        if items: self.assertEqual(len(items), 1); self.assertEqual(items[0].id, 2)
+        self.assertIsNotNone(traders)
+        if traders: self.assertEqual(len(traders), 1); self.assertEqual(traders[0].id, 20)
+
+        mock_item_crud.create.assert_not_called()
+        mock_npc_crud.create.assert_not_called()
+        mock_inv_item_crud.add_item_to_owner.assert_not_called() # No inventory items specified for existing trader in this test
+        self.session_commit_mock.assert_called_once()
+
+
+if __name__ == "__main__":
