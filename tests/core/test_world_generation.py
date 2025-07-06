@@ -671,8 +671,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
         self.assertIsNone(error_msg)
         self.assertIsNotNone(created_quests_list)
+        assert created_quests_list is not None # For pyright before len()
         self.assertEqual(len(created_quests_list), 1)
-        if created_quests_list: # Guard for Pyright
+        if created_quests_list: # Guard for Pyright (already true due to assert above)
             self.assertEqual(created_quests_list[0].static_id, "quest_alpha")
             self.assertEqual(created_quests_list[0].questline_id, 5) # Check linked to questline
 
@@ -754,8 +755,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
         self.assertIsNone(error_msg)
         self.assertIsNotNone(created_quests_list)
+        assert created_quests_list is not None # For pyright before len()
         self.assertEqual(len(created_quests_list), 1)
-        if created_quests_list: # Guard for Pyright
+        if created_quests_list: # Guard for Pyright (already true due to assert above)
             self.assertEqual(created_quests_list[0].id, 707) # Should be the existing DB object
 
         mock_gq_crud.create.assert_not_called() # Create should not be called

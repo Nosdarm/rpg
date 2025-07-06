@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .guild import Guild
+    from .guild import GuildConfig
     from .location import Location
     from .generated_npc import GeneratedNpc
 
@@ -15,7 +15,7 @@ class GlobalNpc(Base, TimestampMixin):
     __tablename__ = "global_npcs"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    guild_id: Mapped[int] = mapped_column(ForeignKey("guilds.id"), index=True)
+    guild_id: Mapped[int] = mapped_column(ForeignKey("guild_configs.id"), index=True)
     static_id: Mapped[str] = mapped_column(String, index=True)
     name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False)
     description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True)
@@ -23,7 +23,7 @@ class GlobalNpc(Base, TimestampMixin):
     base_npc_id: Mapped[Optional[int]] = mapped_column(ForeignKey("generated_npcs.id"), nullable=True)
     properties_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)
 
-    guild: Mapped["Guild"] = relationship(back_populates="global_npcs")
+    guild: Mapped["GuildConfig"] = relationship(back_populates="global_npcs")
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="global_npcs_in_location")
     base_npc: Mapped[Optional["GeneratedNpc"]] = relationship()
 

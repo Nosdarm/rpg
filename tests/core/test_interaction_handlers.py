@@ -316,9 +316,11 @@ async def test_interact_object_rule_not_found(
     assert isinstance(log_kwargs, dict), "log_event.call_args.kwargs should be a dict"
 
     details_json_val = log_kwargs.get("details_json")
-    assert isinstance(details_json_val, dict), "details_json should be present in log_kwargs and be a dict"
-
-    assert details_json_val.get("rule_found") is False
+    if isinstance(details_json_val, dict):
+        assert details_json_val.get("rule_found") is False
+    else:
+        # This case should ideally not be reached if log_event is called correctly
+        self.fail(f"details_json in log_kwargs was not a dict or was None. Value: {details_json_val}")
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)

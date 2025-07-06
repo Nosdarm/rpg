@@ -132,8 +132,10 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
     def test_parsed_npc_data_missing_required_fields(self):
         from src.core.ai_response_parser import ParsedNpcData
         with self.assertRaises(PydanticNativeValidationError):
+            # Missing name_i18n
             ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"})
         with self.assertRaises(PydanticNativeValidationError):
+            # Missing description_i18n
             ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"})
 
     # --- Tests for ParsedItemData (Task 43) ---
@@ -327,8 +329,8 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
         assert result.details is not None # for type checker
         # Pydantic v2: loc is a tuple, type is 'missing' for required fields
         found_static_id_missing_error = any(
-            isinstance(detail.get("loc"), tuple) and \
-            "static_id" in detail.get("loc") and \
+            isinstance(detail.get("loc", ()), tuple) and \
+            "static_id" in detail.get("loc", ()) and \
             detail.get("type") == "missing"
             for detail in result.details if isinstance(detail, dict)
         )

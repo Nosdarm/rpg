@@ -64,6 +64,7 @@ class TestCRUDItem(unittest.IsolatedAsyncioTestCase):
         retrieved_item = await item_crud.get(self.session, id=created_item.id, guild_id=self.guild_config.id)
 
         self.assertIsNotNone(retrieved_item)
+        assert retrieved_item is not None # For pyright
         self.assertEqual(retrieved_item.id, created_item.id)
         self.assertEqual(retrieved_item.name_i18n["en"], "Get Me")
 
@@ -92,6 +93,7 @@ class TestCRUDItem(unittest.IsolatedAsyncioTestCase):
         retrieved_item = await item_crud.get_by_static_id(self.session, guild_id=self.guild_config.id, static_id=static_id_val)
 
         self.assertIsNotNone(retrieved_item)
+        assert retrieved_item is not None # For pyright
         self.assertEqual(retrieved_item.static_id, static_id_val)
 
     async def test_get_multi_item(self):
@@ -134,5 +136,6 @@ class TestCRUDItem(unittest.IsolatedAsyncioTestCase):
         deleted_item = await item_crud.get(self.session, id=created_item.id, guild_id=self.guild_config.id)
         self.assertIsNone(deleted_item)
 
-if __name__ == '__main__':
-    asyncio.run(unittest.main())
+# Removed standard unittest runner, assumed pytest or similar will be used.
+# if __name__ == '__main__':
+#     asyncio.run(unittest.main())

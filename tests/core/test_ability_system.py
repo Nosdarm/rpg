@@ -14,7 +14,8 @@ from sqlalchemy.sql import func
 import datetime
 
 from src.core.ability_system import activate_ability, apply_status, remove_status
-from src.models import Player, GeneratedNpc, Ability, StatusEffect, ActiveStatusEffect, GuildConfig
+from src.models import Player, GeneratedNpc, Ability, StatusEffect, GuildConfig # Removed ActiveStatusEffect from here
+from src.models.status_effect import ActiveStatusEffect # Direct import
 from src.models.ability_outcomes import AbilityOutcomeDetails, DamageDetail, HealingDetail, AppliedStatusDetail, CasterUpdateDetail
 from src.models.enums import RelationshipEntityType, EventType, PlayerStatus
 

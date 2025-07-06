@@ -45,7 +45,7 @@ def _format_feedback(message_key: str, lang: str = "en", **kwargs) -> str:
     return message_key
 
 
-def _find_target_in_location(location_data: Dict[str, Any], target_name: str) -> Optional[Dict[str, Any]]:
+def _find_target_in_location(location_data: Optional[Dict[str, Any]], target_name: str) -> Optional[Dict[str, Any]]:
     """
     Helper to find an interactable/sublocation by name within a location's details.
     Assumes location_data might have a list under 'interactable_elements'.

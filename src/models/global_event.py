@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .guild import Guild
+    from .guild import GuildConfig
     from .location import Location
 
 
@@ -15,7 +15,7 @@ class GlobalEvent(Base, TimestampMixin):
     __tablename__ = "global_events"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    guild_id: Mapped[int] = mapped_column(ForeignKey("guilds.id"), index=True)
+    guild_id: Mapped[int] = mapped_column(ForeignKey("guild_configs.id"), index=True)
     static_id: Mapped[str] = mapped_column(String, index=True)
     name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False)
     description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False) # Was Optional, made it required as per design
@@ -26,7 +26,7 @@ class GlobalEvent(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(Text, index=True, default="pending", nullable=False)
     properties_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)
 
-    guild: Mapped["Guild"] = relationship(back_populates="global_events")
+    guild: Mapped["GuildConfig"] = relationship(back_populates="global_events")
     location: Mapped[Optional["Location"]] = relationship(back_populates="global_events_in_location")
 
     __table_args__ = (

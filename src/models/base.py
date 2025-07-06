@@ -15,3 +15,19 @@ class Base(AsyncAttrs, DeclarativeBase):
 #     __abstract__ = True
 #     created_at = Column(DateTime, default=func.now())
 #     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+from sqlalchemy import func # Already imported via commented example, but ensure it's available
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.sqltypes import TIMESTAMP # For timezone aware
+
+class TimestampMixin:
+    """
+    Mixin for adding created_at and updated_at timestamp columns to a model.
+    Uses timezone-aware timestamps.
+    """
+    created_at: Mapped[TIMESTAMP] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[TIMESTAMP] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

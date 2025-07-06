@@ -3,7 +3,7 @@ from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Enum as SQ
 # JSONB import is removed as we use custom type
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional, Dict, List, Any, Union, TYPE_CHECKING # Added TYPE_CHECKING
 
 from .base import Base
 from .custom_types import JsonBForSQLite # Import custom type
