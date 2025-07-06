@@ -16,18 +16,26 @@ class Base(AsyncAttrs, DeclarativeBase):
 #     created_at = Column(DateTime, default=func.now())
 #     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
-from sqlalchemy import func # Already imported via commented example, but ensure it's available
+from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql.sqltypes import TIMESTAMP # For timezone aware
+from sqlalchemy.sql.sqltypes import TIMESTAMP
+import datetime # Added import for datetime
 
 class TimestampMixin:
     """
     Mixin for adding created_at and updated_at timestamp columns to a model.
-    Uses timezone-aware timestamps.
+    Uses timezone-aware timestamps and provides Python-side defaults.
     """
-    created_at: Mapped[TIMESTAMP] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        server_default=func.now(),
+        nullable=False
     )
-    updated_at: Mapped[TIMESTAMP] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+        server_default=func.now(),
+        nullable=False
     )

@@ -45,7 +45,7 @@ class GuildConfig(Base):
     combat_encounters: Mapped[List["CombatEncounter"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     # New relationships for global entities
     global_npcs: Mapped[List["GlobalNpc"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
-    mobile_groups: Mapped[List["MobileGroup"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    mobile_groups: Mapped[List["MobileGroup"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
     global_events: Mapped[List["GlobalEvent"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:

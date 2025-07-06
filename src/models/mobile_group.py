@@ -9,7 +9,7 @@ from .custom_types import JsonBForSQLite # Added
 
 # Forward declaration for type hinting
 if TYPE_CHECKING:
-    # from .guild import GuildConfig # Already implicitly available via Base?
+    from .guild import GuildConfig
     # from .location import Location # Already implicitly available?
     from .global_npc import GlobalNpc
 
@@ -46,6 +46,7 @@ class MobileGroup(Base, TimestampMixin): # Inherit from TimestampMixin
     properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Added
 
     # Relationships
+    guild_config: Mapped["GuildConfig"] = relationship(back_populates="mobile_groups")
     # leader_global_npc: Mapped[Optional["GlobalNpc"]] = relationship(foreign_keys=[leader_global_npc_id])
 
 
