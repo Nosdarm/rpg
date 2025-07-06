@@ -180,7 +180,24 @@ BOT_COGS = [
     # "src.bot.commands.map_commands", # Added Map Master commands - Disabled to prevent conflict with master_map_commands
     "src.bot.commands.master_map_commands", # Cog for Master Map Management
     "src.bot.commands.character_commands", # Cog for character-related commands like /levelup
-    "src.bot.commands.master_admin_commands", # Cog for Master Admin general commands
+    # "src.bot.commands.master_admin_commands", # Cog for Master Admin general commands - Replaced by specific cogs below
+    "src.bot.commands.master_commands.player_master_commands",
+    "src.bot.commands.master_commands.ruleconfig_master_commands",
+    "src.bot.commands.master_commands.conflict_master_commands",
+    "src.bot.commands.master_commands.party_master_commands",
+    "src.bot.commands.master_commands.npc_master_commands",
+    "src.bot.commands.master_commands.location_master_commands",
+    "src.bot.commands.master_commands.item_master_commands",
+    "src.bot.commands.master_commands.faction_master_commands",
+    "src.bot.commands.master_commands.relationship_master_commands",
+    "src.bot.commands.master_commands.quest_master_commands",
+    "src.bot.commands.master_commands.combat_master_commands",
+    "src.bot.commands.master_commands.global_npc_master_commands",
+    "src.bot.commands.master_commands.mobile_group_master_commands",
+    "src.bot.commands.master_commands.inventory_master_commands",
+    "src.bot.commands.master_commands.ability_master_commands",
+    "src.bot.commands.master_commands.status_effect_master_commands",
+    "src.bot.commands.master_commands.story_log_master_commands",
 ]
 
 # Master User IDs - comma-separated string in .env, parsed into a list here
