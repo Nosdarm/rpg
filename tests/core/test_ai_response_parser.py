@@ -19,8 +19,11 @@ from src.core.ai_response_parser import (
     CustomValidationError,
     GeneratedEntity,
     ParsedAiData,
-    ParsedQuestData, # Added for quest tests
-    ParsedQuestStepData # Added for quest tests
+    ParsedQuestData,
+    ParsedQuestStepData,
+    ParsedItemData,      # Added for item tests
+    ParsedNpcTraderData, # Added for trader tests
+    GeneratedInventoryItemEntry # Added for trader inventory tests
 )
 
 VALID_FACTION_DATA_MINIMAL = {
@@ -240,6 +243,125 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.error_type, "StructuralValidationError")
         assert result.details is not None # for type checker
         self.assertTrue(any("steps" in detail.get("loc", []) and 0 in detail.get("loc", []) and "description_i18n" in detail.get("loc", []) for detail in result.details if isinstance(detail, dict)))
+
+
+    # --- Tests for ParsedItemData ---
+    def test_parsed_item_data_valid(self):
+        valid_item_data = {
+            "entity_type": "item", "static_id": "sword_001",
+            "name_i18n": {"en": "Steel Sword", "ru": "Стальной Меч"},
+            "description_i18n": {"en": "A well-crafted steel sword.", "ru": "Хорошо сделанный стальной меч."},
+            "item_type": "weapon",
+            "properties_json": {"damage": "1d8", "slot_type": "main_hand"},
+            "base_value": 100
+        }
+        item = ParsedItemData(**valid_item_data)
+        self.assertEqual(item.static_id, "sword_001")
+        self.assertEqual(item.name_i18n["ru"], "Стальной Меч")
+        self.assertEqual(item.item_type, "weapon")
+        self.assertEqual(item.base_value, 100)
+        assert item.properties_json is not None
+        self.assertEqual(item.properties_json["damage"], "1d8")
+
+    def test_parsed_item_data_invalid(self):
+        # Missing static_id
+        with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
+            ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
+        # Empty static_id
+        with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
+            ParsedItemData(entity_type="item", static_id=" ", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
+        # Invalid base_value
+        with self.assertRaisesRegex(PydanticNativeValidationError, "base_value must be a non-negative integer if provided"):
+            ParsedItemData(entity_type="item", static_id="id1", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc", base_value=-10)
+        # Invalid item_type (empty string)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "item_type must be a non-empty string"):
+            ParsedItemData(entity_type="item", static_id="id1", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type=" ")
+
+    # --- Tests for GeneratedInventoryItemEntry ---
+    def test_generated_inventory_item_entry_valid(self):
+        valid_entry = {
+            "item_static_id": "potion_heal", "quantity_min": 1, "quantity_max": 5, "chance_to_appear": 0.8
+        }
+        entry = GeneratedInventoryItemEntry(**valid_entry)
+        self.assertEqual(entry.item_static_id, "potion_heal")
+        self.assertEqual(entry.quantity_max, 5)
+        self.assertEqual(entry.chance_to_appear, 0.8)
+
+    def test_generated_inventory_item_entry_invalid(self):
+        with self.assertRaisesRegex(PydanticNativeValidationError, "item_static_id must be a non-empty string"):
+            GeneratedInventoryItemEntry(item_static_id="", quantity_min=1, quantity_max=1, chance_to_appear=1.0)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Quantity must be a positive integer"):
+            GeneratedInventoryItemEntry(item_static_id="id", quantity_min=0)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Chance to appear must be a float between 0.0 and 1.0"):
+            GeneratedInventoryItemEntry(item_static_id="id", chance_to_appear=1.5)
+
+    # --- Tests for ParsedNpcTraderData ---
+    def test_parsed_npc_trader_data_valid(self):
+        valid_trader_data = {
+            "entity_type": "npc_trader", "static_id": "trader_01",
+            "name_i18n": {"en": "Trader Bob", "ru": "Торговец Боб"},
+            "description_i18n": {"en": "Sells various goods.", "ru": "Продает разные товары."},
+            "role_i18n": {"en": "General Goods", "ru": "Товары Общего Назначения"},
+            "inventory_template_key": "general_store_default",
+            "generated_inventory_items": [
+                {"item_static_id": "rope", "quantity_min": 1, "quantity_max": 3, "chance_to_appear": 1.0}
+            ]
+        }
+        trader = ParsedNpcTraderData(**valid_trader_data)
+        self.assertEqual(trader.static_id, "trader_01")
+        assert trader.role_i18n is not None
+        self.assertEqual(trader.role_i18n["en"], "General Goods")
+        self.assertEqual(trader.inventory_template_key, "general_store_default")
+        assert trader.generated_inventory_items is not None
+        self.assertEqual(len(trader.generated_inventory_items), 1)
+        self.assertEqual(trader.generated_inventory_items[0].item_static_id, "rope")
+
+    def test_parsed_npc_trader_data_invalid(self):
+        # Missing role_i18n (if it were required, but it's optional in model if not provided by base)
+        # ParsedNpcData (base) requires name_i18n and description_i18n
+        # ParsedNpcTraderData itself doesn't make role_i18n strictly required on its own,
+        # but it's a good field to have. Let's test its validation.
+        with self.assertRaisesRegex(PydanticNativeValidationError, "must be a non-empty dictionary if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, role_i18n={}) # Empty dict
+        with self.assertRaisesRegex(PydanticNativeValidationError, "inventory_template_key must be a non-empty string if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, inventory_template_key=" ")
+        with self.assertRaisesRegex(PydanticNativeValidationError, "generated_inventory_items must be a list of item entry objects if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, generated_inventory_items="not a list")
+        # Test invalid item within generated_inventory_items
+        with self.assertRaises(PydanticNativeValidationError):
+             ParsedNpcTraderData(
+                entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"},
+                generated_inventory_items=[{"item_static_id": ""}] # Empty item_static_id
+            )
+
+    # --- Tests for parse_and_validate_ai_response including new types ---
+    async def test_parse_valid_item_and_trader_data(self):
+        ai_response_list = [
+            {
+                "entity_type": "item", "static_id": "sword_001",
+                "name_i18n": {"en": "Steel Sword"}, "description_i18n": {"en": "A sword."}, "item_type": "weapon", "base_value": 100
+            },
+            {
+                "entity_type": "npc_trader", "static_id": "trader_01",
+                "name_i18n": {"en": "Trader Bob"}, "description_i18n": {"en": "Sells goods."},
+                "role_i18n": {"en": "Merchant"}
+            }
+        ]
+        ai_response_str = json.dumps(ai_response_list)
+        result = await parse_and_validate_ai_response(ai_response_str, guild_id=1)
+        self.assertIsInstance(result, ParsedAiData)
+        assert isinstance(result, ParsedAiData)
+        self.assertEqual(len(result.generated_entities), 2)
+        self.assertIsInstance(result.generated_entities[0], ParsedItemData)
+        self.assertIsInstance(result.generated_entities[1], ParsedNpcTraderData)
+        item_res = result.generated_entities[0]
+        assert isinstance(item_res, ParsedItemData)
+        self.assertEqual(item_res.static_id, "sword_001")
+        trader_res = result.generated_entities[1]
+        assert isinstance(trader_res, ParsedNpcTraderData)
+        assert trader_res.role_i18n is not None
+        self.assertEqual(trader_res.role_i18n["en"], "Merchant")
+
 
     async def test_parse_pydantic_validation_error_in_faction(self):
         invalid_faction_data = VALID_FACTION_DATA_MINIMAL.copy()

@@ -130,22 +130,108 @@ class ParsedQuestStepData(BaseModel): # Not inheriting BaseGeneratedEntity as it
 
 class ParsedItemData(BaseGeneratedEntity):
     entity_type: str = Field("item", frozen=True)
+    static_id: str # AI should generate this, unique within the response at least
     name_i18n: Dict[str, str]
     description_i18n: Dict[str, str]
-    item_type: str # e.g., "weapon", "armor", "consumable"
+    item_type: str # e.g., "weapon", "armor", "consumable", "quest_item", "misc"
     properties_json: Optional[Dict[str, Any]] = None
-    # Add other Item specific fields
+    base_value: Optional[int] = None # Base monetary value
+
+    @field_validator('static_id', mode="before")
+    @classmethod
+    def check_item_static_id(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("static_id must be a non-empty string for ParsedItemData.")
+        return v
 
     @field_validator('name_i18n', 'description_i18n')
     @classmethod
-    def check_i18n_content(cls, v):
-        if not v:
-            raise ValueError("i18n field cannot be empty")
+    def check_i18n_content(cls, v, info: ValidationInfo): # Added ValidationInfo
+        if not isinstance(v, dict) or not v: # Check if dict and not empty
+            raise ValueError(f"{info.field_name} must be a non-empty dictionary.")
         if not all(isinstance(lang, str) and isinstance(text, str) for lang, text in v.items()):
-            raise ValueError("i18n field must be a dict of str:str")
+            raise ValueError(f"{info.field_name} must be a dict of str:str.")
+        # TODO: Add check for required languages (e.g., 'en' and guild's main lang)
         return v
 
-from pydantic import ValidationInfo # Added for Pydantic 2.x
+    @field_validator('item_type', mode="before")
+    @classmethod
+    def check_item_type(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("item_type must be a non-empty string.")
+        # TODO: Validate against a predefined list of item types if necessary
+        return v.lower()
+
+    @field_validator('base_value')
+    @classmethod
+    def check_base_value(cls, v):
+        if v is not None and (not isinstance(v, int) or v < 0):
+            raise ValueError("base_value must be a non-negative integer if provided.")
+        return v
+
+# Added for Pydantic 2.x
+from pydantic import ValidationInfo
+
+# Structure for generated inventory items if AI provides them directly for a trader
+class GeneratedInventoryItemEntry(BaseModel):
+    item_static_id: str
+    quantity_min: int = 1
+    quantity_max: int = 1
+    chance_to_appear: float = 1.0
+
+    @field_validator('item_static_id', mode="before")
+    @classmethod
+    def check_item_static_id_non_empty(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("item_static_id must be a non-empty string.")
+        return v
+
+    @field_validator('quantity_min', 'quantity_max')
+    @classmethod
+    def check_positive_quantity(cls, v):
+        if not isinstance(v, int) or v < 1:
+            raise ValueError("Quantity must be a positive integer.")
+        return v
+
+    @field_validator('chance_to_appear')
+    @classmethod
+    def check_chance(cls, v):
+        if not isinstance(v, float) or not (0.0 <= v <= 1.0):
+            raise ValueError("Chance to appear must be a float between 0.0 and 1.0.")
+        return v
+
+class ParsedNpcTraderData(ParsedNpcData): # Inherits from ParsedNpcData
+    entity_type: str = Field("npc_trader", frozen=True)
+    role_i18n: Optional[Dict[str, str]] = None # e.g. {"en": "Blacksmith", "ru": "Кузнец"}
+    inventory_template_key: Optional[str] = None # Key for RuleConfig: economy:npc_inventory_templates:<key>
+    # If AI generates specific items instead of using a template:
+    generated_inventory_items: Optional[List[GeneratedInventoryItemEntry]] = None
+
+    @field_validator('role_i18n', mode="before")
+    @classmethod
+    def check_role_i18n(cls, v, info: ValidationInfo):
+        if v is None: # Optional field
+            return v
+        if not isinstance(v, dict) or not v:
+            raise ValueError(f"{info.field_name} must be a non-empty dictionary if provided.")
+        if not all(isinstance(lang, str) and isinstance(text, str) for lang, text in v.items()):
+            raise ValueError(f"{info.field_name} must be a dict of str:str.")
+        return v
+
+    @field_validator('inventory_template_key', mode="before")
+    @classmethod
+    def check_inventory_template_key(cls, v):
+        if v is not None and (not isinstance(v, str) or not v.strip()):
+            raise ValueError("inventory_template_key must be a non-empty string if provided.")
+        return v
+
+    @field_validator('generated_inventory_items', mode="before")
+    @classmethod
+    def check_generated_inventory(cls, v):
+        if v is not None and (not isinstance(v, list) or not all(isinstance(i, dict) for i in v)):
+            raise ValueError("generated_inventory_items must be a list of item entry objects if provided.")
+        # Pydantic will validate individual GeneratedInventoryItemEntry objects
+        return v
 
 # ... (other imports remain the same)
 
@@ -257,6 +343,7 @@ class ParsedLocationData(BaseGeneratedEntity):
 # Union of all possible generated entity types for Pydantic to discriminate
 GeneratedEntity = Union[
     ParsedNpcData,
+    ParsedNpcTraderData, # Added new trader type
     ParsedQuestData,
     ParsedItemData,
     ParsedLocationData,
@@ -397,12 +484,14 @@ def _perform_semantic_validation(
                         path=[entity_idx, field_name]
                     ))
 
-            if isinstance(entity, (ParsedNpcData, ParsedItemData, ParsedFactionData)):
+            if isinstance(entity, (ParsedNpcData, ParsedItemData, ParsedFactionData, ParsedNpcTraderData)): # Added ParsedNpcTraderData
                 check_i18n_dict(entity.name_i18n, "name_i18n", i)
                 check_i18n_dict(entity.description_i18n, "description_i18n", i)
                 if isinstance(entity, ParsedFactionData):
                     check_i18n_dict(entity.ideology_i18n, "ideology_i18n", i)
-            elif isinstance(entity, ParsedLocationData): # Added for completeness from existing code
+                if isinstance(entity, ParsedNpcTraderData):
+                    check_i18n_dict(entity.role_i18n, "role_i18n", i)
+            elif isinstance(entity, ParsedLocationData):
                 check_i18n_dict(entity.name_i18n, "name_i18n", i)
                 check_i18n_dict(entity.descriptions_i18n, "descriptions_i18n", i)
             elif isinstance(entity, ParsedQuestData):
