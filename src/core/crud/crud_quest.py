@@ -64,6 +64,27 @@ class CRUDPlayerQuestProgress(CRUDBase[PlayerQuestProgress]):
         result = await db.execute(statement)
         return result.scalars().all()
 
+    async def get_by_party_and_quest(
+        self, db: AsyncSession, *, party_id: int, quest_id: int, guild_id: int
+    ) -> Optional[PlayerQuestProgress]:
+        statement = select(self.model).where(
+            self.model.party_id == party_id,
+            self.model.quest_id == quest_id,
+            self.model.guild_id == guild_id
+        )
+        result = await db.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def get_all_for_party(
+        self, db: AsyncSession, *, party_id: int, guild_id: int
+    ) -> Sequence[PlayerQuestProgress]:
+        statement = select(self.model).where(
+            self.model.party_id == party_id,
+            self.model.guild_id == guild_id
+        )
+        result = await db.execute(statement)
+        return result.scalars().all()
+
 player_quest_progress_crud = CRUDPlayerQuestProgress(PlayerQuestProgress)
 
 # CRUD for Questline

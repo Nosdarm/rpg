@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 logger.info(
     "CRUD subpackage initialized. Loaded: location_crud, player_crud, party_crud, guild_crud, "
     "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
-    "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction."
+    "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction, "
+    "crud_relationship, generated_quest_crud, quest_step_crud, player_quest_progress_crud, questline_crud."
 )
 
 __all__ = [
