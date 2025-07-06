@@ -1,4 +1,75 @@
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\__init__.py] — 18 issue(s):
+  Line 107  [ERROR] Cannot access attribute "model_rebuild" for class "type[Player]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 108  [ERROR] "Guild" is not defined
+  Line 109  [ERROR] Cannot access attribute "model_rebuild" for class "type[Location]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 110  [ERROR] Cannot access attribute "model_rebuild" for class "type[Party]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 111  [ERROR] Cannot access attribute "model_rebuild" for class "type[GeneratedNpc]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 112  [ERROR] Cannot access attribute "model_rebuild" for class "type[StoryLog]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 113  [ERROR] Cannot access attribute "model_rebuild" for class "type[GuildConfig]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 114  [ERROR] Cannot access attribute "model_rebuild" for class "type[RuleConfig]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 116  [ERROR] Cannot access attribute "model_rebuild" for class "type[Item]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 118  [ERROR] Cannot access attribute "model_rebuild" for class "type[InventoryItem]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 120  [ERROR] Cannot access attribute "model_rebuild" for class "type[Ability]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 122  [ERROR] Cannot access attribute "model_rebuild" for class "type[ActiveStatusEffect]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 123  [ERROR] Cannot access attribute "model_rebuild" for class "type[GeneratedFaction]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 125  [ERROR] Cannot access attribute "model_rebuild" for class "type[Questline]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 126  [ERROR] Cannot access attribute "model_rebuild" for class "type[GeneratedQuest]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 127  [ERROR] Cannot access attribute "model_rebuild" for class "type[QuestStep]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 128  [ERROR] Cannot access attribute "model_rebuild" for class "type[PlayerQuestProgress]"
+┬а┬аAttribute "model_rebuild" is unknown
+  Line 131  [ERROR] Cannot access attribute "model_rebuild" for class "type[MobileGroup]"
+┬а┬аAttribute "model_rebuild" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_mobile_group.py] — 16 issue(s):
+  Line 16   [ERROR] Cannot access attribute "created_at" for class "MobileGroup"
+┬а┬аAttribute "created_at" is unknown
+  Line 17   [ERROR] Cannot access attribute "updated_at" for class "MobileGroup"
+┬а┬аAttribute "updated_at" is unknown
+  Line 18   [ERROR] Cannot access attribute "created_at" for class "MobileGroup"
+┬а┬аAttribute "created_at" is unknown
+  Line 19   [ERROR] Cannot access attribute "created_at" for class "MobileGroup"
+┬а┬аAttribute "created_at" is unknown
+  Line 22   [ERROR] Cannot access attribute "static_id" for class "MobileGroup"
+┬а┬аAttribute "static_id" is unknown
+  Line 24   [ERROR] Cannot access attribute "description_i18n" for class "MobileGroup"
+┬а┬аAttribute "description_i18n" is unknown
+  Line 26   [ERROR] Cannot access attribute "leader_global_npc_id" for class "MobileGroup"
+┬а┬аAttribute "leader_global_npc_id" is unknown
+  Line 27   [ERROR] Cannot access attribute "members_definition_json" for class "MobileGroup"
+┬а┬аAttribute "members_definition_json" is unknown
+  Line 28   [ERROR] Cannot access attribute "properties_json" for class "MobileGroup"
+┬а┬аAttribute "properties_json" is unknown
+  Line 50   [ERROR] Cannot access attribute "static_id" for class "MobileGroup"
+┬а┬аAttribute "static_id" is unknown
+  Line 52   [ERROR] Cannot access attribute "description_i18n" for class "MobileGroup"
+┬а┬аAttribute "description_i18n" is unknown
+  Line 54   [ERROR] Cannot access attribute "leader_global_npc_id" for class "MobileGroup"
+┬а┬аAttribute "leader_global_npc_id" is unknown
+  Line 55   [ERROR] Cannot access attribute "members_definition_json" for class "MobileGroup"
+┬а┬аAttribute "members_definition_json" is unknown
+  Line 56   [ERROR] Cannot access attribute "properties_json" for class "MobileGroup"
+┬а┬аAttribute "properties_json" is unknown
+  Line 57   [ERROR] Cannot access attribute "created_at" for class "MobileGroup"
+┬а┬аAttribute "created_at" is unknown
+  Line 58   [ERROR] Cannot access attribute "updated_at" for class "MobileGroup"
+┬а┬аAttribute "updated_at" is unknown
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
@@ -26,65 +97,120 @@
   Line 125  [ERROR] Argument missing for parameter "name"
   Line 129  [ERROR] Argument missing for parameter "commands"
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 9 issue(s):
+  Line 135  [ERROR] Argument missing for parameter "name_i18n"
+  Line 137  [ERROR] Argument missing for parameter "description_i18n"
+  Line 160  [ERROR] Argument missing for parameter "static_id"
+  Line 246  [ERROR] Argument of type "Literal['not a list']" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
+┬а┬аType "Literal['not a list']" is not assignable to type "List[GeneratedInventoryItemEntry] | None"
+┬а┬а┬а┬а"Literal['not a list']" is not assignable to "List[GeneratedInventoryItemEntry]"
+┬а┬а┬а┬а"Literal['not a list']" is not assignable to "None"
+  Line 251  [ERROR] Argument of type "list[dict[str, str]]" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
+  Line 331  [ERROR] Operator "in" not supported for types "Literal['static_id']" and "Any | None"
+┬а┬аOperator "in" not supported for types "Literal['static_id']" and "None"
+  Line 385  [ERROR] Argument missing for parameter "static_id"
+  Line 445  [ERROR] Argument of type "Literal['not a list']" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
+┬а┬аType "Literal['not a list']" is not assignable to type "List[GeneratedInventoryItemEntry] | None"
+┬а┬а┬а┬а"Literal['not a list']" is not assignable to "List[GeneratedInventoryItemEntry]"
+┬а┬а┬а┬а"Literal['not a list']" is not assignable to "None"
+  Line 450  [ERROR] Argument of type "list[dict[str, str]]" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_item.py] — 7 issue(s):
+  Line 17   [ERROR] No overloads for "__init__" match the provided arguments
+  Line 18   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
+┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
+  Line 27   [ERROR] Cannot assign to attribute "session" for class "TestCRUDItem*"
+┬а┬а"Session" is not assignable to "AsyncSession"
+  Line 67   [ERROR] "id" is not a known attribute of "None"
+  Line 68   [ERROR] "name_i18n" is not a known attribute of "None"
+  Line 95   [ERROR] "static_id" is not a known attribute of "None"
+  Line 138  [ERROR] Argument of type "main" cannot be assigned to parameter "main" of type "Coroutine[Any, Any, _T@run]" in function "run"
+┬а┬а"TestProgram" is not assignable to "Coroutine[Any, Any, _T@run]"
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 7 issue(s):
   Line 124  [ERROR] "get" is not a known attribute of "None"
   Line 126  [ERROR] "get" is not a known attribute of "None"
   Line 127  [ERROR] "get" is not a known attribute of "None"
-  Line 607  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Line 616  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
 ┬а┬аAttribute "id" is unknown
-  Line 613  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Line 622  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
 ┬а┬аAttribute "id" is unknown
-  Line 614  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
-  Line 614  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 623  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 623  [ERROR] "__getitem__" method not defined on type "Player"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 6 issue(s):
+  Line 57   [ERROR] Function declaration "_handle_trade_view_action_wrapper" is obscured by a declaration of the same name
+  Line 91   [ERROR] Function declaration "_handle_trade_buy_action_wrapper" is obscured by a declaration of the same name
+  Line 141  [ERROR] Function declaration "_handle_trade_sell_action_wrapper" is obscured by a declaration of the same name
+  Line 853  [ERROR] "action_result" is possibly unbound
+  Line 862  [ERROR] "action_result" is possibly unbound
+  Line 907  [ERROR] "action_result" is possibly unbound
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_trade_system.py] — 6 issue(s):
+  Line 212  [ERROR] Argument of type "float" cannot be assigned to parameter "base_value" of type "int | None" in function "mock_item_data"
+┬а┬аType "float" is not assignable to type "int | None"
+┬а┬а┬а┬а"float" is not assignable to "int"
+┬а┬а┬а┬а"float" is not assignable to "None"
+  Line 239  [ERROR] Argument of type "List[InventoryViewData] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[InventoryViewData] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 240  [ERROR] Object of type "None" is not subscriptable
+  Line 241  [ERROR] Object of type "None" is not subscriptable
+  Line 242  [ERROR] Object of type "None" is not subscriptable
+  Line 245  [ERROR] Argument of type "List[InventoryViewData] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[InventoryViewData] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_inventory_item.py] — 5 issue(s):
+  Line 20   [ERROR] No overloads for "__init__" match the provided arguments
+  Line 21   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
+┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
+  Line 30   [ERROR] Cannot assign to attribute "session" for class "TestCRUDInventoryItem*"
+┬а┬а"Session" is not assignable to "AsyncSession"
+  Line 146  [ERROR] "quantity" is not a known attribute of "None"
+  Line 176  [ERROR] Argument of type "main" cannot be assigned to parameter "main" of type "Coroutine[Any, Any, _T@run]" in function "run"
+┬а┬а"TestProgram" is not assignable to "Coroutine[Any, Any, _T@run]"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 5 issue(s):
-  Line 249  [ERROR] Object of type "None" is not subscriptable
-  Line 379  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+  Line 250  [ERROR] Object of type "None" is not subscriptable
+  Line 387  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
 ┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 399  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+  Line 407  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
 ┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 416  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+  Line 424  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
 ┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 496  [ERROR] Argument of type "None" cannot be assigned to parameter "location_data" of type "Dict[str, Any]" in function "_find_target_in_location"
+  Line 504  [ERROR] Argument of type "None" cannot be assigned to parameter "location_data" of type "Dict[str, Any]" in function "_find_target_in_location"
 ┬а┬а"None" is not assignable to "Dict[str, Any]"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\combat_cycle_manager.py] — 4 issue(s):
-  Line 568  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
-┬а┬аAttribute "current_combat_id" is unknown
-  Line 569  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
-┬а┬аAttribute "current_combat_id" is unknown
-  Line 578  [ERROR] Cannot access attribute "current_combat_id" for class "Party"
-┬а┬аAttribute "current_combat_id" is unknown
-  Line 580  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
-┬а┬аAttribute "current_combat_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 3 issue(s):
-  Line 588  [ERROR] "action_result" is possibly unbound
-  Line 597  [ERROR] "action_result" is possibly unbound
-  Line 642  [ERROR] "action_result" is possibly unbound
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 3 issue(s):
-  Line 132  [ERROR] Argument missing for parameter "name_i18n"
-  Line 134  [ERROR] Argument missing for parameter "description_i18n"
-  Line 212  [ERROR] Operator "in" not supported for types "Literal['static_id']" and "Any | None"
-┬а┬аOperator "in" not supported for types "Literal['static_id']" and "None"
-
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 3 issue(s):
-  Line 667  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+  Line 674  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
 ┬а┬аType "List[GeneratedQuest] | None" is not assignable to type "Sized"
 ┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
 ┬а┬а┬а┬а┬а┬а"__len__" is not present
-  Line 703  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+  Line 710  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
 ┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
 ┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
 ┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
 ┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
-  Line 750  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+  Line 757  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
 ┬а┬аType "List[GeneratedQuest] | None" is not assignable to type "Sized"
 ┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
 ┬а┬а┬а┬а┬а┬а"__len__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_item.py] — 3 issue(s):
+  Line 74   [ERROR] "get" is not a known attribute of "None"
+  Line 75   [ERROR] "get" is not a known attribute of "None"
+  Line 77   [ERROR] "get" is not a known attribute of "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\general_commands.py] — 2 issue(s):
   Line 278  [ERROR] Operator "+=" not supported for types "str | None" and "LiteralString"
@@ -98,21 +224,48 @@
   Line 83   [ERROR] Object of type "str" is not callable
 ┬а┬аAttribute "__call__" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 1 issue(s):
-  Line 437  [ERROR] Cannot assign to attribute "applied_at" for class "ActiveStatusEffect"
-┬а┬аType "now" is not assignable to type "SQLCoreOperations[TIMESTAMP] | TIMESTAMP"
-┬а┬а┬а┬а"now" is not assignable to "SQLCoreOperations[TIMESTAMP]"
-┬а┬а┬а┬а┬а┬аType parameter "_T_co@SQLCoreOperations" is covariant, but "datetime" is not a subtype of "TIMESTAMP"
-┬а┬а┬а┬а┬а┬а┬а┬а"datetime" is not assignable to "TIMESTAMP"
-┬а┬а┬а┬а"now" is not assignable to "TIMESTAMP"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\trade_system.py] — 2 issue(s):
+  Line 262  [ERROR] Cannot access attribute "name_i18n" for class "Player"
+┬а┬аAttribute "name_i18n" is unknown
+  Line 263  [ERROR] Cannot access attribute "name_i18n" for class "Player"
+┬а┬аAttribute "name_i18n" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\global_event.py] — 2 issue(s):
+  Line 7    [ERROR] "TimestampMixin" is unknown import symbol
+  Line 10   [ERROR] "Guild" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\global_npc.py] — 2 issue(s):
+  Line 6    [ERROR] "TimestampMixin" is unknown import symbol
+  Line 9    [ERROR] "Guild" is unknown import symbol
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 1 issue(s):
   Line 349  [ERROR] Cannot access attribute "steps_description_i18n" for class "ParsedQuestData"
 ┬а┬аAttribute "steps_description_i18n" is unknown
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_prompt_builder.py] — 1 issue(s):
+  Line 963  [ERROR] Function declaration "prepare_economic_entity_generation_prompt" is obscured by a declaration of the same name
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
+  Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\location.py] — 1 issue(s):
+  Line 12   [ERROR] "TYPE_CHECKING" is not defined
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
-  Line 220  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 230  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_prompt_builder.py] — 1 issue(s):
+  Line 143  [ERROR] Class declaration "TestAIEconomicPromptBuilder" is obscured by a declaration of the same name
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_command_utils.py] — 1 issue(s):
   Line 26   [ERROR] Expression of type "None" cannot be assigned to parameter of type "dict[Unknown, Unknown]"
 ┬а┬а"None" is not assignable to "dict[Unknown, Unknown]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_experience_system.py] — 1 issue(s):
+  Line 434  [ERROR] Cannot access attribute "assert_not_called" for class "MethodType"
+┬а┬аAttribute "assert_not_called" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_inventory_item.py] — 1 issue(s):
+  Line 87   [ERROR] "get" is not a known attribute of "None"
