@@ -53,6 +53,136 @@ async def _handle_placeholder_action(
                     details_json={"player_id": player_id, "action": action.model_dump(mode='json')}, player_id=player_id)
     return {"status": "success", "message": f"Action '{action.intent}' handled by placeholder."}
 
+
+async def _handle_trade_view_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling TRADE_VIEW_INVENTORY: {action.entities}")
+    target_npc_id = None
+    if action.entities:
+        for entity in action.entities:
+            if entity.type == "target_npc_id": # Assuming NLU provides this
+                try:
+                    target_npc_id = int(entity.value)
+                    break
+                except ValueError:
+                    logger.warning(f"Could not parse target_npc_id '{entity.value}' as int.")
+
+    if target_npc_id is None:
+        return {"status": "error", "message_key": "trade_error_npc_id_missing", "feedback_params": {}}
+
+    trade_result: TradeActionResult = await handle_trade_action(
+        session=session,
+        guild_id=guild_id,
+        player_id=player_id,
+        target_npc_id=target_npc_id,
+        action_type="view_inventory"
+    )
+    # Convert TradeActionResult to dict for ActionProcessResult
+    # Ensure all necessary fields for feedback are included.
+    # The message_key and message_params from trade_result will be used by the feedback system.
+    return {
+        "status": "success" if trade_result.success else "error",
+        "message_key": trade_result.message_key,
+        "feedback_params": trade_result.message_params,
+        "details": trade_result.model_dump(exclude_none=True) # Include all trade details for potential use
+    }
+
+async def _handle_trade_buy_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling TRADE_BUY_ITEM: {action.entities}")
+    target_npc_id = None
+    item_identifier = None # Can be static_id (str) or db_id (int)
+    item_static_id_val: Optional[str] = None
+    item_db_id_val: Optional[int] = None
+    count = None
+
+    if action.entities:
+        for entity in action.entities:
+            if entity.type == "target_npc_id":
+                try: target_npc_id = int(entity.value)
+                except ValueError: pass
+            elif entity.type == "item_static_id":
+                item_static_id_val = str(entity.value)
+            elif entity.type == "item_db_id":
+                try: item_db_id_val = int(entity.value)
+                except ValueError: pass
+            elif entity.type == "item_count":
+                try: count = int(entity.value)
+                except ValueError: pass
+
+    if target_npc_id is None:
+        return {"status": "error", "message_key": "trade_error_npc_id_missing"}
+    if not (item_static_id_val or item_db_id_val):
+        return {"status": "error", "message_key": "trade_error_item_id_missing_for_buy"}
+    if count is None or count <= 0:
+        return {"status": "error", "message_key": "trade_error_item_count_invalid_for_buy", "feedback_params": {"count": count or 0}}
+
+    trade_result: TradeActionResult = await handle_trade_action(
+        session=session,
+        guild_id=guild_id,
+        player_id=player_id,
+        target_npc_id=target_npc_id,
+        action_type="buy",
+        item_static_id=item_static_id_val,
+        item_db_id=item_db_id_val,
+        count=count
+    )
+    return {
+        "status": "success" if trade_result.success else "error",
+        "message_key": trade_result.message_key,
+        "feedback_params": trade_result.message_params,
+        "details": trade_result.model_dump(exclude_none=True),
+        "log_entry_id": None # trade_system handles its own logging for successful trades
+    }
+
+
+async def _handle_trade_sell_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling TRADE_SELL_ITEM: {action.entities}")
+    target_npc_id = None
+    inventory_item_id_val = None # This is InventoryItem.id from player's inventory
+    count = None
+
+    if action.entities:
+        for entity in action.entities:
+            if entity.type == "target_npc_id":
+                try: target_npc_id = int(entity.value)
+                except ValueError: pass
+            elif entity.type == "inventory_item_id": # NLU provides ID of the stack in player's inv
+                try: inventory_item_id_val = int(entity.value)
+                except ValueError: pass
+            elif entity.type == "item_count":
+                try: count = int(entity.value)
+                except ValueError: pass
+
+    if target_npc_id is None:
+        return {"status": "error", "message_key": "trade_error_npc_id_missing"}
+    if inventory_item_id_val is None:
+        return {"status": "error", "message_key": "trade_error_inv_item_id_missing_for_sell"}
+    if count is None or count <= 0:
+        return {"status": "error", "message_key": "trade_error_item_count_invalid_for_sell", "feedback_params": {"count": count or 0}}
+
+    trade_result: TradeActionResult = await handle_trade_action(
+        session=session,
+        guild_id=guild_id,
+        player_id=player_id,
+        target_npc_id=target_npc_id,
+        action_type="sell",
+        inventory_item_db_id=inventory_item_id_val,
+        count=count
+    )
+    return {
+        "status": "success" if trade_result.success else "error",
+        "message_key": trade_result.message_key,
+        "feedback_params": trade_result.message_params,
+        "details": trade_result.model_dump(exclude_none=True),
+        "log_entry_id": None # trade_system handles its own logging
+    }
+
+
 async def _handle_move_action_wrapper(
     session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
 ) -> dict:
