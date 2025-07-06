@@ -108,6 +108,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
                  self.session.add(RuleConfig(guild_id=gid, key=rule_lang_key, value_json=self.default_lang))
 
         await self.session.commit()
+        self.session_commit_mock.reset_mock() # Сбрасываем мок после коммита в asyncSetUp
 
         # Mock for location_crud and other cruds if needed by tests
         self.mock_location_crud = MagicMock()
@@ -474,7 +475,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=12345))
     @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
     @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
     async def test_generate_factions_and_relationships_success(
@@ -563,9 +564,10 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
     @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
-    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock) # Added this mock
+    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=67890)) # Added mock for log_event
     async def test_generate_factions_and_relationships_existing_static_id(
-        self, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order
+        self, mock_log_event, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order & added mock_log_event
     ):
         guild_id = self.test_guild_id
         existing_static_id = "existing_fac_sid"
