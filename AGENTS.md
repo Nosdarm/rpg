@@ -41,9 +41,86 @@
 
 ---
 ## Текущий план
-*(Этот раздел очищен)*
+**Task 47: 🛠️ 15.1 Master Command System.**
+Description: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild. Commands automatically receive the guild_id from the command context. Support multilingual input for arguments and display results in the Master's language.
+API for CRUD over ALL DB models (7 and others). Require guild_id.
+API for viewing/editing records in the RuleConfig table (0.2/7/13). Allow the Master to configure all game rules for their guild.
+Manual trigger/modification commands for entities operate WITHIN THE guild_id CONTEXT.
+API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending conflict record (created in 21) by guild_id. Sets status to 'resolved' and the outcome. Signals the Turn Processing Module (21), which was waiting for resolution, to continue processing.
 ---
 ## Лог действий
+
+## Task 47: 🛠️ 15.1 Master Command System
+- **Определение задачи**: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild.
+- **Выполненные шаги (1-5)**:
+    1.  **Подготовка и общие компоненты**:
+        *   Файл `src/bot/commands/master_admin_commands.py` уже существовал. Его структура была проверена и обновлена: класс `MasterAdminCog` и группа `master_admin` определены корректно.
+        *   Для группы `master_admin` установлены `default_permissions=discord.Permissions(administrator=True)` и `guild_only=True`. Использование кастомного декоратора `@is_administrator` было удалено из команд в пользу `default_permissions`.
+        *   `MasterAdminCog` уже был добавлен в `BOT_COGS` в `src/config/settings.py`.
+        *   Создана функция `get_localized_master_message` в `src/core/localization_utils.py` (позже выяснилось, что более общая `get_localized_message_template` уже существует и используется, что соответствует цели). Команды адаптированы для использования `get_localized_message_template`.
+    2.  **Реализация CRUD-команд для `Player`**:
+        *   Подгруппа `player_group` в `MasterAdminCog` уже существовала.
+        *   Команда `player view <player_id: int>`: Проверена, использует `get_localized_message_template`, отображает информацию в Embed.
+        *   Команда `player list [page: int = 1] [limit: int = 10]`: Проверена и доработана для использования `get_localized_message_template`.
+        *   Команда `player update <player_id: int> <field_name: str> <new_value: str>`: Проверена и доработана для использования `get_localized_message_template`, набор обновляемых полей включает `name`, `level`, `xp`, `unspent_xp`, `language`, `current_location_id`, `current_party_id` (с поддержкой `None`).
+    3.  **Реализация команд для `RuleConfig`**:
+        *   Подгруппа `ruleconfig_group` в `MasterAdminCog` уже существовала.
+        *   Команда `ruleconfig get <key: str>`: Проверена и доработана для использования `get_localized_message_template`.
+        *   Команда `ruleconfig set <key: str> <value_json_str: str>`: Проверена и доработана для использования `get_localized_message_template`.
+        *   Команда `ruleconfig list [page: int = 1] [limit: int = 10]`: Проверена и доработана для использования `get_localized_message_template`.
+        *   Команда `ruleconfig delete <key: str>`: Реализована с использованием `get_localized_message_template`.
+    4.  **Реализация команд для `PendingConflict` (базовая, без сигнализации)**:
+        *   Модель `PendingConflict` в `src/models/pending_conflict.py` проверена, соответствует требованиям.
+        *   Создан `CRUDPendingConflict` в `src/core/crud/crud_pending_conflict.py` с методами `get_by_id_and_guild`, `get_multi_by_guild_and_status_paginated`, `get_count_by_guild_and_status`. Добавлен в `src/core/crud/__init__.py`.
+        *   Подгруппа `conflict_group` в `MasterAdminCog` уже существовала.
+        *   Команда `conflict view <conflict_id: int>`: Проверена и доработана для использования `pending_conflict_crud` и `get_localized_message_template`.
+        *   Команда `conflict resolve <conflict_id: int> <outcome_status: str> [resolution_notes: Optional[str]]`: Проверена и доработана для использования `pending_conflict_crud` и `get_localized_message_template`. Сигнализация TPM отложена.
+        *   Команда `conflict list [status: Optional[str]] [page: int = 1] [limit: int = 10]`: Реализована с использованием `pending_conflict_crud`, пагинации и `get_localized_message_template`.
+    5.  **Написание Unit-тестов (начальный этап)**:
+        *   Файл `tests/bot/commands/test_master_admin_commands.py` уже существовал.
+        *   `asyncSetUp` был адаптирован (удален ненужный патч `@is_administrator`).
+        *   Существующие тесты для `player_view` и `ruleconfig_set` обновлены для корректной работы с моками локализации.
+        *   Добавлен тест для команды `ping_command`.
+- **Предварительный план (оставшиеся шаги)**:
+    1.  **Подготовка и общие компоненты**:
+        *   Создать новый Cog `MasterAdminCog` в `src/bot/commands/master_admin_commands.py`. (ВЫПОЛНЕНО)
+        *   Определить основную группу команд `/master_admin`. (ВЫПОЛНЕНО)
+        *   Реализовать проверку прав администратора/мастера для всех команд в этом Cog (например, через `discord.app_commands.checks.has_permissions(administrator=True)` или кастомный чек).
+        *   Добавить `MasterAdminCog` в `BOT_COGS` в `src/config/settings.py` для загрузки.
+        *   Продумать стратегию локализации для ответов команд (использование `localization_utils` и `RuleConfig` для шаблонов сообщений).
+    2.  **Реализация CRUD-команд для основных моделей**:
+        *   Для каждой ключевой модели (Player, Party, GeneratedNpc, Location, Item, GeneratedFaction, Relationship, Questline, GeneratedQuest, CombatEncounter, GlobalNpc, MobileGroup, etc.):
+            *   Создать подгруппу команд (например, `/master_admin player <subcommand>`).
+            *   Реализовать команды `view <id>`, `list [page] [limit]`, `create [...]`, `update <id> <field> <value>`, `delete <id>`.
+            *   Команды `create` и `update` должны принимать необходимые параметры, включая i18n поля, если они есть в модели.
+            *   Все операции должны быть строго привязаны к `guild_id` из контекста команды.
+            *   Использовать существующие CRUD-модули (`player_crud`, `party_crud` и т.д.).
+    3.  **Реализация команд для `RuleConfig`**:
+        *   Создать подгруппу `/master_admin ruleconfig`.
+        *   Команда `get <key>`: Показывает значение правила для текущей гильдии.
+        *   Команда `set <key> <value_json>`: Устанавливает значение правила. Валидация JSON.
+        *   Команда `list [page] [limit]`: Показывает список всех правил для гильдии.
+        *   Команда `delete <key>`: Удаляет правило (возвращает к значению по умолчанию, если такое есть, или полностью удаляет).
+    4.  **Реализация команды `/master_admin resolve_conflict`**:
+        *   Зависит от реализации механизма конфликтов в Task 21 (`action_processor.py`).
+        *   Команда `/master_admin conflict resolve <conflict_id> <outcome_key_or_json> [notes_for_log]`.
+        *   Находит `PendingConflict` по ID и `guild_id`.
+        *   Обновляет его статус на "resolved" и сохраняет результат (`outcome_json`, `resolution_notes`, `resolved_by_user_id`, `resolved_at`).
+        *   **Сигнализация `Turn Processing Module`**: предусмотреть механизм (возможно, через `asyncio.Event` или очередь), чтобы уведомить ожидающий процессор ходов о разрешении конфликта. (Детали зависят от реализации Task 21).
+        *   Команда `/master_admin conflict view <conflict_id>`: Показывает детали конфликта.
+        *   Команда `/master_admin conflict list [status] [page] [limit]`: Показывает список конфликтов.
+    5.  **Реализация прочих команд управления**:
+        *   `/master_admin trigger_ai_generation <entity_type> [context_json]`: Для ручного запуска генерации сущностей (локации, NPC, квесты и т.д.), вызывая соответствующие функции из `world_generation.py` или `ai_orchestrator.py`.
+        *   `/master_admin player_set_location <player_id> <location_id_or_static_id>`: Перемещает игрока.
+        *   `/master_admin world_event_trigger <event_type> [details_json]`: Для ручного запуска глобальных событий.
+    6.  **Локализация и форматирование ответов**:
+        *   Все ответы команд должны быть локализованы с использованием `localization_utils.get_localized_text` и шаблонов из `RuleConfig`.
+        *   Для отображения списков и сложных данных использовать Discord Embeds.
+    7.  **Написание Unit-тестов**:
+        *   Создать `tests/bot/commands/test_master_admin_commands.py`.
+        *   Написать тесты для каждой команды, мокируя взаимодействия с Discord API, CRUD-операциями и другими системами.
+    8.  **Обновление `AGENTS.md`**: Запись о выполненных шагах.
+    9.  **Представление изменений (Commit)**.
 
 ## Проверка и завершение "Доработка Player.attributes_json для Task 32" (Отложенная задача)
 - **Задача**: Убедиться, что поле `Player.attributes_json` корректно реализовано, мигрировано и протестировано.
