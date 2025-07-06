@@ -63,8 +63,11 @@ class EventType(enum.Enum):
     ITEM_ACQUIRED = "item_acquired"
     ITEM_USED = "item_used"
     ITEM_DROPPED = "item_dropped"
-    TRADE_INITIATED = "trade_initiated"
-    TRADE_COMPLETED = "trade_completed"
+    TRADE_INITIATED = "trade_initiated" # General event when trade process starts
+    TRADE_COMPLETED = "trade_completed" # General event when a trade session ends (maybe not item specific)
+    TRADE_ITEM_BOUGHT = "trade_item_bought" # Player bought an item
+    TRADE_ITEM_SOLD = "trade_item_sold"   # Player sold an item
+    # Consider more granular events for failures if needed by other systems, e.g., TRADE_BUY_FAILED_INSUFFICIENT_GOLD
     LEVEL_UP = "level_up"
     XP_GAINED = "xp_gained"
     RELATIONSHIP_CHANGE = "relationship_change"
