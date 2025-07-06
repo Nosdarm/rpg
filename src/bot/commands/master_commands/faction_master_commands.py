@@ -31,40 +31,45 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
     @app_commands.describe(faction_id="The database ID of the Faction to view.")
     async def faction_view(self, interaction: discord.Interaction, faction_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            faction = await crud_faction.get_by_id_and_guild(session, id=faction_id, guild_id=interaction.guild_id)
+            faction = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
 
             if not faction:
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_view:not_found", lang_code,
                     "Faction with ID {id} not found in this guild."
-                )
+                ) # type: ignore
                 await interaction.followup.send(not_found_msg.format(id=faction_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_view:title", lang_code,
                 "Faction Details: {faction_name} (ID: {faction_id})"
-            )
+            ) # type: ignore
 
             faction_name_display = faction.name_i18n.get(lang_code, faction.name_i18n.get("en", f"Faction {faction.id}"))
             embed_title = title_template.format(faction_name=faction_name_display, faction_id=faction.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_red())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"faction_view:label_{key}", lang_code, default)
+                return await get_localized_message_template(session, interaction.guild_id, f"faction_view:label_{key}", lang_code, default) # type: ignore
 
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str: # Renamed
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(faction.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=faction.static_id or "N/A", inline=True)
-            embed.add_field(name=await get_label("leader_npc_id", "Leader NPC Static ID"), value=faction.leader_npc_static_id or "N/A", inline=True)
+            leader_npc_sid = getattr(faction, 'leader_npc_static_id', None) # Defensive access
+            embed.add_field(name=await get_label("leader_npc_id", "Leader NPC Static ID"), value=leader_npc_sid or "N/A", inline=True)
+
 
             name_i18n_str = await format_json_field_helper(faction.name_i18n, "faction_view:value_na_json", "faction_view:error_serialization_name")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
@@ -90,10 +95,14 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
+            # Assuming get_multi_by_guild_id is the correct method name
             factions = await crud_faction.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_factions_stmt = select(func.count(crud_faction.model.id)).where(crud_faction.model.guild_id == interaction.guild_id)
@@ -104,14 +113,14 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 no_factions_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_list:no_factions_found_page", lang_code,
                     "No Factions found for this guild (Page {page})."
-                )
+                ) # type: ignore
                 await interaction.followup.send(no_factions_msg.format(page=page), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_list:title", lang_code,
                 "Faction List (Page {page} of {total_pages})"
-            )
+            ) # type: ignore
             total_pages = ((total_factions - 1) // limit) + 1
             embed_title = title_template.format(page=page, total_pages=total_pages)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_magenta())
@@ -119,31 +128,32 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_list:footer", lang_code,
                 "Displaying {count} of {total} total Factions."
-            )
+            ) # type: ignore
             embed.set_footer(text=footer_template.format(count=len(factions), total=total_factions))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_list:faction_field_name", lang_code,
                 "ID: {faction_id} | {faction_name} (Static: {static_id})"
-            )
+            ) # type: ignore
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_list:faction_field_value", lang_code,
                 "Leader NPC Static ID: {leader_id}"
-            )
+            ) # type: ignore
 
             for f in factions:
                 faction_name_display = f.name_i18n.get(lang_code, f.name_i18n.get("en", f"Faction {f.id}"))
+                leader_npc_sid = getattr(f, 'leader_npc_static_id', None) # Defensive access
                 embed.add_field(
                     name=field_name_template.format(faction_id=f.id, faction_name=faction_name_display, static_id=f.static_id or "N/A"),
-                    value=field_value_template.format(leader_id=f.leader_npc_static_id or "N/A"),
+                    value=field_value_template.format(leader_id=leader_npc_sid or "N/A"),
                     inline=False
                 )
 
-            if len(embed.fields) == 0:
+            if len(embed.fields) == 0: # Should not happen if `not factions` check passes, but good for safety
                 no_display_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_list:no_factions_to_display", lang_code,
                     "No Factions found to display on page {page}."
-                )
+                ) # type: ignore
                 await interaction.followup.send(no_display_msg.format(page=page), ephemeral=True)
                 return
 
@@ -175,6 +185,9 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
         parsed_ideology_i18n: Optional[Dict[str, str]] = None
         parsed_resources: Optional[Dict[str, Any]] = None
         parsed_ai_meta: Optional[Dict[str, Any]] = None
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             existing_faction_static = await crud_faction.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id)
@@ -182,7 +195,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_create:error_static_id_exists", lang_code,
                     "A Faction with static_id '{id}' already exists."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=static_id), ephemeral=True)
                 return
 
@@ -192,7 +205,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "faction_create:error_leader_npc_not_found", lang_code,
                         "Leader NPC with static_id '{id}' not found in this guild."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=leader_npc_static_id), ephemeral=True)
                     return
 
@@ -222,16 +235,24 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                     parsed_ai_meta = json.loads(ai_metadata_json)
                     if not isinstance(parsed_ai_meta, dict):
                         raise ValueError("ai_metadata_json must be a dictionary.")
-            except (json.JSONDecodeError, ValueError) as e:
+            except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_create:error_invalid_json_format", lang_code,
                     "Invalid JSON format or structure for one of the input fields: {error_details}"
-                )
+                ) # type: ignore
+                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+                return
+            except json.JSONDecodeError as e: # Broader exception later
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "faction_create:error_invalid_json_format", lang_code,
+                    "Invalid JSON format or structure for one of the input fields: {error_details}"
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 return
 
+
             faction_data_to_create: Dict[str, Any] = {
-                "guild_id": interaction.guild_id,
+                "guild_id": interaction.guild_id, # Already checked not None
                 "static_id": static_id,
                 "name_i18n": parsed_name_i18n,
                 "description_i18n": parsed_desc_i18n if parsed_desc_i18n else {},
@@ -244,7 +265,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
             created_faction: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_faction = await crud_faction.create(session, obj_in=faction_data_to_create)
+                    created_faction = await crud_faction.create_with_guild(session, obj_in=faction_data_to_create, guild_id=interaction.guild_id) # type: ignore
                     await session.flush()
                     if created_faction:
                          await session.refresh(created_faction)
@@ -253,7 +274,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_create:error_generic_create", lang_code,
                     "An error occurred while creating the Faction: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_message=str(e)), ephemeral=True)
                 return
 
@@ -261,19 +282,20 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_create:error_creation_failed_unknown", lang_code,
                     "Faction creation failed for an unknown reason."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_create:success_title", lang_code,
                 "Faction Created: {faction_name} (ID: {faction_id})"
-            )
+            ) # type: ignore
             created_faction_name_display = created_faction.name_i18n.get(lang_code, created_faction.name_i18n.get("en", f"Faction {created_faction.id}"))
 
             embed = discord.Embed(title=success_title_template.format(faction_name=created_faction_name_display, faction_id=created_faction.id), color=discord.Color.green())
             embed.add_field(name="Static ID", value=created_faction.static_id, inline=True)
-            embed.add_field(name="Leader NPC Static ID", value=created_faction.leader_npc_static_id or "N/A", inline=True)
+            leader_npc_sid = getattr(created_faction, 'leader_npc_static_id', None) # Defensive access
+            embed.add_field(name="Leader NPC Static ID", value=leader_npc_sid or "N/A", inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @faction_master_cmds.command(name="update", description="Update a specific field for a Faction.")
@@ -284,6 +306,9 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
     )
     async def faction_update(self, interaction: discord.Interaction, faction_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         allowed_fields = {
             "static_id": str,
@@ -308,7 +333,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "faction_update:error_field_not_allowed", lang_code,
                     "Field '{field_name}' is not allowed for update. Allowed: {allowed_list}"
-                )
+                ) # type: ignore
             await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
             return
 
@@ -323,7 +348,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                         error_msg = await get_localized_message_template(
                             session, interaction.guild_id, "faction_update:error_static_id_exists", lang_code,
                             "Another Faction with static_id '{id}' already exists."
-                        )
+                        ) # type: ignore
                         await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
                         return
                 elif db_field_name in ["name_i18n", "description_i18n", "ideology_i18n", "resources_json", "ai_metadata_json"]:
@@ -335,42 +360,43 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                         parsed_value = None
                     else:
                         parsed_value = new_value
-                        leader_npc = await npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
-                        if not leader_npc:
-                            error_msg = await get_localized_message_template(
-                                session, interaction.guild_id, "faction_update:error_leader_npc_not_found", lang_code,
-                                "Leader NPC with static_id '{id}' not found."
-                            )
-                            await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
-                            return
-                else:
+                        if parsed_value is not None: # Check if not None before DB call
+                            leader_npc = await npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
+                            if not leader_npc:
+                                error_msg = await get_localized_message_template(
+                                    session, interaction.guild_id, "faction_update:error_leader_npc_not_found", lang_code,
+                                    "Leader NPC with static_id '{id}' not found."
+                                ) # type: ignore
+                                await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
+                                return
+                else: # Should not be reached
                      error_msg = await get_localized_message_template(
                          session, interaction.guild_id, "faction_update:error_unknown_field_type", lang_code,
                         "Internal error: Unknown field type for '{field_name}'."
-                    )
+                    ) # type: ignore
                      await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True)
                      return
-            except ValueError as e:
+            except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_update:error_invalid_value_type", lang_code,
                     "Invalid value '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_update:error_invalid_json", lang_code,
                     "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
 
-            faction_to_update = await crud_faction.get_by_id_and_guild(session, id=faction_id, guild_id=interaction.guild_id)
+            faction_to_update = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
             if not faction_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_update:error_faction_not_found", lang_code,
                     "Faction with ID {id} not found."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=faction_id), ephemeral=True)
                 return
 
@@ -380,25 +406,34 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 async with session.begin():
                     updated_faction = await update_entity(session, entity=faction_to_update, data=update_data_dict)
                     await session.flush()
-                    await session.refresh(updated_faction)
+                    if updated_faction: # Refresh only if not None
+                        await session.refresh(updated_faction)
             except Exception as e:
                 logger.error(f"Error updating Faction {faction_id} with data {update_data_dict}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_update:error_generic_update", lang_code,
                     "An error occurred while updating Faction {id}: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=faction_id, error_message=str(e)), ephemeral=True)
+                return
+
+            if not updated_faction: # Check after potential refresh
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "faction_update:error_update_failed_unknown", lang_code,
+                    "Faction update failed for an unknown reason."
+                ) # type: ignore
+                await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "faction_update:success_title", lang_code,
                 "Faction Updated: {faction_name} (ID: {faction_id})"
-            )
-            updated_faction_name_display = updated_faction.name_i18n.get(lang_code, updated_faction.name_i18n.get("en", f"Faction {updated_faction.id}"))
-            embed = discord.Embed(title=success_title_template.format(faction_name=updated_faction_name_display, faction_id=updated_faction.id), color=discord.Color.orange())
+            ) # type: ignore
+            updated_faction_name_display = updated_faction.name_i18n.get(lang_code, updated_faction.name_i18n.get("en", f"Faction {updated_faction.id}")) if hasattr(updated_faction, 'name_i18n') and updated_faction.name_i18n else f"Faction {updated_faction.id}" # type: ignore
+            embed = discord.Embed(title=success_title_template.format(faction_name=updated_faction_name_display, faction_id=updated_faction.id), color=discord.Color.orange()) # type: ignore
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "faction_update:label_field_updated", lang_code, "Field Updated")
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "faction_update:label_new_value", lang_code, "New Value")
+            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "faction_update:label_field_updated", lang_code, "Field Updated") # type: ignore
+            new_value_label = await get_localized_message_template(session, interaction.guild_id, "faction_update:label_new_value", lang_code, "New Value") # type: ignore
 
             new_value_display = str(parsed_value)
             if isinstance(parsed_value, (dict, list)):
@@ -414,23 +449,26 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
     @app_commands.describe(faction_id="The database ID of the Faction to delete.")
     async def faction_delete(self, interaction: discord.Interaction, faction_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            faction_to_delete = await crud_faction.get_by_id_and_guild(session, id=faction_id, guild_id=interaction.guild_id)
+            faction_to_delete = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
 
             if not faction_to_delete:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_delete:error_not_found", lang_code,
                     "Faction with ID {id} not found. Nothing to delete."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=faction_id), ephemeral=True)
                 return
 
-            faction_name_for_message = faction_to_delete.name_i18n.get(lang_code, faction_to_delete.name_i18n.get("en", f"Faction {faction_to_delete.id}"))
+            faction_name_for_message = faction_to_delete.name_i18n.get(lang_code, faction_to_delete.name_i18n.get("en", f"Faction {faction_to_delete.id}")) if hasattr(faction_to_delete, 'name_i18n') and faction_to_delete.name_i18n else f"Faction {faction_to_delete.id}"
 
             npc_dependency_stmt = select(npc_crud.model.id).where(
-                npc_crud.model.faction_id == faction_id,
+                npc_crud.model.faction_id == faction_id, # Assuming npc_crud.model has faction_id
                 npc_crud.model.guild_id == interaction.guild_id
             ).limit(1)
             npc_dependency = (await session.execute(npc_dependency_stmt)).scalar_one_or_none()
@@ -439,33 +477,33 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_delete:error_npc_dependency", lang_code,
                     "Cannot delete Faction '{name}' (ID: {id}) as NPCs are still members of it. Please reassign or delete them first."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=faction_name_for_message, id=faction_id), ephemeral=True)
                 return
 
             deleted_faction: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_faction = await crud_faction.remove(session, id=faction_id)
+                    deleted_faction = await crud_faction.remove_by_id(session, id=faction_id, guild_id=interaction.guild_id) # type: ignore
 
                 if deleted_faction:
                     success_msg = await get_localized_message_template(
                         session, interaction.guild_id, "faction_delete:success", lang_code,
                         "Faction '{name}' (ID: {id}) has been deleted successfully."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(success_msg.format(name=faction_name_for_message, id=faction_id), ephemeral=True)
-                else:
+                else: # Should not happen if found before
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "faction_delete:error_not_deleted_unknown", lang_code,
                         "Faction (ID: {id}) was found but could not be deleted."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=faction_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting Faction {faction_id} for guild {interaction.guild_id}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_delete:error_generic", lang_code,
                     "An error occurred while deleting Faction '{name}' (ID: {id}): {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=faction_name_for_message, id=faction_id, error_message=str(e)), ephemeral=True)
                 return
 

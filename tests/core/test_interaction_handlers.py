@@ -316,11 +316,8 @@ async def test_interact_object_rule_not_found(
     assert isinstance(log_kwargs, dict), "log_event.call_args.kwargs should be a dict"
 
     details_json_val = log_kwargs.get("details_json")
-    if isinstance(details_json_val, dict):
-        assert details_json_val.get("rule_found") is False
-    else:
-        # This case should ideally not be reached if log_event is called correctly
-        pytest.fail(f"details_json in log_kwargs was not a dict or was None. Value: {details_json_val}")
+    assert isinstance(details_json_val, dict), f"details_json should be a dict, got {type(details_json_val)}"
+    assert details_json_val.get("rule_found") is False
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
@@ -434,7 +431,7 @@ async def test_handle_action_player_not_found(
 ):
     mock_player_crud.get.return_value = None
     action_data = {"intent": "examine", "entities": [{"name": "anything"}]}
-    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data) # type: ignore[misc]
     assert result["success"] is False
     assert "Error: Player not found." in result["message"]
 
@@ -447,7 +444,7 @@ async def test_handle_action_location_not_found(
     mock_player_crud.get.return_value = mock_player
     mock_location_crud.get.return_value = None
     action_data = {"intent": "examine", "entities": [{"name": "anything"}]}
-    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data) # type: ignore[misc]
     assert result["success"] is False
     assert "Error: Current location not found." in result["message"]
 
@@ -461,11 +458,11 @@ async def test_handle_action_no_target_name(
     mock_player_crud.get.return_value = mock_player
     mock_location_crud.get.return_value = mock_location_no_details
     action_data = {"intent": "examine", "entities": [{"name": ""}]}
-    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
+    result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data) # type: ignore[misc]
     assert result["success"] is False
     assert "What do you want to interact with?" in result["message"]
     action_data_no_entities = {"intent": "examine"}
-    result_no_entities = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data_no_entities)
+    result_no_entities = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data_no_entities) # type: ignore[misc]
     assert result_no_entities["success"] is False
     assert "What do you want to interact with?" in result_no_entities["message"]
 

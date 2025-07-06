@@ -128,11 +128,11 @@ async def test_trigger_ai_generation_flow_success(
     assert create_entity_call_args["status"] == ModerationStatus.PENDING_MODERATION
     assert create_entity_call_args["parsed_validated_data_json"] == mock_parsed_ai_data.model_dump()
 
-    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID)
-    mock_update_entity.assert_any_call(mock_session, mock_player, {"current_status": PlayerStatus.AWAITING_MODERATION})
+    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined]
+    mock_update_entity.assert_any_call(mock_session, mock_player, {"current_status": PlayerStatus.AWAITING_MODERATION}) # type: ignore[attr-defined]
 
-    mock_notify_master.assert_called_once()
-    assert mock_notify_master.call_args.args[2] == DEFAULT_GUILD_ID
+    mock_notify_master.assert_called_once() # type: ignore[attr-defined]
+    assert mock_notify_master.call_args.args[2] == DEFAULT_GUILD_ID # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio
@@ -244,7 +244,7 @@ async def test_save_approved_generation_success(
 
     update_pending_gen_call = None
     update_player_call = None  # Initialize update_player_call
-    for call_obj in mock_update_entity.call_args_list: # type: ignore[attr-defined]
+    for call_obj in mock_update_entity.call_args_list: # type: ignore[attr-defined] # Pyright might struggle with complex mocks
         if call_obj.args[1] == mock_pending_gen:
             update_pending_gen_call = call_obj
         elif call_obj.args[1] == mock_player:

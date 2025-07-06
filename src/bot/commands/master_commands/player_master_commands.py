@@ -31,28 +31,31 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
     @app_commands.describe(player_id="The database ID of the player to view.")
     async def player_view(self, interaction: discord.Interaction, player_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
-            player = await player_crud.get_by_id_and_guild(session, id=player_id, guild_id=interaction.guild_id)
+            player = await player_crud.get_by_id(session, id=player_id, guild_id=interaction.guild_id)
             lang_code = str(interaction.locale)
 
             if not player:
                 not_found_msg_template = await get_localized_message_template(
                     session, interaction.guild_id, "player_view:not_found", lang_code,
                     "Player with ID {player_id} not found in this guild."
-                )
+                ) # type: ignore
                 await interaction.followup.send(not_found_msg_template.format(player_id=player_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_view:title", lang_code,
                 "Player Details: {player_name} (ID: {player_id})"
-            )
+            ) # type: ignore
             embed_title = title_template.format(player_name=player.name, player_id=player.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.green())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"player_view:field_{key}", lang_code, default)
+                return await get_localized_message_template(session, interaction.guild_id, f"player_view:field_{key}", lang_code, default) # type: ignore
 
             embed.add_field(name=await get_label("discord_id", "Discord ID"), value=str(player.discord_id), inline=True)
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(player.guild_id), inline=True)
@@ -62,10 +65,12 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
             embed.add_field(name=await get_label("location_id", "Current Location ID"), value=str(player.current_location_id) if player.current_location_id else "N/A", inline=True)
             embed.add_field(name=await get_label("party_id", "Current Party ID"), value=str(player.current_party_id) if player.current_party_id else "N/A", inline=True)
             embed.add_field(name=await get_label("status", "Status"), value=player.current_status.value if player.current_status else "N/A", inline=True)
-            embed.add_field(name=await get_label("language", "Language"), value=player.language or "N/A", inline=True)
+            player_language = getattr(player, 'language', "N/A") # Defensive access
+            embed.add_field(name=await get_label("language", "Language"), value=player_language or "N/A", inline=True)
+
 
             attributes_label = await get_label("attributes_json", "Attributes JSON")
-            attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:no_attributes", lang_code, "No attributes")
+            attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:no_attributes", lang_code, "No attributes") # type: ignore
             if player.attributes_json:
                 try:
                     attributes_str = json.dumps(player.attributes_json, indent=2, ensure_ascii=False)
@@ -82,11 +87,14 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
         await interaction.response.defer(ephemeral=True)
         if page < 1: page = 1
         if limit < 1: limit = 1
-        if limit > 25: limit = 25
+        if limit > 25: limit = 25 # Max 25 for embeds
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             offset = (page - 1) * limit
-            players = await player_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            players = await player_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_players_stmt = select(func.count(player_crud.model.id)).where(player_crud.model.guild_id == interaction.guild_id)
             total_players_result = await session.execute(total_players_stmt)
@@ -97,14 +105,14 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
                 no_players_msg = await get_localized_message_template(
                     session, interaction.guild_id, "player_list:no_players_found_page", lang_code,
                     "No players found for this guild (Page {page})."
-                )
+                ) # type: ignore
                 await interaction.followup.send(no_players_msg.format(page=page), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_list:title", lang_code,
                 "Player List (Page {page} of {total_pages})"
-            )
+            ) # type: ignore
             total_pages = ((total_players - 1) // limit) + 1
             embed_title = title_template.format(page=page, total_pages=total_pages)
             embed = discord.Embed(title=embed_title, color=discord.Color.blue())
@@ -112,17 +120,17 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_list:footer", lang_code,
                 "Displaying {count} of {total} total players."
-            )
+            ) # type: ignore
             embed.set_footer(text=footer_template.format(count=len(players), total=total_players))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_list:player_field_name", lang_code,
                 "ID: {player_id} | {player_name}"
-            )
+            ) # type: ignore
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_list:player_field_value", lang_code,
                 "Discord: <@{discord_id}>\nLevel: {level}, Status: {status}"
-            )
+            ) # type: ignore
 
             for p in players:
                 embed.add_field(
@@ -131,11 +139,11 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
                     inline=False
                 )
 
-            if len(embed.fields) == 0:
+            if len(embed.fields) == 0: # Should not happen if `not players` check is passed
                 no_display_msg = await get_localized_message_template(
                     session, interaction.guild_id, "player_list:no_players_to_display", lang_code,
                     "No players found to display on page {page}."
-                )
+                ) # type: ignore
                 await interaction.followup.send(no_display_msg.format(page=page), ephemeral=True)
                 return
 
@@ -149,6 +157,9 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
     )
     async def player_update(self, interaction: discord.Interaction, player_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         allowed_fields = {
             "name": str,
@@ -156,94 +167,103 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
             "xp": int,
             "unspent_xp": int,
             "language": str,
-            "current_location_id": int,
+            "current_location_id": (int, type(None)), # Made Optional
             "current_party_id": (int, type(None)),
         }
 
         lang_code = str(interaction.locale)
         field_to_update_lower = field_to_update.lower()
-        field_type = allowed_fields.get(field_to_update_lower)
+        field_type_info = allowed_fields.get(field_to_update_lower)
 
-        if not field_type:
+        if not field_type_info:
             async with get_db_session() as temp_session_for_error_msg:
                 not_allowed_msg = await get_localized_message_template(
                     temp_session_for_error_msg, interaction.guild_id, "player_update:field_not_allowed", lang_code,
                     "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}"
-                )
+                ) # type: ignore
             await interaction.followup.send(not_allowed_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
             return
 
-        parsed_value: any = None
+        parsed_value: Any = None
         try:
-            if field_type == str:
-                parsed_value = new_value
-            elif field_type == int:
-                parsed_value = int(new_value)
-            elif field_type == (int, type(None)):
-                if new_value.lower() == 'none' or new_value.lower() == 'null':
+            is_optional_int = isinstance(field_type_info, tuple) and int in field_type_info and type(None) in field_type_info
+
+            if new_value.lower() == 'none' or new_value.lower() == 'null':
+                if is_optional_int or field_to_update_lower == "language": # language can be nullable string
                     parsed_value = None
-                else:
-                    parsed_value = int(new_value)
-            else:
+                else: # Field is not Optional[int] or not 'language', so None is not allowed
+                    raise ValueError(f"Field '{field_to_update_lower}' cannot be set to None.")
+            elif field_type_info == str:
+                parsed_value = new_value
+            elif field_type_info == int or is_optional_int:
+                parsed_value = int(new_value) # Can raise ValueError
+            # Note: No JSON fields are currently allowed for direct update via this command in `allowed_fields`
+            else: # Should not be reached due to field_type_info check
                 async with get_db_session() as temp_session_for_error_msg:
                     internal_error_msg = await get_localized_message_template(
                         temp_session_for_error_msg, interaction.guild_id, "player_update:error_type_conversion_not_implemented", lang_code,
                         "Internal error: Type conversion for field '{field_name}' not implemented."
-                    )
+                    ) # type: ignore
                 await interaction.followup.send(internal_error_msg.format(field_name=field_to_update), ephemeral=True)
                 return
-        except ValueError:
+        except ValueError as e: # Catches int() conversion errors and explicit ValueErrors
             async with get_db_session() as temp_session_for_error_msg:
                 invalid_value_msg = await get_localized_message_template(
                     temp_session_for_error_msg, interaction.guild_id, "player_update:error_invalid_value_for_type", lang_code,
-                    "Invalid value '{value}' for field '{field_name}'. Expected type: {expected_type}."
-                )
-            expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None'
-            await interaction.followup.send(invalid_value_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str), ephemeral=True)
+                    "Invalid value '{value}' for field '{field_name}'. Details: {details}"
+                ) # type: ignore
+            expected_type_str = field_type_info.__name__ if not isinstance(field_type_info, tuple) else 'int or None'
+            if field_type_info == str and field_to_update_lower == "language": expected_type_str = "string or None"
+
+            await interaction.followup.send(invalid_value_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
             return
-        except json.JSONDecodeError: # Should not be hit with current allowed_fields
-            async with get_db_session() as temp_session_for_error_msg:
-                invalid_json_msg = await get_localized_message_template(
-                    temp_session_for_error_msg, interaction.guild_id, "player_update:error_invalid_json", lang_code,
-                    "Invalid JSON string '{value}' for field '{field_name}'."
-                )
-            await interaction.followup.send(invalid_json_msg.format(value=new_value, field_name=field_to_update), ephemeral=True)
-            return
+        # Removed json.JSONDecodeError catch as no JSON fields are currently updatable
 
         update_data = {field_to_update_lower: parsed_value}
 
         async with get_db_session() as session:
-            player = await player_crud.get_by_id_and_guild(session, id=player_id, guild_id=interaction.guild_id)
+            player = await player_crud.get_by_id(session, id=player_id, guild_id=interaction.guild_id)
             if not player:
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "player_update:player_not_found", lang_code,
                     "Player with ID {player_id} not found in this guild."
-                )
+                ) # type: ignore
                 await interaction.followup.send(not_found_msg.format(player_id=player_id), ephemeral=True)
                 return
 
+            updated_player: Optional[Any] = None # Ensure updated_player is defined before try block
             try:
                 async with session.begin():
                     updated_player = await update_entity(session, entity=player, data=update_data)
-                    await session.refresh(updated_player)
+                    if updated_player: # Refresh only if update_entity returned an object
+                        await session.refresh(updated_player)
             except Exception as e:
                 logger.error(f"Error updating player {player_id} with data {update_data}: {e}", exc_info=True)
                 generic_error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "player_update:error_generic_update", lang_code,
                     "An error occurred while updating player {player_id}: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(generic_error_msg.format(player_id=player_id, error_message=str(e)), ephemeral=True)
                 return
+
+            if not updated_player: # Check if update or refresh failed
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "player_update:error_update_failed_unknown", lang_code,
+                    "Player update failed for an unknown reason."
+                ) # type: ignore
+                await interaction.followup.send(error_msg, ephemeral=True)
+                return
+
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "player_update:success_title", lang_code,
                 "Player Updated: {player_name} (ID: {player_id})"
-            )
+            ) # type: ignore
             embed_title = title_template.format(player_name=updated_player.name, player_id=updated_player.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.orange())
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "player_update:label_field_updated", lang_code, "Field Updated")
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "player_update:label_new_value", lang_code, "New Value")
+            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "player_update:label_field_updated", lang_code, "Field Updated") # type: ignore
+            new_value_label = await get_localized_message_template(session, interaction.guild_id, "player_update:label_new_value", lang_code, "New Value") # type: ignore
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
             new_value_display = str(parsed_value)

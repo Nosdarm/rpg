@@ -84,7 +84,10 @@ class TestInventoryItemModel(unittest.TestCase):
         self.assertEqual(inv_item.owner_entity_type, OwnerEntityType.GENERATED_NPC)
         self.assertEqual(inv_item.quantity, 5)
         self.assertEqual(inv_item.equipped_status, "main_hand")
-        self.assertEqual(inv_item.instance_specific_properties_json.get("quality"), "masterwork")
+
+        self.assertIsNotNone(inv_item.instance_specific_properties_json, "instance_specific_properties_json should be populated in this test.")
+        if inv_item.instance_specific_properties_json: # Check for Pyright and robustness
+            self.assertEqual(inv_item.instance_specific_properties_json.get("quality"), "masterwork")
 
     def test_inventory_item_relationship_to_item(self):
         """Test the relationship from InventoryItem to Item."""

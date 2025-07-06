@@ -33,10 +33,13 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
     @app_commands.describe(location_id="The database ID of the Location to view.")
     async def location_view(self, interaction: discord.Interaction, location_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            loc = await location_crud.get_by_id_and_guild(session, id=location_id, guild_id=interaction.guild_id)
+            loc = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
 
             if not loc:
                 not_found_msg = await get_localized_message_template(
@@ -56,7 +59,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_green())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"location_view:label_{key}", lang_code, default)
+                return await get_localized_message_template(session, interaction.guild_id, f"location_view:label_{key}", lang_code, default) # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(loc.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=loc.static_id or "N/A", inline=True)
@@ -64,10 +67,10 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             embed.add_field(name=await get_label("parent_id", "Parent ID"), value=str(loc.parent_location_id) if loc.parent_location_id else "N/A", inline=True)
 
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str: # Renamed to avoid conflict
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             name_i18n_str = await format_json_field_helper(loc.name_i18n, "location_view:value_na_json", "location_view:error_serialization")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
@@ -90,11 +93,14 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            locations = await location_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            locations = await location_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_locations_stmt = select(func.count(location_crud.model.id)).where(location_crud.model.guild_id == interaction.guild_id)
             total_locations_result = await session.execute(total_locations_stmt)
@@ -119,17 +125,17 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "location_list:footer", lang_code,
                 "Displaying {count} of {total} total Locations."
-            )
+            ) # type: ignore
             embed.set_footer(text=footer_template.format(count=len(locations), total=total_locations))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "location_list:location_field_name", lang_code,
                 "ID: {loc_id} | {loc_name} (Static: {static_id})"
-            )
+            ) # type: ignore
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "location_list:location_field_value", lang_code,
                 "Type: {type}, Parent ID: {parent_id}, Neighbors: {neighbor_count}"
-            )
+            ) # type: ignore
 
             for loc in locations:
                 loc_name_display = loc.name_i18n.get(lang_code, loc.name_i18n.get("en", f"Location {loc.id}"))
@@ -180,6 +186,9 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
         parsed_properties: Optional[Dict[str, Any]] = None
         parsed_neighbors: Optional[List[Dict[str, Any]]] = None
         parsed_location_type: LocationType
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             try:
@@ -194,7 +203,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 return
 
             if parent_location_id:
-                parent_loc = await location_crud.get_by_id_and_guild(session, id=parent_location_id, guild_id=interaction.guild_id)
+                parent_loc = await location_crud.get_by_id(session, id=parent_location_id, guild_id=interaction.guild_id)
                 if not parent_loc:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "location_create:error_parent_not_found", lang_code,
@@ -242,7 +251,14 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                             not all(isinstance(k, str) and isinstance(v, str) for k,v in neighbor_entry["description_i18n"].items())
                         ):
                             raise ValueError("Neighbor 'description_i18n' must be a dict of str:str if provided.")
-            except (json.JSONDecodeError, ValueError) as e:
+            except ValueError as e: # Specific exception first
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "location_create:error_invalid_json_format", lang_code,
+                    "Invalid JSON format or structure for one of the input fields: {error_details}"
+                )
+                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+                return
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_create:error_invalid_json_format", lang_code,
                     "Invalid JSON format or structure for one of the input fields: {error_details}"
@@ -251,7 +267,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 return
 
             location_data_to_create: Dict[str, Any] = {
-                "guild_id": interaction.guild_id,
+                "guild_id": interaction.guild_id, # Ensured not None by early check
                 "static_id": static_id,
                 "name_i18n": parsed_name_i18n,
                 "description_i18n": parsed_description_i18n if parsed_description_i18n else {},
@@ -264,7 +280,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             created_location: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_location = await location_crud.create_with_guild(session, obj_in=location_data_to_create, guild_id=interaction.guild_id)
+                    created_location = await location_crud.create_with_guild(session, obj_in=location_data_to_create, guild_id=interaction.guild_id) # type: ignore
                     await session.flush()
                     if created_location:
                          await session.refresh(created_location)
@@ -273,7 +289,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_create:error_generic_create", lang_code,
                     "An error occurred while creating the Location: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_message=str(e)), ephemeral=True)
                 return
 
@@ -281,14 +297,14 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_create:error_creation_failed_unknown", lang_code,
                     "Location creation failed for an unknown reason."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "location_create:success_title", lang_code,
                 "Location Created: {loc_name} (ID: {loc_id})"
-            )
+            ) # type: ignore
             created_loc_name_display = created_location.name_i18n.get(lang_code, created_location.name_i18n.get("en", f"Location {created_location.id}"))
 
             embed = discord.Embed(title=success_title_template.format(loc_name=created_loc_name_display, loc_id=created_location.id), color=discord.Color.green())
@@ -305,6 +321,9 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
     )
     async def location_update(self, interaction: discord.Interaction, location_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         allowed_fields = {
             "static_id": (str, type(None)),
@@ -332,7 +351,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "location_update:error_field_not_allowed", lang_code,
                     "Field '{field_name}' is not allowed for update. Allowed: {allowed_list}"
-                )
+                ) # type: ignore
             # Show user-friendly field names
             user_friendly_allowed_keys = [k[:-5] if k.endswith("_json") else ("type_name" if k == "type" else k) for k in allowed_fields.keys()]
             await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(user_friendly_allowed_keys)), ephemeral=True)
@@ -346,13 +365,13 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                         parsed_value = None
                     else:
                         parsed_value = new_value
-                        if parsed_value is not None:
+                        if parsed_value is not None: # This check is a bit redundant due to the one above, but safe
                             existing_loc_static = await location_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
                             if existing_loc_static and existing_loc_static.id != location_id:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "location_update:error_static_id_exists", lang_code,
                                     "Another Location with static_id '{id}' already exists."
-                                )
+                                ) # type: ignore
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
                                 return
                 elif db_field_name in ["name_i18n", "description_i18n", "properties_json"]:
@@ -374,7 +393,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                         error_msg = await get_localized_message_template(
                             session, interaction.guild_id, "location_update:error_invalid_type", lang_code,
                             "Invalid type_name '{value}'. Valid types: {types}"
-                        )
+                        ) # type: ignore
                         await interaction.followup.send(error_msg.format(value=new_value, types=valid_types), ephemeral=True)
                         return
                 elif db_field_name == "parent_location_id":
@@ -383,49 +402,49 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            parent_loc = await location_crud.get_by_id_and_guild(session, id=parsed_value, guild_id=interaction.guild_id)
+                            parent_loc = await location_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not parent_loc:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "location_update:error_parent_not_found", lang_code,
                                     "Parent Location with ID {id} not found."
-                                )
+                                ) # type: ignore
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
                                 return
                             if parent_loc.id == location_id:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "location_update:error_self_parent", lang_code,
                                     "Location cannot be its own parent."
-                                )
+                                ) # type: ignore
                                 await interaction.followup.send(error_msg, ephemeral=True)
                                 return
                 else:
                      error_msg = await get_localized_message_template(
                          session, interaction.guild_id, "location_update:error_unknown_field_type", lang_code,
                         "Internal error: Unknown field type for '{field_name}'."
-                    )
+                    ) # type: ignore
                      await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True)
                      return
-            except ValueError as e:
+            except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_update:error_invalid_value_type", lang_code,
                     "Invalid value '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_update:error_invalid_json", lang_code,
                     "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
 
-            location_to_update = await location_crud.get_by_id_and_guild(session, id=location_id, guild_id=interaction.guild_id)
+            location_to_update = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
             if not location_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_update:error_location_not_found", lang_code,
                     "Location with ID {id} not found."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=location_id), ephemeral=True)
                 return
 
@@ -435,25 +454,35 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 async with session.begin():
                     updated_location = await update_entity(session, entity=location_to_update, data=update_data_dict)
                     await session.flush()
-                    await session.refresh(updated_location)
+                    if updated_location: # Refresh only if not None
+                        await session.refresh(updated_location)
             except Exception as e:
                 logger.error(f"Error updating Location {location_id} with data {update_data_dict}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_update:error_generic_update", lang_code,
                     "An error occurred while updating Location {id}: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=location_id, error_message=str(e)), ephemeral=True)
                 return
+
+            if not updated_location: # Check after potential refresh
+                 error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "location_update:error_update_failed_unknown", lang_code,
+                    "Location update failed for an unknown reason after attempting to save."
+                ) # type: ignore
+                 await interaction.followup.send(error_msg, ephemeral=True)
+                 return
+
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "location_update:success_title", lang_code,
                 "Location Updated: {loc_name} (ID: {loc_id})"
-            )
+            ) # type: ignore
             updated_loc_name_display = updated_location.name_i18n.get(lang_code, updated_location.name_i18n.get("en", f"Location {updated_location.id}"))
             embed = discord.Embed(title=success_title_template.format(loc_name=updated_loc_name_display, loc_id=updated_location.id), color=discord.Color.orange())
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "location_update:label_field_updated", lang_code, "Field Updated")
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "location_update:label_new_value", lang_code, "New Value")
+            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "location_update:label_field_updated", lang_code, "Field Updated") # type: ignore
+            new_value_label = await get_localized_message_template(session, interaction.guild_id, "location_update:label_new_value", lang_code, "New Value") # type: ignore
 
             new_value_display = str(parsed_value)
             if isinstance(parsed_value, (dict, list)):
@@ -471,16 +500,19 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
     @app_commands.describe(location_id="The database ID of the Location to delete.")
     async def location_delete(self, interaction: discord.Interaction, location_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            location_to_delete = await location_crud.get_by_id_and_guild(session, id=location_id, guild_id=interaction.guild_id)
+            location_to_delete = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
 
             if not location_to_delete:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_delete:error_not_found", lang_code,
                     "Location with ID {id} not found. Nothing to delete."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=location_id), ephemeral=True)
                 return
 
@@ -492,7 +524,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_delete:error_player_dependency", lang_code,
                     "Cannot delete Location '{name}' (ID: {id}) as players are currently in it. Please move them first."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=location_name_for_message, id=location_id), ephemeral=True)
                 return
 
@@ -502,7 +534,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_delete:error_npc_dependency", lang_code,
                     "Cannot delete Location '{name}' (ID: {id}) as NPCs are currently in it. Please move them or reassign their location first."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=location_name_for_message, id=location_id), ephemeral=True)
                 return
 
@@ -512,52 +544,52 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_delete:error_child_dependency", lang_code,
                     "Cannot delete Location '{name}' (ID: {id}) as it has child locations. Please delete or re-parent them first."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=location_name_for_message, id=location_id), ephemeral=True)
                 return
 
             deleted_location: Optional[Any] = None
             try:
                 async with session.begin():
-                    all_other_locations = await location_crud.get_multi_by_guild(session, guild_id=interaction.guild_id)
+                    all_other_locations = await location_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id) # type: ignore
                     updated_other_locations = False
                     for other_loc in all_other_locations:
-                        if other_loc.id == location_id:
+                        if other_loc.id == location_id: # type: ignore
                             continue
-                        if other_loc.neighbor_locations_json:
+                        if other_loc.neighbor_locations_json: # type: ignore
                             new_neighbors = []
                             changed = False
-                            for neighbor_link in other_loc.neighbor_locations_json:
+                            for neighbor_link in other_loc.neighbor_locations_json: # type: ignore
                                 if isinstance(neighbor_link, dict) and neighbor_link.get("target_static_id") == location_to_delete.static_id:
                                     changed = True
                                     continue
                                 new_neighbors.append(neighbor_link)
                             if changed:
-                                other_loc.neighbor_locations_json = new_neighbors
+                                other_loc.neighbor_locations_json = new_neighbors # type: ignore
                                 session.add(other_loc)
                                 updated_other_locations = True
                     if updated_other_locations:
                         await session.flush()
-                    deleted_location = await location_crud.remove(session, id=location_id)
+                    deleted_location = await location_crud.remove_by_id(session, id=location_id, guild_id=interaction.guild_id) # type: ignore
 
                 if deleted_location:
                     success_msg = await get_localized_message_template(
                         session, interaction.guild_id, "location_delete:success", lang_code,
                         "Location '{name}' (ID: {id}) has been deleted successfully."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(success_msg.format(name=location_name_for_message, id=location_id), ephemeral=True)
                 else:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "location_delete:error_not_deleted_unknown", lang_code,
                         "Location (ID: {id}) was found but could not be deleted."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=location_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting Location {location_id} for guild {interaction.guild_id}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_delete:error_generic", lang_code,
                     "An error occurred while deleting Location '{name}' (ID: {id}): {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=location_name_for_message, id=location_id, error_message=str(e)), ephemeral=True)
                 return
 

@@ -71,10 +71,21 @@ class TestItemModel(unittest.TestCase):
         self.assertEqual(item.static_id, "test_sword_001")
         self.assertEqual(item.name_i18n["en"], "Sword of Testing")
         self.assertEqual(item.description_i18n["ru"], "Прекрасный меч для тестов.")
-        self.assertEqual(item.item_type_i18n.get("en"), "Weapon")
-        self.assertEqual(item.item_category_i18n.get("ru"), "Одноручный меч")
+
+        self.assertIsNotNone(item.item_type_i18n, "item_type_i18n should be populated in this test.")
+        if item.item_type_i18n: # Check for Pyright and robustness
+            self.assertEqual(item.item_type_i18n.get("en"), "Weapon")
+
+        self.assertIsNotNone(item.item_category_i18n, "item_category_i18n should be populated.")
+        if item.item_category_i18n: # Check for Pyright
+            self.assertEqual(item.item_category_i18n.get("ru"), "Одноручный меч")
+
         self.assertEqual(item.base_value, 100)
-        self.assertEqual(item.properties_json.get("damage"), "1d8")
+
+        self.assertIsNotNone(item.properties_json, "properties_json should be populated.")
+        if item.properties_json: # Check for Pyright
+            self.assertEqual(item.properties_json.get("damage"), "1d8")
+
         self.assertEqual(item.slot_type, "weapon_main_hand")
         self.assertFalse(item.is_stackable)
 

@@ -17,6 +17,7 @@ from src.core.crud.crud_item import item_crud # To create items for tests
 ASYNC_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
+# type: ignore[var-annotated] # Pyright can sometimes struggle with complex sessionmaker types
 AsyncSessionLocal = sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -27,9 +28,9 @@ class TestCRUDInventoryItem(unittest.IsolatedAsyncioTestCase):
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-        self.session: AsyncSession = AsyncSessionLocal()
+        self.session: AsyncSession = AsyncSessionLocal() # type: ignore[assignment] # If pyright still complains after above ignore
 
-        self.guild_config = GuildConfig(id=1, name="Test Guild") # guild_discord_id is not a field, id is the discord id
+        self.guild_config = GuildConfig(id=1, name="Test Guild")
         self.session.add(self.guild_config)
         await self.session.commit()
         await self.session.refresh(self.guild_config)
@@ -142,8 +143,9 @@ class TestCRUDInventoryItem(unittest.IsolatedAsyncioTestCase):
             self.session, guild_id=self.guild_config.id, owner_entity_id=owner_id,
             owner_entity_type=owner_type, item_id=self.db_item2.id, quantity=2
         )
-        self.assertIsNotNone(updated_item)
-        self.assertEqual(updated_item.quantity, 3)
+        self.assertIsNotNone(updated_item, "Updated item should not be None after decreasing quantity.")
+        if updated_item: # Added check for Pyright and robustness
+            self.assertEqual(updated_item.quantity, 3)
 
     async def test_remove_item_from_owner_delete_stack(self):
         owner_id = 6
