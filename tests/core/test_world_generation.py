@@ -943,11 +943,13 @@ class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
         mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_item_exist, parsed_trader_exist], raw_ai_output=ai_response_json_str)
 
         mock_existing_item_db = Item(id=2, guild_id=guild_id, static_id="existing_item", name_i18n={"en":"DB Item"})
-        mock_item_crud.get_by_static_id.return_value = mock_existing_item_db
+        # Ensure get_by_static_id is an AsyncMock if it's awaited
+        mock_item_crud.get_by_static_id = AsyncMock(return_value=mock_existing_item_db)
         mock_item_crud.create = AsyncMock() # Should not be called for this item
 
         mock_existing_npc_db = GeneratedNpc(id=20, guild_id=guild_id, static_id="existing_trader", name_i18n={"en":"DB Trader"})
-        mock_npc_crud.get_by_static_id.return_value = mock_existing_npc_db
+        # Ensure get_by_static_id is an AsyncMock if it's awaited
+        mock_npc_crud.get_by_static_id = AsyncMock(return_value=mock_existing_npc_db)
         mock_npc_crud.create = AsyncMock() # Should not be called for this NPC
 
         items, traders, error = await generate_economic_entities(self.session, guild_id)
