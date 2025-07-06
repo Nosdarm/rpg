@@ -1,0 +1,118 @@
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
+  Line 94   [ERROR] Argument missing for parameter "entity_type"
+  Line 211  [ERROR] Argument missing for parameter "entity_type"
+  Line 287  [ERROR] Argument missing for parameter "entity_type"
+  Line 289  [ERROR] Argument missing for parameter "entity_type"
+  Line 358  [ERROR] Argument missing for parameter "entity_type"
+  Line 360  [ERROR] Argument missing for parameter "entity_type"
+  Line 401  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
+┬а┬аAttribute "call_args_list" is unknown
+  Line 504  [ERROR] Argument missing for parameter "entity_type"
+  Line 832  [ERROR] Argument missing for parameter "entity_type"
+  Line 833  [ERROR] Argument missing for parameter "entity_type"
+  Line 834  [ERROR] Argument missing for parameter "entity_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 11 issue(s):
+  Line 31   [ERROR] Argument missing for parameter "description"
+  Line 42   [ERROR] Argument missing for parameter "description"
+  Line 54   [ERROR] Argument missing for parameter "description"
+  Line 60   [ERROR] Argument missing for parameter "description"
+  Line 77   [ERROR] Argument missing for parameter "description"
+  Line 77   [ERROR] Argument missing for parameter "language_code"
+  Line 115  [ERROR] Arguments missing for parameters "description", "required"
+  Line 118  [ERROR] Arguments missing for parameters "description", "type"
+  Line 121  [ERROR] Arguments missing for parameters "name", "description"
+  Line 125  [ERROR] Argument missing for parameter "name"
+  Line 129  [ERROR] Argument missing for parameter "commands"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 7 issue(s):
+  Line 124  [ERROR] "get" is not a known attribute of "None"
+  Line 126  [ERROR] "get" is not a known attribute of "None"
+  Line 127  [ERROR] "get" is not a known attribute of "None"
+  Line 607  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 613  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 614  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 614  [ERROR] "__getitem__" method not defined on type "Player"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 5 issue(s):
+  Line 249  [ERROR] Object of type "None" is not subscriptable
+  Line 379  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 399  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 416  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 496  [ERROR] Argument of type "None" cannot be assigned to parameter "location_data" of type "Dict[str, Any]" in function "_find_target_in_location"
+┬а┬а"None" is not assignable to "Dict[str, Any]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\combat_cycle_manager.py] — 4 issue(s):
+  Line 568  [ERROR] Cannot access attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 569  [ERROR] Cannot assign to attribute "current_combat_id" for class "Player"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 578  [ERROR] Cannot access attribute "current_combat_id" for class "Party"
+┬а┬аAttribute "current_combat_id" is unknown
+  Line 580  [ERROR] Cannot assign to attribute "current_combat_id" for class "Party"
+┬а┬аAttribute "current_combat_id" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 3 issue(s):
+  Line 588  [ERROR] "action_result" is possibly unbound
+  Line 597  [ERROR] "action_result" is possibly unbound
+  Line 642  [ERROR] "action_result" is possibly unbound
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 3 issue(s):
+  Line 132  [ERROR] Argument missing for parameter "name_i18n"
+  Line 134  [ERROR] Argument missing for parameter "description_i18n"
+  Line 212  [ERROR] Operator "in" not supported for types "Literal['static_id']" and "Any | None"
+┬а┬аOperator "in" not supported for types "Literal['static_id']" and "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 3 issue(s):
+  Line 667  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[GeneratedQuest] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 703  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 750  [ERROR] Argument of type "List[GeneratedQuest] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[GeneratedQuest] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\general_commands.py] — 2 issue(s):
+  Line 278  [ERROR] Operator "+=" not supported for types "str | None" and "LiteralString"
+┬а┬аOperator "+" not supported for types "None" and "LiteralString"
+  Line 281  [ERROR] Operator "+=" not supported for types "str | None" and "Literal['\n\nNo commands to display.']"
+┬а┬аOperator "+" not supported for types "None" and "Literal['\n\nNo commands to display.']"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\events.py] — 2 issue(s):
+  Line 83   [ERROR] Object of type "Iterable[str]" is not callable
+┬а┬аAttribute "__call__" is unknown
+  Line 83   [ERROR] Object of type "str" is not callable
+┬а┬аAttribute "__call__" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ability_system.py] — 1 issue(s):
+  Line 437  [ERROR] Cannot assign to attribute "applied_at" for class "ActiveStatusEffect"
+┬а┬аType "now" is not assignable to type "SQLCoreOperations[TIMESTAMP] | TIMESTAMP"
+┬а┬а┬а┬а"now" is not assignable to "SQLCoreOperations[TIMESTAMP]"
+┬а┬а┬а┬а┬а┬аType parameter "_T_co@SQLCoreOperations" is covariant, but "datetime" is not a subtype of "TIMESTAMP"
+┬а┬а┬а┬а┬а┬а┬а┬а"datetime" is not assignable to "TIMESTAMP"
+┬а┬а┬а┬а"now" is not assignable to "TIMESTAMP"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_orchestrator.py] — 1 issue(s):
+  Line 349  [ERROR] Cannot access attribute "steps_description_i18n" for class "ParsedQuestData"
+┬а┬аAttribute "steps_description_i18n" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
+  Line 220  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_command_utils.py] — 1 issue(s):
+  Line 26   [ERROR] Expression of type "None" cannot be assigned to parameter of type "dict[Unknown, Unknown]"
+┬а┬а"None" is not assignable to "dict[Unknown, Unknown]"
