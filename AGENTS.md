@@ -81,9 +81,56 @@ API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending
         *   `asyncSetUp` был адаптирован (удален ненужный патч `@is_administrator`).
         *   Существующие тесты для `player_view` и `ruleconfig_set` обновлены для корректной работы с моками локализации.
         *   Добавлен тест для команды `ping_command`.
+    6.  **Реализация CRUD-команд для Party**:
+        *   Подгруппа `party_group` в `MasterAdminCog` создана.
+        *   Команды `party view <id>`, `party list [page] [limit]`, `party create [...]`, `party update <id> <field> <value>`, `party delete <id>` реализованы с использованием `party_crud` и `get_localized_message_template`.
+    7.  **Реализация CRUD-команд для GeneratedNpc**:
+        *   Подгруппа `npc_group` в `MasterAdminCog` создана.
+        *   Команды `npc view <id>`, `npc list [page] [limit]`, `npc create [...]`, `npc update <id> <field> <value>`, `npc delete <id>` реализованы с использованием `npc_crud` и `get_localized_message_template`.
+    8.  **Реализация CRUD-команд для Location**:
+        *   Подгруппа `location_group` в `MasterAdminCog` создана.
+        *   Команды `location view <id>`, `location list [page] [limit]`, `location create [...]`, `location update <id> <field> <value>`, `location delete <id>` реализованы с использованием `location_crud` и `get_localized_message_template`.
+    9.  **Реализация CRUD-команд для Item**:
+        *   Подгруппа `item_group` в `MasterAdminCog` создана.
+        *   Команды `item view <id>`, `item list [page] [limit]`, `item create [...]`, `item update <id> <field> <value>`, `item delete <id>` реализованы с использованием `item_crud` и `get_localized_message_template`.
+    10. **Реализация CRUD-команд для GeneratedFaction**:
+        *   Подгруппа `faction_group` в `MasterAdminCog` создана.
+        *   Команды `faction view <id>`, `faction list [page] [limit]`, `faction create [...]`, `faction update <id> <field> <value>`, `faction delete <id>` реализованы с использованием `crud_faction` и `get_localized_message_template`.
+    11. **Реализация CRUD-команд для Relationship**:
+        *   Подгруппа `relationship_group` в `MasterAdminCog` создана.
+        *   Команды `relationship view <id>`, `relationship list [...]`, `relationship create [...]`, `relationship update <id> <field> <value>`, `relationship delete <id>` реализованы с использованием `crud_relationship` и `get_localized_message_template`.
+    12. **Реализация CRUD-команд для Questline и GeneratedQuest**:
+        *   Подгруппа `quest_group` в `MasterAdminCog` создана.
+        *   Реализованы команды для `Questline`: `questline_view <id>`, `questline_list`, `questline_create [...]`, `questline_update <id> <field> <value>`, `questline_delete <id>`.
+        *   Реализованы команды для `GeneratedQuest`: `generated_quest_view <id>`, `generated_quest_list`, `generated_quest_create [...]`, `generated_quest_update <id> <field> <value>`, `generated_quest_delete <id>`.
+        *   Использованы `questline_crud`, `generated_quest_crud` и `get_localized_message_template`.
+    13. **Реализация команд для CombatEncounter**:
+        *   Подгруппа `combat_encounter_group` в `MasterAdminCog` создана.
+        *   Команды `combat_encounter view <id>`, `combat_encounter list [status]`, `combat_encounter delete <id>` реализованы.
+    14. **Реализация CRUD-команд для GlobalNpc**:
+        *   Подгруппа `global_npc_group` в `MasterAdminCog` создана.
+        *   Команды `global_npc view <id>`, `global_npc list`, `global_npc create [...]`, `global_npc update <id> <field> <value>`, `global_npc delete <id>` реализованы.
+    15. **Реализация CRUD-команд для MobileGroup**:
+        *   Подгруппа `mobile_group_group` в `MasterAdminCog` создана.
+        *   Команды `mobile_group view <id>`, `mobile_group list`, `mobile_group create [...]`, `mobile_group update <id> <field> <value>`, `mobile_group delete <id>` реализованы.
+    16. **Реализация CRUD-команд для InventoryItem**:
+        *   Подгруппа `inventory_item_group` в `MasterAdminCog` создана.
+        *   Команды `inventory_item view <id>`, `inventory_item list [...]`, `inventory_item create [...]`, `inventory_item update <id> <field> <value>`, `inventory_item delete <id>` реализованы.
+    17. **Реализация CRUD-команд для Ability**:
+        *   Подгруппа `ability_group` в `MasterAdminCog` создана.
+        *   Команды `ability view <id>`, `ability list [scope]`, `ability create [...]`, `ability update <id> <field> <value>`, `ability delete <id>` реализованы.
+    18. **Реализация CRUD-команд для StatusEffect (Definition)**:
+        *   Подгруппа `status_effect_definition_group` в `MasterAdminCog` создана.
+        *   Команды `status_effect_definition view <id>`, `status_effect_definition list [scope]`, `status_effect_definition create [...]`, `status_effect_definition update <id> <field> <value>`, `status_effect_definition delete <id>` реализованы.
+    19. **Реализация команд для ActiveStatusEffect (Instance)**:
+        *   Подгруппа `active_status_effect_group` в `MasterAdminCog` создана.
+        *   Команды `active_status_effect view_instance <id>`, `active_status_effect list_instances [...]`, `active_status_effect remove_instance <id>` реализованы.
+    20. **Реализация команд для StoryLog (View/List Only)**:
+        *   Подгруппа `story_log_group` в `MasterAdminCog` создана.
+        *   Команды `story_log view <id>`, `story_log list [...]` реализованы.
 - **Предварительный план (оставшиеся шаги)**:
-    1.  **Подготовка и общие компоненты**:
-        *   Создать новый Cog `MasterAdminCog` в `src/bot/commands/master_admin_commands.py`. (ВЫПОЛНЕНО)
+    1.  **Подготовка и общие компоненты**: (ВЫПОЛНЕНО)
+        *   Создать новый Cog `MasterAdminCog` в `src/bot/commands/master_admin_commands.py`.
         *   Определить основную группу команд `/master_admin`. (ВЫПОЛНЕНО)
         *   Реализовать проверку прав администратора/мастера для всех команд в этом Cog (например, через `discord.app_commands.checks.has_permissions(administrator=True)` или кастомный чек).
         *   Добавить `MasterAdminCog` в `BOT_COGS` в `src/config/settings.py` для загрузки.
