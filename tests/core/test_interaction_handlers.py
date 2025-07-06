@@ -320,7 +320,7 @@ async def test_interact_object_rule_not_found(
         assert details_json_val.get("rule_found") is False
     else:
         # This case should ideally not be reached if log_event is called correctly
-        self.fail(f"details_json in log_kwargs was not a dict or was None. Value: {details_json_val}")
+        pytest.fail(f"details_json in log_kwargs was not a dict or was None. Value: {details_json_val}")
 
 @pytest.mark.asyncio
 @patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
