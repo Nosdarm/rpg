@@ -34,31 +34,38 @@ class TestMasterAdminCog(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.bot = AsyncMock(spec=discord_commands.Bot)
         self.cog = MasterAdminCog(self.bot)
-        # Mock the is_administrator check to always return True for these tests
-        # This is important if the decorator itself isn't being tested here.
-        self.patcher_is_admin = patch('src.bot.commands.master_ai_commands.is_administrator', return_value=lambda func: func)
-        self.mock_is_admin_check = self.patcher_is_admin.start()
-
-        # It's often better to patch specific dependencies within each test method
-        # or use a more targetted patch for the decorator if its logic needs to be bypassed for all tests in this class.
-        # For now, this broad approach simplifies bypassing the permission check for command logic testing.
+        # self.patcher_is_admin = patch('src.bot.commands.master_ai_commands.is_administrator', return_value=lambda func: func)
+        # self.mock_is_admin_check = self.patcher_is_admin.start()
+        # No longer needed as we rely on default_permissions on the group
 
     async def asyncTearDown(self):
-        self.patcher_is_admin.stop()
+        # self.patcher_is_admin.stop()
+        pass # Nothing to stop if nothing started in setUp specifically for all tests
+
+    async def test_ping_command(self):
+        """Test the /master_admin ping command."""
+        mock_interaction = create_mock_interaction(guild_id=123) # Use helper
+
+        await self.cog.ping_command.callback(self.cog, mock_interaction) # Call with cog instance and interaction
+
+        mock_interaction.response.send_message.assert_called_once_with(
+            f"Pong! Master Admin Cog is active in guild {mock_interaction.guild_id}.",
+            ephemeral=True
+        )
 
     @patch('src.bot.commands.master_admin_commands.get_db_session')
     @patch('src.bot.commands.master_admin_commands.player_crud')
     @patch('src.bot.commands.master_admin_commands.get_localized_message_template')
     async def test_player_view_found(self, mock_get_loc_msg, mock_player_crud, mock_get_session):
         mock_interaction = create_mock_interaction()
-
         mock_session_instance = AsyncMock()
-        mock_get_session.return_value.__aenter__.return_value = mock_session_instance # For async with
+        mock_get_session.return_value.__aenter__.return_value = mock_session_instance
 
-        mock_player = Player(id=1, discord_id=789, guild_id=123, name="TestPlayer", level=5, xp=100, unspent_xp=2, current_status=PlayerStatus.EXPLORING, language="en")
+        mock_player = Player(id=1, discord_id=789, guild_id=123, name="TestPlayer", level=5, xp=100, unspent_xp=2, current_status=PlayerStatus.EXPLORING, language="en", attributes_json={"str":10})
         mock_player_crud.get_by_id_and_guild = AsyncMock(return_value=mock_player)
 
-        mock_get_loc_msg.side_effect = lambda s, gid, key, lc, default: default # Simple mock for localization
+        # General side effect for localization that formats the default template with provided kwargs
+        mock_get_loc_msg.side_effect = lambda session, guild_id, key, lang_code, default_template, **kwargs: default_template.format(**kwargs)
 
         await self.cog.player_view.callback(self.cog, mock_interaction, player_id=1)
 
@@ -82,26 +89,32 @@ class TestMasterAdminCog(unittest.IsolatedAsyncioTestCase):
         mock_get_session.return_value.__aenter__.return_value = mock_session_instance
 
         mock_player_crud.get_by_id_and_guild = AsyncMock(return_value=None)
-        mock_get_loc_msg.side_effect = lambda s, gid, key, lc, default: default.format(player_id=1)
-
+        # Ensure the side_effect can handle the kwargs passed by the actual code
+        mock_get_loc_msg.side_effect = lambda session, guild_id, key, lang_code, default_template, **kwargs: default_template.format(**kwargs)
 
         await self.cog.player_view.callback(self.cog, mock_interaction, player_id=1)
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
+        # The actual key used in player_view is "player_view:not_found"
+        # The default template is "Player with ID {player_id} not found in this guild."
+        expected_message = "Player with ID 1 not found in this guild."
         mock_interaction.followup.send.assert_called_once_with(
-            "Player with ID 1 not found in this guild.", # Assuming default template
+            expected_message,
             ephemeral=True
         )
 
     @patch('src.bot.commands.master_admin_commands.get_db_session')
-    @patch('src.bot.commands.master_admin_commands.update_rule_config') # Patching the core function
-    async def test_ruleconfig_set_success(self, mock_update_rule, mock_get_session):
+    @patch('src.bot.commands.master_admin_commands.update_rule_config')
+    @patch('src.bot.commands.master_admin_commands.get_localized_message_template')
+    async def test_ruleconfig_set_success(self, mock_get_loc_msg, mock_update_rule, mock_get_session):
         mock_interaction = create_mock_interaction()
         mock_session_instance = AsyncMock()
         mock_get_session.return_value.__aenter__.return_value = mock_session_instance
 
         mock_updated_rule = RuleConfig(guild_id=123, key="test_key", value_json={"data": "new_value"})
-        mock_update_rule.return_value = mock_updated_rule # update_rule_config returns the RuleConfig object
+        mock_update_rule.return_value = mock_updated_rule
+
+        mock_get_loc_msg.side_effect = lambda session, guild_id, key, lang_code, default_template, **kwargs: default_template.format(**kwargs)
 
         key_to_set = "my_rule"
         value_json_str = '{"value": 123, "enabled": true}'
@@ -110,14 +123,20 @@ class TestMasterAdminCog(unittest.IsolatedAsyncioTestCase):
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
         mock_update_rule.assert_called_once_with(mock_session_instance, guild_id=123, key=key_to_set, value={"value": 123, "enabled": True})
+        # Default template for "ruleconfig_set:success" is "RuleConfig '{key_name}' has been set/updated successfully."
+        expected_message = f"RuleConfig '{key_to_set}' has been set/updated successfully."
         mock_interaction.followup.send.assert_called_once_with(
-            f"RuleConfig '{key_to_set}' has been set/updated successfully.", ephemeral=True
+            expected_message, ephemeral=True
         )
 
     @patch('src.bot.commands.master_admin_commands.get_db_session')
-    async def test_ruleconfig_set_invalid_json(self, mock_get_session):
+    @patch('src.bot.commands.master_admin_commands.get_localized_message_template')
+    async def test_ruleconfig_set_invalid_json(self, mock_get_loc_msg, mock_get_session):
         mock_interaction = create_mock_interaction()
-        # No need to mock session instance if JSON parsing fails before DB interaction
+        mock_session_instance = AsyncMock() # This session is for the error message localization
+        mock_get_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_get_loc_msg.side_effect = lambda session, guild_id, key, lang_code, default_template, **kwargs: default_template.format(**kwargs)
 
         key_to_set = "my_rule"
         invalid_value_json_str = '{"value": 123, "enabled": true' # Missing closing brace
@@ -125,8 +144,10 @@ class TestMasterAdminCog(unittest.IsolatedAsyncioTestCase):
         await self.cog.ruleconfig_set.callback(self.cog, mock_interaction, key=key_to_set, value_json=invalid_value_json_str)
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
+        # Default template for "ruleconfig_set:error_invalid_json" is "Invalid JSON string provided for value: {json_string}"
+        expected_message = f"Invalid JSON string provided for value: {invalid_value_json_str}"
         mock_interaction.followup.send.assert_called_once_with(
-            f"Invalid JSON string provided for value: {invalid_value_json_str}", ephemeral=True
+            expected_message, ephemeral=True
         )
 
     # TODO: Add tests for player_list, player_update, other ruleconfig commands, and conflict commands.
