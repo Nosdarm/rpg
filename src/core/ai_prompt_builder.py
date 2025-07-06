@@ -400,14 +400,41 @@ def _get_entity_schema_terms() -> Dict[str, Any]:
             "required": ["title_i18n", "description_i18n", "step_order"]
         },
         "item_schema": {
-             "description": "Schema for Items.",
+             "description": "Schema for Items. Ensure 'static_id' is unique for each item generated in this batch.",
              "fields": {
+                "entity_type": {"type": "string", "const": "item", "description": "Must be 'item'."},
+                "static_id": {"type": "string", "description": "AI-generated unique static ID for this item (e.g., 'healing_potion_minor', 'steel_sword_common')."},
                 "name_i18n": {"type": "object", "description": "Localized item name."},
                 "description_i18n": {"type": "object", "description": "Localized item description."},
-                "type": {"type": "string", "enum": ["weapon", "armor", "consumable", "quest_item", "misc"], "description": "Item type."},
-                "properties_json": {"type": "object", "description": "Specific properties, e.g., {'damage': '1d6', 'armor_value': 5, 'effect': 'heal_2d4'}"},
-                "value": {"type": "integer", "description": "Base monetary value."}
-             }
+                "item_type": {"type": "string", "enum": ["weapon", "armor", "consumable", "quest_item", "misc", "currency", "crafting_material"], "description": "Item type."},
+                "properties_json": {"type": "object", "description": "Specific properties, e.g., {'damage': '1d6', 'armor_value': 5, 'effect': 'heal_2d4', 'slot_type': 'weapon'}"},
+                "base_value": {"type": "integer", "description": "Base monetary value in the smallest currency unit (e.g., copper pieces)."}
+             },
+             "required": ["entity_type", "static_id", "name_i18n", "description_i18n", "item_type"]
+        },
+        "npc_trader_schema": {
+            "description": "Schema for NPC Traders. Inherits general NPC fields and adds trader-specific ones. Ensure 'static_id' is unique.",
+            "allOf": [{"$ref": "#/components/schemas/npc_schema"}], # Indicate inheritance/composition
+            "fields": { # Additional fields specific to traders
+                "entity_type": {"type": "string", "const": "npc_trader", "description": "Must be 'npc_trader'."},
+                "role_i18n": {"type": "object", "description": "Localized role of the trader (e.g., {'en': 'Blacksmith', 'ru': 'Кузнец'})."},
+                "inventory_template_key": {"type": "string", "description": "Optional key for a RuleConfig entry defining their inventory template (e.g., 'general_store_owner_template')."},
+                "generated_inventory_items": {
+                    "type": "array",
+                    "description": "Optional list of specific items the trader has if not using a template. Each item should specify 'item_static_id', 'quantity_min', 'quantity_max', 'chance_to_appear'.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "item_static_id": {"type": "string"},
+                            "quantity_min": {"type": "integer", "default": 1},
+                            "quantity_max": {"type": "integer", "default": 1},
+                            "chance_to_appear": {"type": "number", "format": "float", "minimum": 0.0, "maximum": 1.0, "default": 1.0}
+                        },
+                        "required": ["item_static_id"]
+                    }
+                }
+            },
+            "required": ["entity_type", "role_i18n"] # static_id, name_i18n etc. are required by npc_schema
         },
         "event_schema": {
             "description": "Schema for dynamic Events that can occur in a location.",
@@ -928,3 +955,87 @@ async def prepare_quest_generation_prompt(
     except Exception as e:
         logger.exception(f"Error in prepare_quest_generation_prompt for guild {guild_id}: {e}")
         return f"Error generating quest AI prompt: {str(e)}"
+
+
+@transactional
+async def prepare_economic_entity_generation_prompt(
+    session: AsyncSession,
+    guild_id: int
+) -> str:
+    """
+    Collects guild-level context and forms a structured prompt for the AI
+    to generate economic entities (items and NPC traders).
+    """
+    try:
+        guild_main_lang = await _get_guild_main_language(session, guild_id)
+        all_rules = await get_all_rules_for_guild(session, guild_id)
+
+        # --- Gather Economic Generation Rules & Context ---
+        # Extract relevant economic rules for context
+        economic_rules_context = {
+            key: value for key, value in all_rules.items() if key.startswith("economy:")
+        }
+        # Specific rules that might guide generation
+        target_item_count = all_rules.get("ai:economic_generation:target_item_count", 5)
+        target_trader_count = all_rules.get("ai:economic_generation:target_trader_count", 2)
+        world_description = all_rules.get("world_description", "A generic fantasy world.")
+        item_type_examples = ["weapon", "armor", "consumable", "crafting_material", "quest_item"] # Default examples
+
+        entity_schemas = _get_entity_schema_terms()
+
+        # --- Construct the Prompt ---
+        prompt_parts = []
+        prompt_parts.append("## AI Economic Entity Generation Request")
+        prompt_parts.append(f"Target Guild ID: {guild_id}")
+        prompt_parts.append(f"Primary Language for Generation: {guild_main_lang} (Also provide English ('en') translations for all user-facing text in _i18n JSON objects).")
+
+        prompt_parts.append("\n### Generation Guidelines & Context:")
+        prompt_parts.append(f"  World Description: {world_description}")
+        prompt_parts.append(f"  Target Number of New Items to Generate: {target_item_count}")
+        prompt_parts.append(f"  Target Number of New NPC Traders to Generate: {target_trader_count}")
+        prompt_parts.append(f"  Example Item Types: {', '.join(item_type_examples)}")
+
+        if economic_rules_context:
+            prompt_parts.append("\n  Relevant Economic Rules (for context and inspiration, do not just copy):")
+            for key, value in economic_rules_context.items():
+                # Summarize or show snippet of complex rules
+                value_str = json.dumps(value)
+                if len(value_str) > 150:
+                    value_str = value_str[:147] + "..."
+                prompt_parts.append(f"    - {key}: {value_str}")
+        else:
+            prompt_parts.append("\n  No specific economic rules found; use general fantasy tropes for item values and trader inventories.")
+
+        prompt_parts.append("\n### Generation Task:")
+        prompt_parts.append(f"Generate {target_item_count} new item(s) and {target_trader_count} new NPC trader(s) suitable for the world context.")
+        prompt_parts.append("For each ITEM:")
+        prompt_parts.append("  - Adhere to the 'item_schema'. Ensure 'static_id' is unique for each item generated.")
+        prompt_parts.append("  - Provide 'name_i18n', 'description_i18n', 'item_type'.")
+        prompt_parts.append("  - 'properties_json' should detail relevant stats (e.g., damage for weapons, effects for potions).")
+        prompt_parts.append("  - 'base_value' should be a sensible integer representing its worth.")
+        prompt_parts.append("For each NPC TRADER:")
+        prompt_parts.append("  - Adhere to the 'npc_trader_schema' (which includes 'npc_schema' fields like 'static_id', 'name_i18n', 'description_i18n').")
+        prompt_parts.append("  - Provide a 'role_i18n' (e.g., Blacksmith, Alchemist).")
+        prompt_parts.append("  - Suggest an 'inventory_template_key' from the provided economic rules (e.g., a key from 'economy:npc_inventory_templates') OR provide a list of 'generated_inventory_items' with specific 'item_static_id' (referencing items generated in this batch or existing common items you might assume), quantities, and chance to appear.")
+        prompt_parts.append("  - Ensure all user-facing text fields are _i18n objects including both the primary language and English.")
+
+        prompt_parts.append("\n### Output Format Instructions:")
+        prompt_parts.append("Provide your response as a single JSON array, where each element is an item object (conforming to 'item_schema') or an NPC trader object (conforming to 'npc_trader_schema'). Each object must have an 'entity_type' field ('item' or 'npc_trader').")
+        prompt_parts.append("Example of _i18n field: \"name_i18n\": {\""+guild_main_lang+"\": \"Localized Name\", \"en\": \"English Name\"}")
+
+        prompt_parts.append("\n### Entity Schemas for Generation:")
+        prompt_parts.append("```json")
+        prompt_parts.append(json.dumps({
+            "item_schema": entity_schemas.get("item_schema"),
+            "npc_trader_schema": entity_schemas.get("npc_trader_schema"),
+            "npc_schema": entity_schemas.get("npc_schema") # Referenced by npc_trader_schema
+        }, indent=2))
+        prompt_parts.append("```")
+
+        final_prompt = "\n".join(prompt_parts)
+        logger.info(f"Generated AI prompt for economic entity generation for guild {guild_id}:\n{final_prompt[:1000]}...")
+        return final_prompt
+
+    except Exception as e:
+        logger.exception(f"Error in prepare_economic_entity_generation_prompt for guild {guild_id}: {e}")
+        return f"Error generating economic entity AI prompt: {str(e)}"
