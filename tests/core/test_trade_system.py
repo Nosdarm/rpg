@@ -209,9 +209,9 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(price, 50.0 * 0.95) # 47.5
 
     async def test_calculate_price_min_price_applied(self):
-        very_cheap_item = Item(**mock_item_data(id=100, static_id="dirt_pile", name_en="Dirt", base_value=0.2))
+        very_cheap_item = Item(**mock_item_data(id=100, static_id="dirt_pile", name_en="Dirt", base_value=1)) # Changed 0.2 to 1
         # Make multipliers very low
-        self.mock_evaluate_formula.return_value = 0.01
+        self.mock_evaluate_formula.return_value = 0.01 # This will result in 1 * 0.01 = 0.01, so min price 1.0 should apply
         price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, very_cheap_item, "sell")
         self.assertEqual(price, 1.0) # Min price is 1.0
 
@@ -235,13 +235,16 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result.success)
             self.assertEqual(result.action_type, "view_inventory")
             self.assertEqual(result.message_key, "trade_view_inventory_success")
+
             self.assertIsNotNone(result.npc_inventory_display)
+            assert result.npc_inventory_display is not None # For pyright
             self.assertEqual(len(result.npc_inventory_display), 1)
             self.assertEqual(result.npc_inventory_display[0].item_db_id, self.item_sword.id)
             self.assertEqual(result.npc_inventory_display[0].quantity_available, 2)
             self.assertEqual(result.npc_inventory_display[0].npc_sell_price_per_unit, 60.0) # Player buys at 60
 
             self.assertIsNotNone(result.player_inventory_display)
+            assert result.player_inventory_display is not None # For pyright
             self.assertEqual(len(result.player_inventory_display), 0)
 
             mock_calc_price.assert_called_once_with(

@@ -104,29 +104,29 @@ CombatActionResult.model_rebuild()
 CheckResult.model_rebuild() # Though CheckResult itself is self-contained, doesn't hurt
 ModifierDetail.model_rebuild()
 CheckOutcome.model_rebuild()
-Player.model_rebuild()
-Guild.model_rebuild()
-Location.model_rebuild()
-Party.model_rebuild()
-GeneratedNpc.model_rebuild()
-StoryLog.model_rebuild()
-GuildConfig.model_rebuild()
-RuleConfig.model_rebuild()
+# Player.model_rebuild() # SQLAlchemy model
+# Guild.model_rebuild() # Not defined or SQLAlchemy model (GuildConfig)
+# Location.model_rebuild() # SQLAlchemy model
+# Party.model_rebuild() # SQLAlchemy model
+# GeneratedNpc.model_rebuild() # SQLAlchemy model
+# StoryLog.model_rebuild() # SQLAlchemy model
+# GuildConfig.model_rebuild() # SQLAlchemy model
+# RuleConfig.model_rebuild() # SQLAlchemy model
 # Interaction.model_rebuild() # Assuming Interaction is defined elsewhere or not using ForwardRefs
-Item.model_rebuild()
+# Item.model_rebuild() # SQLAlchemy model
 # ItemProperty.model_rebuild() # Assuming ItemProperty is defined elsewhere or not using ForwardRefs
-InventoryItem.model_rebuild()
-# CombatEncounter.model_rebuild() # Already listed or handled if it has ForwardRefs
-Ability.model_rebuild()
-# StatusEffect.model_rebuild() # Already listed or handled
-ActiveStatusEffect.model_rebuild()
-GeneratedFaction.model_rebuild()
-# Relationship.model_rebuild() # Already listed or handled
-Questline.model_rebuild()
-GeneratedQuest.model_rebuild()
-QuestStep.model_rebuild()
-PlayerQuestProgress.model_rebuild()
-# PendingConflict.model_rebuild() # Already listed or handled
-GlobalNpc.model_rebuild()
-MobileGroup.model_rebuild()
-GlobalEvent.model_rebuild()
+# InventoryItem.model_rebuild() # SQLAlchemy model
+# CombatEncounter.model_rebuild() # SQLAlchemy model
+# Ability.model_rebuild() # SQLAlchemy model
+# StatusEffect.model_rebuild() # SQLAlchemy model
+# ActiveStatusEffect.model_rebuild() # SQLAlchemy model
+# GeneratedFaction.model_rebuild() # SQLAlchemy model
+# Relationship.model_rebuild() # SQLAlchemy model
+# Questline.model_rebuild() # SQLAlchemy model
+# GeneratedQuest.model_rebuild() # SQLAlchemy model
+# QuestStep.model_rebuild() # SQLAlchemy model
+# PlayerQuestProgress.model_rebuild() # SQLAlchemy model
+# PendingConflict.model_rebuild() # SQLAlchemy model
+# GlobalNpc.model_rebuild() # SQLAlchemy model
+# MobileGroup.model_rebuild() # SQLAlchemy model
+# GlobalEvent.model_rebuild() # SQLAlchemy model

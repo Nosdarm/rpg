@@ -684,6 +684,7 @@ async def _load_and_clear_actions_for_entity(session: AsyncSession, guild_id: in
             # For now, assume party actions are collected similarly or this part needs specific logic.
             # MVP: Assume party actions are implicitly handled via player actions within the party.
             # Or, a party might have its own `collected_actions_json` if a party leader submits them.
+    # ...
             # This part is conceptual for now for party-specific actions.
             logger.info(f"[ACTION_PROCESSOR] Party {party.id}: Party-level action collection not yet implemented. Processing member actions.")
             # If parties had their own action queue:
@@ -785,6 +786,7 @@ async def _execute_player_actions(
     for player_id, action in all_player_actions_for_turn:
         action_event_log_entry: Optional[StoryLog] = None # To store the log entry of the processed action
         action_committed_successfully = False
+        action_result: dict = {} # Initialize action_result
 
         async with session_maker() as action_session:  # New session for each action's transaction
             try:

@@ -842,11 +842,15 @@ async def generate_economic_entities(
                             item_db_id = item_static_to_db_id_map.get(inv_item_data.item_static_id)
                             if not item_db_id:
                                 # Try to fetch from DB if item wasn't generated in this batch but might exist
-                                existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=inv_item_data.item_static_id)
-                                if existing_item_for_inv:
-                                    item_db_id = existing_item_for_inv.id
+                                if inv_item_data.item_static_id: # Check before passing to CRUD
+                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=inv_item_data.item_static_id)
+                                    if existing_item_for_inv:
+                                        item_db_id = existing_item_for_inv.id
+                                    else:
+                                        logger.warning(f"Item with static_id '{inv_item_data.item_static_id}' not found for NPC {new_npc_db.static_id}'s inventory. Skipping item.")
+                                        continue
                                 else:
-                                    logger.warning(f"Item with static_id '{inv_item_data.item_static_id}' not found for NPC {new_npc_db.static_id}'s inventory. Skipping item.")
+                                    logger.warning(f"Invalid item_static_id (None or empty) in inventory data for NPC {new_npc_db.static_id}. Skipping item.")
                                     continue
 
                             quantity = inv_item_data.quantity_min

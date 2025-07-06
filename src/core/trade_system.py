@@ -257,11 +257,10 @@ async def handle_trade_action(
         )
 
     # player_name_loc извлекается здесь для использования в сообщениях об ошибках и успехах
-    # Для player.name_i18n может не существовать, поэтому нужен fallback на player.name
-    player_name_i18n_fallback = {"en": player.name, "ru": player.name}
-    if hasattr(player, 'name_i18n') and player.name_i18n:
-        player_name_i18n_fallback = player.name_i18n
-    player_name_loc = get_localized_text(player_name_i18n_fallback, player.selected_language or "en") or player.name
+    # Player model has player.name (str), not player.name_i18n.
+    # For localization, player.name would be the primary identifier or the 'en' version.
+    player_name_loc = player.name # Use player.name directly as it's a simple string.
+                                 # Localization logic would apply if player.name were a key.
 
     npc_name_loc = get_localized_text(npc.name_i18n, player.selected_language or "en") or f"NPC {npc.id}"
 

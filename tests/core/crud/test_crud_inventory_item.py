@@ -172,5 +172,6 @@ class TestCRUDInventoryItem(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone(result)
 
-if __name__ == '__main__':
-    asyncio.run(unittest.main())
+# Removed standard unittest runner, assumed pytest or similar will be used.
+# if __name__ == '__main__':
+#     asyncio.run(unittest.main())
