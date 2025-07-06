@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint, Index
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint, Index, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy import Enum as SQLAlchemyEnum, Boolean, CheckConstraint # Added CheckConstraint
@@ -91,8 +91,8 @@ class PlayerQuestProgress(Base, TimestampMixin): # Added TimestampMixin
     status: Mapped[QuestStatus] = mapped_column(SQLAlchemyEnum(QuestStatus, name="quest_status_enum", create_type=False), nullable=False, default=QuestStatus.NOT_STARTED, index=True)
     progress_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
 
-    accepted_at: Mapped[Optional[datetime.datetime]] = mapped_column(JsonBForSQLite.DATETIME_TYPE, nullable=True) # Changed to DATETIME_TYPE for SQLite compatibility
-    completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(JsonBForSQLite.DATETIME_TYPE, nullable=True) # Changed to DATETIME_TYPE for SQLite compatibility
+    accepted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("guild_id", "player_id", "quest_id", name="uq_player_quest_guild"),

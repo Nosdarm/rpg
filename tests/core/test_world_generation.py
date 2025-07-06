@@ -654,7 +654,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_gq_crud.get_by_static_id = AsyncMock(return_value=None) # Quest does not exist
 
         # Mock Questline CRUD
-        mock_existing_questline = Questline(id=5, guild_id=guild_id_test, static_id="main_plot", name_i18n={"en":"Main Plot"})
+        mock_existing_questline = Questline(id=5, guild_id=guild_id_test, static_id="main_plot", title_i18n={"en":"Main Plot"}) # Changed name_i18n to title_i18n
         mock_ql_crud.get_by_static_id = AsyncMock(return_value=mock_existing_questline) # Questline exists
 
         mock_db_quest_alpha = GeneratedQuest(id=301, guild_id=guild_id_test, static_id="quest_alpha", title_i18n={"en": "Alpha Quest"}, questline_id=5)
