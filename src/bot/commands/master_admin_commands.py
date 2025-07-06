@@ -556,7 +556,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                 return
 
     # --- PendingConflict Management ---
-    conflict_group = app_commands.Group(name="conflict", description="Master commands for managing pending conflicts.", parent=master_admin_group)
+    conflict_group = app_commands.Group(name="conflict", description="Master commands for managing pending conflicts.", parent=master_admin)
 
     @conflict_group.command(name="resolve", description="Resolve a pending conflict.")
     @app_commands.describe(
