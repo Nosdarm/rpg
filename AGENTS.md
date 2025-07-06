@@ -41,40 +41,7 @@
 
 ---
 ## Текущий план
-1.  **Анализ существующих тестов и кода:**
-    *   Просмотреть `src/core/world_generation.py` для понимания его функциональности, особенно функций `generate_location`, `generate_factions_and_relationships` и `generate_quests_for_guild`.
-    *   Просмотреть `tests/core/test_world_generation.py` для определения текущего покрытия тестами и выявления недостающих тестовых случаев.
-2.  **Определение недостающих тестов:**
-    *   Для `generate_location`:
-        *   Проверить сценарий, когда `parent_location_id` указан, но родительская локация не найдена.
-        *   Проверить сценарий с некорректным `potential_neighbors` (например, отсутствует `static_id_or_name`).
-        *   Проверить сценарий, когда `connection_details_i18n` не предоставлен при явном связывании с родителем (используются значения по умолчанию).
-        *   Проверить сценарий, когда `neighbor_locations_json` у новой локации инициализируется некорректно (не список или содержит несловари).
-    *   Для `generate_factions_and_relationships`:
-        *   Проверить сценарий, когда `prepare_faction_relationship_generation_prompt` возвращает ошибку.
-        *   Проверить сценарий, когда `static_id_to_db_id_map` не находит ID для `entity1_static_id` или `entity2_static_id` при создании отношений (и тип сущности не 'player').
-        *   Проверить сценарий с невалидным `entity_type` в `ParsedRelationshipData`.
-        *   Проверить сценарий, когда существующее отношение обновляется (а не создается новое).
-        *   Проверить корректную обработку `player_default` в `static_id` для отношений.
-    *   Для `generate_quests_for_guild`:
-        *   Проверить сценарий, когда `prepare_quest_generation_prompt` возвращает ошибку.
-        *   Проверить сценарий, когда `questline_static_id` указан, но соответствующая `Questline` не найдена (квест создается как самостоятельный).
-        *   Проверить сценарий, когда AI генерирует квест без шагов.
-        *   Проверить сценарий, когда `generated_quest_crud.create` возвращает `None` (ошибка создания квеста).
-3.  **Написание недостающих тестов:**
-    *   Дополнить `tests/core/test_world_generation.py` новыми тестовыми методами, покрывающими выявленные сценарии.
-    *   Использовать существующий стиль мокирования и асинхронного тестирования (`unittest.IsolatedAsyncioTestCase`).
-4.  **Запуск всех тестов:**
-    *   Выполнить команду для запуска всех тестов в проекте (например, `python -m unittest discover -s tests` или специфичную для pytest, если используется).
-    *   Проанализировать результаты.
-5.  **Исправление ошибок:**
-    *   Если тесты выявляют ошибки в коде `src/core/world_generation.py` или в самих тестах, исправить их.
-    *   Повторно запускать тесты до тех пор, пока все не пройдут.
-6.  **Обновление `AGENTS.md`:**
-    *   Записать детальный лог проделанной работы в `AGENTS.md`.
-    *   Очистить секцию "Текущий план".
-7.  **Коммит изменений:**
-    *   Сделать коммит с описанием добавленных тестов и исправленных ошибок.
+*(Этот раздел будет заполняться планом для следующей задачи)*
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -96,8 +63,117 @@
     - **Срок**: Выполнить при следующем значительном рефакторинге или обновлении зависимостей Pydantic.
 
 ---
+### Структуры `RuleConfig` для Экономической Системы (Task 42)
+
+1.  **Базовые стоимости предметов по категориям/типам (`economy:base_item_values`)**
+    *   **Ключ**: `economy:base_item_values:<item_category_or_type_key>` (например, `economy:base_item_values:weapon_sword_common`, `economy:base_item_values:potion_healing_minor`)
+    *   **Описание**: Определяет базовую стоимость для категории или конкретного типа предмета. Эта стоимость может использоваться, если у самого `Item.base_value` нет значения, или как основа для дальнейших расчетов.
+    *   **Структура `value_json`**:
+        ```json
+        {
+          "value": 100,
+          "currency": "gold"
+        }
+        ```
+
+2.  **Модификаторы цен при торговле (`economy:price_modifiers`)**
+    *   **Ключ**: `economy:price_modifiers:<modifier_type>` (например, `economy:price_modifiers:trade_skill`, `economy:price_modifiers:faction_relationship`, `economy:price_modifiers:location_tax`)
+    *   **Описание**: Определяет, как различные факторы влияют на конечную цену покупки/продажи.
+    *   **Структура `value_json` (пример для `trade_skill`)**:
+        ```json
+        {
+          "description": "Price modifier based on player's trade skill level.",
+          "buy_price_multiplier_formula": "1.5 - (skill_level * 0.02)",
+          "sell_price_multiplier_formula": "0.5 + (skill_level * 0.02)",
+          "min_buy_multiplier": 1.1,
+          "max_sell_multiplier": 0.9
+        }
+        ```
+    *   **Структура `value_json` (пример для `faction_relationship`)**:
+        ```json
+        {
+          "description": "Price modifier based on relationship with trader's faction.",
+          "tiers": [
+            {"relationship_above": 75, "buy_multiplier_mod": -0.15, "sell_multiplier_mod": 0.15},
+            {"relationship_above": 25, "buy_multiplier_mod": -0.05, "sell_multiplier_mod": 0.05},
+            {"relationship_above": -25, "buy_multiplier_mod": 0, "sell_multiplier_mod": 0},
+            {"relationship_above": -75, "buy_multiplier_mod": 0.10, "sell_multiplier_mod": -0.10},
+            {"relationship_default": true, "buy_multiplier_mod": 0.20, "sell_multiplier_mod": -0.20}
+          ]
+        }
+        ```
+
+3.  **Шаблоны инвентаря для NPC-торговцев (`economy:npc_inventory_templates`)**
+    *   **Ключ**: `economy:npc_inventory_templates:<npc_role_or_type_key>` (например, `economy:npc_inventory_templates:general_store_owner`)
+    *   **Описание**: Определяет типичный набор товаров и их количество у NPC-торговца.
+    *   **Структура `value_json`**:
+        ```json
+        {
+          "description": "Inventory template for a general store owner.",
+          "restock_interval_hours": 24,
+          "item_groups": [
+            {
+              "group_name": "potions_basic",
+              "items": [
+                {"item_static_id": "potion_healing_minor", "quantity_min": 2, "quantity_max": 5, "chance_to_appear": 0.9},
+                {"item_static_id": "potion_mana_minor", "quantity_min": 1, "quantity_max": 3, "chance_to_appear": 0.7}
+              ]
+            },
+            {
+              "group_name": "weapons_common",
+              "items": [
+                {"item_static_id": "sword_short_common", "quantity_min": 1, "quantity_max": 1, "chance_to_appear": 0.5}
+              ],
+              "max_items_from_group": 1
+            }
+          ]
+        }
+        ```
+
+4.  **Правила доступности предметов по регионам/локациям (`economy:regional_item_availability`)**
+    *   **Ключ**: `economy:regional_item_availability:<location_static_id_or_tag>`
+    *   **Описание**: Определяет доступность предметов в локациях.
+    *   **Структура `value_json`**:
+        ```json
+        {
+          "description": "Item availability for 'Oakwood'.",
+          "available_categories": ["food_basic", "tools_simple"],
+          "restricted_item_static_ids": ["magic_scroll_powerful"],
+          "rarity_modifier": {
+            "category_weapons_rare": 0.1,
+            "item_potion_super_healing": 0.01
+          }
+        }
+        ```
+---
 
 ## Лог действий
+
+## Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n) - Экономика: Модели Item и InventoryItem
+- **Определение задачи**: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
+- **План**:
+    1.  Анализ существующих моделей `Item` и `InventoryItem`.
+    2.  Доработка модели `Item` (`src/models/item.py`): добавление полей `slot_type` (Text, nullable=True, index=True) и `is_stackable` (Boolean, default=True, nullable=False).
+    3.  Доработка модели `InventoryItem` (`src/models/inventory_item.py`): добавление поля `equipped_status` (Text, nullable=True, index=True).
+    4.  Добавление `relationship` `inventory_items` в модели `Player` (`src/models/player.py`) и `GeneratedNpc` (`src/models/generated_npc.py`) для связи с `InventoryItem`.
+    5.  Проверка импортов `Item` и `InventoryItem` в `src/models/__init__.py` (изменений не потребовалось).
+    6.  Создание миграции Alembic для отражения изменений в БД.
+    7.  Создание/проверка CRUD операций: `CRUDItem` (существовал, признан достаточным) и создание `CRUDInventoryItem` с методами `get_inventory_for_owner`, `add_item_to_owner`, `remove_item_from_owner`. Обновление `src/core/crud/__init__.py`.
+    8.  Определение и документирование структуры правил экономики в `RuleConfig` (в `AGENTS.md`).
+    9.  Написание Unit-тестов для моделей `Item`, `InventoryItem` и их CRUD операций.
+- **Реализация**:
+    - **Шаг 1-2**: Модель `Item` в `src/models/item.py` доработана: добавлены поля `slot_type` и `is_stackable`.
+    - **Шаг 3-4**: Модель `InventoryItem` в `src/models/inventory_item.py` доработана: добавлено поле `equipped_status`. В модели `Player` и `GeneratedNpc` добавлены `relationships` `inventory_items`.
+    - **Шаг 5**: Импорты в `src/models/__init__.py` проверены, `Item` и `InventoryItem` уже присутствовали.
+    - **Шаг 6**: Сгенерирована миграция Alembic `768728ada8e2_add_fields_to_items_and_inventory_items.py`. Функции `upgrade` и `downgrade` заполнены для добавления/удаления новых колонок и индексов. (Были промежуточные шаги с установкой `alembic`, `pydantic`, `psycopg2-binary` для генерации миграции).
+    - **Шаг 7**: Проверен `src/core/crud/crud_item.py` (признан достаточным). Создан `src/core/crud/crud_inventory_item.py` с классом `CRUDInventoryItem` и методами `get_inventory_for_owner`, `add_item_to_owner`, `remove_item_from_owner`. Файл `src/core/crud/__init__.py` обновлен.
+    - **Шаг 8**: Структуры правил экономики для `RuleConfig` определены и задокументированы в `AGENTS.md` (в секции "Отложенные задачи").
+    - **Шаг 9**: Созданы Unit-тесты:
+        - `tests/models/test_item.py` для модели `Item`.
+        - `tests/models/test_inventory_item.py` для модели `InventoryItem`.
+        - `tests/core/crud/test_crud_item.py` для `CRUDItem`.
+        - `tests/core/crud/test_crud_inventory_item.py` для `CRUDInventoryItem`.
+- **Статус**: Модели и базовые CRUD операции для предметов и инвентаря реализованы. Структура правил экономики определена.
 
 ## Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped) - Сессия [YYYY-MM-DD]
 - **Определение задачи**: Tracking the progress of active quests and applying consequences. API `handle_player_event_for_quest` called from Action Processing Module and Combat Cycle.

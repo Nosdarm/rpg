@@ -43,6 +43,10 @@ class InventoryItem(Base):
 
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
+    equipped_status: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
+    # e.g., "main_hand", "off_hand", "armor_body", "armor_head", "ring_1", "consumable_slot_1"
+    # NULL if not equipped. Application logic ensures only equippable items can have non-null status.
+
     instance_specific_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JsonBForSQLite, nullable=True, default=lambda: {} # Заменено на JsonBForSQLite
     )
