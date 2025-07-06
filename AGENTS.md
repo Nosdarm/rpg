@@ -41,7 +41,69 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет очищен)*
+1.  ***Анализ зависимостей и существующего кода***:
+    *   Проанализировать существующие Pydantic модели в `src/core/ai_response_parser.py`, особенно `ParsedItemData` и `ParsedNpcData`. Определить, нужно ли их расширять или создавать новые для торговцев и их инвентаря.
+    *   Проанализировать `src/core/ai_prompt_builder.py`, особенно функцию `_get_entity_schema_terms` и существующие функции подготовки промптов (например, `prepare_quest_generation_prompt`).
+    *   Проанализировать `src/core/world_generation.py` на предмет существующих функций генерации сущностей (например, `generate_quests_for_guild`).
+    *   Проанализировать модели БД `Item` (`src/models/item.py`), `GeneratedNpc` (`src/models/generated_npc.py`), `InventoryItem` (`src/models/inventory_item.py`) и соответствующие CRUD операции (`item_crud`, `npc_crud`, `inventory_item_crud`).
+    *   Проанализировать `src/core/rules.py` и способы получения правил из `RuleConfig`.
+2.  ***Расширение Pydantic моделей для парсинга ответа AI*** (в `src/core/ai_response_parser.py`):
+    *   Дополнить `ParsedItemData` необходимыми полями, такими как `static_id` (сделать обязательным) и `base_value` (опциональное). Добавить валидаторы.
+    *   Создать новую Pydantic-модель `ParsedNpcTraderData`, наследуя от `ParsedNpcData`. Добавить поля: `role_i18n` (для роли торговца), `inventory_template_key` (опционально, для генерации инвентаря по шаблону) и `generated_inventory_items` (опционально, список словарей/моделей для предметов, генерируемых AI напрямую, например, `[{ "item_static_id": "potion_health_1", "quantity_min": 1, "quantity_max": 5, "chance_to_appear": 0.8 }]`). Добавить валидаторы.
+    *   Создать Pydantic-модель `GeneratedInventoryItemEntry` для элементов в `generated_inventory_items` со полями `item_static_id`, `quantity_min`, `quantity_max`, `chance_to_appear`.
+    *   Обновить `GeneratedEntity` Union, добавив `ParsedNpcTraderData`.
+    *   Обновить функцию `_perform_semantic_validation` для выполнения семантических проверок новых полей в `ParsedItemData` и `ParsedNpcTraderData` (например, проверка i18n, диапазонов).
+3.  ***Разработка функции для подготовки промпта AI*** (в `src/core/ai_prompt_builder.py`):
+    *   В `_get_entity_schema_terms()`:
+        *   Обновить `item_schema`, сделав `static_id`, `name_i18n`, `description_i18n`, `item_type` обязательными и добавив `base_value`.
+        *   Добавить `npc_trader_schema`, включающую ссылку на базовую `npc_schema` и специфичные поля для торговца: `entity_type` (константа "npc_trader"), `role_i18n`, `inventory_template_key` (опционально), `generated_inventory_items` (опционально, с описанием структуры `GeneratedInventoryItemEntry`).
+    *   Создать новую асинхронную функцию `prepare_economic_entity_generation_prompt(session: AsyncSession, guild_id: int) -> str`.
+    *   Функция должна загружать правила экономики из `RuleConfig` (ключи, начинающиеся с `economy:` и `ai:economic_generation:`), язык гильдии.
+    *   Формировать промпт, включающий:
+        *   Инструкции для AI по генерации указанного количества (`ai:economic_generation:target_item_count`, `ai:economic_generation:target_trader_count`) предметов и NPC-торговцев.
+        *   Указания по использованию `item_type_distribution`, `trader_role_distribution` из `RuleConfig`.
+        *   Инструкции по генерации `base_value` для предметов (возможно, на основе правил `economy:base_item_values`).
+        *   Инструкции по генерации инвентаря для торговцев (либо через `inventory_template_key` со ссылкой на `economy:npc_inventory_templates`, либо через прямое указание `generated_inventory_items` с учетом `chance_to_appear` и диапазонов количества).
+        *   Предоставлять AI схемы `item_schema` и `npc_trader_schema`.
+4.  ***Реализация основной логики генерации экономических сущностей*** (в `src/core/world_generation.py`):
+    *   Создать новую асинхронную функцию `generate_economic_entities(session: AsyncSession, guild_id: int)`.
+    *   Функция должна:
+        *   Вызвать `prepare_economic_entity_generation_prompt`.
+        *   Сделать мок-вызов к AI (`_mock_openai_api_call`) или реальный вызов, если возможно.
+        *   Распарсить ответ AI с помощью `parse_and_validate_ai_response`.
+        *   Обработать `ParsedItemData`: создать `Item` через `item_crud.create_with_static_id_check`, пропуская дубликаты `static_id` в рамках гильдии. Сохранить карту `item_static_id` -> `db_id`.
+        *   Обработать `ParsedNpcTraderData`:
+            *   Создать `GeneratedNpc` через `npc_crud.create_with_static_id_check`. Сохранить `role_i18n` и `inventory_template_key` в `properties_json`.
+            *   Если AI вернул `generated_inventory_items`:
+                *   Для каждого `GeneratedInventoryItemEntry`: определить `item_id` (по `item_static_id` из карты или БД), рассчитать `quantity` (случайно в диапазоне `min-max`), учесть `chance_to_appear`.
+                *   Добавить предмет в инвентарь NPC через `inventory_item_crud.add_item_to_owner`.
+            *   (Опционально, если будет решено использовать шаблоны) Если AI вернул `inventory_template_key`: загрузить шаблон из `RuleConfig` и сгенерировать инвентарь на его основе.
+        *   Логировать событие `WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED` (добавить в `EventType`, если нет) с информацией о количестве созданных сущностей.
+        *   Экспортировать `generate_economic_entities` из `src/core/__init__.py`.
+5.  ***Определение и документирование необходимых записей `RuleConfig`***:
+    *   Определить и задокументировать в `AGENTS.md` ключи и структуры JSON для `RuleConfig`, которые будут использоваться для управления генерацией экономических сущностей. Примеры:
+        *   `ai:economic_generation:target_item_count: {"count": 10}`
+        *   `ai:economic_generation:target_trader_count: {"count": 3}`
+        *   `ai:economic_generation:item_type_distribution: {"types": [{"type_name": "weapon", "weight": 5}, {"type_name": "potion", "weight": 3}]}`
+        *   `ai:economic_generation:trader_role_distribution: {"roles": [{"role_key": "general_goods", "weight": 2, "name_i18n": {"en": "General Goods Vendor", "ru": "Торговец обычными товарами"}} , ... ]}`
+        *   `economy:base_item_values:<item_category_or_type_key>` (уже частично описано в AGENTS.md)
+        *   `economy:npc_inventory_templates:<npc_role_or_type_key>` (уже частично описано в AGENTS.md)
+        *   `ai:economic_generation:quality_instructions_i18n: {"en": "...", "ru": "..."}` (общие инструкции по качеству генерации)
+6.  ***Написание Unit-тестов***:
+    *   В `tests/core/test_ai_response_parser.py`: для `ParsedItemData`, `ParsedNpcTraderData`, `GeneratedInventoryItemEntry` и их валидации в `parse_and_validate_ai_response`.
+    *   В `tests/core/test_ai_prompt_builder.py`: для `prepare_economic_entity_generation_prompt`, проверить корректность формирования промпта, использование правил и схем.
+    *   В `tests/core/test_world_generation.py`: для `generate_economic_entities`. Мокировать ответ AI. Проверить:
+        *   Корректное создание `Item`, `GeneratedNpc`.
+        *   Пропуск дубликатов `static_id`.
+        *   Создание `InventoryItem` для NPC на основе `generated_inventory_items` (с учетом `chance_to_appear`, `quantity_min/max`).
+        *   Логирование события.
+        *   Обработку ошибок парсинга ответа AI.
+7.  ***Обновление `AGENTS.md`***:
+    *   Записать этот план в секцию "Текущий план".
+    *   По мере выполнения шагов, обновлять "Лог действий" для Task 43.
+    *   После завершения задачи, очистить "Текущий план", перенести детали задачи в "Лог действий", удалить задачу из `Tasks.txt` и добавить в `Done.txt`.
+8.  ***Коммит и Push***:
+    *   После завершения всех шагов и успешного прохождения тестов, сделать коммит с описанием реализованной функциональности.
 ---
 ## Отложенные задачи
 - **Доработка Player.attributes_json для Task 32**:
@@ -149,6 +211,46 @@
 
 ## Лог действий
 
+## Task 44: 💰 10.3 Trade System (Guild-Scoped)
+- **Определение задачи**: Managing a trade session. API `handle_trade_action`. Prices calculated dynamically according to rules, considering relationships. Transactional item/gold transfer. Logging, feedback, relationship changes.
+- **План**:
+    1.  **Анализ зависимостей и подготовка**:
+        *   Проанализированы модели (`Item`, `InventoryItem`, `Player`, `GeneratedNpc`, `RuleConfig`, `Relationship`, `EventType`).
+        *   Проанализированы CRUD операции (`item_crud`, `inventory_item_crud`, `player_crud`, `npc_crud`, `crud_relationship`).
+        *   Проанализированы системные модули (`core.rules`, `core.relationship_system`, `core.game_events`, `core.report_formatter`, `core.localization_utils`).
+        *   Существующие `EventType` (`TRADE_ITEM_BOUGHT`, `TRADE_ITEM_SOLD`, `TRADE_INITIATED`) признаны подходящими.
+    2.  **Проектирование и создание модуля `trade_system.py`**:
+        *   Файл `src/core/trade_system.py` уже существовал и содержал значительную часть реализации.
+        *   API функция `async def handle_trade_action(...)` и Pydantic-модель `TradeActionResult` уже были определены в файле.
+        *   Экспорт `handle_trade_action` и `TradeActionResult` из `src/core/__init__.py` уже был выполнен.
+    3.  **Реализация `handle_trade_action` - общая часть и "view_inventory"**:
+        *   Проверена и дополнена загрузка игрока/NPC, проверка на трейдера.
+        *   Реализована логика для `action_type == "view_inventory"`: получение инвентарей, расчет цен через `_calculate_item_price`, формирование `TradeActionResult`, логирование события `TRADE_INITIATED`.
+    4.  **Реализация `handle_trade_action` - расчет цен**:
+        *   Проанализирована существующая функция `_calculate_item_price`. Признана соответствующей требованиям (базовая стоимость, модификаторы навыков и отношений, использование `RuleConfig`).
+    5.  **Реализация `handle_trade_action` - логика "buy"**:
+        *   Проверена и подтверждена существующая реализация: поиск предмета, проверка количества и золота, вызов `_calculate_item_price`, выполнение транзакции (изменение золота, перемещение предметов через `inventory_item_crud`), логирование `TRADE_ITEM_BOUGHT`, вызов `update_relationship`. Внесены мелкие корректировки в параметры и форматирование сообщений.
+    6.  **Реализация `handle_trade_action` - логика "sell"**:
+        *   Проверена и подтверждена существующая реализация: поиск предмета в инвентаре игрока, проверка количества, вызов `_calculate_item_price`, выполнение транзакции, логирование `TRADE_ITEM_SOLD`, вызов `update_relationship`. Внесены мелкие корректировки.
+    7.  **Интеграция изменения отношений**:
+        *   Подтверждено, что вызовы `relationship_system.update_relationship` корректно интегрированы в логику "buy" и "sell".
+    8.  **Обработка ошибок и обратная связь**:
+        *   Подтверждено, что система возвращает `TradeActionResult` с `success`, `message_key` и `message_params` для различных сценариев.
+    9.  **Интеграция с `action_processor.py`**:
+        *   Проанализирован `src/core/action_processor.py`. Подтверждено, что интенты `trade_view_inventory`, `trade_buy_item`, `trade_sell_item` и соответствующие функции-обертки (`_handle_trade_*_action_wrapper`), вызывающие `handle_trade_action`, уже существуют.
+    10. **Написание Unit-тестов**:
+        *   Проанализирован существующий файл `tests/core/test_trade_system.py`. Признан содержащим обширный набор тестов, покрывающих `_calculate_item_price` и основные сценарии `handle_trade_action`.
+    11. **Обновление `AGENTS.md`**:
+        *   Этот лог добавлен. "Текущий план" будет очищен на следующем шаге.
+    12. **Завершение задачи**: (Будет выполнено на следующем шаге)
+- **Реализация**:
+    - Большинство шагов включало анализ и подтверждение существующего кода в `src/core/trade_system.py` и `tests/core/test_trade_system.py`.
+    - Внесены незначительные улучшения и корректировки в `src/core/trade_system.py` для `view_inventory`, `buy`, `sell` (улучшение проверок, форматирование сообщений, уточнение логики).
+    - Файл `src/core/__init__.py` уже корректно экспортировал необходимые компоненты.
+    - Файл `tests/core/test_trade_system.py` уже содержал релевантные тесты.
+- **Статус**: Реализация Task 44 завершена. Модуль `trade_system` функционален и покрыт тестами.
+
+
 ## Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n) - Экономика: Модели Item и InventoryItem
 - **Определение задачи**: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
 - **План**:
@@ -252,8 +354,6 @@
             - Добавлен тест `test_generate_economic_entities_success`: мокирует ответ AI, проверяет вызовы CRUD `item_crud`, `npc_crud`, `inventory_item_crud.add_item_to_owner`, логирование `WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED`.
             - Добавлен тест `test_generate_economic_entities_ai_parse_error`: мокирует ошибку парсинга, проверяет корректную обработку.
             - (Не добавлены тесты на дубликаты `static_id` и откат транзакции в рамках этого шага, но базовая функциональность покрыта).
-- **Статус**: Задача выполнена. Логика генерации экономических сущностей (предметов и NPC-торговцев) через AI реализована и покрыта базовыми unit-тестами.
-
 ## Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped) - Сессия [YYYY-MM-DD]
 - **Определение задачи**: Tracking the progress of active quests and applying consequences. API `handle_player_event_for_quest` called from Action Processing Module and Combat Cycle.
 - **План**:
@@ -547,6 +647,98 @@
         - Исправлены ошибки в тестах `tests/core/test_ai_prompt_builder.py`: `AssertionError` для строки в промпте (уточнена ожидаемая строка), `AttributeError` для патча `actual_crud_relationship` (исправлен путь на `crud_relationship`).
         - Исправлены ошибки в тестах `tests/core/test_check_resolver.py`: `ValidationError` для `CheckResult` (поля `entity_doing_check_id` и `entity_doing_check_type` теперь корректно заполняются в `resolve_check`), `TypeError` в моках `mock_load_entity` (исправлена сигнатура мока), `AttributeError` для `RelationshipEntityType.NPC` (заменено на `GENERATED_NPC`), `NameError` в `resolve_check` (исправлено использование `actor_entity_type` и `actor_entity_id`).
         - Все 22 ранее падавших теста в указанных файлах успешно пройдены.
+
+## Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild)
+- **Определение задачи**: AI generates items and NPC traders for a guild according to rules. Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules 13/41 FOR THIS GUILD, including traders (with roles, inventory), base prices (calculated by rules 13/41), i18n texts. Entities get guild_id.
+- **План**:
+    1.  **Расширение Pydantic моделей для парсинга ответа AI (`src/core/ai_response_parser.py`)**:
+        *   Дополнить `ParsedItemData` необходимыми полями (`static_id` обязательное, `base_value` опциональное) и валидаторами.
+        *   Создать `ParsedNpcTraderData` (наследуя от `ParsedNpcData`) с полями `role_i18n`, `inventory_template_key`, `generated_inventory_items`.
+        *   Создать `GeneratedInventoryItemEntry` для элементов инвентаря.
+        *   Обновить `GeneratedEntity` Union и `_perform_semantic_validation`.
+    2.  **Разработка функции для подготовки промпта AI (`src/core/ai_prompt_builder.py`)**:
+        *   Обновить `_get_entity_schema_terms()` схемами `item_schema` и `npc_trader_schema`.
+        *   Создать `prepare_economic_entity_generation_prompt` для сбора правил экономики и формирования промпта.
+    3.  **Реализация основной логики генерации экономических сущностей (`src/core/world_generation.py`)**:
+        *   Создать `generate_economic_entities`.
+        *   Реализовать вызов AI, парсинг, сохранение `Item` и `GeneratedNpc` (торговцев), включая обработку инвентаря (через `generated_inventory_items`).
+        *   Логировать событие `WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED`. Экспортировать функцию.
+    4.  **Определение и документирование записей `RuleConfig`**:
+        *   Определить и задокументировать в `AGENTS.md` ключи для управления генерацией (количество, типы, роли, инструкции).
+    5.  **Написание Unit-тестов**:
+        *   Тесты для Pydantic моделей (`tests/core/test_ai_response_parser.py`).
+        *   Тесты для функции подготовки промпта (`tests/core/test_ai_prompt_builder.py`).
+        *   Тесты для функции генерации сущностей (`tests/core/test_world_generation.py`).
+- **Реализация**:
+    - **Шаг 1 (Pydantic модели)**:
+        - В `src/core/ai_response_parser.py`:
+            - `ParsedItemData` дополнена: `static_id` сделано обязательным, добавлен валидатор `check_item_static_id`.
+            - Создана модель `GeneratedInventoryItemEntry` с полями `item_static_id`, `quantity_min`, `quantity_max`, `chance_to_appear` и валидаторами (включая `model_validator` для `quantity_max >= quantity_min`).
+            - Создана модель `ParsedNpcTraderData(ParsedNpcData)` с `entity_type="npc_trader"` и полями `role_i18n`, `inventory_template_key`, `generated_inventory_items: Optional[List[GeneratedInventoryItemEntry]]` и их валидаторами.
+            - `ParsedNpcTraderData` добавлена в `GeneratedEntity`.
+            - `_perform_semantic_validation` дополнена для проверки `role_i18n` в `ParsedNpcTraderData`.
+    - **Шаг 2 (Промпт AI)**:
+        - В `src/core/ai_prompt_builder.py`:
+            - В `_get_entity_schema_terms()`:
+                - `item_schema` обновлена: `static_id`, `name_i18n`, `description_i18n`, `item_type` обязательны; `base_value` опционально.
+                - Добавлена `npc_trader_schema` с наследованием от `npc_schema` и полями `entity_type`, `role_i18n`, `inventory_template_key`, `generated_inventory_items` (с описанием структуры `GeneratedInventoryItemEntry`).
+            - Создана функция `prepare_economic_entity_generation_prompt(session: AsyncSession, guild_id: int)`. Она собирает правила экономики из `RuleConfig` (ключи `economy:*` и `ai:economic_generation:*`), формирует контекст и инструкции для AI.
+    - **Шаг 3 (Логика генерации)**:
+        - В `src/models/enums.py` добавлен `EventType.WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED`.
+        - В `src/core/world_generation.py`:
+            - Создана функция `generate_economic_entities(session: AsyncSession, guild_id: int)`.
+            - Функция вызывает `prepare_economic_entity_generation_prompt`, мокирует ответ AI.
+            - Ответ парсится с помощью `parse_and_validate_ai_response`.
+            - Реализовано сохранение `Item` (с проверкой на дубликат `static_id`) и `GeneratedNpc` (торговцев, с проверкой на дубликат `static_id`). `role_i18n` и `inventory_template_key` сохраняются в `properties_json` NPC.
+            - Реализована генерация инвентаря для NPC на основе `generated_inventory_items` (с учетом `chance_to_appear`, `quantity_min/max`, поиск `item_id`).
+            - Логируется событие `WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED`.
+            - Функция `generate_economic_entities` экспортирована из `src/core/__init__.py`.
+    - **Шаг 4 (RuleConfig)**:
+        - Определены и задокументированы в `AGENTS.md` (в логе этой задачи) ключи `RuleConfig`: `ai:economic_generation:target_item_count`, `ai:economic_generation:target_trader_count`, `ai:economic_generation:item_type_distribution`, `ai:economic_generation:trader_role_distribution`, `ai:economic_generation:quality_instructions_i18n`. Также упомянуты существующие `economy:base_item_values:*` и `economy:npc_inventory_templates:*`.
+    - **Шаг 5 (Unit-тесты)**:
+        - В `tests/core/test_ai_response_parser.py` добавлены тесты для `ParsedItemData`, `GeneratedInventoryItemEntry`, `ParsedNpcTraderData`. Обновлен тест `test_parse_valid_item_and_trader_data`.
+        - В `tests/core/test_ai_prompt_builder.py` создан класс `TestAIEconomicPromptBuilder` и добавлены тесты `test_prepare_economic_entity_generation_prompt_basic_structure` и `test_prepare_economic_entity_generation_prompt_handles_missing_rules`.
+        - В `tests/core/test_world_generation.py` создан класс `TestWorldGenerationEconomicEntities` и добавлены тесты: `test_generate_economic_entities_success`, `test_generate_economic_entities_ai_parse_error`, `test_generate_economic_entities_handles_existing_item_and_npc`.
+- **Статус**: Задача выполнена. Логика генерации экономических сущностей (предметов и NPC-торговцев) через AI реализована и покрыта базовыми unit-тестами.
+- **Структуры `RuleConfig` для Task 43 (AI Economic Entity Generation)**:
+    1.  **`ai:economic_generation:target_item_count`**
+        *   **Описание**: Целевое количество новых предметов для генерации.
+        *   **Структура `value_json`**: `{"count": 10}`
+    2.  **`ai:economic_generation:target_trader_count`**
+        *   **Описание**: Целевое количество новых NPC-торговцев для генерации.
+        *   **Структура `value_json`**: `{"count": 3}`
+    3.  **`ai:economic_generation:item_type_distribution`**
+        *   **Описание**: Желаемое распределение типов генерируемых предметов.
+        *   **Структура `value_json`**:
+            ```json
+            {
+              "types": [
+                {"type_name": "weapon", "weight": 5, "name_i18n": {"en": "Weapon", "ru": "Оружие"}},
+                {"type_name": "armor", "weight": 4, "name_i18n": {"en": "Armor", "ru": "Броня"}},
+                {"type_name": "potion", "weight": 3, "name_i18n": {"en": "Potion", "ru": "Зелье"}}
+              ]
+            }
+            ```
+    4.  **`ai:economic_generation:trader_role_distribution`**
+        *   **Описание**: Желаемое распределение ролей для NPC-торговцев.
+        *   **Структура `value_json`**:
+            ```json
+            {
+              "roles": [
+                {"role_key": "blacksmith", "weight": 3, "name_i18n": {"en": "Blacksmith", "ru": "Кузнец"}, "description_i18n": {"en": "Sells weapons and armor.", "ru": "Продает оружие и броню."}},
+                {"role_key": "alchemist", "weight": 2, "name_i18n": {"en": "Alchemist", "ru": "Алхимик"}, "description_i18n": {"en": "Sells potions and reagents.", "ru": "Продает зелья и реагенты."}}
+              ]
+            }
+            ```
+    5.  **`ai:economic_generation:quality_instructions_i18n`**
+        *   **Описание**: Общие инструкции для AI по качеству и стилю генерации.
+        *   **Структура `value_json`**: `{"en": "Items should be thematic...", "ru": "Предметы должны быть тематическими..."}`
+    6.  **`economy:base_item_values:<item_category_or_type_key>`** (см. также лог Task 42/44)
+        *   **Описание**: Базовая стоимость предметов, используется AI как ориентир.
+        *   **Структура `value_json`**: `{"value": 100, "currency": "gold"}`
+    7.  **`economy:npc_inventory_templates:<npc_role_or_type_key>`** (см. также лог Task 42/44)
+        *   **Описание**: Шаблоны инвентаря для NPC. AI может ссылаться на `inventory_template_key` или генерировать инвентарь на основе этих шаблонов.
+        *   **Структура `value_json`**: (см. подробное описание в логе Task 42/44 или AGENTS.md)
 
 ## Пользовательская задача: Устранение ошибок Pyright (Сессия 2024-07-05)
 - **Определение задачи**: Просмотреть проект, установить зависимости, установить Pyright, запустить его и устранить все ошибки.

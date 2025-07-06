@@ -441,11 +441,19 @@ async def generate_factions_and_relationships(
                     continue
 
                 # Determine RelationshipEntityType from string
+                TYPE_STRING_TO_ENUM_MAP = {
+                    "faction": RelationshipEntityType.GENERATED_FACTION,
+                    "generated_faction": RelationshipEntityType.GENERATED_FACTION,
+                    "npc": RelationshipEntityType.GENERATED_NPC,
+                    "generated_npc": RelationshipEntityType.GENERATED_NPC,
+                    "player": RelationshipEntityType.PLAYER,
+                    "party": RelationshipEntityType.PARTY,
+                }
                 try:
-                    entity1_type_enum = RelationshipEntityType(entity_data.entity1_type.lower())
-                    entity2_type_enum = RelationshipEntityType(entity_data.entity2_type.lower())
-                except ValueError:
-                    logger.error(f"Invalid entity type in relationship data: {entity_data.entity1_type} or {entity_data.entity2_type}. Skipping.")
+                    entity1_type_enum = TYPE_STRING_TO_ENUM_MAP[entity_data.entity1_type.lower()]
+                    entity2_type_enum = TYPE_STRING_TO_ENUM_MAP[entity_data.entity2_type.lower()]
+                except KeyError:
+                    logger.error(f"Invalid or unmapped entity type in relationship data: '{entity_data.entity1_type}' or '{entity_data.entity2_type}'. Skipping relationship.")
                     continue
 
                 # Handle player_default case: if type is player and static_id is player_default, use a placeholder ID (e.g. 0)

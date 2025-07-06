@@ -136,6 +136,122 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         with self.assertRaises(PydanticNativeValidationError):
             ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"})
 
+    # --- Tests for ParsedItemData (Task 43) ---
+    def test_parsed_item_data_valid(self):
+        valid_item_data = {
+            "entity_type": "item", "static_id": "sword_001",
+            "name_i18n": {"en": "Steel Sword", "ru": "Стальной Меч"},
+            "description_i18n": {"en": "A well-crafted steel sword.", "ru": "Хорошо сделанный стальной меч."},
+            "item_type": "weapon",
+            "properties_json": {"damage": "1d8", "slot_type": "main_hand"},
+            "base_value": 100
+        }
+        item = ParsedItemData(**valid_item_data)
+        self.assertEqual(item.static_id, "sword_001")
+        self.assertEqual(item.name_i18n["ru"], "Стальной Меч")
+        self.assertEqual(item.item_type, "weapon") # Already .lower() by validator
+        self.assertEqual(item.base_value, 100)
+        assert item.properties_json is not None
+        self.assertEqual(item.properties_json["damage"], "1d8")
+
+    def test_parsed_item_data_invalid(self):
+        # Missing static_id
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Field required"):
+            ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
+        # Empty static_id
+        with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
+            ParsedItemData(entity_type="item", static_id=" ", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
+        # Invalid base_value
+        with self.assertRaisesRegex(PydanticNativeValidationError, "base_value must be a non-negative integer if provided"):
+            ParsedItemData(entity_type="item", static_id="id1", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc", base_value=-10)
+        # Invalid item_type (empty string)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "item_type must be a non-empty string"):
+            ParsedItemData(entity_type="item", static_id="id1", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type=" ")
+
+    # --- Tests for GeneratedInventoryItemEntry (Task 43) ---
+    def test_generated_inventory_item_entry_valid(self):
+        valid_entry = {
+            "item_static_id": "potion_heal", "quantity_min": 1, "quantity_max": 5, "chance_to_appear": 0.8
+        }
+        entry = GeneratedInventoryItemEntry(**valid_entry)
+        self.assertEqual(entry.item_static_id, "potion_heal")
+        self.assertEqual(entry.quantity_min, 1)
+        self.assertEqual(entry.quantity_max, 5)
+        self.assertEqual(entry.chance_to_appear, 0.8)
+        # Test defaults
+        default_entry = GeneratedInventoryItemEntry(item_static_id="default_item")
+        self.assertEqual(default_entry.quantity_min, 1)
+        self.assertEqual(default_entry.quantity_max, 1)
+        self.assertEqual(default_entry.chance_to_appear, 1.0)
+
+
+    def test_generated_inventory_item_entry_invalid(self):
+        with self.assertRaisesRegex(PydanticNativeValidationError, "item_static_id must be a non-empty string"):
+            GeneratedInventoryItemEntry(item_static_id="", quantity_min=1, quantity_max=1, chance_to_appear=1.0)
+        # Pydantic v2 ge=1 handles this
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Input should be greater than or equal to 1"):
+            GeneratedInventoryItemEntry(item_static_id="id", quantity_min=0)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Input should be greater than or equal to 1"):
+             GeneratedInventoryItemEntry(item_static_id="id", quantity_max=0)
+        # Pydantic v2 ge/le handles this
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Input should be less than or equal to 1"):
+            GeneratedInventoryItemEntry(item_static_id="id", chance_to_appear=1.5)
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Input should be greater than or equal to 0"):
+            GeneratedInventoryItemEntry(item_static_id="id", chance_to_appear=-0.5)
+        # quantity_max < quantity_min
+        with self.assertRaisesRegex(PydanticNativeValidationError, "quantity_max cannot be less than quantity_min"):
+            GeneratedInventoryItemEntry(item_static_id="id", quantity_min=5, quantity_max=1)
+
+
+    # --- Tests for ParsedNpcTraderData (Task 43) ---
+    def test_parsed_npc_trader_data_valid(self):
+        valid_trader_data = {
+            "entity_type": "npc_trader", "static_id": "trader_01",
+            "name_i18n": {"en": "Trader Bob", "ru": "Торговец Боб"},
+            "description_i18n": {"en": "Sells various goods.", "ru": "Продает разные товары."},
+            "role_i18n": {"en": "General Goods", "ru": "Товары Общего Назначения"},
+            "inventory_template_key": "general_store_default",
+            "generated_inventory_items": [
+                {"item_static_id": "rope", "quantity_min": 1, "quantity_max": 3, "chance_to_appear": 1.0}
+            ]
+        }
+        trader = ParsedNpcTraderData(**valid_trader_data)
+        self.assertEqual(trader.static_id, "trader_01")
+        assert trader.role_i18n is not None
+        self.assertEqual(trader.role_i18n["en"], "General Goods")
+        self.assertEqual(trader.inventory_template_key, "general_store_default")
+        assert trader.generated_inventory_items is not None
+        self.assertEqual(len(trader.generated_inventory_items), 1)
+        self.assertEqual(trader.generated_inventory_items[0].item_static_id, "rope")
+
+    def test_parsed_npc_trader_data_minimal(self):
+        # Test with only required fields from ParsedNpcData and entity_type from ParsedNpcTraderData
+        minimal_trader_data = {
+            "entity_type": "npc_trader",
+            "name_i18n": {"en": "Minimal Trader", "ru": "Минимальный Торговец"},
+            "description_i18n": {"en": "Bare minimum info.", "ru": "Минимум информации."},
+            # role_i18n is optional in ParsedNpcTraderData
+        }
+        trader = ParsedNpcTraderData(**minimal_trader_data)
+        self.assertEqual(trader.name_i18n["en"], "Minimal Trader")
+        self.assertIsNone(trader.role_i18n) # Check optional field default
+
+    def test_parsed_npc_trader_data_invalid(self):
+        with self.assertRaisesRegex(PydanticNativeValidationError, "must be a non-empty dictionary if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, role_i18n={})
+        with self.assertRaisesRegex(PydanticNativeValidationError, "inventory_template_key must be a non-empty string if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, inventory_template_key=" ")
+        # This specific error message "generated_inventory_items must be a list if provided" comes from the validator in ParsedNpcTraderData
+        with self.assertRaisesRegex(PydanticNativeValidationError, "generated_inventory_items must be a list if provided"):
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, generated_inventory_items="not a list")
+        # Test invalid item within generated_inventory_items (Pydantic will raise error for the nested model)
+        with self.assertRaises(PydanticNativeValidationError):
+             ParsedNpcTraderData(
+                entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"},
+                generated_inventory_items=[{"item_static_id": ""}] # Empty item_static_id in GeneratedInventoryItemEntry
+            )
+
+
 class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
     async def test_parse_valid_faction_and_relationship(self):
         ai_response_list = [VALID_FACTION_DATA_FULL, VALID_RELATIONSHIP_DATA]
@@ -264,10 +380,10 @@ class TestAIResponseParserFunction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item.properties_json["damage"], "1d8")
 
     def test_parsed_item_data_invalid(self):
-        # Missing static_id
-        with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
+        # Missing static_id - Pydantic v2+ генерирует ошибку "Field required"
+        with self.assertRaisesRegex(PydanticNativeValidationError, "Field required"):
             ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
-        # Empty static_id
+        # Empty static_id - это должно вызывать кастомный валидатор
         with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
             ParsedItemData(entity_type="item", static_id=" ", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
         # Invalid base_value

@@ -63,8 +63,11 @@ class EventType(enum.Enum):
     ITEM_ACQUIRED = "item_acquired"
     ITEM_USED = "item_used"
     ITEM_DROPPED = "item_dropped"
-    TRADE_INITIATED = "trade_initiated"
-    TRADE_COMPLETED = "trade_completed"
+    TRADE_INITIATED = "trade_initiated" # General event when trade process starts
+    TRADE_COMPLETED = "trade_completed" # General event when a trade session ends (maybe not item specific)
+    TRADE_ITEM_BOUGHT = "trade_item_bought" # Player bought an item
+    TRADE_ITEM_SOLD = "trade_item_sold"   # Player sold an item
+    # Consider more granular events for failures if needed by other systems, e.g., TRADE_BUY_FAILED_INSUFFICIENT_GOLD
     LEVEL_UP = "level_up"
     XP_GAINED = "xp_gained"
     RELATIONSHIP_CHANGE = "relationship_change"
@@ -97,6 +100,7 @@ class EventType(enum.Enum):
     MASTER_ACTION_LOCATIONS_CONNECTED = "master_action_locations_connected" # Master connected
     MASTER_ACTION_LOCATIONS_DISCONNECTED = "master_action_locations_disconnected" # Master disconnected
     WORLD_EVENT_FACTIONS_GENERATED = "world_event_factions_generated" # AI generated factions and relationships
+    WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED = "world_event_economic_entities_generated" # Added for Task 43
 
 
     # TODO: Add more event types as needed for other modules

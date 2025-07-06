@@ -140,6 +140,100 @@ class TestAIProompBuilderFactionRel(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Error generating", prompt) # Ensure no error message in prompt
 
 
+class TestAIEconomicPromptBuilder(unittest.IsolatedAsyncioTestCase): # Renamed class for clarity
+    def setUp(self):
+        self.entity_schemas = _get_entity_schema_terms()
+        self.item_schema_json = json.dumps(self.entity_schemas.get("item_schema"), indent=2)
+        self.npc_trader_schema_json = json.dumps(self.entity_schemas.get("npc_trader_schema"), indent=2)
+        self.npc_schema_json = json.dumps(self.entity_schemas.get("npc_schema"), indent=2) # For npc_trader schema reference
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    async def test_prepare_economic_entity_generation_prompt_basic_structure(
+        self, mock_get_all_rules, mock_get_guild_main_language
+    ):
+        from src.core.ai_prompt_builder import prepare_economic_entity_generation_prompt # SUT
+
+        mock_get_guild_main_language.return_value = "en"
+        # Provide sample rules that the prompt builder expects
+        mock_get_all_rules.return_value = {
+            "ai:economic_generation:target_item_count": {"count": 7}, # Use dict structure
+            "ai:economic_generation:target_trader_count": {"count": 2}, # Use dict structure
+            "world_description_i18n": {"en": "A bustling trade city.", "ru": "Шумный торговый город."},
+            "economy:base_item_values:weapon_sword_common": {"value": 100, "currency": "gold"},
+            "economy:npc_inventory_templates:general_store_owner": {"description": "General store template items"},
+            "ai:economic_generation:item_type_distribution": {
+                "types": [{"type_name": "weapon", "weight": 5}]
+            },
+            "ai:economic_generation:trader_role_distribution": {
+                "roles": [{"role_key": "blacksmith", "weight": 3, "name_i18n": {"en": "Smith"}}]
+            },
+            "ai:economic_generation:quality_instructions_i18n": {"en": "Make them good."}
+        }
+        mock_session = MockAsyncSession()
+        guild_id = 1
+
+        prompt = await prepare_economic_entity_generation_prompt(mock_session, guild_id)
+
+        self.assertIsInstance(prompt, str)
+        self.assertIn("## AI Economic Entity Generation Request", prompt)
+        self.assertIn(f"Target Guild ID: {guild_id}", prompt)
+        self.assertIn("Primary Language for Generation: en", prompt)
+        self.assertIn("### Generation Guidelines & Context:", prompt)
+        self.assertIn("World Description: A bustling trade city.", prompt)
+        self.assertIn("Quality Instructions: Make them good.", prompt)
+        self.assertIn("Target Number of New Items to Generate: 7", prompt) # Adjusted to reflect rule
+        self.assertIn("Target Number of New NPC Traders to Generate: 2", prompt) # Adjusted to reflect rule
+
+        self.assertIn("Suggested Item Type Distribution", prompt)
+        self.assertIn("Suggested Trader Role Distribution", prompt)
+
+        self.assertIn("Relevant Economic Rules", prompt)
+        self.assertIn("economy:base_item_values:weapon_sword_common", prompt)
+        self.assertIn("economy:npc_inventory_templates:general_store_owner", prompt)
+
+        self.assertIn("### Generation Task:", prompt)
+        self.assertIn("Generate 7 new item(s) and 2 new NPC trader(s)", prompt) # Adjusted
+        self.assertIn("Adhere to the 'item_schema'", prompt)
+        self.assertIn("Adhere to the 'npc_trader_schema'", prompt)
+        self.assertIn("### Output Format Instructions:", prompt)
+        self.assertIn("Provide your response as a single JSON array", prompt)
+        self.assertIn("entity_type' field ('item' or 'npc_trader')", prompt)
+        self.assertIn("### Entity Schemas for Generation:", prompt)
+
+        expected_schemas_dump = json.dumps({
+            "item_schema": self.entity_schemas.get("item_schema"),
+            "npc_trader_schema": self.entity_schemas.get("npc_trader_schema"),
+            "npc_schema": self.entity_schemas.get("npc_schema")
+        }, indent=2)
+        self.assertIn(expected_schemas_dump, prompt)
+        self.assertNotIn("Error generating economic entity AI prompt", prompt)
+
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    async def test_prepare_economic_entity_generation_prompt_handles_missing_rules(
+        self, mock_get_all_rules, mock_get_guild_main_language
+    ):
+        from src.core.ai_prompt_builder import prepare_economic_entity_generation_prompt # SUT
+        mock_get_guild_main_language.return_value = "de"
+        mock_get_all_rules.return_value = {} # No rules defined, expect defaults
+
+        mock_session = MockAsyncSession()
+        guild_id = 2
+
+        prompt = await prepare_economic_entity_generation_prompt(mock_session, guild_id)
+
+        self.assertIn("Primary Language for Generation: de", prompt)
+        # Check for default counts (as defined in the SUT)
+        self.assertIn("Target Number of New Items to Generate: 5", prompt) # Default
+        self.assertIn("Target Number of New NPC Traders to Generate: 2", prompt) # Default
+        self.assertIn("No specific economic rules found", prompt)
+        self.assertIn("Example Item Types: weapon, armor, consumable, crafting_material, quest_item, misc", prompt) # Default example
+        self.assertIn("Example Trader Roles: Blacksmith, Alchemist, General Goods Vendor, Fletcher", prompt) # Default example
+        self.assertNotIn("Error generating economic entity AI prompt", prompt)
+
+
 class TestAIProompBuilderLocationContent(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
