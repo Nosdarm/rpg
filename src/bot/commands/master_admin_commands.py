@@ -212,10 +212,11 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         field_type = allowed_fields.get(field_to_update_lower)
 
         if not field_type:
-            not_allowed_msg = await get_localized_message_template(
-                session, interaction.guild_id, "player_update:field_not_allowed", lang_code,
-                "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}"
-            )
+            async with get_db_session() as temp_session_for_error_msg: # Create a temporary session for this error message
+                not_allowed_msg = await get_localized_message_template(
+                    temp_session_for_error_msg, interaction.guild_id, "player_update:field_not_allowed", lang_code,
+                    "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}"
+                )
             await interaction.followup.send(not_allowed_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
             return
 
@@ -308,7 +309,7 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     # --- RuleConfig CRUD ---
-    ruleconfig_group = app_commands.Group(name="ruleconfig", description="Master commands for managing RuleConfig entries.", parent=master_admin_group)
+    ruleconfig_group = app_commands.Group(name="ruleconfig", description="Master commands for managing RuleConfig entries.", parent=master_admin)
 
     @ruleconfig_group.command(name="get", description="Get a specific RuleConfig value.")
     @app_commands.describe(key="The key of the RuleConfig entry to view.")
