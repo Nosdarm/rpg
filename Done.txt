@@ -1,0 +1,75 @@
+## Phase 0: Architecture and Initialization (Foundation MVP)
+- Task 0.3: 🛠️ 0.3 Core Utils. (None)
+
+## 🌍 Phase 1: Game World (Static & Generated)
+- Task 1.1: 🌍 Location Model (i18n, Guild-Scoped)
+- Task 1.2: 🌍 Player and Party System (ORM, Commands, Guild-Scoped)
+- Task 1.3: 🚶 1.3 Movement Logic and Command (Guild-Scoped)
+
+## 🧠 Phase 2: AI Integration - Generation Core
+- Task 2.3: ✅ 2.3 AI Response Parsing and Validation Module. (0.3, 16, 17, Models 4/7/14/15/20/39)
+- Task 2.6: 🧠 2.6 AI Generation, Moderation, and Saving Logic. (0.3, 16, 17, 18, Models 4/7/14/15/20/39, Rules 13/41)
+
+## 🎲 Phase 6: Action Resolution Systems (Core Mechanics)
+- Task 🎲 6.3.1 Dice Roller Module. (None)
+- Task 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
+- Task ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution.
+- Task ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
+
+## Task Block: Phase 3: Abilities and Checks Mechanics
+- Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped)
+- Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped)
+- Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped)
+
+## Task Block: Phase 4: World and Location Model
+- Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped)
+
+## Task Block: Phase 5: Combat System
+- Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped)
+- Task 27: ⚔️ 5.2 Combat Engine Module.
+- Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI).
+- Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine).
+
+## Task Block: Phase 13: Experience and Character Development System
+- Task 30: ⚡️ 13.1 Experience System Structure (Rules).
+- Task 31: ⚡️ 13.2 XP Awarding and Progress.
+- Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n).
+
+## Task Block: Phase 8: Factions, Relationships, and Social Mechanics
+- Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n).
+- Task 34: 🎭 8.2 Relationships Model (Guild-Scoped).
+- Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild).
+- Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped).
+- Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n).
+- Task 38: 🎭 8.6 Complex Internal Faction Relationships.
+
+## Task Block: Phase 9: Detailed Quest System with Consequences
+- Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n).
+- Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild).
+- Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped).
+
+## Task Block: Phase 10: Economy, Items, and Trade
+- Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n).
+- Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild).
+- Task 44: 💰 10.3 Trade System (Guild-Scoped).
+
+## Task Block: Phase 14: Global Entities and Dynamic World
+- Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n). Description: Models for entities moving in the world within each guild. Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition. (Completed: YYYY-MM-DD by Jules)
+
+## Пользовательские задачи (Разное)
+- Пользовательская задача: Реализация команды /help (Сессия 2024-07-08)
+- Пользовательская задача: Исправление TypeError в on_message (Сессия 2024-07-08)
+- Пользовательская задача: Исправление NameError в on_message (Сессия 2024-07-08)
+- Пользовательская задача: Исправление AttributeError в on_message (Сессия 2024-07-08)
+- Пользовательская задача: Исправление DeprecationWarning и NLU для /help (Сессия 2024-07-08)
+- Пользовательская задача: Включение синхронизации команд при старте бота (Сессия 2024-07-08)
+- Пользовательская задача: Исправление NLU обработки слеш-команд (Сессия 2024-07-08)
+- Пользовательская задача: Устранение ошибок Pyright (Сессия 2024-07-05)
+- Пользовательская задача: Анализ и исправление тестов (Сессия 2024-07-09)
+- Пользовательская задача: Рефакторинг структуры команд бота и настроек их загрузки
+- Задача 19 / Задача 54 (Log and Feedback Formatting): Завершение
+- Задача 19 (Ранее): 📚 7.3 Turn and Report Formatting (Guild-Scoped) - Revisit
+- Задача 19 (старый лог): 📚 7.3 Turn and Report Formatting (Guild-Scoped) - Revisit (Сессия 2024-07-04)
+- Сессия [Текущая дата/время]: Начало работы (старый лог)
+- Задача 11: 🚀 0.1 Discord Bot Project Initialization (старый лог)
+- ... (и другие старые пользовательские задачи и задачи с префиксами, которые были в AGENTS.md ранее)

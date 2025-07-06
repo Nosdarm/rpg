@@ -115,9 +115,7 @@ This block presents tasks related to economy, items, and trade mechanics.
 Task Block: Phase 14: Global Entities and Dynamic World
 This block presents tasks related to entities that move around the world independently of players (caravans, patrols, random NPCs), and their simulation.
 
-Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n).
-Description: Models for entities moving in the world within each guild.
-Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition.
+{Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n). - Moved to Done.txt}
 
 Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
 Description: Module simulating the life and movement of global entities for each guild.

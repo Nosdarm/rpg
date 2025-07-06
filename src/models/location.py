@@ -9,6 +9,14 @@ from .base import Base
 from .custom_types import JsonBForSQLite # Import custom type
 # from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
 
+if TYPE_CHECKING:
+    from .player import Player # For players_present relationship
+    from .generated_npc import GeneratedNpc # For npcs_present relationship
+    # Add imports for new global entities if not already present
+    from .global_npc import GlobalNpc
+    from .mobile_group import MobileGroup
+    from .global_event import GlobalEvent
+
 
 class LocationType(enum.Enum):
     GENERIC = "generic"
@@ -49,6 +57,14 @@ class Location(Base):
     neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JsonBForSQLite, nullable=True)
     generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
     ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+
+    # Relationships for entities present in the location
+    players_present: Mapped[List["Player"]] = relationship(back_populates="location") # Corrected from current_location to location
+    npcs_present: Mapped[List["GeneratedNpc"]] = relationship(back_populates="current_location")
+    global_npcs_in_location: Mapped[List["GlobalNpc"]] = relationship(back_populates="current_location")
+    mobile_groups_in_location: Mapped[List["MobileGroup"]] = relationship(back_populates="current_location")
+    global_events_in_location: Mapped[List["GlobalEvent"]] = relationship(back_populates="location")
+
 
     __table_args__ = (
         Index("ix_locations_guild_id_static_id", "guild_id", "static_id", unique=True),
