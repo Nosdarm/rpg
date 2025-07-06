@@ -96,7 +96,7 @@ class TestQuestModels(unittest.TestCase):
             "party_id": None, # Нет партии
             "quest_id": 1,
             "current_step_id": 1,
-            "status": QuestStatus.IN_PROGRESS,
+            "status": QuestStatus.IN_PROGRESS, # This was already IN_PROGRESS, the error was in the _for_party test
             "progress_data_json": {"goblins_killed": 5},
             "accepted_at": now,
             "completed_at": None
@@ -119,7 +119,7 @@ class TestQuestModels(unittest.TestCase):
             "player_id": None,
             "party_id": 1, # Для партии
             "quest_id": 2,
-            "status": QuestStatus.ACCEPTED,
+            "status": QuestStatus.STARTED, # Changed ACCEPTED to STARTED
         }
         progress = PlayerQuestProgress(**data) # type: ignore
         self.assertEqual(progress.party_id, data["party_id"])

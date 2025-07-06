@@ -14,6 +14,7 @@ from src.core.crud.crud_item import item_crud
 ASYNC_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
+# type: ignore[var-annotated] # Pyright can sometimes struggle with complex sessionmaker types
 AsyncSessionLocal = sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -24,10 +25,10 @@ class TestCRUDItem(unittest.IsolatedAsyncioTestCase):
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-        self.session: AsyncSession = AsyncSessionLocal()
+        self.session: AsyncSession = AsyncSessionLocal() # type: ignore[assignment] # If pyright still complains after above ignore
 
         # Create a dummy guild_config for foreign key reference
-        self.guild_config = GuildConfig(id=1, name="Test Guild") # guild_discord_id is not a field, id is the discord id
+        self.guild_config = GuildConfig(id=1, name="Test Guild")
         self.session.add(self.guild_config)
         await self.session.commit()
         await self.session.refresh(self.guild_config)

@@ -843,7 +843,7 @@ async def generate_economic_entities(
                             if not item_db_id:
                                 # Try to fetch from DB if item wasn't generated in this batch but might exist
                                 if inv_item_data.item_static_id: # Check before passing to CRUD
-                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=inv_item_data.item_static_id)
+                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=inv_item_data.item_static_id) # type: ignore[arg-type]
                                     if existing_item_for_inv:
                                         item_db_id = existing_item_for_inv.id
                                     else:

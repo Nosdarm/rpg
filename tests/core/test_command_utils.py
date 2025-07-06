@@ -23,9 +23,9 @@ from src.models.command_info import CommandInfo, CommandParameterInfo
 # Mocking discord.py specific classes that are not easily instantiated
 # discord.app_commands.locale_str
 class MockLocaleStr:
-    def __init__(self, message: str, message_map: dict = None):
+    def __init__(self, message: str, message_map: Optional[Dict[str, str]] = None): # Changed type hint
         self.message = message
-        self.message_map = message_map if message_map else {}
+        self.message_map: Dict[str, str] = message_map if message_map is not None else {} # Ensure always dict
 
     def __str__(self):
         return self.message
@@ -38,10 +38,12 @@ def test_get_localized_string_with_plain_string():
 
 def test_get_localized_string_with_mock_locale_str():
     ls = MockLocaleStr("hello", {"en": "Hello", "ru": "Привет"})
-    assert _get_localized_string(ls, "en") == "Hello" # type: ignore
-    assert _get_localized_string(ls, "ru") == "Привет" # type: ignore
-    assert _get_localized_string(ls, "fr") == "hello"  # type: ignore # Fallback to default message
-    assert _get_localized_string(ls, None) == "hello" # type: ignore # Fallback to default message
+    # The # type: ignore might no longer be needed if Pyright understands MockLocaleStr better.
+    # However, the original error was about None to Dict, which is still puzzling for this line.
+    assert _get_localized_string(ls, "en") == "Hello"
+    assert _get_localized_string(ls, "ru") == "Привет"
+    assert _get_localized_string(ls, "fr") == "hello"  # This was line 26 in the report
+    assert _get_localized_string(ls, None) == "hello"
 
 def test_get_localized_string_with_none_value():
     assert _get_localized_string(value=None, lang_code="en") is None

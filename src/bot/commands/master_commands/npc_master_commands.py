@@ -34,10 +34,13 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
     @app_commands.describe(npc_id="The database ID of the NPC to view.")
     async def npc_view(self, interaction: discord.Interaction, npc_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            npc = await npc_crud.get_by_id_and_guild(session, id=npc_id, guild_id=interaction.guild_id)
+            npc = await npc_crud.get_by_id(session, id=npc_id, guild_id=interaction.guild_id)
 
             if not npc:
                 not_found_msg_template = await get_localized_message_template(
@@ -50,36 +53,36 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_view:title", lang_code,
                 "NPC Details: {npc_name} (ID: {npc_id})"
-            )
+            ) # type: ignore
 
             npc_name_display = npc.name_i18n.get(lang_code, npc.name_i18n.get("en", f"NPC {npc.id}"))
             embed_title = title_template.format(npc_name=npc_name_display, npc_id=npc.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.blurple())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"npc_view:label_{key}", lang_code, default)
+                return await get_localized_message_template(session, interaction.guild_id, f"npc_view:label_{key}", lang_code, default) # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(npc.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=npc.static_id or "N/A", inline=True)
-            embed.add_field(name=await get_label("faction_id", "Faction ID"), value=str(npc.faction_id) if npc.faction_id else "N/A", inline=True)
+            embed.add_field(name=await get_label("faction_id", "Faction ID"), value=str(npc.faction_id) if hasattr(npc, 'faction_id') and npc.faction_id else "N/A", inline=True)
             embed.add_field(name=await get_label("location_id", "Location ID"), value=str(npc.current_location_id) if npc.current_location_id else "N/A", inline=True)
 
-            name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available")
+            name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available") # type: ignore
             if npc.name_i18n:
                 try: name_i18n_str = json.dumps(npc.name_i18n, indent=2, ensure_ascii=False)
-                except TypeError: name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Name i18n")
+                except TypeError: name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Name i18n") # type: ignore
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
 
-            description_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available")
+            description_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available") # type: ignore
             if npc.description_i18n:
                 try: description_i18n_str = json.dumps(npc.description_i18n, indent=2, ensure_ascii=False)
-                except TypeError: description_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Description i18n")
+                except TypeError: description_i18n_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Description i18n") # type: ignore
             embed.add_field(name=await get_label("description_i18n", "Description (i18n)"), value=f"```json\n{description_i18n_str[:1000]}\n```" + ("..." if len(description_i18n_str) > 1000 else ""), inline=False)
 
-            properties_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available")
+            properties_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:value_na_json", lang_code, "Not available") # type: ignore
             if npc.properties_json:
                 try: properties_str = json.dumps(npc.properties_json, indent=2, ensure_ascii=False)
-                except TypeError: properties_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Properties JSON")
+                except TypeError: properties_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:error_serialization", lang_code, "Error serializing Properties JSON") # type: ignore
             embed.add_field(name=await get_label("properties", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```" + ("..." if len(properties_str) > 1000 else ""), inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -90,11 +93,14 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            npcs = await npc_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            npcs = await npc_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_npcs_stmt = select(func.count(npc_crud.model.id)).where(npc_crud.model.guild_id == interaction.guild_id)
             total_npcs_result = await session.execute(total_npcs_stmt)
@@ -104,14 +110,14 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                 no_npcs_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_list:no_npcs_found_page", lang_code,
                     "No NPCs found for this guild (Page {page})."
-                )
+                ) # type: ignore
                 await interaction.followup.send(no_npcs_msg.format(page=page), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_list:title", lang_code,
                 "Generated NPC List (Page {page} of {total_pages})"
-            )
+            ) # type: ignore
             total_pages = ((total_npcs - 1) // limit) + 1
             embed_title = title_template.format(page=page, total_pages=total_pages)
             embed = discord.Embed(title=embed_title, color=discord.Color.light_grey())
@@ -119,17 +125,17 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_list:footer", lang_code,
                 "Displaying {count} of {total} total NPCs."
-            )
+            ) # type: ignore
             embed.set_footer(text=footer_template.format(count=len(npcs), total=total_npcs))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_list:npc_field_name", lang_code,
                 "ID: {npc_id} | {npc_name} (Static: {static_id})"
-            )
+            ) # type: ignore
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_list:npc_field_value", lang_code,
                 "Faction ID: {faction_id}, Location ID: {location_id}"
-            )
+            ) # type: ignore
 
             for n in npcs:
                 npc_name_display = n.name_i18n.get(lang_code, n.name_i18n.get("en", f"NPC {n.id}"))
@@ -174,35 +180,38 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
         parsed_name_i18n: Dict[str, str]
         parsed_description_i18n: Optional[Dict[str, str]] = None
         parsed_properties: Optional[Dict[str, Any]] = None
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             if faction_id:
-                existing_faction = await crud_faction.get_by_id_and_guild(session, id=faction_id, guild_id=interaction.guild_id)
+                existing_faction = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
                 if not existing_faction:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "npc_create:error_faction_not_found", lang_code,
                         "Faction with ID {id} not found in this guild."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=faction_id), ephemeral=True)
                     return
 
             if current_location_id:
-                existing_location = await location_crud.get_by_id_and_guild(session, id=current_location_id, guild_id=interaction.guild_id)
+                existing_location = await location_crud.get_by_id(session, id=current_location_id, guild_id=interaction.guild_id)
                 if not existing_location:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "npc_create:error_location_not_found", lang_code,
                         "Location with ID {id} not found in this guild."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=current_location_id), ephemeral=True)
                     return
 
-            if static_id:
+            if static_id: # static_id is Optional
                 existing_npc_static = await npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id)
                 if existing_npc_static:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "npc_create:error_static_id_exists", lang_code,
                         "An NPC with static_id '{id}' already exists in this guild."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=static_id), ephemeral=True)
                     return
 
@@ -222,16 +231,23 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                     parsed_properties = json.loads(properties_json)
                     if not isinstance(parsed_properties, dict):
                         raise ValueError("properties_json must be a dictionary.")
-            except (json.JSONDecodeError, ValueError) as e:
+            except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_create:error_invalid_json_format", lang_code,
                     "Invalid JSON format for one of the input fields: {error_details}"
-                )
+                ) # type: ignore
+                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+                return
+            except json.JSONDecodeError as e: # Broader exception later
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "npc_create:error_invalid_json_format", lang_code,
+                    "Invalid JSON format for one of the input fields: {error_details}"
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 return
 
             npc_data_to_create: Dict[str, Any] = {
-                "guild_id": interaction.guild_id,
+                "guild_id": interaction.guild_id, # Already checked for None
                 "static_id": static_id,
                 "name_i18n": parsed_name_i18n,
                 "description_i18n": parsed_description_i18n if parsed_description_i18n else {},
@@ -243,7 +259,7 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
             created_npc: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_npc = await npc_crud.create(session, obj_in=npc_data_to_create)
+                    created_npc = await npc_crud.create_with_guild(session, obj_in=npc_data_to_create, guild_id=interaction.guild_id) # type: ignore
                     await session.flush()
                     if created_npc:
                          await session.refresh(created_npc)
@@ -252,7 +268,7 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_create:error_generic_create", lang_code,
                     "An error occurred while creating the NPC: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_message=str(e)), ephemeral=True)
                 return
 
@@ -260,19 +276,19 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_create:error_creation_failed_unknown", lang_code,
                     "NPC creation failed for an unknown reason."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_create:success_title", lang_code,
                 "NPC Created: {npc_name} (ID: {npc_id})"
-            )
+            ) # type: ignore
             created_npc_name_display = created_npc.name_i18n.get(lang_code, created_npc.name_i18n.get("en", f"NPC {created_npc.id}"))
 
             embed = discord.Embed(title=success_title_template.format(npc_name=created_npc_name_display, npc_id=created_npc.id), color=discord.Color.green())
             embed.add_field(name="Static ID", value=created_npc.static_id or "N/A", inline=True)
-            embed.add_field(name="Faction ID", value=str(created_npc.faction_id) if created_npc.faction_id else "N/A", inline=True)
+            embed.add_field(name="Faction ID", value=str(created_npc.faction_id) if hasattr(created_npc, 'faction_id') and created_npc.faction_id else "N/A", inline=True)
             embed.add_field(name="Location ID", value=str(created_npc.current_location_id) if created_npc.current_location_id else "N/A", inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -284,6 +300,9 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
     )
     async def npc_update(self, interaction: discord.Interaction, npc_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         allowed_fields = {
             "static_id": (str, type(None)),
@@ -307,7 +326,7 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "npc_update:error_field_not_allowed", lang_code,
                     "Field '{field_name}' is not allowed for update. Allowed: {allowed_list}"
-                )
+                ) # type: ignore
             await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
             return
 
@@ -319,14 +338,15 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                         parsed_value = None
                     else:
                         parsed_value = new_value
-                        existing_npc_static = await npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
-                        if existing_npc_static and existing_npc_static.id != npc_id:
-                            error_msg = await get_localized_message_template(
-                                session, interaction.guild_id, "npc_update:error_static_id_exists", lang_code,
-                                "Another NPC with static_id '{id}' already exists."
-                            )
-                            await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
-                            return
+                        if parsed_value is not None: # Check if not None before DB call
+                            existing_npc_static = await npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
+                            if existing_npc_static and existing_npc_static.id != npc_id:
+                                error_msg = await get_localized_message_template(
+                                    session, interaction.guild_id, "npc_update:error_static_id_exists", lang_code,
+                                    "Another NPC with static_id '{id}' already exists."
+                                ) # type: ignore
+                                await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
+                                return
                 elif db_field_name in ["name_i18n", "description_i18n", "properties_json"]:
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, dict):
@@ -336,13 +356,13 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                         parsed_value = None
                     else:
                         parsed_value = int(new_value)
-                        if parsed_value is not None:
-                            existing_faction = await crud_faction.get_by_id_and_guild(session, id=parsed_value, guild_id=interaction.guild_id)
+                        if parsed_value is not None: # Check if not None before DB call
+                            existing_faction = await crud_faction.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not existing_faction:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "npc_update:error_faction_not_found", lang_code,
                                     "Faction with ID {id} not found."
-                                )
+                                ) # type: ignore
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
                                 return
                 elif db_field_name == "current_location_id":
@@ -350,43 +370,43 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                         parsed_value = None
                     else:
                         parsed_value = int(new_value)
-                        if parsed_value is not None:
-                            existing_location = await location_crud.get_by_id_and_guild(session, id=parsed_value, guild_id=interaction.guild_id)
+                        if parsed_value is not None: # Check if not None before DB call
+                            existing_location = await location_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not existing_location:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "npc_update:error_location_not_found", lang_code,
                                     "Location with ID {id} not found."
-                                )
+                                ) # type: ignore
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True)
                                 return
                 else:
                      error_msg = await get_localized_message_template(
                          session, interaction.guild_id, "npc_update:error_unknown_field_type", lang_code,
                         "Internal error: Unknown field type for '{field_name}'."
-                    )
+                    ) # type: ignore
                      await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True)
                      return
-            except ValueError as e:
+            except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_update:error_invalid_value_type", lang_code,
                     "Invalid value '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_update:error_invalid_json", lang_code,
                     "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
 
-            npc_to_update = await npc_crud.get_by_id_and_guild(session, id=npc_id, guild_id=interaction.guild_id)
+            npc_to_update = await npc_crud.get_by_id(session, id=npc_id, guild_id=interaction.guild_id)
             if not npc_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_update:error_npc_not_found", lang_code,
                     "NPC with ID {id} not found in this guild."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=npc_id), ephemeral=True)
                 return
 
@@ -396,25 +416,34 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
                 async with session.begin():
                     updated_npc = await update_entity(session, entity=npc_to_update, data=update_data_dict)
                     await session.flush()
-                    await session.refresh(updated_npc)
+                    if updated_npc: # Refresh only if not None
+                        await session.refresh(updated_npc)
             except Exception as e:
                 logger.error(f"Error updating NPC {npc_id} with data {update_data_dict}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_update:error_generic_update", lang_code,
                     "An error occurred while updating NPC {id}: {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=npc_id, error_message=str(e)), ephemeral=True)
+                return
+
+            if not updated_npc: # Check after potential refresh
+                error_msg = await get_localized_message_template(
+                    session, interaction.guild_id, "npc_update:error_update_failed_unknown", lang_code,
+                    "NPC update failed for an unknown reason."
+                ) # type: ignore
+                await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "npc_update:success_title", lang_code,
                 "NPC Updated: {npc_name} (ID: {npc_id})"
-            )
+            ) # type: ignore
             updated_npc_name_display = updated_npc.name_i18n.get(lang_code, updated_npc.name_i18n.get("en", f"NPC {updated_npc.id}"))
             embed = discord.Embed(title=success_title_template.format(npc_name=updated_npc_name_display, npc_id=updated_npc.id), color=discord.Color.orange())
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "npc_update:label_field_updated", lang_code, "Field Updated")
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "npc_update:label_new_value", lang_code, "New Value")
+            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "npc_update:label_field_updated", lang_code, "Field Updated") # type: ignore
+            new_value_label = await get_localized_message_template(session, interaction.guild_id, "npc_update:label_new_value", lang_code, "New Value") # type: ignore
 
             new_value_display = str(parsed_value)
             if isinstance(parsed_value, (dict, list)):
@@ -430,16 +459,19 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
     @app_commands.describe(npc_id="The database ID of the NPC to delete.")
     async def npc_delete(self, interaction: discord.Interaction, npc_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            return
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            npc_to_delete = await npc_crud.get_by_id_and_guild(session, id=npc_id, guild_id=interaction.guild_id)
+            npc_to_delete = await npc_crud.get_by_id(session, id=npc_id, guild_id=interaction.guild_id)
 
             if not npc_to_delete:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_delete:error_not_found", lang_code,
                     "NPC with ID {id} not found. Nothing to delete."
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(id=npc_id), ephemeral=True)
                 return
 
@@ -447,26 +479,26 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
             deleted_npc: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_npc = await npc_crud.remove(session, id=npc_id)
+                    deleted_npc = await npc_crud.remove_by_id(session, id=npc_id, guild_id=interaction.guild_id) # type: ignore
 
                 if deleted_npc:
                     success_msg = await get_localized_message_template(
                         session, interaction.guild_id, "npc_delete:success", lang_code,
                         "NPC '{name}' (ID: {id}) has been deleted successfully."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(success_msg.format(name=npc_name_for_message, id=npc_id), ephemeral=True)
-                else:
+                else: # Should not happen if found before
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "npc_delete:error_not_deleted_unknown", lang_code,
                         "NPC (ID: {id}) was found but could not be deleted."
-                    )
+                    ) # type: ignore
                     await interaction.followup.send(error_msg.format(id=npc_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting NPC {npc_id} for guild {interaction.guild_id}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "npc_delete:error_generic", lang_code,
                     "An error occurred while deleting NPC '{name}' (ID: {id}): {error_message}"
-                )
+                ) # type: ignore
                 await interaction.followup.send(error_msg.format(name=npc_name_for_message, id=npc_id, error_message=str(e)), ephemeral=True)
                 return
 

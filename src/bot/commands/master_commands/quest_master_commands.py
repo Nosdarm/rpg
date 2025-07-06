@@ -32,9 +32,12 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
     @app_commands.describe(questline_id="The database ID of the Questline to view.")
     async def questline_view(self, interaction: discord.Interaction, questline_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            q_line = await questline_crud.get_by_id_and_guild(session, id=questline_id, guild_id=interaction.guild_id)
+            q_line = await questline_crud.get_by_id(session, id=questline_id, guild_id=interaction.guild_id)
 
             if not q_line:
                 not_found_msg = await get_localized_message_template(session, interaction.guild_id, "questline_view:not_found", lang_code, "Questline with ID {id} not found in this guild.")
@@ -46,12 +49,12 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             embed_title = title_template.format(ql_title=ql_title_display, ql_id=q_line.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_teal())
 
-            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"questline_view:label_{key}", lang_code, default)
+            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"questline_view:label_{key}", lang_code, default) # type: ignore
             async def format_json_field(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(q_line.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=q_line.static_id or "N/A", inline=True)
@@ -73,11 +76,14 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            questlines = await questline_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            questlines = await questline_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
             total_ql_stmt = select(func.count(questline_crud.model.id)).where(questline_crud.model.guild_id == interaction.guild_id)
             total_ql_result = await session.execute(total_ql_stmt)
             total_questlines = total_ql_result.scalar_one_or_none() or 0
@@ -93,8 +99,8 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_blue())
             footer_template = await get_localized_message_template(session, interaction.guild_id, "questline_list:footer", lang_code, "Displaying {count} of {total} total Questlines.")
             embed.set_footer(text=footer_template.format(count=len(questlines), total=total_questlines))
-            field_name_template = await get_localized_message_template(session, interaction.guild_id, "questline_list:ql_field_name", lang_code, "ID: {ql_id} | {ql_title} (Static: {static_id})")
-            field_value_template = await get_localized_message_template(session, interaction.guild_id, "questline_list:ql_field_value", lang_code, "Main: {is_main}, Starts with: {starting_sid}")
+            field_name_template = await get_localized_message_template(session, interaction.guild_id, "questline_list:ql_field_name", lang_code, "ID: {ql_id} | {ql_title} (Static: {static_id})") # type: ignore
+            field_value_template = await get_localized_message_template(session, interaction.guild_id, "questline_list:ql_field_value", lang_code, "Main: {is_main}, Starts with: {starting_sid}") # type: ignore
 
             for ql in questlines:
                 ql_title_display = ql.title_i18n.get(lang_code, ql.title_i18n.get("en", f"Questline {ql.id}"))
@@ -124,6 +130,9 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         parsed_title_i18n: Dict[str, str]
         parsed_desc_i18n: Optional[Dict[str, str]] = None
         parsed_props: Optional[Dict[str, Any]] = None
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
 
         async with get_db_session() as session:
             existing_ql_static = await questline_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id)
@@ -150,7 +159,10 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 if properties_json:
                     parsed_props = json.loads(properties_json)
                     if not isinstance(parsed_props, dict): raise ValueError("properties_json must be a dict.")
-            except (json.JSONDecodeError, ValueError) as e:
+            except ValueError as e: # Specific exception first
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "questline_create:error_invalid_json", lang_code, "Invalid JSON for i18n/properties: {details}")
+                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "questline_create:error_invalid_json", lang_code, "Invalid JSON for i18n/properties: {details}")
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
@@ -158,7 +170,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             created_ql: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_ql = await questline_crud.create(session, obj_in=ql_data_create)
+                    created_ql = await questline_crud.create_with_guild(session, obj_in=ql_data_create, guild_id=interaction.guild_id) # type: ignore
                     await session.flush();
                     if created_ql: await session.refresh(created_ql)
             except Exception as e:
@@ -191,6 +203,9 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
              db_field_name = field_to_update_lower.replace("_json","")
         field_type_info = allowed_fields.get(db_field_name)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
 
         if not field_type_info:
             async with get_db_session() as temp_session:
@@ -236,13 +251,13 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                     error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_unknown_field",lang_code,"Unknown field for update.")
                     await interaction.followup.send(error_msg, ephemeral=True); return
             except ValueError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
             except json.JSONDecodeError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
-            ql_to_update = await questline_crud.get_by_id_and_guild(session, id=questline_id, guild_id=interaction.guild_id)
+            ql_to_update = await questline_crud.get_by_id(session, id=questline_id, guild_id=interaction.guild_id) # type: ignore
             if not ql_to_update:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_update:error_not_found",lang_code,"Questline ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=questline_id), ephemeral=True); return
@@ -274,8 +289,11 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
     async def questline_delete(self, interaction: discord.Interaction, questline_id: int):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
-            ql_to_delete = await questline_crud.get_by_id_and_guild(session, id=questline_id, guild_id=interaction.guild_id)
+            ql_to_delete = await questline_crud.get_by_id(session, id=questline_id, guild_id=interaction.guild_id) # type: ignore
             if not ql_to_delete:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"questline_delete:error_not_found",lang_code,"Questline ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=questline_id), ephemeral=True); return
@@ -296,7 +314,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             deleted_ql: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_ql = await questline_crud.remove(session, id=questline_id)
+                    deleted_ql = await questline_crud.remove_by_id(session, id=questline_id, guild_id=interaction.guild_id) # type: ignore
                 if deleted_ql:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"questline_delete:success",lang_code,"Questline '{title}' (ID: {id}) deleted successfully.")
                     await interaction.followup.send(success_msg.format(title=ql_title_for_msg, id=questline_id), ephemeral=True)
@@ -313,9 +331,12 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
     @app_commands.describe(quest_id="The database ID of the GeneratedQuest to view.")
     async def generated_quest_view(self, interaction: discord.Interaction, quest_id: int):
         await interaction.response.defer(ephemeral=True)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            gq = await generated_quest_crud.get_by_id_and_guild(session, id=quest_id, guild_id=interaction.guild_id)
+            gq = await generated_quest_crud.get_by_id(session, id=quest_id, guild_id=interaction.guild_id) # type: ignore
             if not gq:
                 not_found_msg = await get_localized_message_template(session, interaction.guild_id, "gq_view:not_found", lang_code, "GeneratedQuest with ID {id} not found in this guild.")
                 await interaction.followup.send(not_found_msg.format(id=quest_id), ephemeral=True); return
@@ -325,17 +346,17 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             embed_title = title_template.format(gq_title=gq_title_display, gq_id=gq.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_orange())
 
-            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"gq_view:label_{key}", lang_code, default)
+            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"gq_view:label_{key}", lang_code, default) # type: ignore
             async def format_json_field(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(gq.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=gq.static_id or "N/A", inline=True)
             embed.add_field(name=await get_label("questline_id", "Questline ID"), value=str(gq.questline_id) if gq.questline_id else "N/A", inline=True)
-            embed.add_field(name=await get_label("type", "Type"), value=gq.type or "N/A", inline=True)
+            embed.add_field(name=await get_label("type", "Type"), value=gq.quest_type or "N/A", inline=True) # Changed gq.type to gq.quest_type
             embed.add_field(name=await get_label("is_repeatable", "Is Repeatable"), value=str(gq.is_repeatable), inline=True)
             title_i18n_str = await format_json_field(gq.title_i18n, "gq_view:value_na_json", "gq_view:error_serialization_title")
             embed.add_field(name=await get_label("title_i18n", "Title (i18n)"), value=f"```json\n{title_i18n_str[:1000]}\n```" + ("..." if len(title_i18n_str) > 1000 else ""), inline=False)
@@ -355,6 +376,9 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if limit < 1: limit = 1
         if limit > 10: limit = 10
         lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
             filters = [generated_quest_crud.model.guild_id == interaction.guild_id]
             if questline_id is not None: filters.append(generated_quest_crud.model.questline_id == questline_id)
@@ -377,13 +401,13 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_gold())
             footer_template = await get_localized_message_template(session, interaction.guild_id, "gq_list:footer", lang_code, "Displaying {count} of {total} total GeneratedQuests.")
             embed.set_footer(text=footer_template.format(count=len(g_quests), total=total_g_quests))
-            field_name_template = await get_localized_message_template(session, interaction.guild_id, "gq_list:gq_field_name", lang_code, "ID: {gq_id} | {gq_title} (Static: {static_id})")
-            field_value_template = await get_localized_message_template(session, interaction.guild_id, "gq_list:gq_field_value", lang_code, "Type: {type}, Questline ID: {ql_id}, Repeatable: {repeatable}")
+            field_name_template = await get_localized_message_template(session, interaction.guild_id, "gq_list:gq_field_name", lang_code, "ID: {gq_id} | {gq_title} (Static: {static_id})") # type: ignore
+            field_value_template = await get_localized_message_template(session, interaction.guild_id, "gq_list:gq_field_value", lang_code, "Type: {type}, Questline ID: {ql_id}, Repeatable: {repeatable}") # type: ignore
 
             for gq_obj in g_quests:
                 gq_title_display = gq_obj.title_i18n.get(lang_code, gq_obj.title_i18n.get("en", f"Quest {gq_obj.id}"))
                 embed.add_field(name=field_name_template.format(gq_id=gq_obj.id, gq_title=gq_title_display, static_id=gq_obj.static_id or "N/A"),
-                                value=field_value_template.format(type=gq_obj.type or "N/A", ql_id=str(gq_obj.questline_id) if gq_obj.questline_id else "N/A", repeatable=str(gq_obj.is_repeatable)),
+                                value=field_value_template.format(type=gq_obj.quest_type or "N/A", ql_id=str(gq_obj.questline_id) if gq_obj.questline_id else "N/A", repeatable=str(gq_obj.is_repeatable)), # Changed gq_obj.type to gq_obj.quest_type
                                 inline=False)
             if len(embed.fields) == 0:
                 no_display_msg = await get_localized_message_template(session, interaction.guild_id, "gq_list:no_gq_to_display", lang_code, "No GeneratedQuests found to display on page {page} for {filter_criteria}.")
@@ -396,13 +420,16 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
         parsed_title_i18n: Dict[str, str]; parsed_desc_i18n: Optional[Dict[str, str]] = None; parsed_props: Optional[Dict[str, Any]] = None; parsed_rewards: Optional[Dict[str, Any]] = None
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
             existing_gq_static = await generated_quest_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id)
             if existing_gq_static:
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "gq_create:error_static_id_exists", lang_code, "GeneratedQuest static_id '{id}' already exists.")
                 await interaction.followup.send(error_msg.format(id=static_id), ephemeral=True); return
             if questline_id:
-                ql = await questline_crud.get_by_id_and_guild(session, id=questline_id, guild_id=interaction.guild_id)
+                ql = await questline_crud.get_by_id(session, id=questline_id, guild_id=interaction.guild_id) # type: ignore
                 if not ql:
                     error_msg = await get_localized_message_template(session, interaction.guild_id, "gq_create:error_questline_not_found", lang_code, "Questline with ID {id} not found.")
                     await interaction.followup.send(error_msg.format(id=questline_id), ephemeral=True); return
@@ -419,15 +446,18 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 if rewards_json:
                     parsed_rewards = json.loads(rewards_json)
                     if not isinstance(parsed_rewards, dict): raise ValueError("rewards_json must be a dict.")
-            except (json.JSONDecodeError, ValueError) as e:
+            except ValueError as e: # Specific exception first
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "gq_create:error_invalid_json", lang_code, "Invalid JSON for i18n/properties/rewards: {details}")
+                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            except json.JSONDecodeError as e: # Broader exception later
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "gq_create:error_invalid_json", lang_code, "Invalid JSON for i18n/properties/rewards: {details}")
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
-            gq_data_create: Dict[str, Any] = {"guild_id": interaction.guild_id, "static_id": static_id, "title_i18n": parsed_title_i18n, "description_i18n": parsed_desc_i18n or {}, "type": quest_type, "questline_id": questline_id, "is_repeatable": is_repeatable, "properties_json": parsed_props or {}, "rewards_json": parsed_rewards or {}}
+            gq_data_create: Dict[str, Any] = {"guild_id": interaction.guild_id, "static_id": static_id, "title_i18n": parsed_title_i18n, "description_i18n": parsed_desc_i18n or {}, "quest_type": quest_type, "questline_id": questline_id, "is_repeatable": is_repeatable, "properties_json": parsed_props or {}, "rewards_json": parsed_rewards or {}} # Changed "type" to "quest_type"
             created_gq: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_gq = await generated_quest_crud.create(session, obj_in=gq_data_create)
+                    created_gq = await generated_quest_crud.create_with_guild(session, obj_in=gq_data_create, guild_id=interaction.guild_id) # type: ignore
                     await session.flush();
                     if created_gq: await session.refresh(created_gq)
             except Exception as e:
@@ -442,7 +472,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             created_gq_title_display = created_gq.title_i18n.get(lang_code, created_gq.title_i18n.get("en", ""))
             embed = discord.Embed(title=success_title.format(title=created_gq_title_display, id=created_gq.id), color=discord.Color.green())
             embed.add_field(name="Static ID", value=created_gq.static_id, inline=True)
-            embed.add_field(name="Type", value=created_gq.type or "N/A", inline=True)
+            embed.add_field(name="Type", value=created_gq.quest_type or "N/A", inline=True) # Changed created_gq.type to created_gq.quest_type
             embed.add_field(name="Questline ID", value=str(created_gq.questline_id) if created_gq.questline_id else "N/A", inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -457,6 +487,9 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
              db_field_name = field_to_update_lower.replace("_json","")
         field_type_info = allowed_fields.get(db_field_name)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
 
         if not field_type_info:
             async with get_db_session() as temp_session:
@@ -476,15 +509,16 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 elif db_field_name in ["title_i18n", "description_i18n", "properties_json", "rewards_json"]:
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, dict): raise ValueError(f"{db_field_name} must be a dict.")
-                elif db_field_name == "type":
+                elif db_field_name == "type": # Should be quest_type
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else: parsed_value = new_value
+                    db_field_name = "quest_type" # Correct field name
                 elif db_field_name == "questline_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            ql = await questline_crud.get_by_id_and_guild(session, id=parsed_value, guild_id=interaction.guild_id)
+                            ql = await questline_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id) # type: ignore
                             if not ql:
                                 error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_questline_not_found",lang_code,"Questline ID '{id}' not found.")
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
@@ -496,13 +530,13 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                     error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_unknown_field",lang_code,"Unknown field for update.")
                     await interaction.followup.send(error_msg, ephemeral=True); return
             except ValueError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
             except json.JSONDecodeError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
-            gq_to_update = await generated_quest_crud.get_by_id_and_guild(session, id=quest_id, guild_id=interaction.guild_id)
+            gq_to_update = await generated_quest_crud.get_by_id(session, id=quest_id, guild_id=interaction.guild_id) # type: ignore
             if not gq_to_update:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_not_found",lang_code,"GeneratedQuest ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=quest_id), ephemeral=True); return
@@ -534,8 +568,11 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
     async def generated_quest_delete(self, interaction: discord.Interaction, quest_id: int):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            return
         async with get_db_session() as session:
-            gq_to_delete = await generated_quest_crud.get_by_id_and_guild(session, id=quest_id, guild_id=interaction.guild_id)
+            gq_to_delete = await generated_quest_crud.get_by_id(session, id=quest_id, guild_id=interaction.guild_id) # type: ignore
             if not gq_to_delete:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_delete:error_not_found",lang_code,"GeneratedQuest ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=quest_id), ephemeral=True); return
@@ -547,7 +584,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                     from sqlalchemy import delete # For bulk delete operation
                     await session.execute(delete(QStepModel).where(QStepModel.quest_id == quest_id))
                     await session.execute(delete(PQPModel).where(PQPModel.quest_id == quest_id, PQPModel.guild_id == interaction.guild_id)) # Added guild_id
-                    deleted_gq = await generated_quest_crud.remove(session, id=quest_id)
+                    deleted_gq = await generated_quest_crud.remove_by_id(session, id=quest_id, guild_id=interaction.guild_id) # type: ignore
 
                 if deleted_gq:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"gq_delete:success",lang_code,"GeneratedQuest '{title}' (ID: {id}) and its data deleted.")

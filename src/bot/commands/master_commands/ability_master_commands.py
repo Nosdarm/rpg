@@ -33,40 +33,44 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            ability = await ability_crud.get_by_id_and_guild(session, id=ability_id, guild_id=interaction.guild_id)
-            if not ability:
-                ability = await ability_crud.get(session, id=ability_id)
-                if ability and ability.guild_id is not None: # Found but belongs to another guild
-                    ability = None
+            ability = None
+            if interaction.guild_id is not None:
+                ability = await ability_crud.get_by_id(session, id=ability_id, guild_id=interaction.guild_id)
 
-            if not ability:
+            if not ability: # Try fetching as global if not found in guild or if called from DM
+                global_ability = await ability_crud.get_by_id(session, id=ability_id, guild_id=None)
+                if global_ability:
+                    ability = global_ability
+
+            if not ability: # If still not found
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "ability_view:not_found", lang_code,
                     "Ability with ID {id} not found in this guild or globally."
-                )
+                ) # type: ignore
                 await interaction.followup.send(not_found_msg.format(id=ability_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "ability_view:title", lang_code,
                 "Ability Details: {name} (ID: {id})"
-            )
+            ) # type: ignore
             name_display = ability.name_i18n.get(lang_code, ability.name_i18n.get("en", f"Ability {ability.id}"))
             embed_title = title_template.format(name=name_display, id=ability.id)
             embed_color = discord.Color.blue() if ability.guild_id else discord.Color.light_grey()
             embed = discord.Embed(title=embed_title, color=embed_color)
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"ability_view:label_{key}", lang_code, default)
+                return await get_localized_message_template(session, interaction.guild_id, f"ability_view:label_{key}", lang_code, default) # type: ignore
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(ability.guild_id) if ability.guild_id else "Global", inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=ability.static_id or "N/A", inline=True)
-            embed.add_field(name=await get_label("type", "Type"), value=ability.type or "N/A", inline=True)
+            ability_type_val = getattr(ability, 'type', None) # Defensive access
+            embed.add_field(name=await get_label("type", "Type"), value=ability_type_val or "N/A", inline=True)
             name_i18n_str = await format_json_field_helper(ability.name_i18n, "ability_view:value_na_json", "ability_view:error_serialization_name")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
             desc_i18n_str = await format_json_field_helper(ability.description_i18n, "ability_view:value_na_json", "ability_view:error_serialization_desc")
@@ -85,12 +89,28 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
         if limit > 10: limit = 10
 
         lang_code = str(interaction.locale)
+        # Early guild_id check for guild-specific scope
+        if scope and scope.value == "guild" and interaction.guild_id is None:
+            await interaction.followup.send("Guild-specific scope requires this command to be used in a guild.", ephemeral=True)
+            return
+
         async with get_db_session() as session:
             filters = []
             scope_value = scope.value if scope else "all"
-            if scope_value == "guild": filters.append(ability_crud.model.guild_id == interaction.guild_id)
-            elif scope_value == "global": filters.append(ability_crud.model.guild_id.is_(None))
-            else: filters.append(or_(ability_crud.model.guild_id == interaction.guild_id, ability_crud.model.guild_id.is_(None)))
+
+            if scope_value == "guild":
+                if interaction.guild_id is None: # Should be caught above, but safeguard
+                    await interaction.followup.send("Cannot list guild-specific abilities outside of a guild.", ephemeral=True)
+                    return
+                filters.append(ability_crud.model.guild_id == interaction.guild_id)
+            elif scope_value == "global":
+                filters.append(ability_crud.model.guild_id.is_(None))
+            else: # 'all'
+                if interaction.guild_id is not None:
+                    filters.append(or_(ability_crud.model.guild_id == interaction.guild_id, ability_crud.model.guild_id.is_(None)))
+                else: # If in DM and scope is 'all', only show global
+                    filters.append(ability_crud.model.guild_id.is_(None))
+
 
             offset = (page - 1) * limit
             query = select(ability_crud.model).where(and_(*filters)).offset(offset).limit(limit).order_by(ability_crud.model.id.desc())
@@ -102,24 +122,25 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
 
             scope_display_key = f"ability_list:scope_{scope_value}"
             scope_display_default = scope_value.capitalize()
-            scope_display = await get_localized_message_template(session, interaction.guild_id, scope_display_key, lang_code, scope_display_default)
+            scope_display = await get_localized_message_template(session, interaction.guild_id, scope_display_key, lang_code, scope_display_default) # type: ignore
 
             if not abilities:
-                no_abilities_msg = await get_localized_message_template(session,interaction.guild_id,"ability_list:no_abilities_found",lang_code,"No Abilities found for scope '{sc}' (Page {p}).")
+                no_abilities_msg = await get_localized_message_template(session,interaction.guild_id,"ability_list:no_abilities_found",lang_code,"No Abilities found for scope '{sc}' (Page {p}).") # type: ignore
                 await interaction.followup.send(no_abilities_msg.format(sc=scope_display, p=page), ephemeral=True); return
 
-            title_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:title",lang_code,"Ability List ({scope} - Page {p} of {tp})")
+            title_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:title",lang_code,"Ability List ({scope} - Page {p} of {tp})") # type: ignore
             total_pages = ((total_abilities - 1) // limit) + 1
             embed = discord.Embed(title=title_tmpl.format(scope=scope_display, p=page, tp=total_pages), color=discord.Color.teal())
-            footer_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:footer",lang_code,"Displaying {c} of {t} total Abilities.")
+            footer_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:footer",lang_code,"Displaying {c} of {t} total Abilities.") # type: ignore
             embed.set_footer(text=footer_tmpl.format(c=len(abilities), t=total_abilities))
-            name_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:ability_name_field",lang_code,"ID: {id} | {name} (Static: {sid})")
-            val_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:ability_value_field",lang_code,"Type: {type}, Scope: {scope_val}")
+            name_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:ability_name_field",lang_code,"ID: {id} | {name} (Static: {sid})") # type: ignore
+            val_tmpl = await get_localized_message_template(session,interaction.guild_id,"ability_list:ability_value_field",lang_code,"Type: {type}, Scope: {scope_val}") # type: ignore
 
             for ab in abilities:
                 ab_name = ab.name_i18n.get(lang_code, ab.name_i18n.get("en", "N/A"))
                 scope_val_disp = "Global" if ab.guild_id is None else f"Guild ({ab.guild_id})"
-                embed.add_field(name=name_tmpl.format(id=ab.id, name=ab_name, sid=ab.static_id or "N/A"), value=val_tmpl.format(type=ab.type or "N/A", scope_val=scope_val_disp), inline=False)
+                ability_type_val = getattr(ab, 'type', None) # Defensive access
+                embed.add_field(name=name_tmpl.format(id=ab.id, name=ab_name, sid=ab.static_id or "N/A"), value=val_tmpl.format(type=ability_type_val or "N/A", scope_val=scope_val_disp), inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @ability_master_cmds.command(name="create", description="Create a new Ability.")
@@ -130,11 +151,15 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
         parsed_name_i18n: Dict[str, str]; parsed_desc_i18n: Optional[Dict[str, str]] = None; parsed_props: Optional[Dict[str, Any]] = None
         target_guild_id: Optional[int] = interaction.guild_id if not is_global else None
 
+        if not is_global and interaction.guild_id is None:
+            await interaction.followup.send("Cannot create a guild-specific ability outside of a guild. Use `is_global=True` or run in a guild.", ephemeral=True)
+            return
+
         async with get_db_session() as session:
             existing_ab_static = await ability_crud.get_by_static_id(session, static_id=static_id, guild_id=target_guild_id)
             if existing_ab_static:
                 scope_str = "global" if target_guild_id is None else f"guild {target_guild_id}"
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_create:error_static_id_exists",lang_code,"Ability static_id '{id}' already exists in scope {sc}.")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_create:error_static_id_exists",lang_code,"Ability static_id '{id}' already exists in scope {sc}.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=static_id, sc=scope_str), ephemeral=True); return
             try:
                 parsed_name_i18n = json.loads(name_i18n_json)
@@ -178,6 +203,10 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
     @app_commands.describe(ability_id="The database ID of the Ability to update.", field_to_update="Field to update (e.g., static_id, name_i18n_json, type, properties_json). Guild ID cannot be changed.", new_value="New value for the field (use JSON for complex types).")
     async def ability_update(self, interaction: discord.Interaction, ability_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        # Guild ID check is implicitly handled by how ability_to_update is fetched,
+        # allowing updates to global abilities even if interaction.guild_id is None (e.g. from DM)
+        # if the ability_id corresponds to a global ability.
+
         allowed_fields = {"static_id": str, "name_i18n": dict, "description_i18n": dict, "type": (str, type(None)), "properties_json": dict}
         lang_code = str(interaction.locale)
         field_to_update_lower = field_to_update.lower()
@@ -187,29 +216,38 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
         field_type_info = allowed_fields.get(db_field_name)
 
         if not field_type_info:
-            async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session,interaction.guild_id,"ability_update:error_field_not_allowed",lang_code,"Field '{f}' not allowed. Allowed: {l}")
+            async with get_db_session() as temp_session: # Use temp_session for early exit
+                error_msg = await get_localized_message_template(temp_session,interaction.guild_id,"ability_update:error_field_not_allowed",lang_code,"Field '{f}' not allowed. Allowed: {l}") # type: ignore
             user_friendly_allowed_fields = [f + "_json" if isinstance(allowed_fields[f], dict) else f for f in allowed_fields]
             await interaction.followup.send(error_msg.format(f=field_to_update, l=', '.join(user_friendly_allowed_fields)), ephemeral=True); return
 
         parsed_value: Any = None
         async with get_db_session() as session:
-            ability_to_update = await ability_crud.get_by_id_and_guild(session, id=ability_id, guild_id=interaction.guild_id)
-            original_guild_id_of_ability = interaction.guild_id
+            ability_to_update = None
+            original_guild_id_of_ability = interaction.guild_id # Default to current guild for check
+
+            if interaction.guild_id is not None:
+                ability_to_update = await ability_crud.get_by_id(session, id=ability_id, guild_id=interaction.guild_id)
+
+            if not ability_to_update: # If not found in guild or if interaction.guild_id is None, try global
+                global_ability = await ability_crud.get_by_id(session, id=ability_id, guild_id=None)
+                if global_ability:
+                    ability_to_update = global_ability
+                    original_guild_id_of_ability = None # Mark that we are operating on a global entity
+
             if not ability_to_update:
-                temp_ab = await ability_crud.get(session, id=ability_id)
-                if temp_ab and temp_ab.guild_id is None: ability_to_update = temp_ab; original_guild_id_of_ability = None
-                else:
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_not_found",lang_code,"Ability ID {id} not found.")
-                    await interaction.followup.send(error_msg.format(id=ability_id), ephemeral=True); return
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_not_found",lang_code,"Ability ID {id} not found.") # type: ignore
+                await interaction.followup.send(error_msg.format(id=ability_id), ephemeral=True); return
+
             try:
                 if db_field_name == "static_id":
                     parsed_value = new_value
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
+                    # Check uniqueness within its original scope (guild or global)
                     existing_ab = await ability_crud.get_by_static_id(session, static_id=parsed_value, guild_id=original_guild_id_of_ability)
                     if existing_ab and existing_ab.id != ability_id:
                         scope_str = "global" if original_guild_id_of_ability is None else f"guild {original_guild_id_of_ability}"
-                        error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_static_id_exists",lang_code,"Static ID '{id}' already in use within its scope ({sc}).")
+                        error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_static_id_exists",lang_code,"Static ID '{id}' already in use within its scope ({sc}).") # type: ignore
                         await interaction.followup.send(error_msg.format(id=parsed_value, sc=scope_str), ephemeral=True); return
                 elif db_field_name in ["name_i18n", "description_i18n", "properties_json"]:
                     parsed_value = json.loads(new_value)
@@ -217,14 +255,14 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
                 elif db_field_name == "type":
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else: parsed_value = new_value
-                else:
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_unknown_field_internal",lang_code,"Internal error: field definition mismatch.")
+                else: # Should not be reached
+                    error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_unknown_field_internal",lang_code,"Internal error: field definition mismatch.") # type: ignore
                     await interaction.followup.send(error_msg, ephemeral=True); return
-            except ValueError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}")
+            except ValueError as e: # Specific exception first
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}")
+            except json.JSONDecodeError as e: # Broader exception later
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
             update_data = {db_field_name: parsed_value}
@@ -236,14 +274,14 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
                     if updated_ab: await session.refresh(updated_ab)
             except Exception as e:
                 logger.error(f"Error updating Ability {ability_id}: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_generic_update",lang_code,"Error updating Ability {id}: {err}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_generic_update",lang_code,"Error updating Ability {id}: {err}") # type: ignore
                 await interaction.followup.send(error_msg.format(id=ability_id, err=str(e)), ephemeral=True); return
 
             if not updated_ab:
-                 error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_unknown_update_fail",lang_code,"Ability update failed.")
+                 error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:error_unknown_update_fail",lang_code,"Ability update failed.") # type: ignore
                  await interaction.followup.send(error_msg, ephemeral=True); return
 
-            success_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:success",lang_code,"Ability ID {id} updated. Field '{f}' set to '{v}'.")
+            success_msg = await get_localized_message_template(session,interaction.guild_id,"ability_update:success",lang_code,"Ability ID {id} updated. Field '{f}' set to '{v}'.") # type: ignore
             new_val_display = str(parsed_value)
             if isinstance(parsed_value, dict): new_val_display = json.dumps(parsed_value)
             elif parsed_value is None: new_val_display = "None"
@@ -253,32 +291,45 @@ class MasterAbilityCog(commands.Cog, name="Master Ability Commands"):
     @app_commands.describe(ability_id="The database ID of the Ability to delete.")
     async def ability_delete(self, interaction: discord.Interaction, ability_id: int):
         await interaction.response.defer(ephemeral=True)
+        # Allow deleting global abilities from DM if specified by ID, or guild ones if in guild
+        # Guild_id check for this command happens implicitly by trying to fetch guild-specific first, then global.
+
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            ability_to_delete = await ability_crud.get_by_id_and_guild(session, id=ability_id, guild_id=interaction.guild_id)
+            ability_to_delete = None
+            target_guild_id_for_delete = interaction.guild_id # Default to current guild
             is_global_to_delete = False
+
+            if interaction.guild_id is not None:
+                ability_to_delete = await ability_crud.get_by_id(session, id=ability_id, guild_id=interaction.guild_id)
+
+            if not ability_to_delete: # If not found in guild or if called from DM, try global
+                global_ability = await ability_crud.get_by_id(session, id=ability_id, guild_id=None)
+                if global_ability:
+                    ability_to_delete = global_ability
+                    target_guild_id_for_delete = None # Mark for global deletion
+                    is_global_to_delete = True
+
             if not ability_to_delete:
-                temp_ab = await ability_crud.get(session, id=ability_id)
-                if temp_ab and temp_ab.guild_id is None: ability_to_delete = temp_ab; is_global_to_delete = True
-            if not ability_to_delete:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_not_found",lang_code,"Ability ID {id} not found.")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_not_found",lang_code,"Ability ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=ability_id), ephemeral=True); return
 
             ab_name_for_msg = ability_to_delete.name_i18n.get(lang_code, ability_to_delete.name_i18n.get("en", f"Ability {ability_id}"))
-            scope_for_msg = "Global" if is_global_to_delete else f"Guild {interaction.guild_id}"
+            scope_for_msg = "Global" if is_global_to_delete else f"Guild {interaction.guild_id or 'Unknown'}"
             deleted_ab: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_ab = await ability_crud.remove(session, id=ability_id)
+                    # Pass correct guild_id for removal (None for global)
+                    deleted_ab = await ability_crud.remove_by_id(session, id=ability_id, guild_id=target_guild_id_for_delete) # type: ignore
                 if deleted_ab:
-                    success_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:success",lang_code,"Ability '{name}' (ID: {id}, Scope: {scope}) deleted.")
+                    success_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:success",lang_code,"Ability '{name}' (ID: {id}, Scope: {scope}) deleted.") # type: ignore
                     await interaction.followup.send(success_msg.format(name=ab_name_for_msg, id=ability_id, scope=scope_for_msg), ephemeral=True)
-                else:
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_unknown_delete_fail",lang_code,"Ability (ID: {id}) found but not deleted.")
+                else: # Should not happen if found before
+                    error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_unknown_delete_fail",lang_code,"Ability (ID: {id}) found but not deleted.") # type: ignore
                     await interaction.followup.send(error_msg.format(id=ability_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting Ability {ability_id}: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_generic_delete",lang_code,"Error deleting Ability '{name}' (ID: {id}): {err}")
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"ability_delete:error_generic_delete",lang_code,"Error deleting Ability '{name}' (ID: {id}): {err}") # type: ignore
                 await interaction.followup.send(error_msg.format(name=ab_name_for_msg, id=ability_id, err=str(e)), ephemeral=True)
 
 async def setup(bot: commands.Bot):
