@@ -338,3 +338,82 @@ logger.info("Localization utils (localization_utils.py) created.")
 #     # name = await get_localized_entity_name(mock_session, 1, "player", 1, "ru")
 #     # print(name)
 # pass
+
+async def get_localized_master_message(
+    session: AsyncSession,
+    guild_id: int,
+    message_key: str,
+    default_template: str,
+    locale: str, # This should be the target locale string e.g. "en-US", "ru"
+    **kwargs: Any
+) -> str:
+    """
+    Retrieves and formats a localized message template for master commands.
+    Tries to get the template from RuleConfig first, then falls back to default_template.
+    Formats the template with provided kwargs.
+
+    Args:
+        session: The database session.
+        guild_id: The ID of the guild.
+        message_key: The specific key for the message (e.g., "player_view:title").
+        default_template: The default template string to use if not found in RuleConfig or if RuleConfig access fails.
+        locale: The target locale string (e.g., "en-US", "ru").
+        **kwargs: Keyword arguments to format the template string.
+
+    Returns:
+        The formatted localized message string.
+    """
+    from .rules import get_rule # Local import to avoid circular dependency
+
+    # Construct the RuleConfig key
+    # Example: master_cmd_messages:player_view:title or master_cmd_feedback:player_not_found
+    # The plan used "master_cmd_messages:<message_key>:<locale>" but it's better to store
+    # all locales under one key like "master_cmd_messages:<message_key>" -> {"en": "T_en", "ru": "T_ru"}
+    # and then use get_localized_text logic.
+    # For this iteration, let's assume the key for get_rule is just the base message_key,
+    # and get_rule itself returns an i18n dict if the rule is structured that way.
+    # Or, a simpler approach for now: the rule itself contains the direct template string for a default/main language,
+    # and we don't try to fetch language-specific versions from RuleConfig yet, just the base template.
+    # Let's refine this to match get_localized_message_template structure.
+
+    rule_config_key_prefix = "master_cmd_feedback:" # As used in existing get_localized_message_template
+    full_rule_key = f"{rule_config_key_prefix}{message_key}"
+
+    template_to_format = default_template # Start with the ultimate fallback
+
+    try:
+        # Attempt to get i18n templates dictionary from RuleConfig
+        i18n_templates: Optional[Dict[str, str]] = await get_rule(
+            session, guild_id, full_rule_key, default=None
+        )
+
+        if i18n_templates and isinstance(i18n_templates, dict):
+            # We have a dictionary of locales and templates from RuleConfig
+            # Use get_localized_text to pick the best one based on current locale and fallback logic
+            selected_template = get_localized_text(i18n_templates, locale) # primary_fallback_lang is "en" by default in get_localized_text
+            if selected_template: # If get_localized_text found a suitable template
+                template_to_format = selected_template
+            else:
+                logger.debug(f"RuleConfig '{full_rule_key}' found for guild {guild_id}, but no template for locale '{locale}' or fallbacks. Using default template for key '{message_key}'.")
+        elif i18n_templates: # It's not a dict, maybe a direct string? (legacy or misconfiguration)
+             if isinstance(i18n_templates, str):
+                template_to_format = i18n_templates # Use it directly
+                logger.debug(f"RuleConfig '{full_rule_key}' for guild {guild_id} is a direct string. Using it as template.")
+             else:
+                logger.warning(f"RuleConfig '{full_rule_key}' for guild {guild_id} is not a dict or string. Using default template for key '{message_key}'.")
+        # If i18n_templates is None, we stick with default_template initialized above
+
+    except Exception as e:
+        logger.error(f"Error accessing RuleConfig for key '{full_rule_key}' in guild {guild_id}: {e}. Using default template for key '{message_key}'.", exc_info=True)
+        # template_to_format remains default_template
+
+    # Format the chosen template
+    try:
+        return template_to_format.format(**kwargs)
+    except KeyError as e:
+        logger.error(f"Missing key '{e}' in kwargs when formatting template for message key '{message_key}'. Template: '{template_to_format}' Kwargs: {kwargs}", exc_info=True)
+        # Fallback to a message indicating the formatting error, including the original key
+        return f"[Formatting Error: Missing key {e} for '{message_key}']"
+    except Exception as e:
+        logger.error(f"Unexpected error formatting template for message key '{message_key}'. Template: '{template_to_format}' Error: {e}", exc_info=True)
+        return f"[Unexpected Formatting Error for '{message_key}']"
