@@ -5,21 +5,21 @@ from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import Player, GeneratedNpc, Item, InventoryItem
-from ...models.enums import OwnerEntityType # EventType, RelationshipEntityType
-from ..crud.crud_player import player_crud
-from ..crud.crud_npc import npc_crud
-from ..crud.crud_item import item_crud
-from ..crud.crud_inventory_item import inventory_item_crud
+from src.models import Player, GeneratedNpc, Item, InventoryItem
+from src.models.enums import OwnerEntityType # EventType, RelationshipEntityType
+from src.core.crud.crud_player import player_crud
+from src.core.crud.crud_npc import npc_crud
+from src.core.crud.crud_item import item_crud
+from src.core.crud.crud_inventory_item import inventory_item_crud
 # from ..rules import get_rule
 # from ..relationship_system import update_relationship # Будет позже для изменения отношений
-from ..crud.crud_relationship import crud_relationship # Для чтения отношений
-from ..relationship_system import update_relationship # Task 36 - для изменения отношений
-from ..rules import get_rule
-from ..game_events import log_event
-from ..database import transactional
-from ..localization_utils import get_localized_text
-from ...models.enums import RelationshipEntityType, EventType, OwnerEntityType # Corrected import
+from src.core.crud.crud_relationship import crud_relationship # Для чтения отношений
+from .relationship_system import update_relationship # Task 36 - для изменения отношений
+from src.core.rules import get_rule
+from src.core.game_events import log_event
+from src.core.database import transactional
+from src.core.localization_utils import get_localized_text
+from src.models.enums import RelationshipEntityType, EventType, OwnerEntityType # Corrected import
 
 
 logger = logging.getLogger(__name__)
