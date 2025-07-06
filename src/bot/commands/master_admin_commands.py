@@ -1,6 +1,6 @@
 import logging
 import json # Added for player_view and other JSON parsing
-from typing import Dict, Any, Optional # Added for type hinting
+from typing import Dict, Any, Optional, List # Added for type hinting
 
 import discord
 from discord import app_commands
@@ -12,6 +12,7 @@ from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession # Will be needed for localization function
 import json # For some commands that handle JSON directly or display it
 import logging
+from src.models.inventory_item import InventoryItem # For type hinting
 
 # from .master_ai_commands import is_administrator # Let's try to use default_permissions first
 
