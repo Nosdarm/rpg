@@ -78,7 +78,7 @@ async def update_rule_config(session: AsyncSession, guild_id: int, key: str, val
     # Check if rule exists
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id, RuleConfig.key == key)
     result = await session.execute(statement) # Renamed db to session
-    existing_rule = result.scalar_one_or_none()
+    existing_rule = result.scalar_one_or_none() # Removed await
 
     if existing_rule:
         logger.debug(f"Found existing rule ID {existing_rule.id}. Updating.")

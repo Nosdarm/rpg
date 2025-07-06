@@ -326,6 +326,149 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
             mock_update_neighbors.assert_not_called() # type: ignore
             self.session_commit_mock.assert_called_once() # type: ignore
 
+    async def test_generate_new_location_parent_not_found(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        self.session_rollback_mock.reset_mock()
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Child Loc"}, descriptions_i18n={"en": "Desc"}, location_type="CAVE"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=102, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+
+        self.mock_location_crud.create.return_value = created_location_mock
+        self.mock_location_crud.get.return_value = None # Parent location not found
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id, parent_location_id=999)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            if location:
+                self.assertEqual(location.id, 102)
+                # Parent not found, so no explicit link should be made via update_location_neighbors for parent
+                # It might still be called for AI suggested neighbors if any.
+                # For this test, assume no AI suggested neighbors for simplicity to check parent linking part.
+                # If mock_parsed_location_data had potential_neighbors, mock_update_neighbors would be called for them.
+                # Here, we check that update_location_neighbors was NOT called for the non-existent parent.
+                # If there were other neighbors, it would be called for them.
+                # The current mock_parsed_location_data has no potential_neighbors.
+                mock_update_neighbors.assert_not_called()
+
+
+            self.session_commit_mock.assert_called_once()
+            mock_log_event.assert_called_once()
+            log_details = mock_log_event.call_args.kwargs['details_json']
+            self.assertEqual(log_details['parent_location_id'], 999) # Still logs the attempt
+
+    async def test_generate_new_location_invalid_potential_neighbor_data(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Test Loc Inv Neigh"}, descriptions_i18n={"en": "Desc"}, location_type="RUINS",
+            potential_neighbors=[
+                {"connection_description_i18n": {"en": "a faulty path"}}, # Missing static_id_or_name
+                {"static_id_or_name": None, "connection_description_i18n": {"en": "another faulty path"}} # static_id_or_name is None
+            ]
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=103, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+        self.mock_location_crud.create.return_value = created_location_mock
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            mock_update_neighbors.assert_not_called() # No valid neighbors to link
+            self.session_commit_mock.assert_called_once()
+
+    async def test_generate_new_location_default_connection_description(self):
+        guild_id = self.test_guild_id
+        parent_loc_id = 500
+        self.session_commit_mock.reset_mock()
+
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Child Default Conn"}, descriptions_i18n={"en": "Desc"}, location_type="FOREST"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=104, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+        parent_location_mock = Location(id=parent_loc_id, guild_id=guild_id, name_i18n={"en":"Parent"}, neighbor_locations_json=[])
+
+        self.mock_location_crud.create.return_value = created_location_mock
+        self.mock_location_crud.get.return_value = parent_location_mock # Parent found
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            # Call generate_location without connection_details_i18n
+            location, error = await generate_location(self.session, guild_id, parent_location_id=parent_loc_id, connection_details_i18n=None)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+
+            # Check that update_location_neighbors was called with default connection details
+            expected_default_conn_desc = {"en": "a path", "ru": "тропа"}
+            mock_update_neighbors.assert_called_once_with(
+                self.session, parent_location_mock, created_location_mock.id, expected_default_conn_desc, add_connection=True
+            )
+            self.session_commit_mock.assert_called_once()
+            log_details = mock_log_event.call_args.kwargs['details_json']
+            self.assertEqual(log_details['connection_details_i18n'], None) # Logs original input which was None
+
+    async def test_generate_new_location_malformed_initial_neighbors(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Malformed Init"}, descriptions_i18n={"en": "Desc"}, location_type="SWAMP"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+
+        # Simulate that the created Location object somehow gets a malformed neighbor_locations_json
+        # This tests the robustness of the neighbor processing logic.
+        created_location_mock = Location(
+            id=105, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n,
+            neighbor_locations_json="this is not a list" # Malformed data
+        )
+        self.mock_location_crud.create.return_value = created_location_mock
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            if location:
+                # The important part is that it doesn't crash and current_neighbor_links_for_new_loc is empty.
+                # If there were valid AI suggested neighbors, they would be added.
+                # Here, we assume no AI neighbors to isolate the initial malformed data handling.
+                self.assertEqual(location.neighbor_locations_json, []) # Should be reset to empty list and saved.
+
+            self.session_commit_mock.assert_called_once()
+
+
     # New tests for generate_factions_and_relationships will be added here...
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
