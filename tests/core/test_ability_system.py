@@ -81,6 +81,11 @@ def mock_session_no_existing_status() -> AsyncMock:
     mock_scalars_result.first.return_value = None # For .scalars().first()
     mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
     session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
+    session.add = MagicMock()
+    session.delete = MagicMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+    session.flush = AsyncMock()
     return session
 
 @pytest.fixture
@@ -92,6 +97,11 @@ def mock_session_with_existing_status_factory():
         mock_scalars_result.first.return_value = existing_status_instance # For .scalars().first()
         mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
         session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
+        session.add = MagicMock()
+        session.delete = MagicMock()
+        session.commit = AsyncMock()
+        session.refresh = AsyncMock()
+        session.flush = AsyncMock()
         return session
     return _factory
 

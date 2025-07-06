@@ -210,18 +210,18 @@ async def handle_intra_location_action(
                             log_details["check_result"] = check_result.model_dump(mode='json')
                             consequences_key = ""
                             # Accessing status from CheckOutcome object
-                            if check_result.outcome.status in ["success", "critical_success"]:
+                            if check_result.outcome.status.value in ["success", "critical_success"]: # Use .value for comparison
                                 consequences_key = interaction_rule.get("success_consequences_key", "generic_interaction_success")
                                 feedback_msg_key = interaction_rule.get("feedback_success", "interact_check_success")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()),
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.value.lower()), # Use .value here
                                     "success": True
                                 }
                             else: # FAILURE, CRITICAL_FAILURE
                                 consequences_key = interaction_rule.get("failure_consequences_key", "generic_interaction_failure")
                                 feedback_msg_key = interaction_rule.get("feedback_failure", "interact_check_failure")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()),
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.value.lower()), # Use .value here
                                     "success": False # Interaction failed duef to check
                                 }
                             log_details["applied_consequences_key"] = consequences_key

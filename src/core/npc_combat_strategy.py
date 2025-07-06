@@ -158,10 +158,17 @@ async def _get_npc_ai_rules(
     # This change IS NOW REFLECTED in the function signature.
     # The parameter `actor_hidden_relationships` is now directly available.
 
+    if "parsed_hidden_relationship_combat_effects" not in npc_rules: # Initialize if not present
+        npc_rules["parsed_hidden_relationship_combat_effects"] = []
+
     if actor_hidden_relationships: # Use the passed parameter directly
-        if "parsed_hidden_relationship_combat_effects" not in npc_rules:
-             npc_rules["parsed_hidden_relationship_combat_effects"] = [] # Ensure list exists
+        # Ensure npc_rules["parsed_hidden_relationship_combat_effects"] is a list before iterating actor_hidden_relationships
+        if not isinstance(npc_rules.get("parsed_hidden_relationship_combat_effects"), list):
+            npc_rules["parsed_hidden_relationship_combat_effects"] = []
+
         for rel in actor_hidden_relationships:
+            if not rel.relationship_type: # Guard against None relationship_type
+                continue
             # rel.relationship_type can be "secret_positive_to_faction:some_id"
             # Base type for rule lookup, e.g., "secret_positive_to_faction"
             base_rel_type_for_rule = rel.relationship_type.split(':')[0]
@@ -442,86 +449,104 @@ async def _calculate_target_score(
     target_combat_data = target_info.get("combat_data")
 
     if not isinstance(target_entity_model_union, (Player, GeneratedNpc)):
-        return 0.0
+        return 0.0 # Or handle as error
 
-    # Now target_entity_model_union is either Player or GeneratedNpc
     target_entity_model: Union[Player, GeneratedNpc] = target_entity_model_union
 
     if not isinstance(target_combat_data, dict):
-        return 0.0
-
+        return 0.0 # Or handle as error
 
     score = 0.0
-    current_hp = target_combat_data.get("current_hp", 0) # Use current_hp consistently
+    # Ensure current_hp is a number, default to 0 if not found or not a number
+    raw_current_hp = target_combat_data.get("current_hp")
+    current_hp = float(raw_current_hp) if isinstance(raw_current_hp, (int, float)) else 0.0
+
 
     if priority_metric == "lowest_hp_percentage":
-        max_hp = 1
+        max_hp = 1.0 # Use float for max_hp
         if isinstance(target_entity_model, GeneratedNpc):
-            target_props = target_entity_model.properties_json if target_entity_model.properties_json else {}
-            base_stats = target_props.get("stats", {})
-            max_hp = base_stats.get("hp", current_hp if current_hp > 0 else 1) # Max HP from base stats
-        elif isinstance(target_entity_model, Player): # Player's max_hp might be in combat_data or model
-            max_hp = target_combat_data.get("max_hp", getattr(target_entity_model, 'max_hp', current_hp if current_hp > 0 else 1))
+            target_props = target_entity_model.properties_json if isinstance(target_entity_model.properties_json, dict) else {}
+            base_stats = target_props.get("stats", {}) if isinstance(target_props, dict) else {}
+            raw_max_hp = base_stats.get("hp") if isinstance(base_stats, dict) else None
+            max_hp = float(raw_max_hp) if isinstance(raw_max_hp, (int, float)) else (current_hp if current_hp > 0 else 1.0)
+        elif isinstance(target_entity_model, Player):
+            raw_max_hp_combat = target_combat_data.get("max_hp")
+            raw_max_hp_model = getattr(target_entity_model, 'max_hp', None)
+            if isinstance(raw_max_hp_combat, (int, float)): max_hp = float(raw_max_hp_combat)
+            elif isinstance(raw_max_hp_model, (int, float)): max_hp = float(raw_max_hp_model)
+            else: max_hp = current_hp if current_hp > 0 else 1.0
 
-
-        if max_hp <= 0: max_hp = 1
-        score = (current_hp / max_hp) * 100 if max_hp > 0 else 0
+        if max_hp <= 0: max_hp = 1.0
+        score = (current_hp / max_hp) * 100.0
         return score
 
     elif priority_metric == "highest_hp_percentage":
-        max_hp = 1
+        max_hp = 1.0 # Use float
         if isinstance(target_entity_model, GeneratedNpc):
-            target_props = target_entity_model.properties_json if target_entity_model.properties_json else {}
-            base_stats = target_props.get("stats", {})
-            max_hp = base_stats.get("hp", current_hp if current_hp > 0 else 1)
+            target_props = target_entity_model.properties_json if isinstance(target_entity_model.properties_json, dict) else {}
+            base_stats = target_props.get("stats", {}) if isinstance(target_props, dict) else {}
+            raw_max_hp = base_stats.get("hp") if isinstance(base_stats, dict) else None
+            max_hp = float(raw_max_hp) if isinstance(raw_max_hp, (int, float)) else (current_hp if current_hp > 0 else 1.0)
         elif isinstance(target_entity_model, Player):
-            max_hp = target_combat_data.get("max_hp", getattr(target_entity_model, 'max_hp', current_hp if current_hp > 0 else 1))
+            raw_max_hp_combat = target_combat_data.get("max_hp")
+            raw_max_hp_model = getattr(target_entity_model, 'max_hp', None)
+            if isinstance(raw_max_hp_combat, (int, float)): max_hp = float(raw_max_hp_combat)
+            elif isinstance(raw_max_hp_model, (int, float)): max_hp = float(raw_max_hp_model)
+            else: max_hp = current_hp if current_hp > 0 else 1.0
 
-
-        if max_hp <= 0: max_hp = 1
-        score = (current_hp / max_hp) * 100 if max_hp > 0 else 0
+        if max_hp <= 0: max_hp = 1.0
+        score = (current_hp / max_hp) * 100.0
         return score
 
     elif priority_metric == "lowest_absolute_hp":
-        score = current_hp
-        return score
+        return current_hp
 
     elif priority_metric == "highest_absolute_hp":
-        score = current_hp
-        return score
+        return current_hp
 
     elif priority_metric == "highest_threat_score":
         threat = 0.0
-        target_selection_rules = ai_rules.get("target_selection", {})
-        if not isinstance(target_selection_rules, dict): target_selection_rules = {}
-        threat_factors = target_selection_rules.get("threat_factors", {})
-        if not isinstance(threat_factors, dict): threat_factors = {}
+        target_selection_rules = ai_rules.get("target_selection", {}) if isinstance(ai_rules.get("target_selection"), dict) else {}
+        threat_factors = target_selection_rules.get("threat_factors", {}) if isinstance(target_selection_rules.get("threat_factors"), dict) else {}
 
-        threat += target_combat_data.get("threat_generated_towards_actor", 0.0) * threat_factors.get("damage_dealt_to_self_factor", 1.0)
+        raw_threat_generated = target_combat_data.get("threat_generated_towards_actor", 0.0)
+        threat_generated = float(raw_threat_generated) if isinstance(raw_threat_generated, (int, float)) else 0.0
+        damage_factor = float(threat_factors.get("damage_dealt_to_self_factor", 1.0)) if isinstance(threat_factors.get("damage_dealt_to_self_factor"), (int,float)) else 1.0
+        threat += threat_generated * damage_factor
+
 
         if isinstance(target_entity_model, GeneratedNpc):
-            target_props = target_entity_model.properties_json if target_entity_model.properties_json else {}
-            target_roles = target_props.get("roles", [])
-            if isinstance(target_roles, list) and "healer" in target_roles and threat_factors.get("is_healer_factor"):
-                threat += 100 * threat_factors.get("is_healer_factor", 0.0) # ensure factor is float
+            target_props = target_entity_model.properties_json if isinstance(target_entity_model.properties_json, dict) else {}
+            target_roles_raw = target_props.get("roles", []) if isinstance(target_props, dict) else []
+            target_roles = target_roles_raw if isinstance(target_roles_raw, list) else []
+            is_healer_factor_raw = threat_factors.get("is_healer_factor")
+            if "healer" in target_roles and isinstance(is_healer_factor_raw, (int,float)):
+                threat += 100.0 * float(is_healer_factor_raw)
 
-        if threat_factors.get("low_hp_target_bonus"):
-            max_hp = 1
+        low_hp_bonus_raw = threat_factors.get("low_hp_target_bonus")
+        if isinstance(low_hp_bonus_raw, (int,float)):
+            max_hp = 1.0
             if isinstance(target_entity_model, GeneratedNpc):
-                target_props = target_entity_model.properties_json if target_entity_model.properties_json else {}
-                target_stats = target_props.get("stats", {})
-                max_hp = target_stats.get("hp", current_hp if current_hp > 0 else 1)
+                target_props = target_entity_model.properties_json if isinstance(target_entity_model.properties_json, dict) else {}
+                target_stats = target_props.get("stats", {}) if isinstance(target_props, dict) else {}
+                raw_max_hp = target_stats.get("hp") if isinstance(target_stats, dict) else None
+                max_hp = float(raw_max_hp) if isinstance(raw_max_hp, (int, float)) else (current_hp if current_hp > 0 else 1.0)
             elif isinstance(target_entity_model, Player):
-                max_hp = target_combat_data.get("max_hp", getattr(target_entity_model, 'max_hp', current_hp if current_hp > 0 else 1))
+                raw_max_hp_combat = target_combat_data.get("max_hp")
+                raw_max_hp_model = getattr(target_entity_model, 'max_hp', None)
+                if isinstance(raw_max_hp_combat, (int, float)): max_hp = float(raw_max_hp_combat)
+                elif isinstance(raw_max_hp_model, (int, float)): max_hp = float(raw_max_hp_model)
+                else: max_hp = current_hp if current_hp > 0 else 1.0
 
-
-            if max_hp <=0: max_hp = 1
-            hp_percent = (current_hp / max_hp) if max_hp > 0 else 0
+            if max_hp <=0: max_hp = 1.0
+            hp_percent = (current_hp / max_hp)
             if hp_percent < 0.3:
-                threat += 50 * threat_factors.get("low_hp_target_bonus", 0.0) # ensure factor is float
+                threat += 50.0 * float(low_hp_bonus_raw)
 
         target_participant_type_str = target_combat_data.get("type")
-        target_participant_id = target_combat_data.get("id")
+        target_participant_id_raw = target_combat_data.get("id")
+        target_participant_id = int(target_participant_id_raw) if isinstance(target_participant_id_raw, (int,str)) and str(target_participant_id_raw).isdigit() else None
+
         relationship_val = None
 
         if target_participant_type_str and target_participant_id is not None:
@@ -566,36 +591,37 @@ async def _calculate_target_score(
         parsed_hidden_effects = ai_rules.get("parsed_hidden_relationship_combat_effects")
         if isinstance(parsed_hidden_effects, list):
             for hidden_effect_entry in parsed_hidden_effects:
-                if not isinstance(hidden_effect_entry, dict): continue
-                rule_data = hidden_effect_entry.get("rule_data", {})
-                if not isinstance(rule_data, dict): continue
-                rel_details = hidden_effect_entry.get("applies_to_relationship", {})
-                if not isinstance(rel_details, dict): continue
+                if not isinstance(hidden_effect_entry, dict): continue # Outer loop item
+                rule_data = hidden_effect_entry.get("rule_data", {}) if isinstance(hidden_effect_entry.get("rule_data"), dict) else {}
+                rel_details = hidden_effect_entry.get("applies_to_relationship", {}) if isinstance(hidden_effect_entry.get("applies_to_relationship"), dict) else {}
 
+                # Ensure current_target_id is an int for comparison with rel_details.get("target_entity_id")
+                current_target_id_raw = target_combat_data.get("id")
+                current_target_id_int = int(current_target_id_raw) if isinstance(current_target_id_raw, (int,str)) and str(current_target_id_raw).isdigit() else None
                 current_target_type_str = target_combat_data.get("type")
-                current_target_id = target_combat_data.get("id")
 
-                if current_target_type_str and current_target_id is not None:
+
+                if current_target_type_str and current_target_id_int is not None:
                     try:
-                        current_target_type_enum_val = EntityType(current_target_type_str).value
+                        current_target_type_enum_val = EntityType(current_target_type_str).value # EntityType is CombatParticipantType
+                        # rel_details.get("target_entity_type") is RelationshipEntityType.value
+                        # Need to compare CombatParticipantType.value with RelationshipEntityType.value
+                        # For example, EntityType.PLAYER.value ("player") == RelationshipEntityType.PLAYER.value ("player")
                         if rel_details.get("target_entity_type") == current_target_type_enum_val and \
-                           rel_details.get("target_entity_id") == current_target_id:
+                           rel_details.get("target_entity_id") == current_target_id_int:
                             formula = rule_data.get("target_score_modifier_formula")
-                            if formula and isinstance(formula, str):
-                                try: # INNER TRY
-                                    adjustment = float(eval(formula, {"__builtins__": {}}, {"value": rel_details.get("value"), "current_score": threat}))
+                            rel_value_for_formula = rel_details.get("value")
+                            if formula and isinstance(formula, str) and isinstance(rel_value_for_formula, (int,float)):
+                                try:
+                                    adjustment = float(eval(formula, {"__builtins__": {}}, {"value": rel_value_for_formula, "current_score": threat}))
                                     threat += adjustment
-                                except Exception as e: # Belongs to INNER TRY
-                                    pass # Body for inner except (e.g., log the error or ignore)
-                            # Removed misplaced 'pass' that was here
-                    except (ValueError, TypeError, Exception) as e: # For OUTER TRY
-                        # Catching ValueError from EntityType, TypeError if types are wrong, or other eval errors
-                        pass # Or log: logger.warning(f"Skipping hidden effect modifier due to error: {e}")
-        return threat # Higher is better
+                                except Exception: # Broad exception for eval
+                                    pass
+                    except ValueError: # From EntityType(current_target_type_str)
+                        pass
+        return threat
 
-    # TODO: Implement other metrics like "closest_target", "random", "specific_role_focus"
-
-    return score # Default score if metric not handled
+    return score
 
 
 async def _select_target(
@@ -1124,30 +1150,38 @@ def _format_action_result(
     target_combat_data = target_info.get("combat_data")
 
     if not isinstance(target_entity_model_union, (Player, GeneratedNpc)):
-        return {"action_type": "error", "message": "Invalid target entity type in _format_action_result."}
+        return {"action_type": "error", "message": "Invalid target entity model in _format_action_result."}
     target_entity_model: Union[Player, GeneratedNpc] = target_entity_model_union
 
-
     if not isinstance(target_combat_data, dict):
-        return {"action_type": "error", "message": "Invalid target combat data in _format_action_result."}
+        return {"action_type": "error", "message": "Invalid target combat data dictionary in _format_action_result."}
+
+    # Ensure target_entity_model.id is accessible and target_combat_data.get("type") is valid
+    target_id_val = None
+    if hasattr(target_entity_model, 'id'): # Check if .id exists
+        target_id_val = target_entity_model.id
+
+    target_type_val = target_combat_data.get("type")
+
+    if target_id_val is None or target_type_val is None:
+         return {"action_type": "error", "message": "Target ID or Type is missing/invalid in _format_action_result."}
 
 
-    formatted_action: Dict[str,Any] = { # Ensure type hint for formatted_action
+    formatted_action: Dict[str,Any] = {
         "action_type": action_type_str,
-        "target_id": target_entity_model.id,
-        "target_type": target_combat_data.get("type")
+        "target_id": target_id_val,
+        "target_type": target_type_val
     }
 
     if action_type_str == "ability":
-        ability_props = chosen_action_details.get("ability_props", {})
-        if isinstance(ability_props, dict): # ensure dict
-            formatted_action["ability_id"] = ability_props.get("static_id")
-        else: # ability_props was not a dict
-            formatted_action["ability_id"] = None # Or handle error
+        ability_props = chosen_action_details.get("ability_props", {}) if isinstance(chosen_action_details.get("ability_props"), dict) else {}
+        formatted_action["ability_id"] = ability_props.get("static_id") # Will be None if static_id is missing or ability_props is empty
 
         if not formatted_action.get("ability_id"):
-            # Log error or handle missing ability_id for an ability action
-            pass
+            # This is a potential issue if an ability action doesn't resolve to an ability_id.
+            # Depending on game logic, this could be an error or a specific kind of non-targeted ability.
+            # For now, if it's None, it means the ability_props didn't have a static_id.
+            pass # No specific error handling here, but could be added.
 
     return formatted_action
 
@@ -1220,40 +1254,61 @@ async def get_npc_combat_action(
     if not selected_target_info: # selected_target_info can be None
        return {"action_type": "idle", "reason": "Could not select a target."}
 
-    selected_target_combat_data = selected_target_info.get("combat_data")
-    selected_target_entity_union = selected_target_info.get("entity")
+    selected_target_combat_data = selected_target_info.get("combat_data") if isinstance(selected_target_info, dict) else None
+    selected_target_entity_union = selected_target_info.get("entity") if isinstance(selected_target_info, dict) else None
 
     if not isinstance(selected_target_combat_data, dict) or not isinstance(selected_target_entity_union, (Player, GeneratedNpc)):
-         return {"action_type": "idle", "reason": "Selected target info is invalid."}
+         return {"action_type": "idle", "reason": "Selected target info is invalid after _select_target."}
 
-    # Now selected_target_entity_union is known to be Player or GeneratedNpc
     selected_target_entity: Union[Player, GeneratedNpc] = selected_target_entity_union
 
-    if selected_target_combat_data.get("current_hp", 0) <= 0: # Changed "hp" to "current_hp"
-        remaining_targets = []
-        for t_info in potential_targets:
-            entity_in_t = t_info.get("entity")
-            combat_data_in_t = t_info.get("combat_data")
-            if isinstance(entity_in_t, (Player, GeneratedNpc)) and \
-               hasattr(entity_in_t, 'id') and \
-               entity_in_t.id != selected_target_entity.id and \
-               isinstance(combat_data_in_t, dict) and \
-               combat_data_in_t.get("current_hp", 0) > 0:
-                remaining_targets.append(t_info)
+    # Check if the (re-)selected target is defeated
+    raw_target_hp = selected_target_combat_data.get("current_hp")
+    target_hp = float(raw_target_hp) if isinstance(raw_target_hp, (int, float)) else 0.0
 
-        if remaining_targets:
-            selected_target_info = await _select_target(session, guild_id, actor_npc, remaining_targets, ai_rules, combat_encounter)
-            if not selected_target_info:
-                 return {"action_type": "idle", "reason": "Selected target defeated, no other valid targets."}
-        else:
-            return {"action_type": "idle", "reason": "Selected target defeated, no other targets."}
+    if target_hp <= 0:
+        # Attempt to re-select a target if the current one is defeated.
+        # This might happen if _select_target returned a (somehow) defeated target, or if state changed.
+        non_defeated_targets = []
+        for t_info in potential_targets:
+            # Ensure t_info and its combat_data are dicts before using .get
+            t_combat_data = t_info.get("combat_data") if isinstance(t_info, dict) else None
+            if isinstance(t_combat_data, dict):
+                raw_t_hp = t_combat_data.get("current_hp")
+                t_current_hp = float(raw_t_hp) if isinstance(raw_t_hp, (int, float)) else 0.0
+                if t_current_hp > 0:
+                    non_defeated_targets.append(t_info)
+
+        if not non_defeated_targets:
+            return {"action_type": "idle", "reason": "Original target defeated, no other valid targets remain."}
+
+        # Re-select from non-defeated targets
+        new_selected_target_info = await _select_target(session, guild_id, actor_npc, non_defeated_targets, ai_rules, combat_encounter)
+        if not new_selected_target_info or not isinstance(new_selected_target_info.get("combat_data"), dict) or not isinstance(new_selected_target_info.get("entity"), (Player, GeneratedNpc)):
+            return {"action_type": "idle", "reason": "Re-selection failed or yielded invalid target."}
+
+        selected_target_info = new_selected_target_info # Update to the new target
+        # Update local vars for clarity, though selected_target_info is what _choose_action needs
+        # selected_target_combat_data = selected_target_info["combat_data"]
+        # selected_target_entity = selected_target_info["entity"]
+
+
+    # Ensure selected_target_info is a valid dict before passing to _choose_action
+    if not isinstance(selected_target_info, dict): # Should be caught earlier, but defensive
+        return {"action_type": "idle", "reason": "Target info became invalid before choosing action."}
+
 
     chosen_action_details = await _choose_action(
         session, guild_id, actor_npc, actor_combat_data, selected_target_info, ai_rules, combat_encounter
     )
 
-    if chosen_action_details.get("type") == "idle":
-        return {"action_type": "idle", "reason": chosen_action_details.get("reason", "No effective action found.")}
+    if not isinstance(chosen_action_details, dict) or chosen_action_details.get("type") == "idle":
+        return {"action_type": "idle", "reason": chosen_action_details.get("reason", "No effective action found.") if isinstance(chosen_action_details, dict) else "Internal error in action choice."}
+
+    # Ensure selected_target_info is still valid for _format_action_result
+    if not isinstance(selected_target_info, dict) or not isinstance(selected_target_info.get("entity"), (Player, GeneratedNpc)) or not isinstance(selected_target_info.get("combat_data"), dict) :
+         return {"action_type": "error", "message": "Target info became invalid before formatting action result."}
+
 
     formatted_action = _format_action_result(chosen_action_details, selected_target_info)
     return formatted_action

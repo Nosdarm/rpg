@@ -71,7 +71,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         interaction.followup = AsyncMock() # Removed spec=discord.Webhook
         interaction.followup.send = AsyncMock()
 
-        interaction.locale = user.locale if user.locale else discord.Locale.en_US # type: ignore # Default locale
+        interaction.locale = user.locale if user.locale else discord.Locale("en-US") # Changed to string init
         return interaction
 
     def tearDown(self):
@@ -139,7 +139,8 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_interaction = self._create_mock_interaction(user=mock_user, guild=None) # No guild
 
         # The wrapper `start_command` handles the no-guild case before calling internal
-        await self.cog.start_command.callback(self.cog, mock_interaction) # type: ignore
+        # For app commands, callback is already bound, so cog instance isn't passed first.
+        await self.cog.start_command.callback(mock_interaction) # type: ignore
 
         mock_interaction.response.send_message.assert_called_once_with(
             "Эту команду можно использовать только на сервере.", ephemeral=True
