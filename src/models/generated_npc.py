@@ -11,7 +11,7 @@ from .inventory_item import InventoryItem # Ensure full import for relationship
 
 if TYPE_CHECKING:
 #     from .guild import GuildConfig
-#     from .location import Location
+    from .location import Location # Ensure Location is imported for the relationship
     pass # InventoryItem is now fully imported
 
 class GeneratedNpc(Base):
@@ -61,8 +61,7 @@ class GeneratedNpc(Base):
         cascade="all, delete-orphan",
         lazy="selectin"
     )
-    # Note: current_location relationship can be added here if direct access to Location object is frequently needed
-    # current_location: Mapped[Optional["Location"]] = relationship(foreign_keys=[current_location_id])
+    current_location: Mapped[Optional["Location"]] = relationship(back_populates="npcs_present")
 
 
     __table_args__ = (

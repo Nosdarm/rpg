@@ -985,14 +985,16 @@ async def prepare_economic_entity_generation_prompt(
         target_item_count = ai_gen_rules_for_context.get("ai:economic_generation:target_item_count", {}).get("count", 5)
         target_trader_count = ai_gen_rules_for_context.get("ai:economic_generation:target_trader_count", {}).get("count", 2)
 
-        world_description_i18n = all_rules.get("world_description_i18n", {"en": "A generic fantasy world."})
-        world_description = get_localized_text(world_description_i18n, guild_main_lang, "en")
+        world_description_i18n_dict = all_rules.get("world_description_i18n", {"en": "A generic fantasy world."})
+        # Directly access the dictionary with language and fallback
+        world_description = world_description_i18n_dict.get(guild_main_lang, world_description_i18n_dict.get("en", ""))
+
 
         item_type_distribution = ai_gen_rules_for_context.get("ai:economic_generation:item_type_distribution", {}).get("types", [])
         trader_role_distribution = ai_gen_rules_for_context.get("ai:economic_generation:trader_role_distribution", {}).get("roles", [])
 
-        quality_instructions_i18n = ai_gen_rules_for_context.get("ai:economic_generation:quality_instructions_i18n", {})
-        quality_instructions = get_localized_text(quality_instructions_i18n, guild_main_lang, "en")
+        quality_instructions_i18n_dict = ai_gen_rules_for_context.get("ai:economic_generation:quality_instructions_i18n", {})
+        quality_instructions = quality_instructions_i18n_dict.get(guild_main_lang, quality_instructions_i18n_dict.get("en", ""))
 
 
         entity_schemas = _get_entity_schema_terms()
