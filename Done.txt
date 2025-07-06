@@ -55,6 +55,9 @@
 
 ## Task Block: Phase 14: Global Entities and Dynamic World
 - Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n). Description: Models for entities moving in the world within each guild. Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition. (Completed: YYYY-MM-DD by Jules)
+- Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
+Description: Module simulating the life and movement of global entities for each guild. Async Worker(s): Iterates through the list of all active guilds. For each guild_id: Loads Global Entities, rules for this guild. Simulates GE movement. Simulates interactions (detection, reaction, triggers). Log events.
+Status: Implemented core simulation logic for a single guild iteration in `src/core/global_entity_manager.py`. Includes movement, detection (simplified), and reaction (basic rule-based with placeholders for dialogue). Added CRUDs for GlobalNpc, MobileGroup, RuleConfig. Updated enums. All core tests pass. Async worker part deferred. (Completed: YYYY-MM-DD by Jules)
 
 ## Пользовательские задачи (Разное)
 - Пользовательская задача: Реализация команды /help (Сессия 2024-07-08)

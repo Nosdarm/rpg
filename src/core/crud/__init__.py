@@ -46,6 +46,9 @@ __all__ = [
     "player_quest_progress_crud",
     "questline_crud",
     "crud_faction", # Added crud_faction
+    "global_npc_crud", # Task 46
+    "mobile_group_crud", # Task 46
+    "rule_config_crud", # Added for RuleConfig
 ]
 from .crud_relationship import crud_relationship
 from .crud_quest import ( # Added
@@ -54,3 +57,6 @@ from .crud_quest import ( # Added
     player_quest_progress_crud,
     questline_crud
 )
+from .crud_global_npc import global_npc_crud # Task 46
+from .crud_mobile_group import mobile_group_crud # Task 46
+from .crud_rule_config import rule_config_crud # For RuleConfig specific CRUD

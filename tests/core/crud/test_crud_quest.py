@@ -38,9 +38,9 @@ class TestQuestCrud(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         # Можно создать базовые сущности, если они нужны для FK в тестах
         # Но CRUD тесты обычно мокируют вызовы к БД напрямую
-        self.guild = GuildConfig(id=1, guild_discord_id=12345, name="Test Guild")
-        self.player = Player(id=1, guild_id=1, discord_id=67890, name="Test Player")
-        self.party = Party(id=1, guild_id=1, name="Test Party", leader_player_id=1)
+        self.guild = GuildConfig(id=12345, name="Test Guild") # Corrected: id is the guild_discord_id
+        self.player = Player(id=1, guild_id=self.guild.id, discord_id=67890, name="Test Player") # Use self.guild.id
+        self.party = Party(id=1, guild_id=self.guild.id, name="Test Party", leader_player_id=1) # Use self.guild.id
 
 
     # --- CRUDQuestline Tests ---
@@ -100,7 +100,7 @@ class TestQuestCrud(unittest.IsolatedAsyncioTestCase):
 
     # --- CRUDPlayerQuestProgress Tests ---
     async def test_get_player_quest_progress_by_player_and_quest(self):
-        progress = PlayerQuestProgress(id=1, player_id=self.player.id, quest_id=1, guild_id=self.guild.id, status=QuestStatus.ACCEPTED)
+        progress = PlayerQuestProgress(id=1, player_id=self.player.id, quest_id=1, guild_id=self.guild.id, status=QuestStatus.STARTED) # ACCEPTED -> STARTED
         mock_session = _get_mock_session_with_result(progress)
 
         found_progress = await player_quest_progress_crud.get_by_player_and_quest(
@@ -110,7 +110,7 @@ class TestQuestCrud(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_all_player_quest_progress_for_player(self):
         progress_list = [
-            PlayerQuestProgress(id=1, player_id=self.player.id, quest_id=1, guild_id=self.guild.id, status=QuestStatus.ACCEPTED),
+            PlayerQuestProgress(id=1, player_id=self.player.id, quest_id=1, guild_id=self.guild.id, status=QuestStatus.STARTED), # ACCEPTED -> STARTED
             PlayerQuestProgress(id=2, player_id=self.player.id, quest_id=2, guild_id=self.guild.id, status=QuestStatus.COMPLETED)
         ]
         mock_session = _get_mock_session_with_result(progress_list)

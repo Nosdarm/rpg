@@ -117,13 +117,7 @@ This block presents tasks related to entities that move around the world indepen
 
 {Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n). - Moved to Done.txt}
 
-Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
-Description: Module simulating the life and movement of global entities for each guild.
-Async Worker(s): Iterates through the list of all active guilds. For each guild_id:
-Loads Global Entities, rules (13/0.3/41) for this guild.
-Simulates GE movement.
-Simulates interactions (with other GEs, entities, players) IN THE CONTEXT OF THIS GUILD: Detection check (12 by 13/41), Reaction (determined by rules 13/41 and relationships 30/31/32), Triggers (Combat 27, Dialogue 46, Quest 31, World Event).
-Log events (19).
+{Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration). - Moved to Done.txt}
 
 
 

@@ -102,6 +102,12 @@ class EventType(enum.Enum):
     WORLD_EVENT_FACTIONS_GENERATED = "world_event_factions_generated" # AI generated factions and relationships
     WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED = "world_event_economic_entities_generated" # Added for Task 43
 
+    # Global Entity related events (Task 46)
+    GLOBAL_ENTITY_MOVED = "global_entity_moved"
+    GLOBAL_ENTITY_DETECTED_ENTITY = "global_entity_detected_entity"
+    GLOBAL_ENTITY_ACTION = "global_entity_action" # General action by GE, details in json
+    GE_TRIGGERED_DIALOGUE_PLACEHOLDER = "ge_triggered_dialogue_placeholder" # Placeholder for GE initiating dialogue
+
 
     # TODO: Add more event types as needed for other modules
     # e.g., QUEST_ACCEPTED, QUEST_STEP_COMPLETED, QUEST_COMPLETED, COMBAT_STARTED, COMBAT_ENDED, ITEM_CRAFTED, etc.
@@ -114,6 +120,8 @@ class RelationshipEntityType(enum.Enum):
     PARTY = "party"
     GENERATED_NPC = "generated_npc"
     GENERATED_FACTION = "generated_faction"
+    GLOBAL_NPC = "global_npc"        # Added for Task 46
+    MOBILE_GROUP = "mobile_group"    # Added for Task 46
     # Consider if specific NPC types or other global entities need to be here
 
 class QuestStatus(enum.Enum):
