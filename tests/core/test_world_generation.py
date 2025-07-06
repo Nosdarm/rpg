@@ -960,6 +960,3 @@ class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
         mock_npc_crud.create.assert_not_called()
         mock_inv_item_crud.add_item_to_owner.assert_not_called() # No inventory items specified for existing trader in this test
         self.session_commit_mock.assert_called_once()
-
-
-if __name__ == "__main__":
