@@ -36,8 +36,8 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
         lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-            error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
-            await interaction.followup.send(error_msg, ephemeral=True)
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+                await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
