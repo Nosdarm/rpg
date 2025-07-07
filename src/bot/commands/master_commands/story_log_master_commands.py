@@ -32,8 +32,11 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
     @app_commands.describe(log_id="The database ID of the Story Log entry to view.")
     async def story_log_view(self, interaction: discord.Interaction, log_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -63,16 +66,19 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
-            embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(log_entry.guild_id), inline=True)
-            embed.add_field(name=await get_label("event_type", "Event Type"), value=log_entry.event_type.value if log_entry.event_type else "N/A", inline=True)
-            turn_number_val = getattr(log_entry, 'turn_number', None)
-            embed.add_field(name=await get_label("turn_number", "Turn Number"), value=str(turn_number_val) if turn_number_val is not None else "N/A", inline=True)
 
-            timestamp_val = discord.utils.format_dt(log_entry.timestamp, style='F') if log_entry.timestamp else "N/A" # type: ignore[arg-type]
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+
+            embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(log_entry.guild_id), inline=True)
+            embed.add_field(name=await get_label("event_type", "Event Type"), value=log_entry.event_type.value if log_entry.event_type else na_value_str, inline=True)
+            turn_number_val = getattr(log_entry, 'turn_number', None)
+            embed.add_field(name=await get_label("turn_number", "Turn Number"), value=str(turn_number_val) if turn_number_val is not None else na_value_str, inline=True)
+
+            timestamp_val = discord.utils.format_dt(log_entry.timestamp, style='F') if log_entry.timestamp else na_value_str
             embed.add_field(name=await get_label("timestamp", "Timestamp"), value=timestamp_val, inline=False)
 
             short_desc_i18n = getattr(log_entry, 'short_description_i18n', {})
-            short_desc_display = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", "N/A")) if short_desc_i18n else "N/A"
+            short_desc_display = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", na_value_str)) if short_desc_i18n else na_value_str
             embed.add_field(name=await get_label("short_description", "Short Description"), value=short_desc_display[:1020], inline=False)
 
 
@@ -99,11 +105,14 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 5: limit = 5 # Max 5 for embed clarity
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
         event_type_enum_val: Optional[EventTypeEnum] = None
 
         async with get_db_session() as session:
@@ -131,9 +140,14 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
             total_logs = total_logs_res.scalar_one_or_none() or 0
 
             filter_parts = []
-            if event_type_enum_val: filter_parts.append(f"Event: {event_type_enum_val.name}")
-            if turn_number is not None: filter_parts.append(f"Turn: {turn_number}")
-            filter_display = ", ".join(filter_parts) if filter_parts else "All"
+            # Локализация названий фильтров
+            event_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_event", lang_code, "Event") # type: ignore
+            turn_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_turn", lang_code, "Turn") # type: ignore
+            all_filter_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_all", lang_code, "All") # type: ignore
+
+            if event_type_enum_val: filter_parts.append(f"{event_filter_label}: {event_type_enum_val.name}")
+            if turn_number is not None: filter_parts.append(f"{turn_filter_label}: {turn_number}")
+            filter_display = ", ".join(filter_parts) if filter_parts else all_filter_str
 
             if not log_entries:
                 no_logs_msg = await get_localized_message_template(session,interaction.guild_id,"story_log_list:no_logs_found",lang_code,"No Story Log entries for {filter} (Page {p}).") # type: ignore
@@ -150,12 +164,16 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
             val_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:log_value_field",lang_code,"{desc} (@ {ts})") # type: ignore
 
             for entry in log_entries:
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                no_desc_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_description", lang_code, "No description") # type: ignore
+                no_ts_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_timestamp", lang_code, "No timestamp") # type: ignore
+
                 short_desc_i18n = getattr(entry, 'short_description_i18n', {})
-                desc_short = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", "No description")) if short_desc_i18n else "No description"
-                ts_formatted = discord.utils.format_dt(entry.timestamp, style='R') if entry.timestamp else "No timestamp" # type: ignore[arg-type] # Assuming timestamp is datetime compatible
+                desc_short = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", no_desc_str)) if short_desc_i18n else no_desc_str
+                ts_formatted = discord.utils.format_dt(entry.timestamp, style='R') if entry.timestamp else no_ts_str
                 turn_number_val = getattr(entry, 'turn_number', None)
                 embed.add_field(
-                    name=name_tmpl.format(id=entry.id, event_type_val=entry.event_type.value if entry.event_type else "N/A", tn=str(turn_number_val) if turn_number_val is not None else "N/A"),
+                    name=name_tmpl.format(id=entry.id, event_type_val=entry.event_type.value if entry.event_type else na_value_str, tn=str(turn_number_val) if turn_number_val is not None else na_value_str),
                     value=val_tmpl.format(desc=desc_short[:200] + ("..." if len(desc_short) > 200 else ""), ts=ts_formatted),
                     inline=False
                 )

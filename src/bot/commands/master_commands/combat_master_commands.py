@@ -33,8 +33,11 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
     @app_commands.describe(encounter_id="The database ID of the Combat Encounter to view.")
     async def combat_encounter_view(self, interaction: discord.Interaction, encounter_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -65,19 +68,24 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
-            embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(encounter.guild_id), inline=True)
-            embed.add_field(name=await get_label("location_id", "Location ID"), value=str(encounter.location_id) if encounter.location_id else "N/A", inline=True)
-            embed.add_field(name=await get_label("status", "Status"), value=encounter.status.value if encounter.status else "N/A", inline=True)
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
 
-            current_turn_number_val = getattr(encounter, 'current_turn_number', "N/A")
-            current_index_val = getattr(encounter, 'current_index_in_turn_order', "N/A")
+            embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(encounter.guild_id), inline=True)
+            embed.add_field(name=await get_label("location_id", "Location ID"), value=str(encounter.location_id) if encounter.location_id else na_value_str, inline=True)
+            embed.add_field(name=await get_label("status", "Status"), value=encounter.status.value if encounter.status else na_value_str, inline=True)
+
+            current_turn_number_val = getattr(encounter, 'current_turn_number', na_value_str)
+            current_index_val = getattr(encounter, 'current_index_in_turn_order', na_value_str)
             embed.add_field(name=await get_label("turn_number", "Turn Number"), value=str(current_turn_number_val), inline=True)
             embed.add_field(name=await get_label("current_index", "Current Index"), value=str(current_index_val), inline=True)
 
-            current_entity_id_val = str(encounter.current_turn_entity_id) if encounter.current_turn_entity_id else "N/A"
-            # encounter.current_turn_entity_type is likely already a string if .value was an error
-            current_entity_type_val = encounter.current_turn_entity_type if encounter.current_turn_entity_type else "N/A"
-            embed.add_field(name=await get_label("current_entity", "Current Turn Entity"), value=f"ID: {current_entity_id_val}, Type: {current_entity_type_val}", inline=True)
+            current_entity_id_val = str(encounter.current_turn_entity_id) if encounter.current_turn_entity_id else na_value_str
+            current_entity_type_val = encounter.current_turn_entity_type if encounter.current_turn_entity_type else na_value_str
+            # Localize "ID:" and "Type:" parts of the string
+            id_label_for_entity = await get_localized_message_template(session, interaction.guild_id, "combat_encounter_view:label_id_inline", lang_code, "ID") # type: ignore
+            type_label_for_entity = await get_localized_message_template(session, interaction.guild_id, "combat_encounter_view:label_type_inline", lang_code, "Type") # type: ignore
+            current_entity_display = f"{id_label_for_entity}: {current_entity_id_val}, {type_label_for_entity}: {current_entity_type_val}"
+            embed.add_field(name=await get_label("current_entity", "Current Turn Entity"), value=current_entity_display, inline=True)
 
             participants_str = await format_json_field_helper(encounter.participants_json, "combat_encounter_view:value_na_json", "combat_encounter_view:error_serialization_participants")
             embed.add_field(name=await get_label("participants", "Participants JSON"), value=f"```json\n{participants_str[:1000]}\n```" + ("..." if len(participants_str) > 1000 else ""), inline=False)
@@ -91,8 +99,9 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
             combat_log_str = await format_json_field_helper(encounter.combat_log_json, "combat_encounter_view:value_na_json", "combat_encounter_view:error_serialization_log")
             embed.add_field(name=await get_label("combat_log", "Combat Log JSON"), value=f"```json\n{combat_log_str[:1000]}\n```" + ("..." if len(combat_log_str) > 1000 else ""), inline=False)
 
-            created_at_val = discord.utils.format_dt(encounter.created_at, style='F') if hasattr(encounter, 'created_at') and encounter.created_at else "N/A" # type: ignore[attr-defined]
-            updated_at_val = discord.utils.format_dt(encounter.updated_at, style='F') if hasattr(encounter, 'updated_at') and encounter.updated_at else "N/A" # type: ignore[attr-defined]
+            na_value_str_for_ts = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+            created_at_val = discord.utils.format_dt(encounter.created_at, style='F') if hasattr(encounter, 'created_at') and encounter.created_at else na_value_str_for_ts
+            updated_at_val = discord.utils.format_dt(encounter.updated_at, style='F') if hasattr(encounter, 'updated_at') and encounter.updated_at else na_value_str_for_ts
             embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=False)
             embed.add_field(name=await get_label("updated_at", "Updated At"), value=updated_at_val, inline=False)
 
@@ -108,14 +117,17 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
                                     status: Optional[str] = None,
                                     page: int = 1, limit: int = 5):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 5: limit = 5 # Max 5 for this embed to prevent clutter
 
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
         status_enum: Optional[CombatStatus] = None
 
         async with get_db_session() as session:
@@ -140,10 +152,11 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
             total_enc_result = await session.execute(count_query)
             total_encounters = total_enc_result.scalar_one_or_none() or 0
 
-            filter_desc_key = "ce_list:filter_all" if not status_enum else "ce_list:filter_status"
-            filter_desc_default = "All" if not status_enum else "Status: {status_name}"
-            filter_desc_val = await get_localized_message_template(session, interaction.guild_id, filter_desc_key, lang_code, filter_desc_default) # type: ignore
-            filter_display = filter_desc_val.format(status_name=status_enum.name if status_enum else "")
+
+            all_filter_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_all", lang_code, "All") # type: ignore
+            status_filter_label_str = await get_localized_message_template(session, interaction.guild_id, "ce_list:filter_status_label", lang_code, "Status") # type: ignore
+            filter_display = f"{status_filter_label_str}: {status_enum.name}" if status_enum else all_filter_str
+
 
             if not encounters:
                 no_enc_msg = await get_localized_message_template(
@@ -178,12 +191,13 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
 
             for enc in encounters:
                 participant_count = len(enc.participants_json.get("entities", [])) if enc.participants_json else 0
-                current_turn_number_val = getattr(enc, 'current_turn_number', "N/A")
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                current_turn_number_val = getattr(enc, 'current_turn_number', na_value_str)
                 embed.add_field(
-                    name=field_name_template.format(id=enc.id, status_val=enc.status.value if enc.status else "N/A"),
+                    name=field_name_template.format(id=enc.id, status_val=enc.status.value if enc.status else na_value_str),
                     value=field_value_template.format(
-                        loc_id=str(enc.location_id) if enc.location_id else "N/A",
-                        turn=current_turn_number_val,
+                        loc_id=str(enc.location_id) if enc.location_id else na_value_str,
+                        turn=current_turn_number_val, # Already handles N/A
                         p_count=participant_count
                     ),
                     inline=False
@@ -203,10 +217,13 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
     @app_commands.describe(encounter_id="The database ID of the Combat Encounter to delete.")
     async def combat_encounter_delete(self, interaction: discord.Interaction, encounter_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
 
         async with get_db_session() as session:
             encounter_to_delete = await combat_encounter_crud.get(session, id=encounter_id, guild_id=interaction.guild_id)

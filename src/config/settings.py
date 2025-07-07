@@ -198,6 +198,9 @@ BOT_COGS = [
     "src.bot.commands.master_commands.ability_master_commands",
     "src.bot.commands.master_commands.status_effect_master_commands",
     "src.bot.commands.master_commands.story_log_master_commands",
+    "src.bot.commands.master_commands.master_crafting_recipe_commands", # Added Crafting Recipe Cog
+    "src.bot.commands.master_commands.master_skill_commands", # Added Skill Cog
+    "src.bot.commands.master_commands.master_memory_commands", # Added Memory Cog
 ]
 
 # Master User IDs - comma-separated string in .env, parsed into a list here

@@ -26,6 +26,7 @@ class Party(Base):
     leader_player_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("players.id", name="fk_party_leader_player_id", use_alter=True), nullable=True, index=True)
 
     current_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
 
     turn_status: Mapped[PartyTurnStatus] = mapped_column(
         SQLAlchemyEnum(PartyTurnStatus, name="party_turn_status_enum", create_constraint=True),

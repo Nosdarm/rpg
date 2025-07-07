@@ -17,9 +17,10 @@ class Ability(Base):
     """
     __tablename__ = "abilities"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True) # Integer is fine for PK
-    guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=False, index=True) # Changed to nullable=False, added ondelete
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    guild_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=True, index=True) # Changed to nullable=True
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    type: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Added type field
 
     name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
     description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')

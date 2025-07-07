@@ -124,13 +124,6 @@ This block presents tasks related to entities that move around the world indepen
 Task Block: Phase 15: Management and Monitoring Tools
 This block presents tasks for implementing tools for the game Master.
 
-Task 47: 🛠️ 15.1 Master Command System.
-Description: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild. Commands automatically receive the guild_id from the command context. Support multilingual input for arguments and display results in the Master's language.
-API for CRUD over ALL DB models (7 and others). Require guild_id.
-API for viewing/editing records in the RuleConfig table (0.2/7/13). Allow the Master to configure all game rules for their guild.
-Manual trigger/modification commands for entities operate WITHIN THE guild_id CONTEXT.
-API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending conflict record (created in 21) by guild_id. Sets status to 'resolved' and the outcome. Signals the Turn Processing Module (21), which was waiting for resolution, to continue processing.
-
 Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
 Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
 Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.

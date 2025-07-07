@@ -28,8 +28,11 @@ class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"):
     @app_commands.describe(key="The key of the RuleConfig entry to view.")
     async def ruleconfig_get(self, interaction: discord.Interaction, key: str):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -70,11 +73,14 @@ class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"):
     @app_commands.describe(key="The key of the RuleConfig entry.", value_json="The new JSON value for the rule.")
     async def ruleconfig_set(self, interaction: discord.Interaction, key: str, value_json: str):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
         new_value: Any
         try:
             new_value = json.loads(value_json)
@@ -110,8 +116,11 @@ class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"):
     @app_commands.describe(page="Page number to display.", limit="Number of rules per page.")
     async def ruleconfig_list(self, interaction: discord.Interaction, page: int = 1, limit: int = 10):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
         if page < 1: page = 1
         if limit < 1: limit = 1
@@ -179,8 +188,11 @@ class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"):
     @app_commands.describe(key="The key of the RuleConfig entry to delete.")
     async def ruleconfig_delete(self, interaction: discord.Interaction, key: str):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:

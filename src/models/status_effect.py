@@ -26,8 +26,8 @@ class StatusEffect(Base):
     __tablename__ = "status_effects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False
+    guild_id: Mapped[Optional[int]] = mapped_column( # Changed to Optional[int] and nullable=True
+        BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=True
     )
     static_id: Mapped[str] = mapped_column(Text, index=True, nullable=False)
     name_i18n: Mapped[Dict[str, str]] = mapped_column(
