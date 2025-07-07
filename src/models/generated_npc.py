@@ -61,7 +61,8 @@ class GeneratedNpc(Base):
         primaryjoin=f"and_(GeneratedNpc.id==InventoryItem.owner_entity_id, InventoryItem.owner_entity_type=='{OwnerEntityType.GENERATED_NPC.value}')",
         foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type], # type: ignore[list-arg]
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="inventory_items"  # Added to address SAWarning
     )
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="npcs_present")
     faction: Mapped[Optional["GeneratedFaction"]] = relationship(
