@@ -723,7 +723,7 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
             with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
                 action_result = await get_npc_combat_action(
-                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id
+                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id # type: ignore[attr-defined]
                 )
                 assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
 

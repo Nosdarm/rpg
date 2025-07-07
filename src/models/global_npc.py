@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .guild import GuildConfig
     from .location import Location
     from .generated_npc import GeneratedNpc
+    from .mobile_group import MobileGroup # For type hinting relationship
 
 
 class GlobalNpc(Base, TimestampMixin):

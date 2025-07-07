@@ -91,8 +91,8 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
             combat_log_str = await format_json_field_helper(encounter.combat_log_json, "combat_encounter_view:value_na_json", "combat_encounter_view:error_serialization_log")
             embed.add_field(name=await get_label("combat_log", "Combat Log JSON"), value=f"```json\n{combat_log_str[:1000]}\n```" + ("..." if len(combat_log_str) > 1000 else ""), inline=False)
 
-            created_at_val = discord.utils.format_dt(encounter.created_at, style='F') if hasattr(encounter, 'created_at') and encounter.created_at else "N/A"
-            updated_at_val = discord.utils.format_dt(encounter.updated_at, style='F') if hasattr(encounter, 'updated_at') and encounter.updated_at else "N/A"
+            created_at_val = discord.utils.format_dt(encounter.created_at, style='F') if hasattr(encounter, 'created_at') and encounter.created_at else "N/A" # type: ignore[attr-defined]
+            updated_at_val = discord.utils.format_dt(encounter.updated_at, style='F') if hasattr(encounter, 'updated_at') and encounter.updated_at else "N/A" # type: ignore[attr-defined]
             embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=False)
             embed.add_field(name=await get_label("updated_at", "Updated At"), value=updated_at_val, inline=False)
 
