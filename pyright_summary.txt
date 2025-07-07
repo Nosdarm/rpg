@@ -1,18 +1,4 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 12 issue(s):
-  Line 43   [ERROR] Argument missing for parameter "description"
-  Line 78   [ERROR] Argument missing for parameter "language_code"
-  Line 116  [ERROR] Arguments missing for parameters "description", "required"
-  Line 119  [ERROR] Arguments missing for parameters "description", "type"
-  Line 122  [ERROR] Arguments missing for parameters "name", "description"
-  Line 126  [ERROR] Argument missing for parameter "name"
-  Line 130  [ERROR] Argument missing for parameter "commands"
-  Line 135  [ERROR] Arguments missing for parameters "description", "required"
-  Line 138  [ERROR] Arguments missing for parameters "description", "type"
-  Line 141  [ERROR] Arguments missing for parameters "name", "description"
-  Line 145  [ERROR] Argument missing for parameter "name"
-  Line 149  [ERROR] Argument missing for parameter "commands"
-
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
@@ -27,50 +13,17 @@
   Line 833  [ERROR] Argument missing for parameter "entity_type"
   Line 834  [ERROR] Argument missing for parameter "entity_type"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 7 issue(s):
-  Line 14   [ERROR] "StatusEffectCategory" is unknown import symbol
-  Line 275  [ERROR] Cannot access attribute "name" for class "dict[Unknown, Unknown]"
-┬а┬аAttribute "name" is unknown
-  Line 382  [ERROR] Cannot access attribute "source_log_id" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_log_id" is unknown
-  Line 382  [ERROR] Cannot access attribute "source_log_id" for class "ActiveStatusEffect"
-┬а┬аAttribute "source_log_id" is unknown
-  Line 383  [ERROR] Argument of type "TIMESTAMP" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"TIMESTAMP" is not assignable to "datetime"
-  Line 385  [ERROR] Cannot access attribute "instance_properties_json" for class "ActiveStatusEffect"
-┬а┬аAttribute "instance_properties_json" is unknown
-  Line 469  [ERROR] Cannot access attribute "name" for class "str"
-┬а┬аAttribute "name" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 5 issue(s):
-  Line 147  [ERROR] Argument missing for parameter "name_i18n"
-  Line 150  [ERROR] Argument missing for parameter "description_i18n"
-  Line 191  [ERROR] Argument missing for parameter "static_id"
-  Line 277  [ERROR] Argument of type "Literal['not a list']" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
-┬а┬аType "Literal['not a list']" is not assignable to type "List[GeneratedInventoryItemEntry] | None"
-┬а┬а┬а┬а"Literal['not a list']" is not assignable to "List[GeneratedInventoryItemEntry]"
-┬а┬а┬а┬а"Literal['not a list']" is not assignable to "None"
-  Line 282  [ERROR] Argument of type "list[dict[str, str]]" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\combat_master_commands.py] — 4 issue(s):
-  Line 94   [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
-┬а┬аAttribute "created_at" is unknown
-  Line 94   [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
-┬а┬аAttribute "created_at" is unknown
-  Line 95   [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
-┬а┬аAttribute "updated_at" is unknown
-  Line 95   [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
-┬а┬аAttribute "updated_at" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\relationship_master_commands.py] — 4 issue(s):
-  Line 75   [ERROR] Cannot access attribute "created_at" for class "Relationship"
-┬а┬аAttribute "created_at" is unknown
-  Line 75   [ERROR] Cannot access attribute "created_at" for class "Relationship"
-┬а┬аAttribute "created_at" is unknown
-  Line 76   [ERROR] Cannot access attribute "updated_at" for class "Relationship"
-┬а┬аAttribute "updated_at" is unknown
-  Line 76   [ERROR] Cannot access attribute "updated_at" for class "Relationship"
-┬а┬аAttribute "updated_at" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 10 issue(s):
+  Line 116  [ERROR] Argument missing for parameter "required"
+  Line 119  [ERROR] Argument missing for parameter "type"
+  Line 122  [ERROR] Argument missing for parameter "name"
+  Line 126  [ERROR] Argument missing for parameter "name"
+  Line 130  [ERROR] Argument missing for parameter "commands"
+  Line 135  [ERROR] Argument missing for parameter "required"
+  Line 138  [ERROR] Argument missing for parameter "type"
+  Line 141  [ERROR] Argument missing for parameter "name"
+  Line 145  [ERROR] Argument missing for parameter "name"
+  Line 149  [ERROR] Argument missing for parameter "commands"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
   Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
@@ -80,24 +33,10 @@
   Line 633  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
   Line 633  [ERROR] "__getitem__" method not defined on type "Player"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\global_npc_master_commands.py] — 3 issue(s):
-  Line 71   [ERROR] Cannot access attribute "npc_template_id" for class "GlobalNpc"
-┬а┬аAttribute "npc_template_id" is unknown
-  Line 71   [ERROR] Cannot access attribute "npc_template_id" for class "GlobalNpc"
-┬а┬аAttribute "npc_template_id" is unknown
-  Line 82   [ERROR] Cannot access attribute "route_json" for class "GlobalNpc"
-┬а┬аAttribute "route_json" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\location_master_commands.py] — 3 issue(s):
-  Line 78   [ERROR] Cannot access attribute "description_i18n" for class "Location"
-┬а┬аAttribute "description_i18n" is unknown
-  Line 81   [ERROR] Cannot access attribute "properties_json" for class "Location"
-┬а┬аAttribute "properties_json" is unknown
-  Line 84   [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "data" of type "Dict[Any, Any] | None" in function "format_json_field_helper"
-┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Dict[Any, Any] | None"
-┬а┬а┬а┬аType "List[Dict[str, Any]]" is not assignable to type "Dict[Any, Any] | None"
-┬а┬а┬а┬а┬а┬а"List[Dict[str, Any]]" is not assignable to "Dict[Any, Any]"
-┬а┬а┬а┬а┬а┬а"List[Dict[str, Any]]" is not assignable to "None"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 3 issue(s):
+  Line 147  [ERROR] Argument missing for parameter "name_i18n"
+  Line 150  [ERROR] Argument missing for parameter "description_i18n"
+  Line 191  [ERROR] Argument missing for parameter "static_id"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 3 issue(s):
   Line 415  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
@@ -107,65 +46,17 @@
   Line 452  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
 ┬а┬а"MethodType" is not assignable to "AsyncMock"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\item_master_commands.py] — 2 issue(s):
-  Line 71   [ERROR] Cannot access attribute "item_type" for class "Item"
-┬а┬аAttribute "item_type" is unknown
-  Line 143  [ERROR] Cannot access attribute "item_type" for class "Item"
-┬а┬аAttribute "item_type" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\party_master_commands.py] — 2 issue(s):
-  Line 70   [ERROR] Cannot access attribute "properties_json" for class "Party"
-┬а┬аAttribute "properties_json" is unknown
-  Line 72   [ERROR] Cannot access attribute "properties_json" for class "Party"
-┬а┬аAttribute "properties_json" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 2 issue(s):
-  Line 362  [ERROR] Cannot access attribute "quest_type" for class "GeneratedQuest"
-┬а┬аAttribute "quest_type" is unknown
-  Line 413  [ERROR] Cannot access attribute "quest_type" for class "GeneratedQuest"
-┬а┬аAttribute "quest_type" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_inventory_item.py] — 2 issue(s):
-  Line 21   [ERROR] No overloads for "__init__" match the provided arguments
-  Line 22   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
-┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_item.py] — 2 issue(s):
-  Line 18   [ERROR] No overloads for "__init__" match the provided arguments
-  Line 19   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
-┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
-┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
-
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\conflict_master_commands.py] — 1 issue(s):
   Line 284  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
 ┬а┬а"DateTime" is not assignable to "datetime"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\story_log_master_commands.py] — 1 issue(s):
-  Line 155  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\global_entity_manager.py] — 1 issue(s):
-  Line 327  [ERROR] Cannot access attribute "SUCCESS" for class "type[CheckOutcome]"
-┬а┬аAttribute "SUCCESS" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 1 issue(s):
+  Line 16   [ERROR] "StatusEffectCategory" is unknown import symbol
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
   Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
 ┬а┬аType "str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\generated_npc.py] — 1 issue(s):
-  Line 66   [ERROR] "GeneratedFaction" is not defined
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\global_npc.py] — 1 issue(s):
-  Line 30   [ERROR] "MobileGroup" is not defined
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\status_effect.py] — 1 issue(s):
-  Line 19   [ERROR] "StatusEffectCategory" is unknown import symbol
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
   Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
