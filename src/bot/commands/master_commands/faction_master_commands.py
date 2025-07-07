@@ -477,7 +477,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 new_value_display_str = str(parsed_value)
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
-            embed.add_field(name=new_value_label, value=new_value_display, inline=True)
+            embed.add_field(name=new_value_label, value=new_value_display_str, inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @faction_master_cmds.command(name="delete", description="Delete a Faction from this guild.")

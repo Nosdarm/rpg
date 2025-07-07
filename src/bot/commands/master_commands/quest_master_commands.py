@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
 
 import discord
 from discord import app_commands
@@ -233,7 +233,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
              db_field_name = field_to_update_lower.replace("_json","")
         field_type_info = allowed_fields.get(db_field_name)
-         if interaction.guild_id is None: # lang_code defined before
+        if interaction.guild_id is None: # lang_code defined before
             async with get_db_session() as temp_session:
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
@@ -935,7 +935,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
              db_field_name = field_to_update_lower.replace("_json","")
         field_type_info = allowed_fields.get(db_field_name)
-         if interaction.guild_id is None: # lang_code defined before
+        if interaction.guild_id is None: # lang_code defined before
             async with get_db_session() as temp_session:
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
