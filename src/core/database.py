@@ -43,7 +43,12 @@ if "asyncpg" in DATABASE_URL and DB_SSL_MODE:
 # Создаем асинхронный движок SQLAlchemy
 # echo=True полезно для отладки, выводит все SQL-запросы. В продакшене лучше отключить.
 # echo=False по умолчанию, если не указано. Можно сделать настраиваемым через settings.py
-engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args=connect_args,
+    pool_pre_ping=True  # Add pool_pre_ping
+)
 
 # Создаем фабрику асинхронных сессий
 # expire_on_commit=False рекомендуется для асинхронных сессий, чтобы объекты были доступны после коммита.
