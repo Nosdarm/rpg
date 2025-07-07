@@ -14,7 +14,7 @@ from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Correct the import path based on actual file location
-from src.bot.commands.master_commands.player_master_commands import PlayerMasterCommandsCog
+from src.bot.commands.master_commands.player_master_commands import MasterPlayerCog as PlayerMasterCommandsCog
 from src.models import Player
 from src.models.enums import PlayerStatus
 from src.core.crud.crud_player import player_crud # Ensure this is the correct way to access player_crud
@@ -168,6 +168,7 @@ async def test_master_player_create_success(
         discord_id=discord_id_to_create,
         guild_id=guild_id_fixture
     )
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with(expected_message, ephemeral=True)
 
 @pytest.mark.asyncio
@@ -212,6 +213,7 @@ async def test_master_player_create_handles_guild_none(
         ANY # default message
     )
 
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with(guild_only_error_template, ephemeral=True)
     mock_player_crud_instance.create_with_specific_id.assert_not_called()
 
@@ -264,6 +266,7 @@ async def test_master_player_create_with_attributes_json(
     call_args = mock_player_crud_instance.create_with_specific_id.call_args[0]
     create_data = call_args[1]
     assert create_data['attributes_json'] == parsed_attributes
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with("Success", ephemeral=True)
 
 @pytest.mark.asyncio
@@ -312,6 +315,7 @@ async def test_master_player_create_bad_attributes_json(
     # The key is that the correct template was requested.
 
     # Check the followup.send call with the formatted message
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     sent_message = mock_interaction_fixture.followup.send.call_args[0][0]
     assert "Invalid JSON provided for attributes_json" in sent_message # Check for key parts
     assert "Error" in sent_message # Check for error detail (simplified)

@@ -1,6 +1,7 @@
 import logging
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, cast
+from datetime import datetime # Added for casting
 
 import discord
 from discord import app_commands
@@ -35,39 +36,39 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
         lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             # Use the initialized CRUD instance
-            log_entry = await self.story_log_crud_instance.get_by_id(session, id=log_id, guild_id=interaction.guild_id) # type: ignore
+            log_entry = await self.story_log_crud_instance.get_by_id(session, id=log_id, guild_id=interaction.guild_id)
 
             if not log_entry or log_entry.guild_id != interaction.guild_id: # Explicitly check guild_id if get_by_id doesn't filter
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "story_log_view:not_found", lang_code,
                     "Story Log entry with ID {id} not found."
-                ) # type: ignore
+                )
                 await interaction.followup.send(not_found_msg.format(id=log_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "story_log_view:title", lang_code,
                 "Story Log Entry (ID: {id})"
-            ) # type: ignore
+            )
             embed_title = title_template.format(id=log_entry.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.blue())
 
-            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"story_log_view:label_{key}", lang_code, default) # type: ignore
+            async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"story_log_view:label_{key}", lang_code, default)
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
 
 
-            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(log_entry.guild_id), inline=True)
             embed.add_field(name=await get_label("event_type", "Event Type"), value=log_entry.event_type.value if log_entry.event_type else na_value_str, inline=True)
@@ -108,7 +109,7 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
         lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -120,57 +121,57 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
                 try: event_type_enum_val = EventTypeEnum[event_type.upper()]
                 except KeyError:
                     valid_types = ", ".join([et.name for et in EventTypeEnum])
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"story_log_list:error_invalid_event_type",lang_code,"Invalid event_type. Valid: {list}") # type: ignore
+                    error_msg = await get_localized_message_template(session,interaction.guild_id,"story_log_list:error_invalid_event_type",lang_code,"Invalid event_type. Valid: {list}")
                     await interaction.followup.send(error_msg.format(list=valid_types), ephemeral=True); return
 
-            filters = [self.story_log_crud_instance.model.guild_id == interaction.guild_id] # type: ignore
+            filters = [self.story_log_crud_instance.model.guild_id == interaction.guild_id]
             if event_type_enum_val:
-                filters.append(self.story_log_crud_instance.model.event_type == event_type_enum_val) # type: ignore
+                filters.append(self.story_log_crud_instance.model.event_type == event_type_enum_val)
             if turn_number is not None:
                 # Assuming 'turn_number' is a valid attribute on the model for filtering
-                filters.append(self.story_log_crud_instance.model.turn_number == turn_number) # type: ignore
+                filters.append(self.story_log_crud_instance.model.turn_number == turn_number)
 
             offset = (page - 1) * limit
-            query = select(self.story_log_crud_instance.model).where(and_(*filters)).offset(offset).limit(limit).order_by(self.story_log_crud_instance.model.timestamp.desc(), self.story_log_crud_instance.model.id.desc()) # type: ignore
+            query = select(self.story_log_crud_instance.model).where(and_(*filters)).offset(offset).limit(limit).order_by(self.story_log_crud_instance.model.timestamp.desc(), self.story_log_crud_instance.model.id.desc())
             result = await session.execute(query)
             log_entries = result.scalars().all()
 
-            count_query = select(func.count(self.story_log_crud_instance.model.id)).where(and_(*filters)) # type: ignore
+            count_query = select(func.count(self.story_log_crud_instance.model.id)).where(and_(*filters))
             total_logs_res = await session.execute(count_query)
             total_logs = total_logs_res.scalar_one_or_none() or 0
 
             filter_parts = []
             # Локализация названий фильтров
-            event_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_event", lang_code, "Event") # type: ignore
-            turn_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_turn", lang_code, "Turn") # type: ignore
-            all_filter_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_all", lang_code, "All") # type: ignore
+            event_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_event", lang_code, "Event")
+            turn_filter_label = await get_localized_message_template(session, interaction.guild_id, "story_log_list:filter_turn", lang_code, "Turn")
+            all_filter_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_all", lang_code, "All")
 
             if event_type_enum_val: filter_parts.append(f"{event_filter_label}: {event_type_enum_val.name}")
             if turn_number is not None: filter_parts.append(f"{turn_filter_label}: {turn_number}")
             filter_display = ", ".join(filter_parts) if filter_parts else all_filter_str
 
             if not log_entries:
-                no_logs_msg = await get_localized_message_template(session,interaction.guild_id,"story_log_list:no_logs_found",lang_code,"No Story Log entries for {filter} (Page {p}).") # type: ignore
+                no_logs_msg = await get_localized_message_template(session,interaction.guild_id,"story_log_list:no_logs_found",lang_code,"No Story Log entries for {filter} (Page {p}).")
                 await interaction.followup.send(no_logs_msg.format(filter=filter_display, p=page), ephemeral=True); return
 
-            title_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:title",lang_code,"Story Log List ({filter} - Page {p} of {tp})") # type: ignore
+            title_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:title",lang_code,"Story Log List ({filter} - Page {p} of {tp})")
             total_pages = ((total_logs - 1) // limit) + 1
             embed = discord.Embed(title=title_tmpl.format(filter=filter_display, p=page, tp=total_pages), color=discord.Color.dark_blue())
 
-            footer_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:footer",lang_code,"Displaying {c} of {t} total log entries.") # type: ignore
+            footer_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:footer",lang_code,"Displaying {c} of {t} total log entries.")
             embed.set_footer(text=footer_tmpl.format(c=len(log_entries), t=total_logs))
 
-            name_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:log_name_field",lang_code,"ID: {id} | {event_type_val} (Turn: {tn})") # type: ignore
-            val_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:log_value_field",lang_code,"{desc} (@ {ts})") # type: ignore
+            name_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:log_name_field",lang_code,"ID: {id} | {event_type_val} (Turn: {tn})")
+            val_tmpl = await get_localized_message_template(session,interaction.guild_id,"story_log_list:log_value_field",lang_code,"{desc} (@ {ts})")
 
             for entry in log_entries:
-                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
-                no_desc_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_description", lang_code, "No description") # type: ignore
-                no_ts_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_timestamp", lang_code, "No timestamp") # type: ignore
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
+                no_desc_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_description", lang_code, "No description")
+                no_ts_str = await get_localized_message_template(session, interaction.guild_id, "story_log_list:no_timestamp", lang_code, "No timestamp")
 
                 short_desc_i18n = getattr(entry, 'short_description_i18n', {})
                 desc_short = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", no_desc_str)) if short_desc_i18n else no_desc_str
-                ts_formatted = discord.utils.format_dt(entry.timestamp, style='R') if entry.timestamp else no_ts_str
+                ts_formatted = discord.utils.format_dt(cast(datetime, entry.timestamp), style='R') if entry.timestamp else no_ts_str # Added cast
                 turn_number_val = getattr(entry, 'turn_number', None)
                 embed.add_field(
                     name=name_tmpl.format(id=entry.id, event_type_val=entry.event_type.value if entry.event_type else na_value_str, tn=str(turn_number_val) if turn_number_val is not None else na_value_str),

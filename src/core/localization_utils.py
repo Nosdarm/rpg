@@ -90,7 +90,7 @@ def get_localized_text(
 
 async def get_localized_message_template(
     session: AsyncSession,
-    guild_id: int,
+    guild_id: Optional[int],
     message_key: str,
     language_code: str,
     default_template: str,
@@ -101,7 +101,7 @@ async def get_localized_message_template(
 
     Args:
         session: The database session.
-        guild_id: The ID of the guild.
+        guild_id: The ID of the guild. Can be None for global/DM contexts.
         message_key: The specific key for the message (e.g., "player_view:title").
         language_code: The preferred language code (e.g., "ru", "en-US").
         default_template: The default template string to return if not found.
@@ -111,6 +111,10 @@ async def get_localized_message_template(
         The localized message template string.
     """
     from .rules import get_rule # Local import to avoid circular dependency at module load time
+
+    if guild_id is None:
+        logger.debug(f"guild_id is None for message_key '{message_key}'. Returning default template.")
+        return default_template
 
     full_rule_key = f"{rule_prefix}{message_key}"
 

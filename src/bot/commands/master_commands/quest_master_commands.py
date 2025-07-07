@@ -38,7 +38,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -90,7 +90,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -150,7 +150,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -238,7 +238,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -342,7 +342,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -390,7 +390,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -443,7 +443,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -494,7 +494,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -586,7 +586,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -694,7 +694,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -757,7 +757,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -823,7 +823,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -891,7 +891,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -1017,7 +1017,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
@@ -1220,12 +1220,13 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            step_exists = await quest_step_crud.get_by_quest_and_id(session, quest_id=pqp_to_update.quest_id, step_id=parsed_value) # type: ignore
-                            if not step_exists:
-                                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "pqp_update:error_detail_step_not_found_for_quest", lang_code, "QuestStep ID {step_id} not found for Quest ID {quest_id}.") # type: ignore
+                            # Assuming parsed_value (step_id) is the primary key for QuestStepModel
+                            step_exists = await quest_step_crud.get(session, id=parsed_value)
+                            if not step_exists or step_exists.quest_id != pqp_to_update.quest_id: # Also check if the step belongs to the same quest
+                                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "pqp_update:error_detail_step_not_found_for_quest", lang_code, "QuestStep ID {step_id} not found for Quest ID {quest_id} or does not belong to it.")
                                 raise ValueError(error_detail_template.format(step_id=parsed_value, quest_id=pqp_to_update.quest_id))
                 else:
-                    error_detail_template = await get_localized_message_template(session, interaction.guild_id, "pqp_update:error_detail_invalid_field", lang_code, "Invalid field_to_update selection.") # type: ignore
+                    error_detail_template = await get_localized_message_template(session, interaction.guild_id, "pqp_update:error_detail_invalid_field", lang_code, "Invalid field_to_update selection.")
                     raise ValueError(error_detail_template)
             except ValueError as e:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"pqp_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}")
@@ -1268,7 +1269,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:

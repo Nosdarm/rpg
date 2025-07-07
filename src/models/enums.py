@@ -189,9 +189,21 @@ class ConflictStatus(enum.Enum):
     PENDING_MASTER_RESOLUTION = "pending_master_resolution" # Awaiting Game Master intervention
     RESOLVED_AUTOMATICALLY_CONTINUE = "resolved_automatically_continue" # Auto-resolved, action can proceed
     RESOLVED_AUTOMATICALLY_REJECT = "resolved_automatically_reject"   # Auto-resolved, action is rejected/failed
-    RESOLVED_BY_MASTER_APPROVED = "resolved_by_master_approved"   # Master approved (possibly with edits)
-    RESOLVED_BY_MASTER_REJECTED = "resolved_by_master_rejected"   # Master rejected the action(s)
+    RESOLVED_BY_MASTER_APPROVED = "resolved_by_master_approved"   # Master approved specific player's action or a custom resolution
+    RESOLVED_BY_MASTER_REJECTED = "resolved_by_master_rejected"   # Master rejected the conflicting actions
+    RESOLVED_BY_MASTER_DISMISS = "resolved_by_master_dismiss"     # Master dismissed the conflict (e.g., invalid, or handled out of band)
+    RESOLVED_BY_MASTER_FAVOR_ACTION1 = "resolved_by_master_favor_action1" # Master explicitly chose action1
+    RESOLVED_BY_MASTER_FAVOR_ACTION2 = "resolved_by_master_favor_action2" # Master explicitly chose action2
+    RESOLVED_BY_MASTER_CUSTOM_ACTION = "resolved_by_master_custom_action" # Master defined a custom outcome
     EXPIRED = "expired"                                     # Conflict resolution timed out (future use)
+
+class StatusEffectCategory(enum.Enum):
+    """
+    Represents the category of a status effect.
+    """
+    BUFF = "buff"
+    DEBUFF = "debuff"
+    NEUTRAL = "neutral"
 
 import logging
 logger = logging.getLogger(__name__)

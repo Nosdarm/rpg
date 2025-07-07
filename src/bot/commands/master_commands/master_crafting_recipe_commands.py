@@ -32,10 +32,10 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
     async def _format_json_field_helper(self, interaction: discord.Interaction, data: Optional[Dict[Any, Any]], lang_code: str, default_na_key: str, error_key: str) -> str:
         # Helper needs session for localization, get it or pass it
         async with get_db_session() as session: # This creates a new session, consider passing if already in one
-            na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+            na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
             if not data: return na_str
             try: return json.dumps(data, indent=2, ensure_ascii=False)
-            except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
+            except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
 
     @recipe_master_cmds.command(name="view", description="View details of a specific Crafting Recipe.")
     @app_commands.describe(recipe_id="The database ID of the Crafting Recipe to view.")
@@ -62,15 +62,15 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             title_template = await get_localized_message_template(session, interaction.guild_id, "recipe_view:title", lang_code, "Recipe: {name} (ID: {id})")
             recipe_name_display = recipe.name_i18n.get(lang_code, recipe.name_i18n.get("en", f"Recipe {recipe.id}"))
             embed_title = title_template.format(name=recipe_name_display, id=recipe.id)
-            embed_color = discord.Color.cinnamon() if recipe.guild_id else discord.Color.light_grey()
+            embed_color = discord.Color.brown() if recipe.guild_id else discord.Color.light_grey() # Changed cinnamon to brown
             embed = discord.Embed(title=embed_title, color=embed_color)
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"recipe_view:label_{key}", lang_code, default) # type: ignore
+                return await get_localized_message_template(session, interaction.guild_id, f"recipe_view:label_{key}", lang_code, default)
 
-            na_value_str = await get_localized_message_template(session, current_guild_id_for_context, "common:value_na", lang_code, "N/A") # type: ignore
-            scope_global_str = await get_localized_message_template(session, current_guild_id_for_context, "common:scope_global", lang_code, "Global") # type: ignore
-            scope_guild_tmpl = await get_localized_message_template(session, current_guild_id_for_context, "common:scope_guild", lang_code, "Guild ({guild_id})") # type: ignore
+            na_value_str = await get_localized_message_template(session, current_guild_id_for_context, "common:value_na", lang_code, "N/A")
+            scope_global_str = await get_localized_message_template(session, current_guild_id_for_context, "common:scope_global", lang_code, "Global")
+            scope_guild_tmpl = await get_localized_message_template(session, current_guild_id_for_context, "common:scope_guild", lang_code, "Guild ({guild_id})")
             scope_display = scope_global_str if recipe.guild_id is None else scope_guild_tmpl.format(guild_id=recipe.guild_id)
 
             embed.add_field(name=await get_label("scope", "Scope"), value=scope_display, inline=True)
@@ -112,19 +112,19 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             total_recipes = await crud_crafting_recipe.get_all_for_guild_or_global_count(session, guild_id=current_guild_id_for_context if scope_value != "global" else None)
 
             scope_display_key = f"recipe_list:scope_{scope_value}"; scope_display_default = scope_value.capitalize()
-            scope_display = await get_localized_message_template(session, current_guild_id_for_context, scope_display_key, lang_code, scope_display_default) # type: ignore
+            scope_display = await get_localized_message_template(session, current_guild_id_for_context, scope_display_key, lang_code, scope_display_default)
 
             if not recipes:
-                no_recipes_msg = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:no_recipes_found",lang_code,"No Recipes for scope '{sc}' (Page {p}).") # type: ignore
+                no_recipes_msg = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:no_recipes_found",lang_code,"No Recipes for scope '{sc}' (Page {p}).")
                 await interaction.followup.send(no_recipes_msg.format(sc=scope_display, p=page), ephemeral=True); return
 
-            title_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:title",lang_code,"Recipe List ({scope} - Page {p} of {tp})") # type: ignore
+            title_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:title",lang_code,"Recipe List ({scope} - Page {p} of {tp})")
             total_pages = ((total_recipes - 1) // limit) + 1
             embed = discord.Embed(title=title_tmpl.format(scope=scope_display, p=page, tp=total_pages), color=discord.Color.dark_orange())
-            footer_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:footer",lang_code,"Displaying {c} of {t} total Recipes.") # type: ignore
+            footer_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:footer",lang_code,"Displaying {c} of {t} total Recipes.")
             embed.set_footer(text=footer_tmpl.format(c=len(recipes), t=total_recipes))
-            name_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:recipe_name_field",lang_code,"ID: {id} | {name} (Static: {sid})") # type: ignore
-            val_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:recipe_value_field",lang_code,"Result: Item ID {res_id} (Qty: {res_qty}), Scope: {scope_val}") # type: ignore
+            name_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:recipe_name_field",lang_code,"ID: {id} | {name} (Static: {sid})")
+            val_tmpl = await get_localized_message_template(session,current_guild_id_for_context,"recipe_list:recipe_value_field",lang_code,"Result: Item ID {res_id} (Qty: {res_qty}), Scope: {scope_val}")
 
             for rcp in recipes:
                 rcp_name = rcp.name_i18n.get(lang_code, rcp.name_i18n.get("en", "N/A"))
@@ -176,7 +176,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             existing_recipe_static = await crud_crafting_recipe.get_by_static_id(session, static_id=static_id, guild_id=target_guild_id_for_recipe)
             if existing_recipe_static:
                 scope_str = "global" if target_guild_id_for_recipe is None else f"guild {target_guild_id_for_recipe}"
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_static_id_exists", lang_code, "Recipe static_id '{id}' already exists in scope {sc}.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_static_id_exists", lang_code, "Recipe static_id '{id}' already exists in scope {sc}.")
                 await interaction.followup.send(error_msg.format(id=static_id, sc=scope_str), ephemeral=True); return
 
             # Validate result_item_id (check if item exists, could be global or guild-specific)
@@ -184,7 +184,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             if not res_item: # If not in current guild, check global
                  res_item = await item_crud.get(session, id=result_item_id, guild_id=None)
             if not res_item:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_result_item_not_found", lang_code, "Result Item ID {id} not found.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_result_item_not_found", lang_code, "Result Item ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=result_item_id), ephemeral=True); return
 
             # Validate required_skill_id (if provided)
@@ -194,7 +194,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                 if not req_skill: # Fallback to global
                     req_skill = await skill_crud.get(session, id=required_skill_id, guild_id=None)
                 if not req_skill:
-                    error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_skill_not_found", lang_code, "Required Skill ID {id} not found.") # type: ignore
+                    error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_skill_not_found", lang_code, "Required Skill ID {id} not found.")
                     await interaction.followup.send(error_msg.format(id=required_skill_id), ephemeral=True); return
 
             if result_quantity < 1: result_quantity = 1
@@ -230,7 +230,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     parsed_props = json.loads(properties_json)
                     if not isinstance(parsed_props, dict): raise ValueError("properties_json must be a dict.")
             except (json.JSONDecodeError, ValueError, AssertionError) as e:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_invalid_json_data", lang_code, "Invalid JSON or data: {details}") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_invalid_json_data", lang_code, "Invalid JSON or data: {details}")
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
             recipe_data_create: Dict[str, Any] = {
@@ -253,14 +253,14 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     if created_recipe: await session.refresh(created_recipe)
             except Exception as e:
                 logger.error(f"Error creating Crafting Recipe: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_generic_create", lang_code, "Error creating recipe: {error}") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_generic_create", lang_code, "Error creating recipe: {error}")
                 await interaction.followup.send(error_msg.format(error=str(e)), ephemeral=True); return
 
             if not created_recipe:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_unknown_fail", lang_code, "Recipe creation failed.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_unknown_fail", lang_code, "Recipe creation failed.")
                 await interaction.followup.send(error_msg, ephemeral=True); return
 
-            success_title = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:success_title", lang_code, "Recipe Created: {name} (ID: {id})") # type: ignore
+            success_title = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:success_title", lang_code, "Recipe Created: {name} (ID: {id})")
             created_name = created_recipe.name_i18n.get(lang_code, created_recipe.name_i18n.get("en", ""))
             scope_disp = "Global" if created_recipe.guild_id is None else f"Guild {created_recipe.guild_id}"
             embed = discord.Embed(title=success_title.format(name=created_name, id=created_recipe.id), color=discord.Color.green())
@@ -295,14 +295,16 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
 
         field_type_info = allowed_fields.get(db_field_name)
         if not field_type_info:
-            async with get_db_session() as temp_session: error_msg = await get_localized_message_template(temp_session, current_guild_id_for_messages, "recipe_update:error_field_not_allowed", lang_code, "Field '{f}' not allowed.") # type: ignore
+            async with get_db_session() as temp_session: error_msg = await get_localized_message_template(temp_session, current_guild_id_for_messages, "recipe_update:error_field_not_allowed", lang_code, "Field '{f}' not allowed.")
             await interaction.followup.send(error_msg.format(f=field_to_update), ephemeral=True); return
 
         parsed_value: Any = None
+        from typing import cast # For casting IDs
+
         async with get_db_session() as session:
             recipe_to_update = await crud_crafting_recipe.get(session, id=recipe_id) # Get by primary ID
             if not recipe_to_update or (recipe_to_update.guild_id is not None and recipe_to_update.guild_id != current_guild_id_for_messages):
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_not_found", lang_code, "Recipe ID {id} not found or not accessible.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_not_found", lang_code, "Recipe ID {id} not found or not accessible.")
                 await interaction.followup.send(error_msg.format(id=recipe_id), ephemeral=True); return
 
             original_recipe_guild_id_scope = recipe_to_update.guild_id # This is the scope for static_id check
@@ -313,7 +315,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
                     existing_recipe = await crud_crafting_recipe.get_by_static_id(session, static_id=parsed_value, guild_id=original_recipe_guild_id_scope)
                     if existing_recipe and existing_recipe.id != recipe_id:
-                        error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.") # type: ignore
+                        error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.")
                         await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
                 elif field_type_info == dict: parsed_value = json.loads(new_value); assert isinstance(parsed_value, dict)
                 elif field_type_info == list: parsed_value = json.loads(new_value); assert isinstance(parsed_value, list)
@@ -325,23 +327,26 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
 
                 # Validations for specific fields
                 if db_field_name == "result_item_id":
-                    res_item_val = await item_crud.get(session, id=parsed_value, guild_id=current_guild_id_for_messages)
-                    if not res_item_val: res_item_val = await item_crud.get(session, id=parsed_value, guild_id=None)
-                    if not res_item_val: raise ValueError(f"Result Item ID {parsed_value} not found.")
+                    item_id_to_check = cast(int, parsed_value)
+                    res_item_val = await item_crud.get(session, id=item_id_to_check, guild_id=current_guild_id_for_messages)
+                    if not res_item_val: res_item_val = await item_crud.get(session, id=item_id_to_check, guild_id=None)
+                    if not res_item_val: raise ValueError(f"Result Item ID {item_id_to_check} not found.")
                 if db_field_name == "ingredients_json":
                     if not all(isinstance(ing, dict) and isinstance(ing.get("item_id"), int) and isinstance(ing.get("quantity"), int) and ing["quantity"] > 0 for ing in parsed_value): # type: ignore
                         raise ValueError("ingredients_json must be list of {'item_id': int, 'quantity': int > 0}.")
                     for ing in parsed_value: # type: ignore
-                        ing_item_def = await item_crud.get(session, id=ing["item_id"], guild_id=current_guild_id_for_messages)
-                        if not ing_item_def: ing_item_def = await item_crud.get(session, id=ing["item_id"], guild_id=None)
-                        if not ing_item_def: raise ValueError(f"Ingredient Item ID {ing['item_id']} not found.")
+                        ing_item_id_val = cast(int, ing["item_id"])
+                        ing_item_def = await item_crud.get(session, id=ing_item_id_val, guild_id=current_guild_id_for_messages)
+                        if not ing_item_def: ing_item_def = await item_crud.get(session, id=ing_item_id_val, guild_id=None)
+                        if not ing_item_def: raise ValueError(f"Ingredient Item ID {ing_item_id_val} not found.")
                 if db_field_name == "required_skill_id" and parsed_value is not None:
-                    req_skill_val = await skill_crud.get(session, id=parsed_value, guild_id=current_guild_id_for_messages)
-                    if not req_skill_val: req_skill_val = await skill_crud.get(session, id=parsed_value, guild_id=None)
-                    if not req_skill_val: raise ValueError(f"Required Skill ID {parsed_value} not found.")
+                    skill_id_to_check = cast(int, parsed_value)
+                    req_skill_val = await skill_crud.get(session, id=skill_id_to_check, guild_id=current_guild_id_for_messages)
+                    if not req_skill_val: req_skill_val = await skill_crud.get(session, id=skill_id_to_check, guild_id=None)
+                    if not req_skill_val: raise ValueError(f"Required Skill ID {skill_id_to_check} not found.")
 
             except (ValueError, json.JSONDecodeError, AssertionError) as e:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}")
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
             update_data = {db_field_name: parsed_value}
@@ -353,14 +358,14 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     if updated_recipe: await session.refresh(updated_recipe)
             except Exception as e:
                 logger.error(f"Error updating Recipe {recipe_id}: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_generic_update", lang_code, "Error updating Recipe {id}: {err}") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_generic_update", lang_code, "Error updating Recipe {id}: {err}")
                 await interaction.followup.send(error_msg.format(id=recipe_id, err=str(e)), ephemeral=True); return
 
             if not updated_recipe:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_unknown_fail", lang_code, "Recipe update failed.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_unknown_fail", lang_code, "Recipe update failed.")
                 await interaction.followup.send(error_msg, ephemeral=True); return
 
-            success_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:success", lang_code, "Recipe ID {id} updated. Field '{f}' set to '{v}'.") # type: ignore
+            success_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:success", lang_code, "Recipe ID {id} updated. Field '{f}' set to '{v}'.")
             new_val_display = str(parsed_value)
             if isinstance(parsed_value, (dict, list)): new_val_display = json.dumps(parsed_value)
             elif parsed_value is None: new_val_display = "None"
@@ -378,7 +383,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
         async with get_db_session() as session:
             recipe_to_delete = await crud_crafting_recipe.get(session, id=recipe_id)
             if not recipe_to_delete or (recipe_to_delete.guild_id is not None and recipe_to_delete.guild_id != current_guild_id_for_messages):
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_not_found", lang_code, "Recipe ID {id} not found or not accessible.") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_not_found", lang_code, "Recipe ID {id} not found or not accessible.")
                 await interaction.followup.send(error_msg.format(id=recipe_id), ephemeral=True); return
 
             recipe_name_for_msg = recipe_to_delete.name_i18n.get(lang_code, recipe_to_delete.name_i18n.get("en", f"Recipe {recipe_id}"))
@@ -393,14 +398,14 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     # Since we fetched by ID and verified scope, deleting by ID should be fine.
                     deleted_recipe = await crud_crafting_recipe.delete(session, id=recipe_id) # Assuming delete by ID is sufficient after scope check
                 if deleted_recipe:
-                    success_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:success", lang_code, "Recipe '{name}' (ID: {id}, Scope: {scope}) deleted.") # type: ignore
+                    success_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:success", lang_code, "Recipe '{name}' (ID: {id}, Scope: {scope}) deleted.")
                     await interaction.followup.send(success_msg.format(name=recipe_name_for_msg, id=recipe_id, scope=scope_for_msg), ephemeral=True)
                 else:
-                    error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_unknown_fail", lang_code, "Recipe (ID: {id}) found but not deleted.") # type: ignore
+                    error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_unknown_fail", lang_code, "Recipe (ID: {id}) found but not deleted.")
                     await interaction.followup.send(error_msg.format(id=recipe_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting Recipe {recipe_id}: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_generic_delete", lang_code, "Error deleting Recipe '{name}' (ID: {id}): {err}") # type: ignore
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_delete:error_generic_delete", lang_code, "Error deleting Recipe '{name}' (ID: {id}): {err}")
                 await interaction.followup.send(error_msg.format(name=recipe_name_for_msg, id=recipe_id, err=str(e)), ephemeral=True)
 
 

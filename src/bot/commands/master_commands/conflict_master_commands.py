@@ -1,6 +1,7 @@
 import logging
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, cast
+from datetime import datetime # Added for casting
 
 import discord
 from discord import app_commands
@@ -39,7 +40,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
         lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -50,34 +51,40 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             # If these specific values are causing "Cannot access attribute" errors,
             # the ConflictStatus enum definition itself needs to be verified.
             valid_resolution_statuses = {
-                ConflictStatus.RESOLVED_BY_MASTER_FAVOR_ACTION1, # type: ignore
-                ConflictStatus.RESOLVED_BY_MASTER_FAVOR_ACTION2, # type: ignore
-                ConflictStatus.RESOLVED_BY_MASTER_CUSTOM_ACTION, # type: ignore
-                ConflictStatus.RESOLVED_BY_MASTER_DISMISS        # type: ignore
+                ConflictStatus.RESOLVED_BY_MASTER_FAVOR_ACTION1,
+                ConflictStatus.RESOLVED_BY_MASTER_FAVOR_ACTION2,
+                ConflictStatus.RESOLVED_BY_MASTER_CUSTOM_ACTION,
+                ConflictStatus.RESOLVED_BY_MASTER_DISMISS
             }
             resolved_status_enum: Optional[ConflictStatus] = None
-            for status_member in ConflictStatus:
-                if status_member.name.upper() == outcome_status.upper() or status_member.value.upper() == outcome_status.upper():
-                    if status_member in valid_resolution_statuses:
-                        resolved_status_enum = status_member
-                        break
-                    else:
-                        allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
-                        # No need for temp_session here, already in async with get_db_session() for localization
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "conflict_resolve:error_detail_invalid_master_outcome", lang_code, "Invalid outcome_status for master resolution. Allowed: {allowed_list}") # type: ignore
-                        raise ValueError(error_detail_template.format(allowed_list=allowed_values_str))
+            # This block needs a session to call get_localized_message_template if a ValueError is raised.
+            # It's better to acquire the session before this try-except or pass it into a helper.
+            # For now, assuming session is available from an outer scope if error messages are localized inside.
+            # Corrected: Moved session acquisition to encompass this try block.
+            async with get_db_session() as session_for_validation: # Use a temporary session for validation messages
+                for status_member in ConflictStatus:
+                    if status_member.name.upper() == outcome_status.upper() or status_member.value.upper() == outcome_status.upper():
+                        if status_member in valid_resolution_statuses:
+                            resolved_status_enum = status_member
+                            break
+                        else:
+                            allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
+                            error_detail_template = await get_localized_message_template(session_for_validation, interaction.guild_id, "conflict_resolve:error_detail_invalid_master_outcome", lang_code, "Invalid outcome_status for master resolution. Allowed: {allowed_list}")
+                            raise ValueError(error_detail_template.format(allowed_list=allowed_values_str))
 
-            if not resolved_status_enum:
-                allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
-                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "conflict_resolve:error_detail_unrecognized_outcome", lang_code, "Outcome status not recognized or not a valid master resolution. Allowed: {allowed_list}") # type: ignore
-                raise ValueError(error_detail_template.format(allowed_list=allowed_values_str))
+                if not resolved_status_enum:
+                    allowed_values_str = ", ".join([s.name for s in valid_resolution_statuses])
+                    error_detail_template = await get_localized_message_template(session_for_validation, interaction.guild_id, "conflict_resolve:error_detail_unrecognized_outcome", lang_code, "Outcome status not recognized or not a valid master resolution. Allowed: {allowed_list}")
+                    raise ValueError(error_detail_template.format(allowed_list=allowed_values_str))
 
         except ValueError as e: # Catch specific ValueErrors from above or general ones
-            async with get_db_session() as temp_session_for_error_msg: # Keep for general error message construction
+            # If session_for_validation was used above, this temp_session_for_error_msg is redundant for this specific path.
+            # However, keeping it for safety if other ValueErrors can occur before session_for_validation is used.
+            async with get_db_session() as temp_session_for_error_msg:
                 error_msg = await get_localized_message_template(
                     temp_session_for_error_msg, interaction.guild_id, "conflict_resolve:error_processing_outcome", lang_code,
                     "Error processing outcome_status '{provided_status}': {details}"
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg.format(provided_status=outcome_status, details=str(e)), ephemeral=True)
             return
 
@@ -97,7 +104,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                         not_found_msg = await get_localized_message_template(
                             session, interaction.guild_id, "conflict_resolve:not_found", lang_code,
                             "PendingConflict with ID {conflict_id} not found in this guild."
-                        ) # type: ignore
+                        )
                         await interaction.followup.send(not_found_msg.format(conflict_id=pending_conflict_id), ephemeral=True)
                         return
 
@@ -105,7 +112,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                         not_pending_msg = await get_localized_message_template(
                             session, interaction.guild_id, "conflict_resolve:not_pending_master_resolution", lang_code,
                             "Conflict ID {conflict_id} is not awaiting master resolution (current status: {current_status})."
-                        ) # type: ignore
+                        )
                         await interaction.followup.send(not_pending_msg.format(conflict_id=pending_conflict_id, current_status=conflict_to_update.status.value), ephemeral=True)
                         return
 
@@ -122,20 +129,20 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                 # Query for remaining conflicts within the same session, after the commit.
                 # The previous transaction is committed, so this query sees the updated state.
                 remaining_conflicts_count = await pending_conflict_crud.get_count_by_guild_and_status(
-                    session, guild_id=interaction.guild_id, status=ConflictStatus.PENDING_MASTER_RESOLUTION # type: ignore
+                    session, guild_id=interaction.guild_id, status=ConflictStatus.PENDING_MASTER_RESOLUTION
                 )
 
                 # lang_code is already defined in this scope
-                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
                 base_success_msg_template = await get_localized_message_template(
                     session, interaction.guild_id, "conflict_resolve:success_base", lang_code,
                     "Conflict ID {conflict_id} has been resolved with status '{status_name}'. Notes: {notes_value}."
-                ) # type: ignore
+                )
 
                 final_message = base_success_msg_template.format(
                     conflict_id=pending_conflict_id,
-                    status_name=resolved_status_enum.name,
+                    status_name=resolved_status_enum.name if resolved_status_enum else "UNKNOWN", # Guard if resolved_status_enum is None
                     notes_value=(notes or na_value_str)
                 )
 
@@ -144,7 +151,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                     reprocessing_triggered_msg = await get_localized_message_template(
                         session, interaction.guild_id, "conflict_resolve:success_reprocessing_triggered", lang_code,
                         " All pending conflicts resolved. Guild turn reprocessing will be attempted."
-                    ) # type: ignore
+                    )
                     final_message += reprocessing_triggered_msg
                     # Use asyncio.create_task to run this in the background without blocking the command response.
                     # It needs its own session context.
@@ -154,7 +161,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                     other_pending_msg = await get_localized_message_template(
                         session, interaction.guild_id, "conflict_resolve:success_others_pending", lang_code,
                         " However, {count} other conflict(s) are still pending for this guild. Turn processing will resume once all are resolved."
-                    ) # type: ignore
+                    )
                     final_message += other_pending_msg.format(count=remaining_conflicts_count)
 
                 await interaction.followup.send(final_message, ephemeral=True)
@@ -163,9 +170,9 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                 logger.error(f"Error resolving conflict {pending_conflict_id} for guild {interaction.guild_id}: {e}", exc_info=True)
                 # Ensure lang_code is available for error message
                 generic_error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "conflict_resolve:error_generic", lang_code, # type: ignore
+                    session, interaction.guild_id, "conflict_resolve:error_generic", lang_code,
                     "An error occurred while resolving conflict {conflict_id}: {error_message}"
-                ) # type: ignore
+                )
                 await interaction.followup.send(generic_error_msg.format(conflict_id=pending_conflict_id, error_message=str(e)), ephemeral=True)
                 return
 
@@ -176,7 +183,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
         lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -188,43 +195,43 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "conflict_view:not_found", lang_code,
                     "PendingConflict with ID {conflict_id} not found in this guild."
-                ) # type: ignore
+                )
                 await interaction.followup.send(not_found_msg.format(conflict_id=pending_conflict_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "conflict_view:title", lang_code,
                 "Conflict Details (ID: {conflict_id})"
-            ) # type: ignore
+            )
             embed = discord.Embed(title=title_template.format(conflict_id=conflict.id), color=discord.Color.red())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"conflict_view:label_{key}", lang_code, default) # type: ignore
+                return await get_localized_message_template(session, interaction.guild_id, f"conflict_view:label_{key}", lang_code, default)
 
             embed.add_field(name=await get_label("status", "Status"), value=conflict.status.value, inline=True)
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(conflict.guild_id), inline=True)
 
-            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
-            created_at_val = discord.utils.format_dt(conflict.created_at, style='F') if conflict.created_at else na_value_str
+            created_at_val = discord.utils.format_dt(cast(datetime, conflict.created_at), style='F') if conflict.created_at else na_value_str # Cast for Pyright
             embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=True)
 
             if conflict.resolved_at:
-                resolved_at_val = discord.utils.format_dt(conflict.resolved_at, style='F') # type: ignore[arg-type]
+                resolved_at_val = discord.utils.format_dt(cast(datetime, conflict.resolved_at), style='F') # Cast for Pyright
                 embed.add_field(name=await get_label("resolved_at", "Resolved At"), value=resolved_at_val, inline=True)
             # else: # Optionally show N/A if not resolved
             #     embed.add_field(name=await get_label("resolved_at", "Resolved At"), value=na_value_str, inline=True)
 
 
-            error_serialization_msg_str = await get_localized_message_template(session, interaction.guild_id, "conflict_view:error_serialization", lang_code, "Error: Non-serializable data") # type: ignore
+            error_serialization_msg_str = await get_localized_message_template(session, interaction.guild_id, "conflict_view:error_serialization", lang_code, "Error: Non-serializable data")
             # na_msg used for JSON fields if they are None or empty, _format_json_field_helper handles this
 
             async def format_json_field_helper_local(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
                 # Using the session and lang_code from the outer scope of conflict_view
-                na_str_val = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+                na_str_val = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
                 if not data: return na_str_val
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
 
             involved_str = await format_json_field_helper_local(conflict.involved_entities_json, "conflict_view:value_na_json", "conflict_view:error_serialization")
             embed.add_field(name=await get_label("involved_entities", "Involved Entities"), value=f"```json\n{involved_str[:1000]}\n```" + ("..." if len(involved_str) > 1000 else ""), inline=False)
@@ -261,7 +268,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
         lang_code = str(interaction.locale)
         if interaction.guild_id is None: # Moved lang_code definition up
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -278,7 +285,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
                         invalid_status_msg = await get_localized_message_template(
                             session, interaction.guild_id, "conflict_list:error_invalid_status", lang_code,
                             "Invalid status value '{provided_status}'. Valid statuses are: {valid_statuses}"
-                        ) # type: ignore
+                        )
                         valid_statuses_str = ", ".join([s.name for s in ConflictStatus])
                         await interaction.followup.send(invalid_status_msg.format(provided_status=status, valid_statuses=valid_statuses_str), ephemeral=True)
                         return
@@ -286,17 +293,17 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             offset = (page - 1) * limit
             # These CRUD methods are assumed to exist and correctly handle guild_id
             conflicts = await pending_conflict_crud.get_multi_by_guild_and_status_paginated(
-                session, guild_id=interaction.guild_id, status=status_enum, skip=offset, limit=limit # type: ignore
+                session, guild_id=interaction.guild_id, status=status_enum, skip=offset, limit=limit
             )
             total_conflicts = await pending_conflict_crud.get_count_by_guild_and_status(
-                session, guild_id=interaction.guild_id, status=status_enum # type: ignore
+                session, guild_id=interaction.guild_id, status=status_enum
             )
 
             if not conflicts:
                 no_conflicts_msg = await get_localized_message_template(
                     session, interaction.guild_id, "conflict_list:no_conflicts_found", lang_code,
                     "No conflicts found for the given criteria (Status: {status_filter}, Page: {page_num})."
-                ) # type: ignore
+                )
                 status_filter_str = status_enum.name if status_enum else "Any"
                 await interaction.followup.send(no_conflicts_msg.format(status_filter=status_filter_str, page_num=page), ephemeral=True)
                 return
@@ -304,10 +311,10 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "conflict_list:title", lang_code,
                 "Conflict List (Status: {status_filter}, Page {page_num} of {total_pages})"
-            ) # type: ignore
+            )
             total_pages = ((total_conflicts - 1) // limit) + 1
 
-            status_any_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_any", lang_code, "Any") # type: ignore
+            status_any_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_any", lang_code, "Any")
             status_filter_display = status_enum.name if status_enum else status_any_str
 
             embed_title = title_template.format(status_filter=status_filter_display, page_num=page, total_pages=total_pages)
@@ -316,22 +323,22 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "conflict_list:footer", lang_code,
                 "Displaying {count} of {total} total conflicts."
-            ) # type: ignore
+            )
             embed.set_footer(text=footer_template.format(count=len(conflicts), total=total_conflicts))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "conflict_list:conflict_field_name", lang_code,
                 "ID: {conflict_id} | Status: {status_value}"
-            ) # type: ignore
+            )
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "conflict_list:conflict_field_value", lang_code,
                 "Created: {created_at_dt}\nInvolved: {involved_count} entities"
-            ) # type: ignore
+            )
 
             for c in conflicts:
                 involved_count = len(c.involved_entities_json) if isinstance(c.involved_entities_json, list) else 0
-                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
-                created_at_dt_str = discord.utils.format_dt(c.created_at, style='R') if c.created_at else na_value_str
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
+                created_at_dt_str = discord.utils.format_dt(cast(datetime, c.created_at), style='R') if c.created_at else na_value_str # Cast for Pyright
                 embed.add_field(
                     name=field_name_template.format(conflict_id=c.id, status_value=c.status.value),
                     value=field_value_template.format(created_at_dt=created_at_dt_str, involved_count=involved_count),

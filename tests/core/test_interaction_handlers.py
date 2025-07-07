@@ -412,7 +412,8 @@ async def test_move_to_valid_sublocation(
     expected_sublocation_name = sublocation_data.get("actual_sublocation_name"); assert expected_sublocation_name is not None
     assert f"You move to {expected_sublocation_name}." in result["message"]
     assert mock_player.current_sublocation_name == expected_sublocation_name
-    commit_mock: AsyncMock = mock_session.commit; commit_mock.assert_called_once()
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_called_once()
     log_event_mock: AsyncMock = mock_log_event; log_event_mock.assert_called_once()
     log_args, log_kwargs = log_event_mock.call_args_list[0]
     assert log_kwargs["event_type"] == "player_move_sublocation"
@@ -432,7 +433,8 @@ async def test_move_to_invalid_sublocation_not_a_sublocation_type(
     result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
     assert result["success"] is False
     assert "'Old Chest' is not a place you can move to" in result["message"]
-    commit_mock: AsyncMock = mock_session.commit; commit_mock.assert_not_called()
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_not_called()
     log_event_mock: AsyncMock = mock_log_event; log_event_mock.assert_not_called()
 
 @pytest.mark.asyncio
@@ -449,7 +451,8 @@ async def test_move_to_non_existent_sublocation(
     result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
     assert result["success"] is False
     assert "There is no sub-location called 'Imaginary Room' here." in result["message"]
-    commit_mock: AsyncMock = mock_session.commit; commit_mock.assert_not_called()
+    commit_mock: AsyncMock = mock_session.commit # type: ignore
+    commit_mock.assert_not_called()
     log_event_mock: AsyncMock = mock_log_event; log_event_mock.assert_not_called()
 
 @pytest.mark.asyncio
@@ -644,6 +647,7 @@ async def test_examine_object_no_description_i18n(
     assert result["success"] is True
     assert "You examine Plain Stone: You see nothing special." in result["message"]
 
-from src.core import localization_utils as localization_utils_module # Added for logger patch
-localization_utils_logger = localization_utils_module.logger
+# Removed erroneous line:
+# from src.core import localization_utils as localization_utils_module
+# localization_utils_logger = localization_utils_module.logger
 # [end of tests/core/test_interaction_handlers.py] # This line was causing syntax error
