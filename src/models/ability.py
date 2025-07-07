@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Any, List # Added List
+from typing import TYPE_CHECKING, Dict, Any, List, Optional # Added List and Optional
 from sqlalchemy import BigInteger, ForeignKey, Text, UniqueConstraint # Removed Integer
 # from sqlalchemy.dialects.postgresql import JSONB # Removed direct JSONB import
 from sqlalchemy.orm import Mapped, mapped_column, relationship

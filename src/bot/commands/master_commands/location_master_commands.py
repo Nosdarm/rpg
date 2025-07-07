@@ -73,7 +73,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
 
             async def format_json_field_helper(data: Optional[Union[Dict[Any, Any], List[Any]]], default_na_key: str, error_key: str) -> str: # Renamed to avoid conflict
                 na_str_val = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
-                if not data: return na_str
+                if not data: return na_str_val
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
@@ -510,7 +510,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 new_value_display_str = str(parsed_value)
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
-            embed.add_field(name=new_value_label, value=new_value_display, inline=True)
+            embed.add_field(name=new_value_label, value=new_value_display_str, inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @location_master_cmds.command(name="delete", description="Delete a Location from this guild.")

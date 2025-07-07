@@ -297,6 +297,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
             async def get_created_label(key: str, default: str) -> str:
                 return await get_localized_message_template(session, interaction.guild_id, f"item_create:label_{key}", lang_code, default) # type: ignore
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
 
             embed.add_field(name=await get_created_label("static_id", "Static ID"), value=created_item.static_id or na_value_str, inline=True) # Use na_value_str if static_id can be None
             item_type_created_display = na_value_str # Default to N/A
@@ -476,7 +477,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 new_value_display_str = str(parsed_value)
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
-            embed.add_field(name=new_value_label, value=new_value_display, inline=True)
+            embed.add_field(name=new_value_label, value=new_value_display_str, inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @item_master_cmds.command(name="delete", description="Delete an Item definition from this guild.")

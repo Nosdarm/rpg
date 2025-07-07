@@ -3,7 +3,7 @@ from typing import Optional, List, Sequence
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .crud_base_definitions import CRUDBase
+from ..crud_base_definitions import CRUDBase
 from ...models.crafting_recipe import CraftingRecipe
 
 

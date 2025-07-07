@@ -336,8 +336,10 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
         }
 
         lang_code = str(interaction.locale)
-        # db_field_name is already defined from field_to_update_lower or with _str suffix removed
-        # Corrected line:
+        field_to_update_lower = field_to_update.lower()
+        db_field_name = field_to_update_lower
+        if field_to_update_lower == "attributes_json_str": # Map attributes_json_str to attributes_json
+            db_field_name = "attributes_json"
         field_type_info = allowed_fields.get(db_field_name)
 
 
