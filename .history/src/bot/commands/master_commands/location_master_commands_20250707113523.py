@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
 
 import discord
 from discord import app_commands
