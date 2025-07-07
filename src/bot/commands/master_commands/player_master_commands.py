@@ -384,6 +384,9 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
                         if not isinstance(parsed_value, dict):
                             error_detail_template = await get_localized_message_template(session, interaction.guild_id, "player_update:error_detail_attributes_not_object", lang_code, "attributes_json must be a valid JSON object string.")
                             raise ValueError(error_detail_template)
+                        # Ensure 'dm_preferences_allow_guilds', if present and None, becomes an empty list
+                        if "dm_preferences_allow_guilds" in parsed_value and parsed_value["dm_preferences_allow_guilds"] is None:
+                            parsed_value["dm_preferences_allow_guilds"] = []
                     else:
                         error_detail_template = await get_localized_message_template(session, interaction.guild_id, "player_update:error_detail_internal_json_mismatch", lang_code, "Internal error: Attempting to parse JSON for a non-JSON field '{field_name}'.")
                         raise ValueError(error_detail_template.format(field_name=db_field_name))

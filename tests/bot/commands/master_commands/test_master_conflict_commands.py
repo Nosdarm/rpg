@@ -165,7 +165,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     expected_final_message = (base_success_msg.format(conflict_id=pending_conflict_id_fixture, notes_value="Test resolution") +
                               reprocessing_msg)
     assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
-    mock_interaction_fixture.followup.send.assert_called_once_with(expected_final_message, ephemeral=True)
+    mock_interaction_fixture.followup.send.assert_called_once_with(expected_final_message, ephemeral=True) # type: ignore
 
 
 @pytest.mark.asyncio

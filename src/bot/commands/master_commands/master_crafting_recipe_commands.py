@@ -62,7 +62,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             title_template = await get_localized_message_template(session, interaction.guild_id, "recipe_view:title", lang_code, "Recipe: {name} (ID: {id})")
             recipe_name_display = recipe.name_i18n.get(lang_code, recipe.name_i18n.get("en", f"Recipe {recipe.id}"))
             embed_title = title_template.format(name=recipe_name_display, id=recipe.id)
-            embed_color = discord.Color.brown() if recipe.guild_id else discord.Color.light_grey() # Changed cinnamon to brown
+            embed_color = discord.Color(0xA52A2A) if recipe.guild_id else discord.Color.light_grey() # Brown hex
             embed = discord.Embed(title=embed_title, color=embed_color)
 
             async def get_label(key: str, default: str) -> str:
