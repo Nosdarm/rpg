@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Union # Added Union
 import discord
 from discord.ext import commands
 
@@ -125,3 +125,113 @@ async def parse_json_parameter(
         error_msg = error_msg_template.format(field_name=field_name)
         await interaction.followup.send(error_msg, ephemeral=True)
         return None
+
+from typing import Tuple # Added for type hinting the tuple return
+
+# Assuming Player model might be relevant, but for now, returning discord.User or Member
+# from ..models.player import Player # If a Player model is needed for master_player
+from ..models.guild import GuildConfig
+from ..core.crud.crud_guild import guild_crud
+from ..core.database import get_db_session
+from ..core.localization_utils import get_localized_text # For error messages
+
+logger = logging.getLogger(__name__)
+
+async def get_master_player_from_interaction(
+    interaction: discord.Interaction,
+    session: AsyncSession # Keep session for potential future Player model fetching
+) -> Optional[Union[discord.User, discord.Member]]: # Returns User/Member for now
+    """
+    Checks if the interacting user is an administrator.
+    Placeholder: In future, this might fetch a Player object and check specific master roles.
+    """
+    if not interaction.guild: # Should not happen if called after guild check
+        logger.warning("get_master_player_from_interaction called without guild context.")
+        return None
+
+    if interaction.user.guild_permissions.administrator:
+        return interaction.user
+    else:
+        # This part might be redundant if ensure_guild_configured_and_get_session already handles permissions.
+        # However, the original import suggested two separate functions.
+        logger.warning(f"User {interaction.user.id} in guild {interaction.guild.id} is not an admin, but get_master_player_from_interaction was called.")
+        # No message sent here, as the calling command should handle permission denial if this check is primary.
+        return None
+
+
+async def ensure_guild_configured_and_get_session(
+    interaction: discord.Interaction
+) -> Tuple[Optional[Union[discord.User, discord.Member]], Optional[AsyncSession]]:
+    """
+    Ensures the guild is configured for the bot and returns a master user object and a DB session.
+    A "master user" is currently defined as a guild administrator.
+    """
+    if not interaction.guild or not interaction.guild_id:
+        try:
+            # Attempt to get localized message, fall back to default if session/localization fails early
+            error_msg = "This command can only be used in a server."
+            # Assuming no session or localization context available here yet for a more specific message.
+            # error_msg = await get_localized_text("common:error_guild_only_command", str(interaction.locale), default="This command can only be used in a server.")
+            await interaction.response.send_message(error_msg, ephemeral=True)
+        except discord.errors.InteractionResponded:
+            await interaction.followup.send("This command can only be used in a server.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error sending guild_only message: {e}")
+        return None, None
+
+    # Check for administrator permissions (basic "master" check)
+    if not interaction.user.guild_permissions.administrator:
+        try:
+            # error_msg = await get_localized_text("common:error_admin_only_command", str(interaction.locale), default="You must be an administrator to use this command.")
+            error_msg = "You must be an administrator to use this command."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(error_msg, ephemeral=True)
+            else:
+                await interaction.followup.send(error_msg, ephemeral=True)
+        except discord.errors.InteractionResponded:
+             await interaction.followup.send("You must be an administrator to use this command.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error sending admin_only message: {e}")
+        return None, None # No session returned if user is not admin
+
+    session: Optional[AsyncSession] = None
+    try:
+        session = await get_db_session().__aenter__() # Manually enter context for finer control
+
+        guild_config = await guild_crud.get(session, id=interaction.guild_id)
+        if not guild_config:
+            logger.warning(f"GuildConfig not found for guild {interaction.guild_id}. Guild might not be initialized.")
+            # error_msg = await get_localized_text("common:error_guild_not_configured", str(interaction.locale), default="This server is not configured for the bot. Please run initial setup.")
+            error_msg = "This server is not configured for the bot. Please run initial setup."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(error_msg, ephemeral=True)
+            else:
+                await interaction.followup.send(error_msg, ephemeral=True)
+            await session.close() # Close session as we are returning None for it
+            return None, None
+
+        # Add more specific checks for GuildConfig if needed, e.g., master_role_id, notification_channel_id
+        # For now, just checking if it exists is the basic "configured" check.
+
+        # If all checks pass, return the user (as master) and the session
+        # The get_master_player_from_interaction function can be used here if more complex logic is needed
+        # For now, admin check is sufficient.
+        master_user = interaction.user # Simplified: admin user is the master user
+
+        return master_user, session
+
+    except Exception as e:
+        logger.error(f"Error in ensure_guild_configured_and_get_session for guild {interaction.guild_id}: {e}", exc_info=True)
+        # error_msg = await get_localized_text("common:error_unexpected_setup", str(interaction.locale), default="An unexpected error occurred during command setup.")
+        error_msg = "An unexpected error occurred during command setup."
+        if not interaction.response.is_done():
+            try:
+                await interaction.response.send_message(error_msg, ephemeral=True)
+            except discord.errors.InteractionResponded:
+                 await interaction.followup.send(error_msg, ephemeral=True)
+        else:
+            await interaction.followup.send(error_msg, ephemeral=True)
+
+        if session:
+            await session.close()
+        return None, None
