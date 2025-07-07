@@ -347,6 +347,38 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @conflict_master_cmds.command(name="delete", description="Delete a specific pending conflict.")
+    @app_commands.describe(pending_conflict_id="The ID of the pending conflict to delete.")
+    async def conflict_delete(self, interaction: discord.Interaction, pending_conflict_id: int):
+        await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        async with get_db_session() as session:
+            conflict_to_delete = await pending_conflict_crud.get(session, id=pending_conflict_id, guild_id=interaction.guild_id)
+            if not conflict_to_delete:
+                not_found_msg = await get_localized_message_template(session, interaction.guild_id, "conflict_delete:not_found", lang_code, "PendingConflict with ID {conflict_id} not found.")
+                await interaction.followup.send(not_found_msg.format(conflict_id=pending_conflict_id), ephemeral=True); return
+
+            try:
+                async with session.begin():
+                    deleted_conflict = await pending_conflict_crud.delete(session, id=pending_conflict_id, guild_id=interaction.guild_id)
+
+                if deleted_conflict:
+                    success_msg = await get_localized_message_template(session, interaction.guild_id, "conflict_delete:success", lang_code, "PendingConflict ID {conflict_id} has been deleted.")
+                    await interaction.followup.send(success_msg.format(conflict_id=pending_conflict_id), ephemeral=True)
+                else: # Should not happen if found before
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "conflict_delete:error_not_deleted_unknown", lang_code, "PendingConflict (ID: {conflict_id}) was found but could not be deleted.")
+                    await interaction.followup.send(error_msg.format(conflict_id=pending_conflict_id), ephemeral=True)
+            except Exception as e:
+                logger.error(f"Error deleting PendingConflict {pending_conflict_id} for guild {interaction.guild_id}: {e}", exc_info=True)
+                generic_error_msg = await get_localized_message_template(session, interaction.guild_id, "conflict_delete:error_generic", lang_code, "An error occurred while deleting conflict {conflict_id}: {error_message}")
+                await interaction.followup.send(generic_error_msg.format(conflict_id=pending_conflict_id, error_message=str(e)), ephemeral=True)
+
+
 async def setup(bot: commands.Bot):
     cog = MasterConflictCog(bot)
     await bot.add_cog(cog)

@@ -16,6 +16,7 @@ from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
 from src.models.enums import OwnerEntityType
 from src.models.inventory_item import InventoryItem # For type hinting
+from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
@@ -198,15 +199,16 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
                                     equipped_status: Optional[str] = None,
                                     properties_json: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
-
         lang_code = str(interaction.locale)
-        parsed_props: Optional[Dict[str, Any]] = None
         owner_type_enum: OwnerEntityType
         if interaction.guild_id is None:
             await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
             return
 
         async with get_db_session() as session:
+            parsed_props = await parse_json_parameter(interaction, properties_json, "properties_json", session)
+            if parsed_props is None and properties_json is not None: return # Error already sent by utility
+
             try:
                 owner_type_enum = OwnerEntityType[owner_type.upper()]
             except KeyError:
@@ -223,11 +225,9 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_owner_not_found",lang_code,"Owner {type}({id}) not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(type=owner_type_enum.name, id=owner_id), ephemeral=True); return
 
-            # Assuming item definitions can be global or guild-specific. Try guild first.
             base_item = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
-            if not base_item: # Fallback to global if not found in guild
+            if not base_item:
                  base_item = await item_crud.get(session, id=item_id, guild_id=None)
-
             if not base_item:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_item_def_not_found",lang_code,"Base Item with ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=item_id), ephemeral=True); return
@@ -235,19 +235,6 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             if quantity < 1:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_quantity",lang_code,"Quantity must be 1 or greater.") # type: ignore
                 await interaction.followup.send(error_msg, ephemeral=True); return
-
-            try:
-                if properties_json:
-                    parsed_props = json.loads(properties_json)
-                    if not isinstance(parsed_props, dict): raise ValueError("properties_json must be a dict.")
-            except ValueError as e: # Specific exception first
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_json_props",lang_code,"Invalid JSON for properties: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-            # except json.JSONDecodeError as e:
-            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_json_props",lang_code,"Invalid JSON for properties: {details}") # type: ignore
-            #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-
 
             created_inv_item: Optional[InventoryItem] = None
             try:
@@ -294,8 +281,12 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
         lang_code = str(interaction.locale)
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
-        if field_to_update_lower == "properties_json": # Map user input to db field name
+        user_facing_field_name = field_to_update_lower # For messages from parse_json_parameter
+
+        if field_to_update_lower == "properties_json":
             db_field_name = "instance_specific_properties_json"
+            user_facing_field_name = "properties_json"
+
 
         field_type_info = allowed_fields.get(db_field_name)
 
@@ -306,6 +297,11 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
 
         parsed_value: Any = None
         async with get_db_session() as session:
+            inv_item_to_update = await inventory_item_crud.get(session, id=inventory_item_id, guild_id=interaction.guild_id)
+            if not inv_item_to_update:
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_not_found",lang_code,"InventoryItem ID {id} not found.") # type: ignore
+                await interaction.followup.send(error_msg.format(id=inventory_item_id), ephemeral=True); return
+
             try:
                 if db_field_name == "quantity":
                     parsed_value = int(new_value)
@@ -314,23 +310,32 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
                         parsed_value = None
                     else:
-                        parsed_value = new_value # Assumed to be a string or None
+                        parsed_value = new_value
                 elif db_field_name == "instance_specific_properties_json":
-                    parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, dict): raise ValueError("properties_json must be a dict.")
-                else: # Should not be reached
+                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                    if parsed_value is None: return # Error already sent
+                else:
                     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_unknown_field",lang_code,"Unknown field for update.") # type: ignore
                     await interaction.followup.send(error_msg, ephemeral=True); return
-            except ValueError as e: # Specific exception first for int conversion or explicit raises
+            except ValueError as e:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
-            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-            # except json.JSONDecodeError as e:
-            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
-            #     await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
-            inv_item_to_update = await inventory_item_crud.get(session, id=inventory_item_id, guild_id=interaction.guild_id)
-            if not inv_item_to_update:
+            if db_field_name == "quantity" and parsed_value == 0:
+                try:
+                    async with session.begin():
+                        await inventory_item_crud.delete(session, id=inventory_item_id, guild_id=interaction.guild_id)
+                    success_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:success_deleted_qty_zero",lang_code,"InventoryItem ID {id} quantity set to 0 and was deleted.") # type: ignore
+                    await interaction.followup.send(success_msg.format(id=inventory_item_id), ephemeral=True)
+                    return
+                except Exception as e:
+                    logger.error(f"Error deleting InventoryItem {inventory_item_id} due to quantity 0: {e}", exc_info=True)
+                    error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_delete_on_zero_qty",lang_code,"Error deleting item ID {id} when setting quantity to 0: {err}") # type: ignore
+                    await interaction.followup.send(error_msg.format(id=inventory_item_id, err=str(e)), ephemeral=True); return
+
+            update_data = {db_field_name: parsed_value}
+            updated_inv_item: Optional[InventoryItem] = None
+            try:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_not_found",lang_code,"InventoryItem ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=inventory_item_id), ephemeral=True); return
 

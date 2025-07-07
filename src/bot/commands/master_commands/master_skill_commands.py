@@ -9,8 +9,9 @@ from sqlalchemy import func, select, and_, or_
 
 from src.core.crud.crud_skill import skill_crud
 from src.core.database import get_db_session
-from src.core.crud_base_definitions import update_entity # For future update/create commands
+from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
+from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
@@ -155,20 +156,33 @@ class MasterSkillCog(commands.Cog, name="Master Skill Commands"):
                            is_global: bool = False):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
-        parsed_name: Dict[str, str]; parsed_desc: Dict[str, str]
-        parsed_related_attr: Optional[Dict[str, str]] = None
-        parsed_props: Optional[Dict[str, Any]] = None
 
         target_guild_id_for_skill: Optional[int] = interaction.guild_id if not is_global else None
         current_guild_id_for_messages: Optional[int] = interaction.guild_id
 
         if not is_global and current_guild_id_for_messages is None:
-            # No session here yet for localization, send raw or get session just for this
             async with get_db_session() as temp_session:
                 error_msg_template = await get_localized_message_template(temp_session, current_guild_id_for_messages, "skill_create:error_guild_specific_no_guild", lang_code, "Cannot create a guild-specific skill outside of a guild. Use `is_global=True` or run in a guild.") # type: ignore
             await interaction.followup.send(error_msg_template, ephemeral=True); return
 
         async with get_db_session() as session:
+            parsed_name_i18n = await parse_json_parameter(interaction, name_i18n_json, "name_i18n_json", session)
+            if parsed_name_i18n is None: return
+            error_detail_name_lang = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_name_lang", lang_code, "name_i18n_json must contain 'en' or current language key.") # type: ignore
+            if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code):
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_invalid_json_content", lang_code, "Invalid JSON content: {details}") # type: ignore
+                await interaction.followup.send(error_msg.format(details=error_detail_name_lang), ephemeral=True); return
+
+            parsed_desc_i18n = await parse_json_parameter(interaction, description_i18n_json, "description_i18n_json", session)
+            if parsed_desc_i18n is None: return # description_i18n_json is not optional in command, so if it's None here, it means parsing failed.
+
+            parsed_related_attr = await parse_json_parameter(interaction, related_attribute_i18n_json, "related_attribute_i18n_json", session)
+            if parsed_related_attr is None and related_attribute_i18n_json is not None: return
+
+            parsed_props = await parse_json_parameter(interaction, properties_json, "properties_json", session)
+            if parsed_props is None and properties_json is not None: return
+
+
             existing_skill_static = await skill_crud.get_by_static_id(session, static_id=static_id, guild_id=target_guild_id_for_skill)
             if existing_skill_static:
                 scope_global_str = await get_localized_message_template(session, current_guild_id_for_messages, "common:scope_global", lang_code, "global") # type: ignore
@@ -176,31 +190,10 @@ class MasterSkillCog(commands.Cog, name="Master Skill Commands"):
                 scope_str = scope_global_str if target_guild_id_for_skill is None else scope_guild_tmpl.format(guild_id=target_guild_id_for_skill)
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_static_id_exists", lang_code, "Skill static_id '{id}' already exists in scope {sc}.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=static_id, sc=scope_str), ephemeral=True); return
-            try:
-                parsed_name = json.loads(name_i18n_json)
-                parsed_desc = json.loads(description_i18n_json)
-                error_detail_name_format = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_name_format", lang_code, "name_i18n_json must be a dictionary of string keys and string values.") # type: ignore
-                error_detail_name_lang = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_name_lang", lang_code, "name_i18n_json must contain 'en' or current language key.") # type: ignore
-                error_detail_desc_format = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_desc_format", lang_code, "description_i18n_json must be a dictionary of string keys and string values.") # type: ignore
-                error_detail_related_attr_format = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_related_attr_format", lang_code, "related_attribute_i18n_json must be a dictionary of string keys and string values.") # type: ignore
-                error_detail_props_format = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_detail_props_format", lang_code, "properties_json must be a dictionary.") # type: ignore
-
-                if not isinstance(parsed_name, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_name.items()): raise ValueError(error_detail_name_format)
-                if not parsed_name.get("en") and not parsed_name.get(lang_code): raise ValueError(error_detail_name_lang)
-                if not isinstance(parsed_desc, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_desc.items()): raise ValueError(error_detail_desc_format)
-                if related_attribute_i18n_json:
-                    parsed_related_attr = json.loads(related_attribute_i18n_json)
-                    if not isinstance(parsed_related_attr, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_related_attr.items()): raise ValueError(error_detail_related_attr_format)
-                if properties_json:
-                    parsed_props = json.loads(properties_json)
-                    if not isinstance(parsed_props, dict): raise ValueError(error_detail_props_format)
-            except (json.JSONDecodeError, ValueError) as e:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_create:error_invalid_json", lang_code, "Invalid JSON: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
             skill_data_create: Dict[str, Any] = {
                 "guild_id": target_guild_id_for_skill, "static_id": static_id,
-                "name_i18n": parsed_name, "description_i18n": parsed_desc,
+                "name_i18n": parsed_name_i18n, "description_i18n": parsed_desc_i18n, # Now parsed_desc_i18n is not optional if input was not
                 "related_attribute_i18n": parsed_related_attr or {},
                 "properties_json": parsed_props or {}
             }
@@ -254,8 +247,24 @@ class MasterSkillCog(commands.Cog, name="Master Skill Commands"):
         }
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
+        user_facing_field_name = field_to_update_lower # For messages from parse_json_parameter
+
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json", "") in allowed_fields:
             db_field_name = field_to_update_lower.replace("_json", "")
+        # Add other specific mappings if user_facing_field_name differs from db_field_name
+        # e.g. if user types "name_json" but db is "name_i18n"
+        elif field_to_update_lower == "name_i18n_json":
+            db_field_name = "name_i18n"
+            user_facing_field_name = "name_i18n_json"
+        elif field_to_update_lower == "description_i18n_json":
+            db_field_name = "description_i18n"
+            user_facing_field_name = "description_i18n_json"
+        elif field_to_update_lower == "related_attribute_i18n_json":
+            db_field_name = "related_attribute_i18n"
+            user_facing_field_name = "related_attribute_i18n_json"
+        elif field_to_update_lower == "properties_json": # Already matches
+            pass
+
 
         field_type_info = allowed_fields.get(db_field_name)
         if not field_type_info:
@@ -275,13 +284,16 @@ class MasterSkillCog(commands.Cog, name="Master Skill Commands"):
                 if db_field_name == "static_id":
                     parsed_value = new_value
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
-                    existing_skill = await skill_crud.get_by_static_id(session, static_id=parsed_value, guild_id=original_skill_guild_id_scope)
-                    if existing_skill and existing_skill.id != skill_id:
-                        error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.") # type: ignore
-                        await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
-                elif field_type_info == dict: parsed_value = json.loads(new_value); assert isinstance(parsed_value, dict)
+                    if parsed_value != skill_to_update.static_id: # Only check if changed
+                        existing_skill = await skill_crud.get_by_static_id(session, static_id=parsed_value, guild_id=original_skill_guild_id_scope)
+                        if existing_skill and existing_skill.id != skill_id:
+                            error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.") # type: ignore
+                            await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
+                elif field_type_info == dict:
+                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                    if parsed_value is None: return
                 else: raise ValueError(f"Unsupported type for field {db_field_name}")
-            except (ValueError, json.JSONDecodeError, AssertionError) as e:
+            except (ValueError, AssertionError) as e: # Removed json.JSONDecodeError
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "skill_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
