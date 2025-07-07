@@ -1,166 +1,46 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 21 issue(s):
-  Line 39   [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 91   [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 151  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 239  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 343  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 391  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 444  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 495  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 587  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 695  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 758  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 770  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
-┬а┬аAttribute "get_by_quest_and_order" is unknown
-  Line 824  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 892  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 941  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 970  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
-┬а┬аAttribute "get_by_quest_and_order" is unknown
-  Line 1018 [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 1067 [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 1132 [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 1197 [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 1269 [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 11 issue(s):
-  Line 38   [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 127  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 164  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "create_with_defaults"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 168  [ERROR] Cannot access attribute "locale" for class "User"
-┬а┬аAttribute "locale" is unknown
-  Line 194  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 202  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 209  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 240  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 315  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 480  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 511  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
-┬а┬а"None" is not assignable to "list[int]"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 25 issue(s):
+  Line 121  [ERROR] Argument missing for parameter "player_name"
+  Line 121  [ERROR] Arguments missing for parameters "discord_user", "player_name"
+  Line 124  [ERROR] No parameter named "player_id"
+  Line 125  [ERROR] No parameter named "discord_id"
+  Line 126  [ERROR] No parameter named "name"
+  Line 132  [ERROR] No parameter named "max_hp"
+  Line 133  [ERROR] No parameter named "current_status_str"
+  Line 135  [ERROR] No parameter named "selected_language"
+  Line 139  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 199  [ERROR] Argument missing for parameter "player_name"
+  Line 199  [ERROR] Arguments missing for parameters "discord_user", "player_name"
+  Line 202  [ERROR] No parameter named "discord_id"
+  Line 202  [ERROR] No parameter named "name"
+  Line 202  [ERROR] No parameter named "player_id"
+  Line 205  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 255  [ERROR] Argument missing for parameter "player_name"
+  Line 255  [ERROR] Arguments missing for parameters "discord_user", "player_name"
+  Line 258  [ERROR] No parameter named "player_id"
+  Line 259  [ERROR] No parameter named "discord_id"
+  Line 260  [ERROR] No parameter named "name"
+  Line 293  [ERROR] Argument missing for parameter "player_name"
+  Line 293  [ERROR] Arguments missing for parameters "discord_user", "player_name"
+  Line 296  [ERROR] No parameter named "player_id"
+  Line 297  [ERROR] No parameter named "discord_id"
+  Line 298  [ERROR] No parameter named "name"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
-  Line 287  [ERROR] Argument missing for parameter "entity_type"
-  Line 289  [ERROR] Argument missing for parameter "entity_type"
-  Line 358  [ERROR] Argument missing for parameter "entity_type"
-  Line 360  [ERROR] Argument missing for parameter "entity_type"
-  Line 401  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
+  Line 288  [ERROR] Argument missing for parameter "entity_type"
+  Line 290  [ERROR] Argument missing for parameter "entity_type"
+  Line 359  [ERROR] Argument missing for parameter "entity_type"
+  Line 361  [ERROR] Argument missing for parameter "entity_type"
+  Line 402  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
 ┬а┬аAttribute "call_args_list" is unknown
-  Line 504  [ERROR] Argument missing for parameter "entity_type"
-  Line 832  [ERROR] Argument missing for parameter "entity_type"
+  Line 505  [ERROR] Argument missing for parameter "entity_type"
   Line 833  [ERROR] Argument missing for parameter "entity_type"
   Line 834  [ERROR] Argument missing for parameter "entity_type"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 8 issue(s):
-  Line 17   [ERROR] "PlayerMasterCommandsCog" is unknown import symbol
-  Line 139  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 171  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 204  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 215  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 267  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 315  [ERROR] Cannot access attribute "call_args" for class "MethodType"
-┬а┬аAttribute "call_args" is unknown
-  Line 318  [ERROR] Cannot access attribute "call_args" for class "MethodType"
-┬а┬аAttribute "call_args" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_conflict_commands.py] — 7 issue(s):
-  Line 122  [ERROR] Parameter "pending_conflict_id" is already assigned
-  Line 123  [ERROR] Cannot access attribute "RESOLVED_BY_MASTER_DISMISS" for class "type[ConflictStatus]"
-┬а┬аAttribute "RESOLVED_BY_MASTER_DISMISS" is unknown
-  Line 128  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 167  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 208  [ERROR] Parameter "pending_conflict_id" is already assigned
-  Line 209  [ERROR] Cannot access attribute "RESOLVED_BY_MASTER_DISMISS" for class "type[ConflictStatus]"
-┬а┬аAttribute "RESOLVED_BY_MASTER_DISMISS" is unknown
-  Line 221  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_crafting_recipe_commands.py] — 5 issue(s):
-  Line 59   [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 62   [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 65   [ERROR] Cannot access attribute "cinnamon" for class "Color"
-┬а┬аAttribute "cinnamon" is unknown
-  Line 339  [ERROR] Argument of type "Any | dict[Unknown, Unknown] | list[Unknown]" cannot be assigned to parameter "id" of type "int" in function "get"
-┬а┬аType "Any | dict[Unknown, Unknown] | list[Unknown]" is not assignable to type "int"
-┬а┬а┬а┬а"dict[Unknown, Unknown]" is not assignable to "int"
-  Line 340  [ERROR] Argument of type "Any | dict[Unknown, Unknown] | list[Unknown]" cannot be assigned to parameter "id" of type "int" in function "get"
-┬а┬аType "Any | dict[Unknown, Unknown] | list[Unknown]" is not assignable to type "int"
-┬а┬а┬а┬а"dict[Unknown, Unknown]" is not assignable to "int"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\party_master_commands.py] — 5 issue(s):
-  Line 39   [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 119  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 213  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 370  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-  Line 577  [ERROR] Argument of type "None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬а"None" is not assignable to "int"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\combat_master_commands.py] — 4 issue(s):
-  Line 103  [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
-┬а┬аAttribute "created_at" is unknown
-  Line 103  [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
-┬а┬аAttribute "created_at" is unknown
-  Line 104  [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
-┬а┬аAttribute "updated_at" is unknown
-  Line 104  [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
-┬а┬аAttribute "updated_at" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 4 issue(s):
-  Line 16   [ERROR] "StatusEffectCategory" is unknown import symbol
-  Line 195  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 200  [ERROR] "error_detail_invalid_category" is possibly unbound
-  Line 321  [ERROR] Cannot access attribute "name" for class "dict[Unknown, Unknown]"
-┬а┬аAttribute "name" is unknown
+  Line 835  [ERROR] Argument missing for parameter "entity_type"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
   Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
@@ -170,42 +50,31 @@
   Line 633  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
   Line 633  [ERROR] "__getitem__" method not defined on type "Player"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\utils.py] — 3 issue(s):
-  Line 92   [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 107  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 120  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_conflict_commands.py] — 3 issue(s):
+  Line 122  [ERROR] Parameter "pending_conflict_id" is already assigned
+  Line 128  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 209  [ERROR] Parameter "pending_conflict_id" is already assigned
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 3 issue(s):
-  Line 415  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 435  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 452  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 2 issue(s):
+  Line 770  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
+┬а┬аAttribute "get_by_quest_and_order" is unknown
+  Line 970  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
+┬а┬аAttribute "get_by_quest_and_order" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\conflict_master_commands.py] — 2 issue(s):
-  Line 209  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
-  Line 334  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\story_log_master_commands.py] — 2 issue(s):
+  Line 46   [ERROR] Cannot access attribute "get_by_id" for class "CRUDBase[StoryLog]"
+┬а┬аAttribute "get_by_id" is unknown
+  Line 132  [ERROR] Cannot access attribute "turn_number" for class "type[StoryLog]"
+┬а┬аAttribute "turn_number" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_memory_commands.py] — 1 issue(s):
-  Line 78   [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_crafting_recipe_commands.py] — 1 issue(s):
+  Line 65   [ERROR] Cannot access attribute "brown" for class "Color"
+┬а┬аAttribute "brown" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\story_log_master_commands.py] — 1 issue(s):
-  Line 173  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 1 issue(s):
-  Line 843  [ERROR] Cannot access attribute "PENDING_RESOLUTION" for class "type[ConflictStatus]"
-┬а┬аAttribute "PENDING_RESOLUTION" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 1 issue(s):
+  Line 529  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
+┬а┬а"None" is not assignable to "list[int]"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
   Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
