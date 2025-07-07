@@ -113,9 +113,9 @@ def mock_location_with_details(request) -> Location:
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_existing_object(
-    mock_log_event: AsyncMock, # type: ignore
-    mock_location_crud: AsyncMock, # type: ignore
-    mock_player_crud: AsyncMock, # type: ignore
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -140,9 +140,9 @@ async def test_examine_existing_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_non_existent_object(
-    mock_log_event: AsyncMock, # type: ignore
-    mock_location_crud: AsyncMock, # type: ignore
-    mock_player_crud: AsyncMock, # type: ignore
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -158,9 +158,9 @@ async def test_examine_non_existent_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_unexaminable_object(
-    mock_log_event: AsyncMock, # type: ignore
-    mock_location_crud: AsyncMock, # type: ignore
-    mock_player_crud: AsyncMock, # type: ignore
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player

@@ -274,12 +274,12 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
              ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, inventory_template_key=" ") # level is optional
         # This specific error message "generated_inventory_items must be a list of item entry objects if provided" comes from the validator in ParsedNpcTraderData
         with self.assertRaisesRegex(PydanticNativeValidationError, "generated_inventory_items must be a list if provided"): # Corrected message based on model
-             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, generated_inventory_items="not a list") # level is optional
+             ParsedNpcTraderData(entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, generated_inventory_items="not a list") # type: ignore[arg-type] # level is optional
         # Test invalid item within generated_inventory_items (Pydantic will raise error for the nested model)
         with self.assertRaises(PydanticNativeValidationError):
              ParsedNpcTraderData(
                 entity_type="npc_trader", static_id="t1", name_i18n={"en":"n"}, description_i18n={"en":"d"}, # level is optional
-                generated_inventory_items=[{"item_static_id": ""}] # Empty item_static_id in GeneratedInventoryItemEntry
+                generated_inventory_items=[{"item_static_id": ""}] # type: ignore[arg-type] # Empty item_static_id in GeneratedInventoryItemEntry
             )
 
 

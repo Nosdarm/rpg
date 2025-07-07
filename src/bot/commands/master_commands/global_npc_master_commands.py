@@ -68,7 +68,7 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(gnpc.guild_id), inline=True)
-            embed.add_field(name=await get_label("npc_template_id", "NPC Template ID"), value=str(gnpc.npc_template_id) if gnpc.npc_template_id else "N/A", inline=True)
+            embed.add_field(name=await get_label("base_npc_id", "Base NPC ID (Template)"), value=str(gnpc.base_npc_id) if gnpc.base_npc_id else "N/A", inline=True)
             embed.add_field(name=await get_label("current_location_id", "Current Location ID"), value=str(gnpc.current_location_id) if gnpc.current_location_id else "N/A", inline=True)
             current_hp_val = getattr(gnpc, 'current_hp', None)
             embed.add_field(name=await get_label("current_hp", "Current HP"), value=str(current_hp_val) if current_hp_val is not None else "N/A", inline=True)
@@ -79,8 +79,9 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
             name_i18n_str = await format_json_field_helper(gnpc.name_i18n, "global_npc_view:value_na_json", "global_npc_view:error_serialization_name")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
 
-            route_str = await format_json_field_helper(gnpc.route_json, "global_npc_view:value_na_json", "global_npc_view:error_serialization_route")
-            embed.add_field(name=await get_label("route_json", "Route JSON"), value=f"```json\n{route_str[:1000]}\n```" + ("..." if len(route_str) > 1000 else ""), inline=False)
+            route_data = gnpc.properties_json.get("route") if gnpc.properties_json else None
+            route_str = await format_json_field_helper(route_data, "global_npc_view:value_na_json", "global_npc_view:error_serialization_route") # type: ignore
+            embed.add_field(name=await get_label("route_json", "Route JSON (from Properties)"), value=f"```json\n{route_str[:1000]}\n```" + ("..." if len(route_str) > 1000 else ""), inline=False)
 
             properties_str = await format_json_field_helper(gnpc.properties_json, "global_npc_view:value_na_json", "global_npc_view:error_serialization_properties")
             embed.add_field(name=await get_label("properties_json", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```" + ("..." if len(properties_str) > 1000 else ""), inline=False)
@@ -228,12 +229,18 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
             #     error_msg = await get_localized_message_template(session,interaction.guild_id,"gnpc_create:error_invalid_json",lang_code,"Invalid JSON: {details}") # type: ignore
             #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
+            final_properties = parsed_props or {}
+            if parsed_route:
+                final_properties["route"] = parsed_route
+
             gnpc_data_create: Dict[str, Any] = {
                 "guild_id": interaction.guild_id, # Already checked not None
                 "name_i18n": parsed_name_i18n,
-                "npc_template_id": npc_template_id, "current_location_id": current_location_id,
-                "current_hp": current_hp, "mobile_group_id": mobile_group_id,
-                "route_json": parsed_route or {}, "properties_json": parsed_props or {}
+                "base_npc_id": npc_template_id, # Corresponds to model field
+                "current_location_id": current_location_id,
+                "current_hp": current_hp,
+                "mobile_group_id": mobile_group_id,
+                "properties_json": final_properties # Route is now nested here
             }
 
             created_gnpc: Optional[Any] = None

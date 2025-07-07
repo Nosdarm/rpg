@@ -16,7 +16,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from .base import Base
 from .custom_types import JsonBForSQLite # Added
-from .enums import StatusEffectCategory # Import the actual enum
+from .enums import StatusEffectCategory # type: ignore[reportMissingImports] # Import the actual enum
 
 if TYPE_CHECKING:
     from .guild import GuildConfig

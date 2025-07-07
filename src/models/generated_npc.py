@@ -12,6 +12,7 @@ from .inventory_item import InventoryItem # Ensure full import for relationship
 if TYPE_CHECKING:
 #     from .guild import GuildConfig
     from .location import Location # Ensure Location is imported for the relationship
+    from .generated_faction import GeneratedFaction # For type hinting relationship
     pass # InventoryItem is now fully imported
 
 class GeneratedNpc(Base):

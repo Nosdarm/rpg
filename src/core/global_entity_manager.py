@@ -324,7 +324,7 @@ async def _simulate_entity_interactions(session: AsyncSession, guild_id: int, en
                        # or dc modification: dc = int(detection_rule.get("base_dc", 10)) + (target_stealth - 10) // 2
                        difficulty_dc=int(detection_rule.get("base_dc", 10)) # type: ignore
                     )
-                    if check_result.outcome == CheckOutcome.SUCCESS:
+                    if check_result.outcome.status == "success": # Compare the status string
                        detected = True
                 else: # Fallback if types can't be mapped for check resolver
                     logger.warning(f"Cannot resolve relationship types for detection check between {entity_actor_type_key} and {target_entity_type_key}. Assuming detection for rule '{detection_rule_key}'.")
