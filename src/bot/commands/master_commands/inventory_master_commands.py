@@ -333,28 +333,12 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
                     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_delete_on_zero_qty",lang_code,"Error deleting item ID {id} when setting quantity to 0: {err}") # type: ignore
                     await interaction.followup.send(error_msg.format(id=inventory_item_id, err=str(e)), ephemeral=True); return
 
-            update_data = {db_field_name: parsed_value}
-            updated_inv_item: Optional[InventoryItem] = None
-            try:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_not_found",lang_code,"InventoryItem ID {id} not found.") # type: ignore
-                await interaction.followup.send(error_msg.format(id=inventory_item_id), ephemeral=True); return
-
-            if db_field_name == "quantity" and parsed_value == 0:
-                try:
-                    async with session.begin():
-                        await inventory_item_crud.delete(session, id=inventory_item_id, guild_id=interaction.guild_id)
-                    success_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:success_deleted_qty_zero",lang_code,"InventoryItem ID {id} quantity set to 0 and was deleted.") # type: ignore
-                    await interaction.followup.send(success_msg.format(id=inventory_item_id), ephemeral=True)
-                    return
-                except Exception as e:
-                    logger.error(f"Error deleting InventoryItem {inventory_item_id} due to quantity 0: {e}", exc_info=True)
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_delete_on_zero_qty",lang_code,"Error deleting item ID {id} when setting quantity to 0: {err}") # type: ignore
-                    await interaction.followup.send(error_msg.format(id=inventory_item_id, err=str(e)), ephemeral=True); return
-
+            # If not deleting (quantity != 0 or field is not quantity), proceed to update
             update_data = {db_field_name: parsed_value}
             updated_inv_item: Optional[InventoryItem] = None
             try:
                 async with session.begin():
+                    # inv_item_to_update was fetched at the start of the 'async with get_db_session() as session:' block
                     updated_inv_item = await update_entity(session, entity=inv_item_to_update, data=update_data)
                     await session.flush();
                     if updated_inv_item: await session.refresh(updated_inv_item)
