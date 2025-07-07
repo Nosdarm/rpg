@@ -46,6 +46,34 @@ config.set_main_option("sqlalchemy.url", DATABASE_URL)
 print(f"DEBUG: alembic/env.py: Final sqlalchemy.url set for Alembic: {config.get_main_option('sqlalchemy.url')}")
 # --- End of added print statement ---
 
+# --- BEGIN DIAGNOSTIC IMPORT ---
+# Explicitly import GeneratedNpc to ensure it's loaded before metadata is accessed
+try:
+    from src.models.generated_npc import GeneratedNpc
+    print(f"DEBUG: alembic/env.py: Explicitly imported GeneratedNpc. Columns: {GeneratedNpc.__table__.columns.keys()}")
+    if 'faction_id' in GeneratedNpc.__table__.columns:
+        print("DEBUG: alembic/env.py: 'faction_id' IS present in explicitly imported GeneratedNpc.__table__.columns")
+        # Also check the faction relationship to ensure GeneratedFaction is seen
+        if hasattr(GeneratedNpc, 'faction'):
+            print(f"DEBUG: alembic/env.py: GeneratedNpc.faction relationship exists. Type: {type(GeneratedNpc.faction.property.mapper.class_)}")
+            from src.models.generated_faction import GeneratedFaction
+            if GeneratedNpc.faction.property.mapper.class_ == GeneratedFaction:
+                 print("DEBUG: alembic/env.py: GeneratedNpc.faction relationship correctly points to GeneratedFaction.")
+            else:
+                 print("DEBUG: alembic/env.py: GeneratedNpc.faction relationship points to unexpected class.")
+        else:
+            print("DEBUG: alembic/env.py: GeneratedNpc.faction relationship does NOT exist.")
+
+    else:
+        print("DEBUG: alembic/env.py: 'faction_id' IS NOT present in explicitly imported GeneratedNpc.__table__.columns")
+except ImportError as e:
+    print(f"DEBUG: alembic/env.py: ImportError when explicitly importing GeneratedNpc: {e}")
+except AttributeError as e:
+    print(f"DEBUG: alembic/env.py: AttributeError related to GeneratedNpc (perhaps __table__ not ready): {e}")
+except Exception as e:
+    print(f"DEBUG: alembic/env.py: Other error inspecting GeneratedNpc: {e}")
+# --- END DIAGNOSTIC IMPORT ---
+
 target_metadata = Base.metadata
 # --- Конец изменений ---
 
