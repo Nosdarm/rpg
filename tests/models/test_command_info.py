@@ -30,6 +30,7 @@ def test_command_parameter_info_creation():
 def test_command_parameter_info_optional_description():
     param_info = CommandParameterInfo(
         name="target",
+        description=None, # Explicitly pass None for optional field
         type="user",
         required=False
     )
@@ -39,7 +40,7 @@ def test_command_parameter_info_optional_description():
     assert param_info.required is False
 
 def test_command_info_creation():
-    param1 = CommandParameterInfo(name="param1", type="string", required=True)
+    param1 = CommandParameterInfo(name="param1", description=None, type="string", required=True)
     cmd_info = CommandInfo(
         name="mycommand",
         description="This is a test command.",
@@ -51,13 +52,13 @@ def test_command_info_creation():
     assert cmd_info.parameters[0].name == "param1"
 
 def test_command_info_no_parameters_no_description():
-    cmd_info = CommandInfo(name="simplecmd")
+    cmd_info = CommandInfo(name="simplecmd", description=None) # Explicitly pass None
     assert cmd_info.name == "simplecmd"
     assert cmd_info.description is None
     assert cmd_info.parameters == []
 
 def test_command_list_response_creation():
-    cmd1 = CommandInfo(name="cmd1")
+    cmd1 = CommandInfo(name="cmd1", description=None) # Explicitly pass None
     cmd2 = CommandInfo(name="cmd2", description="A second command.")
     response = CommandListResponse(
         commands=[cmd1, cmd2],
@@ -74,7 +75,7 @@ def test_command_list_response_empty_commands():
     assert response.language_code == "ru"
 
 def test_command_list_response_no_language_code():
-    response = CommandListResponse(commands=[CommandInfo(name="cmd")])
+    response = CommandListResponse(commands=[CommandInfo(name="cmd", description=None)], language_code=None) # Explicitly pass None
     assert response.language_code is None
 
 # Пример теста на валидацию, если бы были более строгие правила
@@ -112,20 +113,43 @@ def test_command_list_response_no_language_code():
 
 def test_command_parameter_info_validation_error():
     with pytest.raises(ValidationError):
-        CommandParameterInfo(name="test", type="str") # 'required' is missing
+        CommandParameterInfo(name="test", description="some description", type="str") # type: ignore # 'required' is missing
 
     with pytest.raises(ValidationError):
-        CommandParameterInfo(name="test", required=True) # 'type' is missing
+        CommandParameterInfo(name="test", description="some description", required=True) # type: ignore # 'type' is missing
 
     with pytest.raises(ValidationError):
-        CommandParameterInfo(type="str", required=True) # 'name' is missing
+        CommandParameterInfo(description="some description", type="str", required=True) # type: ignore # 'name' is missing
 
 def test_command_info_validation_error():
     with pytest.raises(ValidationError):
-        CommandInfo(description="test") # 'name' is missing
+        CommandInfo(description="test") # type: ignore # 'name' is missing, parameters is optional (defaults to [])
 
 def test_command_list_response_validation_error():
     with pytest.raises(ValidationError):
-        CommandListResponse(language_code="en") # 'commands' is missing
+        CommandListResponse(language_code="en") # type: ignore # 'commands' is missing, language_code is optional
 
-pytest.main()
+# Corrected tests based on pyright feedback for genuinely missing fields
+def test_command_parameter_info_actually_missing_fields():
+    with pytest.raises(ValidationError, match="required"): # Expecting error about 'required'
+        CommandParameterInfo(name="test", description="some description", type="str") # type: ignore
+
+    with pytest.raises(ValidationError, match="type"): # Expecting error about 'type'
+        CommandParameterInfo(name="test", description="some description", required=True) # type: ignore
+
+    with pytest.raises(ValidationError, match="name"): # Expecting error about 'name'
+        CommandParameterInfo(description="some description", type="str", required=True) # type: ignore
+
+def test_command_info_actually_missing_fields():
+    with pytest.raises(ValidationError, match="name"): # Expecting error about 'name'
+        CommandInfo(description="A command that is missing its name.") # type: ignore
+
+def test_command_list_response_actually_missing_fields():
+    with pytest.raises(ValidationError, match="commands"): # Expecting error about 'commands'
+        CommandListResponse(language_code="en") # type: ignore
+
+
+# The pytest.main() call is unusual for typical test suite execution.
+# It's often run by a test runner like `pytest` from the command line.
+# Removing it as it might cause issues in some environments or if this file is imported.
+# pytest.main()

@@ -2,8 +2,16 @@ import logging
 from typing import List, Optional, Dict, Any, Union # Added Union
 
 import discord
-from discord import app_commands as dc_app_commands # Changed import style
+from discord import app_commands as dc_app_commands
 from discord.ext import commands as ext_commands
+
+# Assuming MockLocaleStr is defined in the test file or a common testing utility module
+# For the purpose of type hinting here, we can define a Protocol or use Any if MockLocaleStr is not available
+# from typing import Protocol
+# class LocaleStrLike(Protocol):
+#     message: str
+#     message_map: Dict[str, str]
+# However, for simplicity with the current setup, we'll rely on hasattr checks.
 
 from src.models.command_info import CommandInfo, CommandParameterInfo
 # from src.core.localization_utils import get_localized_text # TODO: For localization
@@ -12,30 +20,34 @@ from src.models.command_info import CommandInfo, CommandParameterInfo
 logger = logging.getLogger(__name__)
 
 def _get_localized_string(
-    value: Union[str, dc_app_commands.locale_str, None], # Changed locale_str
+    value: Union[str, dc_app_commands.locale_str, Any, None], # Allow Any for mock objects
     lang_code: Optional[str],
     default_str: Optional[str] = None
 ) -> Optional[str]:
     """
-    Helper to get a localized string from a value that might be a locale_str.
+    Helper to get a localized string from a value that might be a locale_str or a mock.
     """
     if value is None:
         return default_str
 
-    # If a Translator was used, the description might already be a plain string
-    # or it could still be a locale_str if no translation was found or applied.
-
     # Check if it behaves like a locale_str (has message_map and message attributes)
-    if hasattr(value, 'message_map') and hasattr(value, 'message') and isinstance(getattr(value, 'message_map'), dict):
-        message_map = getattr(value, 'message_map')
-        if lang_code and lang_code in message_map:
-            return message_map[lang_code]
-        return getattr(value, 'message') # Default/source string
+    # Also ensure message_map is actually a dictionary before trying to access it.
+    if hasattr(value, 'message_map') and hasattr(value, 'message') and isinstance(getattr(value, 'message_map', None), dict):
+        message_map_attr = getattr(value, 'message_map') # Known to be dict here
+        if lang_code and lang_code in message_map_attr:
+            return message_map_attr[lang_code]
+
+        message_attr = getattr(value, 'message')
+        return str(message_attr) if message_attr is not None else default_str # Fallback to default message
     elif isinstance(value, str):
         return value
 
     # Fallback for other types or if it's None after all
-    return default_str if default_str is not None else str(value) if value is not None else None
+    # If value is not str and not locale_str-like, convert to str if possible, or use default_str
+    try:
+        return str(value) if default_str is None else default_str
+    except: # If str(value) fails
+        return default_str
 
 
 def _extract_parameter_details(

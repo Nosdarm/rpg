@@ -24,8 +24,11 @@ from .ability import Ability # Import Ability model
 from .skill import Skill # Import Skill model
 from .status_effect import StatusEffect, ActiveStatusEffect # Import StatusEffect models
 from .quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress # Import Quest models
-from .mobile_group import MobileGroup # Import MobileGroup model
+# from .mobile_group import MobileGroup # Already imported or will be handled by new model structure
 from .crafting_recipe import CraftingRecipe # Import CraftingRecipe model
+from .global_npc import GlobalNpc
+from .mobile_group import MobileGroup
+from .global_event import GlobalEvent
 from .pending_generation import PendingGeneration # Import PendingGeneration model
 from .actions import ParsedAction, ActionEntity # Import Action models
 from .pending_conflict import PendingConflict # Import PendingConflict model
@@ -90,10 +93,10 @@ logger.info(
     "Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType, "
     "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, CombatStatus, Player, Party, "
     "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
-    "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, MobileGroup, "
+    "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, " # MobileGroup removed from here for now
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
     "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail, "
-    "CommandInfo, CommandParameterInfo, CommandListResponse."
+    "CommandInfo, CommandParameterInfo, CommandListResponse, GlobalNpc, MobileGroup, GlobalEvent." # Added new models
 )
 
 # Perform model rebuilds here after all models are known
@@ -101,3 +104,29 @@ CombatActionResult.model_rebuild()
 CheckResult.model_rebuild() # Though CheckResult itself is self-contained, doesn't hurt
 ModifierDetail.model_rebuild()
 CheckOutcome.model_rebuild()
+# Player.model_rebuild() # SQLAlchemy model
+# Guild.model_rebuild() # Not defined or SQLAlchemy model (GuildConfig)
+# Location.model_rebuild() # SQLAlchemy model
+# Party.model_rebuild() # SQLAlchemy model
+# GeneratedNpc.model_rebuild() # SQLAlchemy model
+# StoryLog.model_rebuild() # SQLAlchemy model
+# GuildConfig.model_rebuild() # SQLAlchemy model
+# RuleConfig.model_rebuild() # SQLAlchemy model
+# Interaction.model_rebuild() # Assuming Interaction is defined elsewhere or not using ForwardRefs
+# Item.model_rebuild() # SQLAlchemy model
+# ItemProperty.model_rebuild() # Assuming ItemProperty is defined elsewhere or not using ForwardRefs
+# InventoryItem.model_rebuild() # SQLAlchemy model
+# CombatEncounter.model_rebuild() # SQLAlchemy model
+# Ability.model_rebuild() # SQLAlchemy model
+# StatusEffect.model_rebuild() # SQLAlchemy model
+# ActiveStatusEffect.model_rebuild() # SQLAlchemy model
+# GeneratedFaction.model_rebuild() # SQLAlchemy model
+# Relationship.model_rebuild() # SQLAlchemy model
+# Questline.model_rebuild() # SQLAlchemy model
+# GeneratedQuest.model_rebuild() # SQLAlchemy model
+# QuestStep.model_rebuild() # SQLAlchemy model
+# PlayerQuestProgress.model_rebuild() # SQLAlchemy model
+# PendingConflict.model_rebuild() # SQLAlchemy model
+# GlobalNpc.model_rebuild() # SQLAlchemy model
+# MobileGroup.model_rebuild() # SQLAlchemy model
+# GlobalEvent.model_rebuild() # SQLAlchemy model

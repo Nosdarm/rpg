@@ -344,9 +344,9 @@ async def save_approved_generation(
                 quest_data_for_db = {
                     "guild_id": guild_id,
                     "title_i18n": entity_data.title_i18n,
-                    "description_i18n": entity_data.summary_i18n,
+                    "description_i18n": entity_data.summary_i18n, # Uses summary_i18n for the main quest description
                     "rewards_json": entity_data.rewards_json,
-                    "ai_metadata_json": {"raw_steps": entity_data.steps_description_i18n}
+                    "ai_metadata_json": {"raw_steps": [step.model_dump(mode='json') for step in entity_data.steps]}
                 }
                 new_db_entity = await create_entity(session, GeneratedQuest, quest_data_for_db)
                 if new_db_entity: saved_entity_ids["quest"].append(new_db_entity.id)

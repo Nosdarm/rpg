@@ -431,7 +431,7 @@ async def test_award_xp_party_xp_per_player_becomes_zero(
     assert player1.xp == 0
     assert player2.xp == 50
 
-    mock_session_fixture.commit.assert_not_called()
+    mock_session_fixture.commit.assert_not_called() # type: ignore[attr-defined]
 
 
 # --- Тесты для spend_attribute_points ---

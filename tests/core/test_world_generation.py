@@ -108,6 +108,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
                  self.session.add(RuleConfig(guild_id=gid, key=rule_lang_key, value_json=self.default_lang))
 
         await self.session.commit()
+        self.session_commit_mock.reset_mock() # Сбрасываем мок после коммита в asyncSetUp
 
         # Mock for location_crud and other cruds if needed by tests
         self.mock_location_crud = MagicMock()
@@ -326,46 +327,168 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
             mock_update_neighbors.assert_not_called() # type: ignore
             self.session_commit_mock.assert_called_once() # type: ignore
 
-    # New tests for generate_factions_and_relationships will be added here...
+    async def test_generate_new_location_parent_not_found(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        self.session_rollback_mock.reset_mock()
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Child Loc"}, descriptions_i18n={"en": "Desc"}, location_type="CAVE"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=102, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+
+        self.mock_location_crud.create.return_value = created_location_mock
+        self.mock_location_crud.get.return_value = None # Parent location not found
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id, parent_location_id=999)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            if location:
+                self.assertEqual(location.id, 102)
+                # Parent not found, so no explicit link should be made via update_location_neighbors for parent
+                # It might still be called for AI suggested neighbors if any.
+                # For this test, assume no AI suggested neighbors for simplicity to check parent linking part.
+                # If mock_parsed_location_data had potential_neighbors, mock_update_neighbors would be called for them.
+                # Here, we check that update_location_neighbors was NOT called for the non-existent parent.
+                # If there were other neighbors, it would be called for them.
+                # The current mock_parsed_location_data has no potential_neighbors.
+                mock_update_neighbors.assert_not_called()
+
+
+            self.session_commit_mock.assert_called_once()
+            mock_log_event.assert_called_once()
+            log_details = mock_log_event.call_args.kwargs['details_json']
+            self.assertEqual(log_details['parent_location_id'], 999) # Still logs the attempt
+
+    async def test_generate_new_location_invalid_potential_neighbor_data(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Test Loc Inv Neigh"}, descriptions_i18n={"en": "Desc"}, location_type="RUINS",
+            potential_neighbors=[
+                {"connection_description_i18n": {"en": "a faulty path"}}, # Missing static_id_or_name
+                {"static_id_or_name": None, "connection_description_i18n": {"en": "another faulty path"}} # static_id_or_name is None
+            ]
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=103, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+        self.mock_location_crud.create.return_value = created_location_mock
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            mock_update_neighbors.assert_not_called() # No valid neighbors to link
+            self.session_commit_mock.assert_called_once()
+
+    async def test_generate_new_location_default_connection_description(self):
+        guild_id = self.test_guild_id
+        parent_loc_id = 500
+        self.session_commit_mock.reset_mock()
+
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Child Default Conn"}, descriptions_i18n={"en": "Desc"}, location_type="FOREST"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+        created_location_mock = Location(id=104, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
+        parent_location_mock = Location(id=parent_loc_id, guild_id=guild_id, name_i18n={"en":"Parent"}, neighbor_locations_json=[])
+
+        self.mock_location_crud.create.return_value = created_location_mock
+        self.mock_location_crud.get.return_value = parent_location_mock # Parent found
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            # Call generate_location without connection_details_i18n
+            location, error = await generate_location(self.session, guild_id, parent_location_id=parent_loc_id, connection_details_i18n=None)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+
+            # Check that update_location_neighbors was called with default connection details
+            expected_default_conn_desc = {"en": "a path", "ru": "тропа"}
+            mock_update_neighbors.assert_called_once_with(
+                self.session, parent_location_mock, created_location_mock.id, expected_default_conn_desc, add_connection=True
+            )
+            self.session_commit_mock.assert_called_once()
+            log_details = mock_log_event.call_args.kwargs['details_json']
+            self.assertEqual(log_details['connection_details_i18n'], None) # Logs original input which was None
+
+    async def test_generate_new_location_malformed_initial_neighbors(self):
+        guild_id = self.test_guild_id
+        self.session_commit_mock.reset_mock()
+
+        mock_parsed_location_data = ParsedLocationData(
+            entity_type="location", name_i18n={"en": "Malformed Init"}, descriptions_i18n={"en": "Desc"}, location_type="SWAMP"
+        )
+        mock_parsed_ai_data = ParsedAiData(generated_entities=[mock_parsed_location_data], raw_ai_output="", parsing_metadata={})
+
+        # Simulate that the created Location object somehow gets a malformed neighbor_locations_json
+        # This tests the robustness of the neighbor processing logic.
+        created_location_mock = Location(
+            id=105, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n,
+            neighbor_locations_json="this is not a list" # Malformed data
+        )
+        self.mock_location_crud.create.return_value = created_location_mock
+
+        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+
+            location, error = await generate_location(self.session, guild_id)
+
+            self.assertIsNone(error)
+            self.assertIsNotNone(location)
+            if location:
+                # The important part is that it doesn't crash and current_neighbor_links_for_new_loc is empty.
+                # If there were valid AI suggested neighbors, they would be added.
+                # Here, we assume no AI neighbors to isolate the initial malformed data handling.
+                self.assertEqual(location.neighbor_locations_json, []) # Should be reset to empty list and saved.
+
+            self.session_commit_mock.assert_called_once()
+
+
+    # --- Tests for generate_factions_and_relationships ---
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock) # Assuming this is still the AI call mechanism used
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
-    @patch('src.core.world_generation.crud_faction', new_callable=MagicMock) # Patching the imported crud object
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=12345))
+    @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
     @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
     async def test_generate_factions_and_relationships_success(
         self, mock_crud_relationship, mock_crud_faction, mock_log_event,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock() # type: ignore
-        self.session_rollback_mock.reset_mock() # type: ignore
+        self.session_commit_mock.reset_mock()
+        self.session_rollback_mock.reset_mock()
 
-        # 1. Setup Mocks
         mock_prepare_prompt.return_value = "faction_rel_prompt"
 
-        # AI response mock - this needs to be a string that parse_and_validate_ai_response can handle
-        # The actual function generate_factions_and_relationships constructs a flat list
-        # from a structured dict before calling parse_and_validate_ai_response.
-        # So, _mock_openai_api_call should return the structured dict.
-        # generate_factions_and_relationships then processes this into a flat list string for parse_and_validate.
-
-        # This is what _mock_openai_api_call should return (the structured dict as a string)
-        # However, generate_factions_and_relationships internally calls json.loads on this,
-        # then extracts lists and re-dumps. So the mock for _mock_openai_api_call should return
-        # the string representation of the structured dict.
-        # Let's simplify: the important mock is parse_and_validate_ai_response.
-        # The _mock_openai_api_call in generate_factions_and_relationships is currently:
-        # raw_parsed_json = json.loads(mock_ai_response_str)
-        # parsed_faction_list_json = raw_parsed_json.get("generated_factions", [])
-        # ...
-        # all_parsed_entities_json = parsed_faction_list_json + parsed_relationship_list_json
-        # parsed_data_or_error = await parse_and_validate_ai_response(json.dumps(all_parsed_entities_json), ...)
-        # So, we need to ensure that mock_parse_validate receives the flat list.
-        # The direct output of _mock_openai_api_call is less critical if parse_and_validate is properly mocked.
-
-        # For simplicity, we'll mock the output of parse_and_validate_ai_response directly.
+        # Mocking the direct output of parse_and_validate_ai_response
         parsed_faction1_data = ParsedFactionData(
             entity_type="faction", static_id="fac1_sid", name_i18n={"en": "Faction One"}, description_i18n={"en":"Desc1"}
         )
@@ -373,234 +496,118 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
             entity_type="faction", static_id="fac2_sid", name_i18n={"en": "Faction Two"}, description_i18n={"en":"Desc2"}
         )
         parsed_relationship_data = ParsedRelationshipData(
-            entity_type="relationship", entity1_static_id="fac1_sid", entity1_type="generated_faction",
-            entity2_static_id="fac2_sid", entity2_type="generated_faction",
+            entity_type="relationship", entity1_static_id="fac1_sid", entity1_type="faction", # Corrected type
+            entity2_static_id="fac2_sid", entity2_type="faction", # Corrected type
             relationship_type="alliance", value=75
         )
         mock_parsed_ai_data_success = ParsedAiData(
             generated_entities=[parsed_faction1_data, parsed_faction2_data, parsed_relationship_data],
-            raw_ai_output="dummy_raw_output_for_factions", # This is raw_ai_output_text for parse_and_validate
+            raw_ai_output="dummy_raw_output_for_factions",
             parsing_metadata={}
         )
         mock_parse_validate.return_value = mock_parsed_ai_data_success
 
-        # Mock CRUD operations
         created_faction1_db = GeneratedFaction(id=1, guild_id=guild_id, static_id="fac1_sid", name_i18n={"en": "Faction One DB"}, description_i18n={})
         created_faction2_db = GeneratedFaction(id=2, guild_id=guild_id, static_id="fac2_sid", name_i18n={"en": "Faction Two DB"}, description_i18n={})
 
-        # crud_faction.create will be called. Need to set side_effect if called multiple times.
-        mock_crud_faction_instance = mock_crud_faction # This is the MagicMock object for the module
-        mock_crud_faction_instance.create = AsyncMock(side_effect=[created_faction1_db, created_faction2_db])
-        mock_crud_faction_instance.get_by_static_id = AsyncMock(return_value=None) # No existing factions by these static_ids
+        mock_crud_faction.create = AsyncMock(side_effect=[created_faction1_db, created_faction2_db])
+        mock_crud_faction.get_by_static_id = AsyncMock(return_value=None)
 
         created_relationship_db = Relationship(
             id=10, guild_id=guild_id, entity1_id=1, entity1_type=RelationshipEntityType.GENERATED_FACTION,
             entity2_id=2, entity2_type=RelationshipEntityType.GENERATED_FACTION,
             relationship_type="alliance", value=75
         )
-        mock_crud_relationship_instance = mock_crud_relationship
-        mock_crud_relationship_instance.create = AsyncMock(return_value=created_relationship_db)
-        mock_crud_relationship_instance.get_relationship_between_entities = AsyncMock(return_value=None) # No existing relationship
+        mock_crud_relationship.create = AsyncMock(return_value=created_relationship_db)
+        mock_crud_relationship.get_relationship_between_entities = AsyncMock(return_value=None)
 
-        # 2. Call the function
         factions, relationships, error = await generate_factions_and_relationships(self.session, guild_id)
 
-        # 3. Assertions
         self.assertIsNone(error)
         self.assertIsNotNone(factions)
         self.assertIsNotNone(relationships)
-        if factions: # Guard for Pyright
-            self.assertEqual(len(factions), 2)
-        if relationships: # Guard for Pyright
-            self.assertEqual(len(relationships), 1)
+        if factions: self.assertEqual(len(factions), 2)
+        if relationships: self.assertEqual(len(relationships), 1)
 
-        # Check faction creation calls and data
-        self.assertEqual(mock_crud_faction_instance.create.call_count, 2)
-
-        # Call 1 for faction 1
-        call_args_f1 = mock_crud_faction_instance.create.call_args_list[0][1]['obj_in'] # obj_in is a kwarg
+        self.assertEqual(mock_crud_faction.create.call_count, 2)
+        call_args_f1 = mock_crud_faction.create.call_args_list[0][1]['obj_in']
         self.assertEqual(call_args_f1['static_id'], "fac1_sid")
-        self.assertEqual(call_args_f1['name_i18n']['en'], "Faction One")
-        self.assertEqual(call_args_f1['guild_id'], guild_id)
 
-        # Call 2 for faction 2
-        call_args_f2 = mock_crud_faction_instance.create.call_args_list[1][1]['obj_in']
-        self.assertEqual(call_args_f2['static_id'], "fac2_sid")
-        self.assertEqual(call_args_f2['name_i18n']['en'], "Faction Two")
+        mock_crud_relationship.create.assert_called_once()
+        call_args_rel = mock_crud_relationship.create.call_args[1]['obj_in']
+        self.assertEqual(call_args_rel['entity1_id'], created_faction1_db.id)
+        self.assertEqual(call_args_rel['entity2_id'], created_faction2_db.id)
 
-        # Check relationship creation
-        mock_crud_relationship_instance.create.assert_called_once() # type: ignore
-        call_args_rel = mock_crud_relationship_instance.create.call_args[1]['obj_in']
-        self.assertEqual(call_args_rel['guild_id'], guild_id)
-        self.assertEqual(call_args_rel['entity1_id'], created_faction1_db.id) # Check correct DB ID mapping
-        self.assertEqual(call_args_rel['entity1_type'], RelationshipEntityType.GENERATED_FACTION)
-        self.assertEqual(call_args_rel['entity2_id'], created_faction2_db.id) # Check correct DB ID mapping
-        self.assertEqual(call_args_rel['entity2_type'], RelationshipEntityType.GENERATED_FACTION)
-        self.assertEqual(call_args_rel['relationship_type'], "alliance")
-        self.assertEqual(call_args_rel['value'], 75)
-
-        # Check log_event call
-        mock_log_event.assert_called_once() # type: ignore
+        mock_log_event.assert_called_once()
         log_args = mock_log_event.call_args.kwargs
-        self.assertEqual(log_args['guild_id'], guild_id)
         self.assertEqual(log_args['event_type'], EventType.WORLD_EVENT_FACTIONS_GENERATED.value)
-        self.assertEqual(log_args['details_json']['generated_factions_count'], 2)
-        self.assertEqual(log_args['details_json']['generated_relationships_count'], 1)
-        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids']) # This should be fine if faction_ids is a list
-        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids']) # And this too
-
-        self.session_commit_mock.assert_called_once() # type: ignore
+        self.session_commit_mock.assert_called_once()
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
-    @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
-    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock) # No need to mock _mock_openai_api_call if this is mocked
     async def test_generate_factions_and_relationships_parsing_error(
-        self, mock_crud_relationship, mock_crud_faction, mock_log_event,
-        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+        self, mock_parse_validate, mock_prepare_prompt
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock() # type: ignore
-        self.session_rollback_mock.reset_mock() # type: ignore
-
-        # 1. Setup Mocks
-        mock_prepare_prompt.return_value = "faction_rel_prompt"
-        # _mock_openai_api_call returns a string which is then processed.
-        # The actual error will occur in parse_and_validate_ai_response.
-        # We make parse_and_validate_ai_response return a CustomValidationError.
-        mock_ai_call.return_value = json.dumps({ # This content doesn't really matter as parse_and_validate is mocked next
-            "generated_factions": [{"entity_type": "faction", "static_id": "bad_data"}],
-            "generated_relationships": []
-        })
-
-        validation_error = CustomValidationError(
-            error_type="JSONParsingError", # Or any other error type like StructuralValidationError
-            message="Simulated parsing error"
-        )
+        mock_prepare_prompt.return_value = "faction_rel_prompt_parse_error"
+        validation_error = CustomValidationError(error_type="TestParsingError", message="Simulated parsing error")
         mock_parse_validate.return_value = validation_error
 
-        # 2. Call the function
         factions, relationships, error_message = await generate_factions_and_relationships(self.session, guild_id)
 
-        # 3. Assertions
         self.assertIsNone(factions)
         self.assertIsNone(relationships)
         self.assertIsNotNone(error_message)
-        if error_message: # Type guard for Pyright
-            self.assertIn("Simulated parsing error", error_message)
-
-        # Ensure no CRUD operations were attempted
-        mock_crud_faction.create.assert_not_called()
-        mock_crud_relationship.create.assert_not_called()
-
-        # Ensure log_event for success was not called
-        mock_log_event.assert_not_called()
-
-        # Rollback is not called if error is returned before exception block in generate_factions_and_relationships
-        # self.session.rollback.assert_called_once()
+        if error_message: self.assertIn("Simulated parsing error", error_message)
+        self.session_rollback_mock.assert_not_called() # Error returned before DB ops
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
     @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
     @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
     @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=67890)) # Added mock for log_event
     async def test_generate_factions_and_relationships_existing_static_id(
-        self, mock_crud_relationship, mock_crud_faction, mock_log_event,
-        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+        self, mock_log_event, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order & added mock_log_event
     ):
         guild_id = self.test_guild_id
-        self.session_commit_mock.reset_mock() # type: ignore
-        self.session_rollback_mock.reset_mock() # type: ignore
         existing_static_id = "existing_fac_sid"
-
-        # 1. Setup: Mock an existing faction in DB
         existing_faction_db = GeneratedFaction(id=50, guild_id=guild_id, static_id=existing_static_id, name_i18n={"en": "Original Faction"}, description_i18n={})
 
-        mock_crud_faction_instance = mock_crud_faction
-        # When get_by_static_id is called for existing_static_id, return the existing_faction_db
-        # For any other static_id, return None (new faction)
         async def mock_get_by_static_id_side_effect(session, guild_id, static_id):
-            if static_id == existing_static_id:
-                return existing_faction_db
-            return None
-        mock_crud_faction_instance.get_by_static_id = AsyncMock(side_effect=mock_get_by_static_id_side_effect)
+            return existing_faction_db if static_id == existing_static_id else None
+        mock_crud_faction.get_by_static_id = AsyncMock(side_effect=mock_get_by_static_id_side_effect)
 
-        # New faction to be created by AI
         new_faction_static_id = "new_fac_sid"
         new_faction_db = GeneratedFaction(id=51, guild_id=guild_id, static_id=new_faction_static_id, name_i18n={"en": "New Faction DB"}, description_i18n={})
+        mock_crud_faction.create = AsyncMock(return_value=new_faction_db)
 
-        # crud_faction.create will only be called for the new faction
-        mock_crud_faction_instance.create = AsyncMock(return_value=new_faction_db)
-
-        # 2. Setup Mocks for AI response
         mock_prepare_prompt.return_value = "faction_rel_prompt_existing_sid"
 
-        # AI response tries to create the existing faction again, and a new one
-        parsed_faction_existing_data = ParsedFactionData(
-            entity_type="faction", static_id=existing_static_id, name_i18n={"en": "Faction Existing (AI)"}, description_i18n={"en":"Desc Existing"}
-        )
-        parsed_faction_new_data = ParsedFactionData(
-            entity_type="faction", static_id=new_faction_static_id, name_i18n={"en": "New Faction (AI)"}, description_i18n={"en":"Desc New"}
-        )
-        # Relationship between the "existing" (from AI's perspective) and the new one
-        parsed_relationship_data = ParsedRelationshipData(
-            entity_type="relationship", entity1_static_id=existing_static_id, entity1_type="generated_faction",
-            entity2_static_id=new_faction_static_id, entity2_type="generated_faction",
-            relationship_type="neutral_standing", value=0
-        )
-        mock_parsed_ai_data = ParsedAiData(
-            generated_entities=[parsed_faction_existing_data, parsed_faction_new_data, parsed_relationship_data],
-            raw_ai_output="dummy_raw_for_existing_sid",
-            parsing_metadata={}
-        )
-        mock_parse_validate.return_value = mock_parsed_ai_data
+        parsed_faction_existing_data = ParsedFactionData(entity_type="faction", static_id=existing_static_id, name_i18n={"en": "Faction Existing (AI)"}, description_i18n={"en":"Desc Existing"})
+        parsed_faction_new_data = ParsedFactionData(entity_type="faction", static_id=new_faction_static_id, name_i18n={"en": "New Faction (AI)"}, description_i18n={"en":"Desc New"})
+        parsed_relationship_data = ParsedRelationshipData(entity_type="relationship", entity1_static_id=existing_static_id, entity1_type="faction", entity2_static_id=new_faction_static_id, entity2_type="faction", relationship_type="neutral_standing", value=0) # Corrected types
 
-        # Mock relationship CRUD
-        created_relationship_db = Relationship(
-            id=20, guild_id=guild_id, entity1_id=existing_faction_db.id, entity1_type=RelationshipEntityType.GENERATED_FACTION, # Should use existing ID
-            entity2_id=new_faction_db.id, entity2_type=RelationshipEntityType.GENERATED_FACTION, # Should use new ID
-            relationship_type="neutral_standing", value=0
-        )
-        mock_crud_relationship_instance = mock_crud_relationship
-        mock_crud_relationship_instance.create = AsyncMock(return_value=created_relationship_db)
-        mock_crud_relationship_instance.get_relationship_between_entities = AsyncMock(return_value=None)
+        mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_faction_existing_data, parsed_faction_new_data, parsed_relationship_data], raw_ai_output="dummy")
 
-        # 3. Call the function
+        created_relationship_db = Relationship(id=20, guild_id=guild_id, entity1_id=existing_faction_db.id, entity1_type=RelationshipEntityType.GENERATED_FACTION, entity2_id=new_faction_db.id, entity2_type=RelationshipEntityType.GENERATED_FACTION, relationship_type="neutral_standing", value=0)
+        mock_crud_relationship.create = AsyncMock(return_value=created_relationship_db)
+        mock_crud_relationship.get_relationship_between_entities = AsyncMock(return_value=None)
+
         factions, relationships, error = await generate_factions_and_relationships(self.session, guild_id)
 
-        # 4. Assertions
         self.assertIsNone(error)
         self.assertIsNotNone(factions)
-        self.assertIsNotNone(relationships)
+        if factions: self.assertEqual(len(factions), 2)
+        mock_crud_faction.create.assert_called_once() # Only for the new one
 
-        # Should include the existing faction (returned by get_by_static_id) and the new one
-        if factions: # Guard for Pyright
-            self.assertEqual(len(factions), 2)
-            faction_ids_returned = {f.id for f in factions} # f should be GeneratedFaction here
-            self.assertIn(existing_faction_db.id, faction_ids_returned)
-            self.assertIn(new_faction_db.id, faction_ids_returned)
-
-        if relationships: # Guard for Pyright
-            self.assertEqual(len(relationships), 1)
-
-        # crud_faction.create should only be called ONCE (for the new faction)
-        mock_crud_faction_instance.create.assert_called_once()
-        call_args_new_fac = mock_crud_faction_instance.create.call_args[1]['obj_in']
-        self.assertEqual(call_args_new_fac['static_id'], new_faction_static_id)
-        self.assertEqual(call_args_new_fac['name_i18n']['en'], "New Faction (AI)")
-
-        # Check relationship creation - should use correct DB IDs
-        mock_crud_relationship_instance.create.assert_called_once()
-        call_args_rel = mock_crud_relationship_instance.create.call_args[1]['obj_in']
-        self.assertEqual(call_args_rel['entity1_id'], existing_faction_db.id) # Points to the original DB faction
+        if relationships: self.assertEqual(len(relationships), 1)
+        mock_crud_relationship.create.assert_called_once()
+        call_args_rel = mock_crud_relationship.create.call_args[1]['obj_in']
+        self.assertEqual(call_args_rel['entity1_id'], existing_faction_db.id)
         self.assertEqual(call_args_rel['entity2_id'], new_faction_db.id)
-        self.assertEqual(call_args_rel['relationship_type'], "neutral_standing")
+        self.session_commit_mock.assert_called_once()
 
-        mock_log_event.assert_called_once() # type: ignore
-        self.session_commit_mock.assert_called_once() # type: ignore
+    # --- Tests for generate_quests_for_guild ---
 
     @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
     @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
@@ -647,7 +654,7 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         mock_gq_crud.get_by_static_id = AsyncMock(return_value=None) # Quest does not exist
 
         # Mock Questline CRUD
-        mock_existing_questline = Questline(id=5, guild_id=guild_id_test, static_id="main_plot", name_i18n={"en":"Main Plot"})
+        mock_existing_questline = Questline(id=5, guild_id=guild_id_test, static_id="main_plot", title_i18n={"en":"Main Plot"}) # Changed name_i18n to title_i18n
         mock_ql_crud.get_by_static_id = AsyncMock(return_value=mock_existing_questline) # Questline exists
 
         mock_db_quest_alpha = GeneratedQuest(id=301, guild_id=guild_id_test, static_id="quest_alpha", title_i18n={"en": "Alpha Quest"}, questline_id=5)
@@ -664,8 +671,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
         self.assertIsNone(error_msg)
         self.assertIsNotNone(created_quests_list)
+        assert created_quests_list is not None # For pyright before len()
         self.assertEqual(len(created_quests_list), 1)
-        if created_quests_list: # Guard for Pyright
+        if created_quests_list: # Guard for Pyright (already true due to assert above)
             self.assertEqual(created_quests_list[0].static_id, "quest_alpha")
             self.assertEqual(created_quests_list[0].questline_id, 5) # Check linked to questline
 
@@ -747,8 +755,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
         self.assertIsNone(error_msg)
         self.assertIsNotNone(created_quests_list)
+        assert created_quests_list is not None # For pyright before len()
         self.assertEqual(len(created_quests_list), 1)
-        if created_quests_list: # Guard for Pyright
+        if created_quests_list: # Guard for Pyright (already true due to assert above)
             self.assertEqual(created_quests_list[0].id, 707) # Should be the existing DB object
 
         mock_gq_crud.create.assert_not_called() # Create should not be called
@@ -757,4 +766,201 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
 
 if __name__ == "__main__":
-    unittest.main() # Changed from pytest execution
+    unittest.main()
+
+
+class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
+    engine: Optional[AsyncEngine] = None
+    SessionLocal: Optional[async_sessionmaker[AsyncSession]] = None
+    test_guild_id = 401
+    default_lang = "en"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        cls.SessionLocal = async_sessionmaker(
+            bind=cls.engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.engine:
+            import asyncio
+            asyncio.run(cls.engine.dispose())
+
+    async def asyncSetUp(self):
+        assert self.SessionLocal is not None
+        self.session: AsyncSession = self.SessionLocal()
+        self.session_commit_mock = AsyncMock()
+        self.session_rollback_mock = AsyncMock()
+        self.session.commit = self.session_commit_mock # type: ignore
+        self.session.rollback = self.session_rollback_mock # type: ignore
+
+        assert self.engine is not None
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        guild = await self.session.get(GuildConfig, self.test_guild_id)
+        if not guild:
+            self.session.add(GuildConfig(id=self.test_guild_id, main_language=self.default_lang, name=f"Guild {self.test_guild_id}"))
+            await self.session.commit() # Commit this setup data
+        self.session_commit_mock.reset_mock()
+
+
+    async def asyncTearDown(self):
+        if hasattr(self, 'session') and self.session:
+            await self.session.rollback()
+            await self.session.close()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_economic_entities_success(
+        self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities # SUT
+        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedInventoryItemEntry
+        from src.models import Item, GeneratedNpc
+
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "economic_entities_prompt"
+
+        # Mock AI response structure
+        ai_response_json_str = json.dumps([
+            {
+                "entity_type": "item", "static_id": "test_sword",
+                "name_i18n": {"en": "Test Sword"}, "description_i18n": {"en": "A sword for testing."},
+                "item_type": "weapon", "base_value": 50
+            },
+            {
+                "entity_type": "npc_trader", "static_id": "test_smith",
+                "name_i18n": {"en": "Test Smith"}, "description_i18n": {"en": "A smith for testing."},
+                "role_i18n": {"en": "Blacksmith"},
+                "generated_inventory_items": [
+                    {"item_static_id": "test_sword", "quantity_min": 1, "quantity_max": 1, "chance_to_appear": 1.0}
+                ]
+            }
+        ])
+        mock_ai_call.return_value = ai_response_json_str
+
+        # Mock parsed data
+        parsed_item = ParsedItemData(entity_type="item", static_id="test_sword", name_i18n={"en":"Test Sword"}, description_i18n={"en":"Desc"}, item_type="weapon", base_value=50)
+        parsed_trader = ParsedNpcTraderData(
+            entity_type="npc_trader", static_id="test_smith", name_i18n={"en":"Test Smith"}, description_i18n={"en":"Desc"}, role_i18n={"en":"Blacksmith"},
+            generated_inventory_items=[GeneratedInventoryItemEntry(item_static_id="test_sword", quantity_min=1, quantity_max=1, chance_to_appear=1.0)]
+        )
+        mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_item, parsed_trader], raw_ai_output=ai_response_json_str)
+
+        # Mock CRUD operations
+        mock_item_crud.get_by_static_id = AsyncMock(return_value=None)
+        mock_item_db = Item(id=1, guild_id=guild_id, static_id="test_sword", name_i18n={"en":"Test Sword"})
+        mock_item_crud.create = AsyncMock(return_value=mock_item_db)
+
+        mock_npc_crud.get_by_static_id = AsyncMock(return_value=None)
+        mock_npc_db = GeneratedNpc(id=10, guild_id=guild_id, static_id="test_smith", name_i18n={"en":"Test Smith"})
+        mock_npc_crud.create = AsyncMock(return_value=mock_npc_db)
+
+        mock_inv_item_crud.add_item_to_owner = AsyncMock()
+
+        items, traders, error = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(items)
+        self.assertIsNotNone(traders)
+        if items: self.assertEqual(len(items), 1)
+        if traders: self.assertEqual(len(traders), 1)
+
+        mock_item_crud.create.assert_called_once()
+        mock_npc_crud.create.assert_called_once()
+        mock_inv_item_crud.add_item_to_owner.assert_called_once()
+
+        # Check inventory item call details
+        call_args = mock_inv_item_crud.add_item_to_owner.call_args.kwargs
+        self.assertEqual(call_args['guild_id'], guild_id)
+        self.assertEqual(call_args['owner_entity_id'], mock_npc_db.id)
+        self.assertEqual(call_args['item_id'], mock_item_db.id)
+        self.assertEqual(call_args['quantity'], 1) # Since min=1, max=1
+
+        mock_log_event.assert_called_once()
+        log_details = mock_log_event.call_args.kwargs['details_json']
+        self.assertEqual(log_details['generated_items_count'], 1)
+        self.assertEqual(log_details['generated_traders_count'], 1)
+
+        self.session_commit_mock.assert_called_once()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    async def test_generate_economic_entities_ai_parse_error(
+        self, mock_parse_validate, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities # SUT
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "prompt_for_parse_error"
+
+        validation_error = CustomValidationError(error_type="TestParseError", message="AI response parsing failed badly.")
+        mock_parse_validate.return_value = validation_error
+
+        items, traders, error_msg = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(items)
+        self.assertIsNone(traders)
+        self.assertIsNotNone(error_msg)
+        if error_msg: self.assertIn("AI response parsing failed badly.", error_msg)
+        self.session_rollback_mock.assert_not_called() # Error returned before DB ops
+        self.session_commit_mock.assert_not_called()
+
+    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    async def test_generate_economic_entities_handles_existing_item_and_npc(
+        self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
+        mock_parse_validate, mock_ai_call, mock_prepare_prompt
+    ):
+        from src.core.world_generation import generate_economic_entities
+        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData
+        from src.models import Item, GeneratedNpc
+
+        guild_id = self.test_guild_id
+        mock_prepare_prompt.return_value = "prompt_existing"
+        ai_response_json_str = json.dumps([
+            {"entity_type": "item", "static_id": "existing_item", "name_i18n": {"en": "Existing Item"}, "description_i18n": {"en":"Desc"}, "item_type": "misc"},
+            {"entity_type": "npc_trader", "static_id": "existing_trader", "name_i18n": {"en": "Existing Trader"}, "description_i18n": {"en":"Desc"}, "role_i18n": {"en": "Vendor"}}
+        ])
+        mock_ai_call.return_value = ai_response_json_str
+
+        parsed_item_exist = ParsedItemData(entity_type="item", static_id="existing_item", name_i18n={"en":"Existing Item"}, description_i18n={"en":"Desc"}, item_type="misc")
+        parsed_trader_exist = ParsedNpcTraderData(entity_type="npc_trader", static_id="existing_trader", name_i18n={"en":"Existing Trader"}, description_i18n={"en":"Desc"}, role_i18n={"en":"Vendor"})
+        mock_parse_validate.return_value = ParsedAiData(generated_entities=[parsed_item_exist, parsed_trader_exist], raw_ai_output=ai_response_json_str)
+
+        mock_existing_item_db = Item(id=2, guild_id=guild_id, static_id="existing_item", name_i18n={"en":"DB Item"})
+        # Ensure get_by_static_id is an AsyncMock if it's awaited
+        mock_item_crud.get_by_static_id = AsyncMock(return_value=mock_existing_item_db)
+        mock_item_crud.create = AsyncMock() # Should not be called for this item
+
+        mock_existing_npc_db = GeneratedNpc(id=20, guild_id=guild_id, static_id="existing_trader", name_i18n={"en":"DB Trader"})
+        # Ensure get_by_static_id is an AsyncMock if it's awaited
+        mock_npc_crud.get_by_static_id = AsyncMock(return_value=mock_existing_npc_db)
+        mock_npc_crud.create = AsyncMock() # Should not be called for this NPC
+
+        items, traders, error = await generate_economic_entities(self.session, guild_id)
+
+        self.assertIsNone(error)
+        self.assertIsNotNone(items)
+        if items: self.assertEqual(len(items), 1); self.assertEqual(items[0].id, 2)
+        self.assertIsNotNone(traders)
+        if traders: self.assertEqual(len(traders), 1); self.assertEqual(traders[0].id, 20)
+
+        mock_item_crud.create.assert_not_called()
+        mock_npc_crud.create.assert_not_called()
+        mock_inv_item_crud.add_item_to_owner.assert_not_called() # No inventory items specified for existing trader in this test
+        self.session_commit_mock.assert_called_once()

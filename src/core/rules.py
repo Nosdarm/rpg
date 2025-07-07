@@ -25,8 +25,7 @@ async def load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> D
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
     result = await session.execute(statement) # Renamed db to session
-    # Corrected: result.scalars().all() is not awaitable.
-    rules_from_db = result.scalars().all()
+    rules_from_db = result.scalars().all() # Fixed: .all() is not async here for scalars
 
     guild_rules: Dict[str, Any] = {}
     for rule in rules_from_db:
@@ -78,7 +77,7 @@ async def update_rule_config(session: AsyncSession, guild_id: int, key: str, val
     # Check if rule exists
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id, RuleConfig.key == key)
     result = await session.execute(statement) # Renamed db to session
-    existing_rule = result.scalar_one_or_none()
+    existing_rule = result.scalar_one_or_none() # Removed await
 
     if existing_rule:
         logger.debug(f"Found existing rule ID {existing_rule.id}. Updating.")

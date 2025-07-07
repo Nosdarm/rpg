@@ -40,7 +40,7 @@ def mock_session() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
-    session.add = MagicMock()
+    session.add = AsyncMock() # Changed to AsyncMock
     mock_result = AsyncMock(spec=Result) # General mock for query results
     session.execute = AsyncMock(return_value=mock_result)
     return session

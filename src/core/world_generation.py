@@ -2,22 +2,36 @@
 import json
 import logging
 from typing import Optional, Any, Dict, Tuple, List
+import random # For quantity generation
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, \
     _mock_openai_api_call # Используем мок для AI
-from src.core.ai_prompt_builder import prepare_ai_prompt, prepare_faction_relationship_generation_prompt, prepare_quest_generation_prompt
-from src.core.ai_response_parser import parse_and_validate_ai_response, ParsedAiData, ParsedLocationData, \
-    CustomValidationError, ParsedFactionData, ParsedRelationshipData, ParsedQuestData
+from src.core.ai_prompt_builder import (
+    prepare_ai_prompt,
+    prepare_faction_relationship_generation_prompt,
+    prepare_quest_generation_prompt,
+    prepare_economic_entity_generation_prompt # Added for Task 43
+)
+from src.core.ai_response_parser import (
+    parse_and_validate_ai_response, ParsedAiData, ParsedLocationData,
+    CustomValidationError, ParsedFactionData, ParsedRelationshipData, ParsedQuestData,
+    ParsedItemData, ParsedNpcTraderData # Added for Task 43
+)
 from src.core.crud.crud_location import location_crud
 from src.core.crud.crud_faction import crud_faction
 from src.core.crud.crud_relationship import crud_relationship
-from src.core.crud.crud_quest import generated_quest_crud, quest_step_crud, questline_crud # Added for Task 40
+from src.core.crud.crud_quest import generated_quest_crud, quest_step_crud, questline_crud
+from src.core.crud.crud_item import item_crud # Added for Task 43
+from src.core.crud.crud_npc import npc_crud # Added for Task 43
+from src.core.crud.crud_inventory_item import inventory_item_crud # Added for Task 43
 from src.core.game_events import log_event
-from src.models import Location, GeneratedFaction, Relationship
-from src.models.quest import GeneratedQuest # Added for Task 40
-from src.models.enums import EventType, ModerationStatus, RelationshipEntityType
+from src.models import ( # Grouped imports
+    Location, GeneratedFaction, Relationship, Item, GeneratedNpc, InventoryItem
+)
+from src.models.quest import GeneratedQuest
+from src.models.enums import EventType, ModerationStatus, RelationshipEntityType, OwnerEntityType # Added OwnerEntityType
 from src.models.pending_generation import PendingGeneration
 
 logger = logging.getLogger(__name__)
@@ -427,11 +441,19 @@ async def generate_factions_and_relationships(
                     continue
 
                 # Determine RelationshipEntityType from string
+                TYPE_STRING_TO_ENUM_MAP = {
+                    "faction": RelationshipEntityType.GENERATED_FACTION,
+                    "generated_faction": RelationshipEntityType.GENERATED_FACTION,
+                    "npc": RelationshipEntityType.GENERATED_NPC,
+                    "generated_npc": RelationshipEntityType.GENERATED_NPC,
+                    "player": RelationshipEntityType.PLAYER,
+                    "party": RelationshipEntityType.PARTY,
+                }
                 try:
-                    entity1_type_enum = RelationshipEntityType(entity_data.entity1_type.lower())
-                    entity2_type_enum = RelationshipEntityType(entity_data.entity2_type.lower())
-                except ValueError:
-                    logger.error(f"Invalid entity type in relationship data: {entity_data.entity1_type} or {entity_data.entity2_type}. Skipping.")
+                    entity1_type_enum = TYPE_STRING_TO_ENUM_MAP[entity_data.entity1_type.lower()]
+                    entity2_type_enum = TYPE_STRING_TO_ENUM_MAP[entity_data.entity2_type.lower()]
+                except KeyError:
+                    logger.error(f"Invalid or unmapped entity type in relationship data: '{entity_data.entity1_type}' or '{entity_data.entity2_type}'. Skipping relationship.")
                     continue
 
                 # Handle player_default case: if type is player and static_id is player_default, use a placeholder ID (e.g. 0)
@@ -669,3 +691,212 @@ async def generate_quests_for_guild(
         logger.exception(f"Error in generate_quests_for_guild for guild {guild_id}: {e}")
         await session.rollback()
         return None, f"An unexpected error occurred during AI quest generation: {str(e)}"
+
+
+async def generate_economic_entities(
+    session: AsyncSession,
+    guild_id: int,
+) -> Tuple[Optional[List[Item]], Optional[List[GeneratedNpc]], Optional[str]]:
+    """
+    Generates new economic entities (items and NPC traders) for a guild using AI,
+    and saves them to the DB.
+    Returns (list_of_created_items, list_of_created_traders, None) or (None, None, error_message).
+    """
+    logger.info(f"Starting economic entity generation for guild_id: {guild_id}")
+    try:
+        # 1. Prepare prompt for AI
+        prompt = await prepare_economic_entity_generation_prompt(session, guild_id)
+        if "Error generating" in prompt: # Basic error check
+            logger.error(f"Failed to generate economic entity prompt for guild {guild_id}: {prompt}")
+            return None, None, prompt
+
+        logger.debug(f"Generated AI prompt for economic entities in guild {guild_id}:\n{prompt[:500]}...")
+
+        # 2. Call AI (using mock for now)
+        # Mock response should be a JSON string: a list of items and npc_traders
+        mock_ai_response_str = json.dumps([
+            {
+                "entity_type": "item",
+                "static_id": "iron_sword_01",
+                "name_i18n": {"en": "Iron Sword", "ru": "Железный Меч"},
+                "description_i18n": {"en": "A basic but reliable iron sword.", "ru": "Простой, но надежный железный меч."},
+                "item_type": "weapon",
+                "properties_json": {"damage": "1d6", "type": "slashing"},
+                "base_value": 50
+            },
+            {
+                "entity_type": "item",
+                "static_id": "healing_potion_minor_01",
+                "name_i18n": {"en": "Minor Healing Potion", "ru": "Малое Зелье Лечения"},
+                "description_i18n": {"en": "Restores a small amount of health.", "ru": "Восстанавливает небольшое количество здоровья."},
+                "item_type": "consumable",
+                "properties_json": {"effect": "heal", "amount": "2d4+2"},
+                "base_value": 25
+            },
+            {
+                "entity_type": "npc_trader",
+                "static_id": "trader_boris_01",
+                "name_i18n": {"en": "Boris the Blacksmith", "ru": "Борис Кузнец"},
+                "description_i18n": {"en": "A sturdy blacksmith selling common weapons and armor.", "ru": "Крепкий кузнец, торгующий обычным оружием и броней."},
+                "role_i18n": {"en": "Blacksmith", "ru": "Кузнец"},
+                "inventory_template_key": "blacksmith_common_template", # Assumes this key exists in RuleConfig
+                "stats": {"level": 5} # Example inherited from ParsedNpcData
+            },
+            {
+                "entity_type": "npc_trader",
+                "static_id": "trader_elara_01",
+                "name_i18n": {"en": "Elara the Herbalist", "ru": "Элара Травница"},
+                "description_i18n": {"en": "An old woman selling various herbs and potions.", "ru": "Старушка, продающая различные травы и зелья."},
+                "role_i18n": {"en": "Herbalist", "ru": "Травница"},
+                "generated_inventory_items": [
+                    {"item_static_id": "healing_potion_minor_01", "quantity_min": 3, "quantity_max": 5, "chance_to_appear": 0.9},
+                    {"item_static_id": "mana_potion_minor_01", "quantity_min": 1, "quantity_max": 3, "chance_to_appear": 0.7} # Assumes mana_potion_minor_01 exists or is also generated
+                ],
+                "stats": {"level": 3}
+            }
+        ])
+        logger.debug(f"Mock AI response for economic entities: {mock_ai_response_str[:500]}...")
+
+        # 3. Parse and validate AI response
+        parsed_data_or_error = await parse_and_validate_ai_response(
+            raw_ai_output_text=mock_ai_response_str,
+            guild_id=guild_id
+        )
+
+        if isinstance(parsed_data_or_error, CustomValidationError):
+            error_msg = f"AI response validation failed for economic entities: {parsed_data_or_error.message} - Details: {parsed_data_or_error.details}"
+            logger.error(error_msg)
+            return None, None, error_msg
+
+        parsed_ai_data: ParsedAiData = parsed_data_or_error
+
+        created_items_db: List[Item] = []
+        created_traders_db: List[GeneratedNpc] = []
+        # Map to store item static_ids to their DB IDs for inventory linking if items are generated in same batch
+        item_static_to_db_id_map: Dict[str, int] = {}
+
+        # First pass: Create Items
+        for entity_data in parsed_ai_data.generated_entities:
+            if isinstance(entity_data, ParsedItemData):
+                existing_item = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id)
+                if existing_item:
+                    logger.warning(f"Item with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping creation. DB ID: {existing_item.id}")
+                    item_static_to_db_id_map[existing_item.static_id] = existing_item.id # type: ignore
+                    created_items_db.append(existing_item) # Add existing to list for return if needed
+                    continue
+
+                item_to_create_data = {
+                    "guild_id": guild_id,
+                    "static_id": entity_data.static_id,
+                    "name_i18n": entity_data.name_i18n,
+                    "description_i18n": entity_data.description_i18n,
+                    "item_type_i18n": {"en": entity_data.item_type, "ru": entity_data.item_type}, # Simplified i18n for type
+                    "properties_json": entity_data.properties_json,
+                    "base_value": entity_data.base_value,
+                    # is_stackable and slot_type can be derived from properties_json or default
+                }
+                new_item_db = await item_crud.create(session, obj_in=item_to_create_data)
+                await session.flush()
+                if new_item_db:
+                    created_items_db.append(new_item_db)
+                    item_static_to_db_id_map[new_item_db.static_id] = new_item_db.id # type: ignore
+                    logger.info(f"Created item '{new_item_db.name_i18n.get('en')}' (ID: {new_item_db.id}, StaticID: {new_item_db.static_id}) for guild {guild_id}")
+                else:
+                    logger.error(f"Failed to create Item DB entry for static_id: {entity_data.static_id}")
+
+
+        # Second pass: Create NPC Traders and their inventories
+        for entity_data in parsed_ai_data.generated_entities:
+            if isinstance(entity_data, ParsedNpcTraderData):
+                existing_npc = await npc_crud.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id)
+                if existing_npc:
+                    logger.warning(f"NPC Trader with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping creation.")
+                    created_traders_db.append(existing_npc)
+                    continue
+
+                npc_properties = entity_data.stats or {} # Start with stats from ParsedNpcData
+                if entity_data.role_i18n:
+                    npc_properties["role_i18n"] = entity_data.role_i18n
+                if entity_data.inventory_template_key:
+                    npc_properties["inventory_template_key"] = entity_data.inventory_template_key
+
+                npc_to_create_data = {
+                    "guild_id": guild_id,
+                    "static_id": entity_data.static_id,
+                    "name_i18n": entity_data.name_i18n,
+                    "description_i18n": entity_data.description_i18n,
+                    "npc_type_i18n": entity_data.role_i18n, # Using role as npc_type for now
+                    "properties_json": npc_properties,
+                    # current_location_id might be set by a higher-level process or another generation step
+                }
+                new_npc_db = await npc_crud.create(session, obj_in=npc_to_create_data)
+                await session.flush()
+
+                if new_npc_db:
+                    created_traders_db.append(new_npc_db)
+                    logger.info(f"Created NPC Trader '{new_npc_db.name_i18n.get('en')}' (ID: {new_npc_db.id}, StaticID: {new_npc_db.static_id}) for guild {guild_id}")
+
+                    # Handle generated_inventory_items
+                    if entity_data.generated_inventory_items:
+                        for inv_item_data in entity_data.generated_inventory_items:
+                            item_db_id = item_static_to_db_id_map.get(inv_item_data.item_static_id)
+                            if not item_db_id:
+                                # Try to fetch from DB if item wasn't generated in this batch but might exist
+                                if inv_item_data.item_static_id: # Check before passing to CRUD
+                                    # inv_item_data.item_static_id is confirmed to be str here
+                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=inv_item_data.item_static_id) # type: ignore[arg-type]
+                                    if existing_item_for_inv:
+                                        item_db_id = existing_item_for_inv.id
+                                    else:
+                                        logger.warning(f"Item with static_id '{inv_item_data.item_static_id}' not found for NPC {new_npc_db.static_id}'s inventory. Skipping item.")
+                                        continue
+                                else:
+                                    logger.warning(f"Invalid item_static_id (None or empty) in inventory data for NPC {new_npc_db.static_id}. Skipping item.")
+                                    continue
+
+                            quantity = inv_item_data.quantity_min
+                            if inv_item_data.quantity_max > inv_item_data.quantity_min:
+                                quantity = random.randint(inv_item_data.quantity_min, inv_item_data.quantity_max)
+
+                            if inv_item_data.chance_to_appear < 1.0:
+                                if random.random() > inv_item_data.chance_to_appear:
+                                     logger.debug(f"Item {inv_item_data.item_static_id} did not appear due to chance ({inv_item_data.chance_to_appear}) for NPC {new_npc_db.static_id}")
+                                     continue
+
+                            await inventory_item_crud.add_item_to_owner(
+                                session=session,
+                                guild_id=guild_id,
+                                owner_entity_id=new_npc_db.id,
+                                owner_entity_type=OwnerEntityType.GENERATED_NPC,
+                                item_id=item_db_id, # type: ignore
+                                quantity=quantity
+                            )
+                            logger.info(f"Added item '{inv_item_data.item_static_id}' (Qty: {quantity}) to NPC {new_npc_db.static_id}'s inventory.")
+                else:
+                    logger.error(f"Failed to create NPC Trader DB entry for static_id: {entity_data.static_id}")
+
+        # Log event
+        # Ensure EventType.WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED exists in your enums.py
+        # If not, you'll need to add it. For now, using a placeholder or assuming it exists.
+        event_type_value = getattr(EventType, "WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED", EventType.SYSTEM_EVENT).value
+
+        await log_event(
+            session=session,
+            guild_id=guild_id,
+            event_type=event_type_value,
+            details_json={
+                "generated_items_count": len(created_items_db),
+                "generated_traders_count": len(created_traders_db),
+                "item_ids": [item.id for item in created_items_db if item.id is not None],
+                "trader_ids": [npc.id for npc in created_traders_db if npc.id is not None],
+            }
+        )
+
+        await session.commit()
+        logger.info(f"Successfully generated and saved {len(created_items_db)} items and {len(created_traders_db)} NPC traders for guild {guild_id}.")
+        return created_items_db, created_traders_db, None
+
+    except Exception as e:
+        logger.exception(f"Error in generate_economic_entities for guild {guild_id}: {e}")
+        await session.rollback()
+        return None, None, f"An unexpected error occurred during AI economic entity generation: {str(e)}"

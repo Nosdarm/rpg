@@ -1,8 +1,10 @@
 import logging
 from typing import Optional, TYPE_CHECKING
 
+from src.models.story_log import StoryLog # Moved out of TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from src.models.story_log import StoryLog
+    pass # StoryLog is now imported globally, or could remain here for explicit type hinting if preferred
 
 logger = logging.getLogger(__name__)
 

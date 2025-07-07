@@ -45,7 +45,7 @@ def _format_feedback(message_key: str, lang: str = "en", **kwargs) -> str:
     return message_key
 
 
-def _find_target_in_location(location_data: Dict[str, Any], target_name: str) -> Optional[Dict[str, Any]]:
+def _find_target_in_location(location_data: Optional[Dict[str, Any]], target_name: str) -> Optional[Dict[str, Any]]:
     """
     Helper to find an interactable/sublocation by name within a location's details.
     Assumes location_data might have a list under 'interactable_elements'.
@@ -210,18 +210,18 @@ async def handle_intra_location_action(
                             log_details["check_result"] = check_result.model_dump(mode='json')
                             consequences_key = ""
                             # Accessing status from CheckOutcome object
-                            if check_result.outcome.status.value in ["success", "critical_success"]: # Use .value for comparison
+                            if check_result.outcome.status in ["success", "critical_success"]: # status is already a string
                                 consequences_key = interaction_rule.get("success_consequences_key", "generic_interaction_success")
                                 feedback_msg_key = interaction_rule.get("feedback_success", "interact_check_success")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.value.lower()), # Use .value here
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()), # status is str
                                     "success": True
                                 }
                             else: # FAILURE, CRITICAL_FAILURE
                                 consequences_key = interaction_rule.get("failure_consequences_key", "generic_interaction_failure")
                                 feedback_msg_key = interaction_rule.get("feedback_failure", "interact_check_failure")
                                 feedback = {
-                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.value.lower()), # Use .value here
+                                    "message": _format_feedback(feedback_msg_key, player_lang, target_name=target_entity_name, outcome=check_result.outcome.status.lower()), # status is str
                                     "success": False # Interaction failed duef to check
                                 }
                             log_details["applied_consequences_key"] = consequences_key

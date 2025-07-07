@@ -1,14 +1,19 @@
 from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
 from .base import Base
+from .enums import OwnerEntityType # Added for relationship
+from .inventory_item import InventoryItem # Ensure full import for relationship
+
 # Forward declaration for type hinting if GuildConfig or Location were complex types
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
+
+if TYPE_CHECKING:
 #     from .guild import GuildConfig
-#     from .location import Location
+    from .location import Location # Ensure Location is imported for the relationship
+    from .generated_faction import GeneratedFaction # For type hinting relationship
+    pass # InventoryItem is now fully imported
 
 class GeneratedNpc(Base):
     __tablename__ = "generated_npcs"
@@ -49,6 +54,18 @@ class GeneratedNpc(Base):
     #   "temperament": "grumpy",
     #   "dialogue_style": "curt"
     # }
+    faction_id: Mapped[Optional[int]] = mapped_column(ForeignKey("generated_factions.id", name="fk_generated_npc_faction_id"), nullable=True, index=True)
+
+    # Relationships
+    inventory_items: Mapped[List["InventoryItem"]] = relationship(
+        primaryjoin=f"and_(GeneratedNpc.id==InventoryItem.owner_entity_id, InventoryItem.owner_entity_type=='{OwnerEntityType.GENERATED_NPC.value}')",
+        foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type], # type: ignore[list-arg]
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    current_location: Mapped[Optional["Location"]] = relationship(back_populates="npcs_present")
+    faction: Mapped[Optional["GeneratedFaction"]] = relationship(back_populates="members") # Assuming GeneratedFaction will have 'members'
+
 
     __table_args__ = (
         Index("ix_generated_npcs_guild_id_static_id", "guild_id", "static_id", unique=True),
