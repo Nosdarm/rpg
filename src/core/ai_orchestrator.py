@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Assuming models and enums will be imported correctly
 from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship as RelationshipModel # Renamed to avoid conflict
 from ..models.enums import ModerationStatus, PlayerStatus, RelationshipEntityType
+import os # Moved to top
+import openai # Moved to top
 from .database import transactional
 # Corrected import path for generic CRUD functions
 from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
@@ -277,9 +279,7 @@ async def make_real_ai_call(prompt: str, api_key: Optional[str] = None) -> str:
     """
     Makes a real call to the OpenAI API (ChatCompletion endpoint).
     """
-    import openai
-    import os
-
+    # Imports moved to module level
     resolved_api_key = api_key or os.getenv("OPENAI_API_KEY")
     if not resolved_api_key:
         logger.error("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
