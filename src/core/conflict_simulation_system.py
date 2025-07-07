@@ -534,6 +534,7 @@ async def simulate_conflict_detection(
 
         return simulated_pending_conflicts
     except Exception as e_outer:
+        pass
         logger.error(f"!!! CRITICAL ERROR in simulate_conflict_detection: {e_outer}", exc_info=True)
         return [] # Return empty list on any unexpected error to prevent None
 
