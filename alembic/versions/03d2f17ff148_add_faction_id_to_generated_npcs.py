@@ -23,10 +23,6 @@ def upgrade() -> None:
     op.add_column('generated_npcs',
                   sa.Column('faction_id', sa.Integer(), nullable=True)
                  )
-    # Using an explicit index name as op.f() might not be configured or needed if names are explicit.
-    # If your Alembic setup uses naming conventions (e.g. in env.py's context.configure),
-    # you might use op.f('ix_generated_npcs_faction_id').
-    # For directness, an explicit name is clear.
     op.create_index('ix_generated_npcs_faction_id', 'generated_npcs', ['faction_id'], unique=False)
     op.create_foreign_key(
         'fk_generated_npc_faction_id',  # Constraint name from your model
