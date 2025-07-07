@@ -76,3 +76,8 @@ Status: Implemented core simulation logic for a single guild iteration in `src/c
 - Сессия [Текущая дата/время]: Начало работы (старый лог)
 - Задача 11: 🚀 0.1 Discord Bot Project Initialization (старый лог)
 - ... (и другие старые пользовательские задачи и задачи с префиксами, которые были в AGENTS.md ранее)
+
+## Task Block: Phase 15: Management and Monitoring Tools
+- Task 47: 🛠️ 15.1 Master Command System.
+Description: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild. Commands automatically receive the guild_id from the command context. Support multilingual input for arguments and display results in the Master's language. API for CRUD over ALL DB models. API for viewing/editing records in the RuleConfig table. Manual trigger/modification commands for entities operate WITHIN THE guild_id CONTEXT. API /master resolve_conflict <id> <outcome> for resolving conflicts and signaling the Turn Processing Module.
+Status: Completed. Implemented extensive CRUD commands for most models, refactored master commands into Cogs, ensured full localization, and implemented conflict resolution signaling. Unit tests for signaling and CRUD template created. (Completed: 2024-07-18 by Jules)

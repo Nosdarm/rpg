@@ -31,8 +31,11 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
     @app_commands.describe(item_id="The database ID of the Item to view.")
     async def item_view(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -60,20 +63,21 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 return await get_localized_message_template(session, interaction.guild_id, f"item_view:label_{key}", lang_code, default) # type: ignore
 
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str: # Renamed to avoid conflict
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
-                if not data: return na_str
+                na_str_val = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+                if not data: return na_str_val
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(item.guild_id), inline=True)
-            embed.add_field(name=await get_label("static_id", "Static ID"), value=item.static_id or "N/A", inline=True)
-            item_type_display = "N/A"
-            if item.item_type_i18n:
-                item_type_display = item.item_type_i18n.get(lang_code, item.item_type_i18n.get("en", "N/A"))
-            embed.add_field(name=await get_label("item_type", "Type"), value=item_type_display, inline=True)
-            embed.add_field(name=await get_label("base_value", "Base Value"), value=str(item.base_value) if item.base_value is not None else "N/A", inline=True)
-            embed.add_field(name=await get_label("slot_type", "Slot Type"), value=item.slot_type or "N/A", inline=True)
+            embed.add_field(name=await get_label("static_id", "Static ID"), value=item.static_id or na_value_str, inline=True)
+            item_type_display = na_value_str
+            if item.item_type_i18n: # Check if item_type_i18n is not None and not empty
+                item_type_display = item.item_type_i18n.get(lang_code, item.item_type_i18n.get("en", na_value_str))
+            embed.add_field(name=await get_label("item_type", "Type"), value=item_type_display, inline=True) # item_type_display will be na_value_str if not found
+            embed.add_field(name=await get_label("base_value", "Base Value"), value=str(item.base_value) if item.base_value is not None else na_value_str, inline=True)
+            embed.add_field(name=await get_label("slot_type", "Slot Type"), value=item.slot_type or na_value_str, inline=True)
             embed.add_field(name=await get_label("is_stackable", "Is Stackable"), value=str(item.is_stackable), inline=True)
 
             name_i18n_str = await format_json_field_helper(item.name_i18n, "item_view:value_na_json", "item_view:error_serialization")
@@ -94,8 +98,11 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -139,15 +146,16 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
             ) # type: ignore
 
             for item_obj in items:
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
                 item_name_display = item_obj.name_i18n.get(lang_code, item_obj.name_i18n.get("en", f"Item {item_obj.id}"))
-                item_type_display = "N/A"
-                if item_obj.item_type_i18n:
-                    item_type_display = item_obj.item_type_i18n.get(lang_code, item_obj.item_type_i18n.get("en", "N/A"))
+                item_type_display = na_value_str
+                if item_obj.item_type_i18n: # Check if item_type_i18n is not None and not empty
+                    item_type_display = item_obj.item_type_i18n.get(lang_code, item_obj.item_type_i18n.get("en", na_value_str))
                 embed.add_field(
-                    name=field_name_template.format(item_id=item_obj.id, item_name=item_name_display, static_id=item_obj.static_id or "N/A"),
+                    name=field_name_template.format(item_id=item_obj.id, item_name=item_name_display, static_id=item_obj.static_id or na_value_str),
                     value=field_value_template.format(
-                        type=item_type_display,
-                        value=str(item_obj.base_value) if item_obj.base_value is not None else "N/A",
+                        type=item_type_display, # Will be na_value_str if not found
+                        value=str(item_obj.base_value) if item_obj.base_value is not None else na_value_str,
                         stackable=str(item_obj.is_stackable)
                     ),
                     inline=False
@@ -189,8 +197,10 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
         parsed_name_i18n: Dict[str, str]
         parsed_description_i18n: Optional[Dict[str, str]] = None
         parsed_properties: Optional[Dict[str, Any]] = None
-        if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+        if interaction.guild_id is None: # lang_code already defined
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -205,20 +215,25 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
             try:
                 parsed_name_i18n = json.loads(name_i18n_json)
+                error_detail_name_format = await get_localized_message_template(session, interaction.guild_id, "item_create:error_detail_name_format", lang_code, "name_i18n_json must be a dictionary of string keys and string values.") # type: ignore
+                error_detail_name_lang = await get_localized_message_template(session, interaction.guild_id, "item_create:error_detail_name_lang", lang_code, "name_i18n_json must contain 'en' or current language key.") # type: ignore
+                error_detail_desc_format = await get_localized_message_template(session, interaction.guild_id, "item_create:error_detail_desc_format", lang_code, "description_i18n_json must be a dictionary of string keys and string values.") # type: ignore
+                error_detail_props_format = await get_localized_message_template(session, interaction.guild_id, "item_create:error_detail_props_format", lang_code, "properties_json must be a dictionary.") # type: ignore
+
                 if not isinstance(parsed_name_i18n, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in parsed_name_i18n.items()):
-                    raise ValueError("name_i18n_json must be a dict of str:str.")
+                    raise ValueError(error_detail_name_format)
                 if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code):
-                     raise ValueError("name_i18n_json must contain 'en' or current language key.")
+                     raise ValueError(error_detail_name_lang)
 
                 if description_i18n_json:
                     parsed_description_i18n = json.loads(description_i18n_json)
                     if not isinstance(parsed_description_i18n, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in parsed_description_i18n.items()):
-                        raise ValueError("description_i18n_json must be a dict of str:str.")
+                        raise ValueError(error_detail_desc_format)
 
                 if properties_json:
                     parsed_properties = json.loads(properties_json)
                     if not isinstance(parsed_properties, dict):
-                        raise ValueError("properties_json must be a dictionary.")
+                        raise ValueError(error_detail_props_format)
             except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "item_create:error_invalid_json_format", lang_code,
@@ -279,9 +294,16 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
             created_item_name_display = created_item.name_i18n.get(lang_code, created_item.name_i18n.get("en", f"Item {created_item.id}"))
 
             embed = discord.Embed(title=success_title_template.format(item_name=created_item_name_display, item_id=created_item.id), color=discord.Color.green())
-            embed.add_field(name="Static ID", value=created_item.static_id, inline=True)
-            embed.add_field(name="Type", value=created_item.item_type, inline=True)
-            embed.add_field(name="Stackable", value=str(created_item.is_stackable), inline=True)
+
+            async def get_created_label(key: str, default: str) -> str:
+                return await get_localized_message_template(session, interaction.guild_id, f"item_create:label_{key}", lang_code, default) # type: ignore
+
+            embed.add_field(name=await get_created_label("static_id", "Static ID"), value=created_item.static_id or na_value_str, inline=True) # Use na_value_str if static_id can be None
+            item_type_created_display = na_value_str # Default to N/A
+            if created_item.item_type_i18n:
+                 item_type_created_display = created_item.item_type_i18n.get(lang_code, created_item.item_type_i18n.get("en", na_value_str))
+            embed.add_field(name=await get_created_label("type","Type"), value=item_type_created_display, inline=True)
+            embed.add_field(name=await get_created_label("stackable","Stackable"), value=str(created_item.is_stackable), inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @item_master_cmds.command(name="update", description="Update a specific field for an Item.")
@@ -292,8 +314,11 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
     )
     async def item_update(self, interaction: discord.Interaction, item_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         allowed_fields = {
@@ -327,10 +352,15 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
         parsed_value: Any = None
         async with get_db_session() as session:
             try:
+                error_detail_static_id_empty = await get_localized_message_template(session, interaction.guild_id, "item_update:error_detail_static_id_empty", lang_code, "static_id cannot be set to empty.") # type: ignore
+                error_detail_json_not_dict_template = await get_localized_message_template(session, interaction.guild_id, "item_update:error_detail_json_not_dict", lang_code, "{field_name} must be a dictionary.") # type: ignore
+                error_detail_item_type_none = await get_localized_message_template(session, interaction.guild_id, "item_update:error_detail_item_type_none", lang_code, "item_type cannot be None.") # type: ignore
+                error_detail_invalid_bool_template = await get_localized_message_template(session, interaction.guild_id, "item_update:error_detail_invalid_bool", lang_code, "{field_name} must be 'True' or 'False'.") # type: ignore
+
                 if db_field_name == "static_id":
                     parsed_value = new_value
-                    if not parsed_value: # static_id cannot be None or empty for an existing item, it's a key part of its definition
-                        raise ValueError("static_id cannot be set to empty. If you meant to remove it, this operation is not supported. Consider deleting and recreating if it's optional in your model and you want it null.")
+                    if not parsed_value:
+                        raise ValueError(error_detail_static_id_empty)
                     existing_item_static = await item_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value)
                     if existing_item_static and existing_item_static.id != item_id:
                         error_msg = await get_localized_message_template(
@@ -342,11 +372,11 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 elif db_field_name in ["name_i18n", "description_i18n", "properties_json"]:
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, dict):
-                        raise ValueError(f"{db_field_name} must be a dictionary.")
+                        raise ValueError(error_detail_json_not_dict_template.format(field_name=db_field_name))
                 elif db_field_name == "item_type" or db_field_name == "slot_type":
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
-                        if db_field_name == "item_type": # item_type is likely not nullable
-                             raise ValueError("item_type cannot be None.")
+                        if db_field_name == "item_type":
+                             raise ValueError(error_detail_item_type_none)
                         parsed_value = None
                     else:
                         parsed_value = new_value
@@ -354,15 +384,15 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
                         parsed_value = None
                     else:
-                        parsed_value = int(new_value) # Can raise ValueError
+                        parsed_value = int(new_value)
                 elif db_field_name == "is_stackable":
                     if new_value.lower() == 'true':
                         parsed_value = True
                     elif new_value.lower() == 'false':
                         parsed_value = False
                     else:
-                        raise ValueError("is_stackable must be 'True' or 'False'.")
-                else: # Should not be reached
+                        raise ValueError(error_detail_invalid_bool_template.format(field_name=db_field_name))
+                else:
                      error_msg = await get_localized_message_template(
                          session, interaction.guild_id, "item_update:error_unknown_field_type", lang_code,
                         "Internal error: Unknown field type for '{field_name}'."
@@ -430,13 +460,20 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
             field_updated_label = await get_localized_message_template(session, interaction.guild_id, "item_update:label_field_updated", lang_code, "Field Updated") # type: ignore
             new_value_label = await get_localized_message_template(session, interaction.guild_id, "item_update:label_new_value", lang_code, "New Value") # type: ignore
 
-            new_value_display = str(parsed_value)
-            if isinstance(parsed_value, (dict, list)):
-                new_value_display = f"```json\n{json.dumps(parsed_value, indent=2, ensure_ascii=False)}\n```"
+            new_value_display_str: str
+            if parsed_value is None:
+                new_value_display_str = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") # type: ignore
+            elif isinstance(parsed_value, (dict, list)):
+                try:
+                    json_str = json.dumps(parsed_value, indent=2, ensure_ascii=False)
+                    new_value_display_str = f"```json\n{json_str[:1000]}\n```"
+                    if len(json_str) > 1000: new_value_display_str += "..."
+                except TypeError:
+                    new_value_display_str = await get_localized_message_template(session, interaction.guild_id, "item_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).") # type: ignore
             elif isinstance(parsed_value, bool):
-                new_value_display = str(parsed_value)
-            elif parsed_value is None:
-                 new_value_display = "None"
+                new_value_display_str = str(parsed_value) # True/False are not typically localized
+            else:
+                new_value_display_str = str(parsed_value)
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
             embed.add_field(name=new_value_label, value=new_value_display, inline=True)
@@ -446,11 +483,14 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
     @app_commands.describe(item_id="The database ID of the Item to delete.")
     async def item_delete(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
         async with get_db_session() as session:
             item_to_delete = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
 

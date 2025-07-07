@@ -34,10 +34,18 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
     @app_commands.describe(status_effect_id="The database ID of the StatusEffect definition to view.")
     async def status_effect_def_view(self, interaction: discord.Interaction, status_effect_id: int):
         await interaction.response.defer(ephemeral=True)
-        if interaction.guild_id is None: # Check guild_id early
-            await interaction.followup.send("This command can only be used in a guild if viewing guild-specific effects.", ephemeral=True)
-            # Allow viewing global effects even if guild_id is None
-            # The logic below handles fetching global effects if guild_id is None or guild-specific if present.
+        lang_code = str(interaction.locale) # Defined early
+        # interaction.guild_id can be None if command is invoked from DM for global effects
+        # This specific message might need adjustment if we strictly require guild context for guild-specific views
+        # For now, if guild_id is None, we assume they want to view a global effect or it's an error if not found globally.
+        # The command itself is guild_only=True at group level, so this check is more for internal consistency
+        # if a specific sub-command under it had different guild requirements (which is not the case here).
+        # The original check was too generic.
+        # if interaction.guild_id is None:
+        #     async with get_db_session() as temp_session: # Session for localization
+        #         error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server to view guild-specific effects.") # type: ignore
+        #     await interaction.followup.send(error_msg, ephemeral=True)
+            # return # Don't return if we want to allow viewing global effects from DM
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
@@ -87,10 +95,13 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         if limit < 1: limit = 1
         if limit > 10: limit = 10
         lang_code = str(interaction.locale)
+        current_guild_id_for_context = interaction.guild_id # For localization context
 
         # Early guild_id check for guild-specific scope
-        if scope and scope.value == "guild" and interaction.guild_id is None:
-            await interaction.followup.send("Guild-specific scope requires this command to be used in a guild.", ephemeral=True)
+        if scope and scope.value == "guild" and current_guild_id_for_context is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, current_guild_id_for_context, "common:error_guild_only_command_for_scope", lang_code, "Guild-specific scope requires this command to be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -144,61 +155,80 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         lang_code = str(interaction.locale)
         parsed_name_i18n: Dict[str, str]; parsed_desc_i18n: Optional[Dict[str, str]] = None; parsed_props: Optional[Dict[str, Any]] = None
         target_guild_id: Optional[int] = interaction.guild_id if not is_global else None
+        current_guild_id_for_messages: Optional[int] = interaction.guild_id
 
-        if not is_global and interaction.guild_id is None:
-            await interaction.followup.send("Cannot create a guild-specific status effect outside of a guild. Use `is_global=True` or run in a guild.", ephemeral=True)
+        if not is_global and current_guild_id_for_messages is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, current_guild_id_for_messages, "common:error_guild_only_command_for_action", lang_code, "Cannot create a guild-specific entry outside of a server. Use `is_global=True` or run in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
             existing_se_static = await status_effect_crud.get_by_static_id(session, static_id=static_id, guild_id=target_guild_id)
             if existing_se_static:
-                scope_str = "global" if target_guild_id is None else f"guild {target_guild_id}"
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_static_id_exists",lang_code,"StatusEffect static_id '{id}' already exists in scope {sc}.") # type: ignore
+                scope_global_str = await get_localized_message_template(session, current_guild_id_for_messages, "common:scope_global", lang_code, "global") # type: ignore
+                scope_guild_tmpl = await get_localized_message_template(session, current_guild_id_for_messages, "common:scope_guild_detail", lang_code, "guild {guild_id}") # type: ignore
+                scope_str = scope_global_str if target_guild_id is None else scope_guild_tmpl.format(guild_id=target_guild_id)
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_static_id_exists",lang_code,"StatusEffect static_id '{id}' already exists in scope {sc}.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=static_id, sc=scope_str), ephemeral=True); return
             try:
                 category_enum = StatusEffectCategoryEnum[category.value]
                 parsed_name_i18n = json.loads(name_i18n_json)
-                if not isinstance(parsed_name_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_name_i18n.items()): raise ValueError("name_i18n_json must be a dict of str:str.")
-                if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code): raise ValueError("name_i18n_json must contain 'en' or current language key.")
+
+                error_detail_name_format = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:error_detail_name_format", lang_code, "name_i18n_json must be a dictionary of string keys and string values.") # type: ignore
+                error_detail_name_lang = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:error_detail_name_lang", lang_code, "name_i18n_json must contain 'en' or current language key.") # type: ignore
+                error_detail_desc_format = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:error_detail_desc_format", lang_code, "description_i18n_json must be a dictionary of string keys and string values.") # type: ignore
+                error_detail_props_format = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:error_detail_props_format", lang_code, "properties_json must be a dictionary.") # type: ignore
+                error_detail_invalid_category = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:error_detail_invalid_category", lang_code, "Invalid category value: {value}") # type: ignore
+
+                if not isinstance(parsed_name_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_name_i18n.items()): raise ValueError(error_detail_name_format)
+                if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code): raise ValueError(error_detail_name_lang)
                 if description_i18n_json:
                     parsed_desc_i18n = json.loads(description_i18n_json)
-                    if not isinstance(parsed_desc_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_desc_i18n.items()): raise ValueError("description_i18n_json must be a dict of str:str.")
+                    if not isinstance(parsed_desc_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_desc_i18n.items()): raise ValueError(error_detail_desc_format)
                 if properties_json:
                     parsed_props = json.loads(properties_json)
-                    if not isinstance(parsed_props, dict): raise ValueError("properties_json must be a dict.")
-            except ValueError as e: # Specific exception first
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
+                    if not isinstance(parsed_props, dict): raise ValueError(error_detail_props_format)
+            except ValueError as e:
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_invalid_input_data",lang_code,"Invalid data provided: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-            # except json.JSONDecodeError as e:
-            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
-            #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            except json.JSONDecodeError as e:
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_invalid_json",lang_code,"Invalid JSON format: {details}") # type: ignore
+                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
             except KeyError as e: # For StatusEffectCategoryEnum
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=f"Invalid category value: {str(e)}"), ephemeral=True); return
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_invalid_category_key",lang_code,"Invalid category key: {details}") # type: ignore
+                await interaction.followup.send(error_msg.format(details=error_detail_invalid_category.format(value=str(e))), ephemeral=True); return
 
 
             se_data_create: Dict[str, Any] = {"guild_id": target_guild_id, "static_id": static_id, "name_i18n": parsed_name_i18n, "description_i18n": parsed_desc_i18n or {}, "category": category_enum, "properties_json": parsed_props or {}}
             created_se: Optional[Any] = None
             try:
                 async with session.begin():
-                    # guild_id is already in se_data_create and handled by CRUDBase.create
                     created_se = await status_effect_crud.create(session, obj_in=se_data_create)
                     await session.flush();
                     if created_se: await session.refresh(created_se)
             except Exception as e:
                 logger.error(f"Error creating StatusEffect definition: {e}", exc_info=True)
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_generic_create",lang_code,"Error creating definition: {error}") # type: ignore
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_generic_create",lang_code,"Error creating definition: {error}") # type: ignore
                 await interaction.followup.send(error_msg.format(error=str(e)), ephemeral=True); return
             if not created_se:
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_unknown_fail",lang_code,"Definition creation failed.") # type: ignore
+                error_msg = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:error_unknown_fail",lang_code,"Definition creation failed.") # type: ignore
                 await interaction.followup.send(error_msg, ephemeral=True); return
 
-            success_title = await get_localized_message_template(session,interaction.guild_id,"se_def_create:success_title",lang_code,"StatusEffect Definition Created: {name} (ID: {id})") # type: ignore
+            success_title = await get_localized_message_template(session,current_guild_id_for_messages,"se_def_create:success_title",lang_code,"StatusEffect Definition Created: {name} (ID: {id})") # type: ignore
             created_name = created_se.name_i18n.get(lang_code, created_se.name_i18n.get("en", ""))
-            scope_disp = "Global" if created_se.guild_id is None else f"Guild {created_se.guild_id}"
+
+            scope_global_str = await get_localized_message_template(session, current_guild_id_for_messages, "common:scope_global", lang_code, "Global") # type: ignore
+            scope_guild_tmpl = await get_localized_message_template(session, current_guild_id_for_messages, "common:scope_guild", lang_code, "Guild ({guild_id})") # type: ignore
+            scope_disp = scope_global_str if created_se.guild_id is None else scope_guild_tmpl.format(guild_id=created_se.guild_id)
+
             embed = discord.Embed(title=success_title.format(name=created_name, id=created_se.id), color=discord.Color.green())
-            embed.add_field(name="Static ID", value=created_se.static_id, inline=True); embed.add_field(name="Category", value=created_se.category.value, inline=True); embed.add_field(name="Scope", value=scope_disp, inline=True) # type: ignore
+
+            label_static_id = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:label_static_id", lang_code, "Static ID") # type: ignore
+            label_category = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:label_category", lang_code, "Category") # type: ignore
+            label_scope = await get_localized_message_template(session, current_guild_id_for_messages, "se_def_create:label_scope", lang_code, "Scope") # type: ignore
+
+            embed.add_field(name=label_static_id, value=created_se.static_id, inline=True); embed.add_field(name=label_category, value=created_se.category.value, inline=True); embed.add_field(name=label_scope, value=scope_disp, inline=True) # type: ignore
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @status_effect_master_cmds.command(name="definition_update", description="Update a Status Effect definition.")
@@ -209,8 +239,9 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         allowed_fields_map = {"static_id": {"db_field": "static_id", "type": str}, "name_i18n_json": {"db_field": "name_i18n", "type": dict}, "description_i18n_json": {"db_field": "description_i18n", "type": dict}, "category": {"db_field": "category", "type": StatusEffectCategoryEnum}, "properties_json": {"db_field": "properties_json", "type": dict},}
         lang_code = str(interaction.locale); command_field_name = field_to_update.value
 
-        if command_field_name not in allowed_fields_map: # This check should ideally be redundant due to @app_commands.choices
-            async with get_db_session() as temp_session: error_msg = await get_localized_message_template(temp_session,interaction.guild_id,"se_def_update:error_field_not_allowed_internal",lang_code,"Internal error: Invalid field choice.") # type: ignore
+        if command_field_name not in allowed_fields_map:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session,interaction.guild_id,"common:error_invalid_field_choice_internal",lang_code,"Internal error: Invalid field choice selected.") # type: ignore
             await interaction.followup.send(error_msg, ephemeral=True); return
 
         db_field_name = allowed_fields_map[command_field_name]["db_field"]; expected_type = allowed_fields_map[command_field_name]["type"]
@@ -234,20 +265,28 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_not_found",lang_code,"StatusEffect def ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=status_effect_id), ephemeral=True); return
             try:
+                error_detail_static_id_empty = await get_localized_message_template(session, interaction.guild_id, "se_def_update:error_detail_static_id_empty", lang_code, "static_id cannot be empty.") # type: ignore
+                error_detail_json_not_dict_template = await get_localized_message_template(session, interaction.guild_id, "se_def_update:error_detail_json_not_dict", lang_code, "{field_name} must be a dictionary.") # type: ignore
+                error_detail_invalid_category_template = await get_localized_message_template(session, interaction.guild_id, "se_def_update:error_detail_invalid_category", lang_code, "Invalid category. Use {valid_options}") # type: ignore
+
                 if db_field_name == "static_id":
                     parsed_value = new_value
-                    if not parsed_value: raise ValueError("static_id cannot be empty.")
+                    if not parsed_value: raise ValueError(error_detail_static_id_empty)
                     existing_se = await status_effect_crud.get_by_static_id(session, static_id=parsed_value, guild_id=original_guild_id_for_check)
                     if existing_se and existing_se.id != status_effect_id:
-                        scope_str = "global" if original_guild_id_for_check is None else f"guild {original_guild_id_for_check}"
+                        scope_global_str = await get_localized_message_template(session, interaction.guild_id, "common:scope_global", lang_code, "global") # type: ignore
+                        scope_guild_tmpl = await get_localized_message_template(session, interaction.guild_id, "common:scope_guild_detail", lang_code, "guild {guild_id}") # type: ignore
+                        scope_str = scope_global_str if original_guild_id_for_check is None else scope_guild_tmpl.format(guild_id=original_guild_id_for_check)
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_static_id_exists",lang_code,"Static ID '{id}' already in use for scope {sc}.") # type: ignore
                         await interaction.followup.send(error_msg.format(id=parsed_value, sc=scope_str), ephemeral=True); return
                 elif expected_type == dict:
                     parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, dict): raise ValueError(f"{command_field_name} must be a dict.")
+                    if not isinstance(parsed_value, dict): raise ValueError(error_detail_json_not_dict_template.format(field_name=command_field_name))
                 elif expected_type == StatusEffectCategoryEnum:
                     try: parsed_value = StatusEffectCategoryEnum[new_value.upper()]
-                    except KeyError: raise ValueError(f"Invalid category. Use {', '.join([c.name for c in StatusEffectCategoryEnum])}")
+                    except KeyError:
+                        valid_categories = ", ".join([c.name for c in StatusEffectCategoryEnum])
+                        raise ValueError(error_detail_invalid_category_template.format(valid_options=valid_categories))
                 else: parsed_value = new_value # Should be str
             except ValueError as e:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
@@ -274,9 +313,23 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
                 await interaction.followup.send(error_msg, ephemeral=True); return
 
             success_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:success",lang_code,"StatusEffect def ID {id} updated. Field '{f}' set to '{v}'.") # type: ignore
-            new_val_display = str(parsed_value.name if isinstance(parsed_value, StatusEffectCategoryEnum) else parsed_value) # type: ignore[attr-defined]
-            if isinstance(parsed_value, dict): new_val_display = json.dumps(parsed_value) # type: ignore
-            await interaction.followup.send(success_msg.format(id=updated_se.id, f=command_field_name, v=new_val_display), ephemeral=True)
+
+            new_val_display_str: str
+            if parsed_value is None: # Should not be reachable for current fields, but good for future proofing
+                new_val_display_str = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") # type: ignore
+            elif isinstance(parsed_value, StatusEffectCategoryEnum):
+                new_val_display_str = parsed_value.name
+            elif isinstance(parsed_value, dict):
+                try:
+                    json_str = json.dumps(parsed_value, indent=2, ensure_ascii=False)
+                    new_val_display_str = f"```json\n{json_str[:1000]}\n```"
+                    if len(json_str) > 1000: new_val_display_str += "..."
+                except TypeError:
+                    new_val_display_str = await get_localized_message_template(session, interaction.guild_id, "se_def_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).") # type: ignore
+            else:
+                new_val_display_str = str(parsed_value)
+
+            await interaction.followup.send(success_msg.format(id=updated_se.id, f=command_field_name, v=new_val_display_str), ephemeral=True)
 
     @status_effect_master_cmds.command(name="definition_delete", description="Delete a Status Effect definition.")
     @app_commands.describe(status_effect_id="ID of the StatusEffect definition to delete.")
@@ -306,7 +359,11 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
                 await interaction.followup.send(error_msg.format(id=status_effect_id), ephemeral=True); return
 
             se_name_for_msg = se_def_to_delete.name_i18n.get(lang_code, se_def_to_delete.name_i18n.get("en", f"SE Def {status_effect_id}"))
-            scope_for_msg = "Global" if is_global_to_delete else f"Guild {se_def_to_delete.guild_id}"
+
+            scope_global_str = await get_localized_message_template(session, interaction.guild_id, "common:scope_global", lang_code, "Global") # type: ignore
+            scope_guild_tmpl = await get_localized_message_template(session, interaction.guild_id, "common:scope_guild", lang_code, "Guild ({guild_id})") # type: ignore
+            scope_for_msg = scope_global_str if is_global_to_delete else scope_guild_tmpl.format(guild_id=target_guild_id_for_delete) # Use target_guild_id_for_delete for correct scope display
+
             active_check_filters = [active_status_effect_crud.model.status_effect_id == status_effect_id]
             # Check active instances in the correct scope
             if target_guild_id_for_delete is not None:
@@ -344,18 +401,26 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
     @app_commands.describe(active_status_effect_id="The database ID of the ActiveStatusEffect instance.")
     async def active_status_effect_view(self, interaction: discord.Interaction, active_status_effect_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
-            return
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        # lang_code is already defined
         async with get_db_session() as session:
-            lang_code = str(interaction.locale)
+            # lang_code = str(interaction.locale) # Already defined
             active_se = await active_status_effect_crud.get(session, id=active_status_effect_id, guild_id=interaction.guild_id)
             if not active_se:
                 not_found_msg = await get_localized_message_template(session, interaction.guild_id, "active_se_view:not_found", lang_code, "ActiveStatusEffect with ID {id} not found.")
                 await interaction.followup.send(not_found_msg.format(id=active_status_effect_id), ephemeral=True); return
 
-            se_def_name = "Unknown Definition"
-            # Try to get the definition from the same guild, then global if not found
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+            infinite_str = await get_localized_message_template(session, interaction.guild_id, "common:value_infinite", lang_code, "Infinite") # type: ignore
+            unknown_def_str = await get_localized_message_template(session, interaction.guild_id, "active_se_view:unknown_definition", lang_code, "Unknown Definition") # type: ignore
+
+
+            se_def_name = unknown_def_str
             se_definition = await status_effect_crud.get(session, id=active_se.status_effect_id, guild_id=active_se.guild_id)
             if not se_definition:
                  se_definition = await status_effect_crud.get(session, id=active_se.status_effect_id, guild_id=None)
@@ -366,23 +431,22 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             embed = discord.Embed(title=title_template.format(name=se_def_name, id=active_se.id), color=discord.Color.lighter_grey())
             async def get_label(key: str, default: str) -> str: return await get_localized_message_template(session, interaction.guild_id, f"active_se_view:label_{key}", lang_code, default) # type: ignore
             async def format_json_field(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
-                if not data: return na_str
+                na_str_val = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+                if not data: return na_str_val
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
             embed.add_field(name=await get_label("guild", "Guild ID"), value=str(active_se.guild_id), inline=True)
             embed.add_field(name=await get_label("def_id", "Definition ID"), value=str(active_se.status_effect_id), inline=True)
-            embed.add_field(name=await get_label("entity_type", "Entity Type"), value=active_se.entity_type if active_se.entity_type else "N/A", inline=True)
+            embed.add_field(name=await get_label("entity_type", "Entity Type"), value=active_se.entity_type if active_se.entity_type else na_value_str, inline=True)
             embed.add_field(name=await get_label("entity_id", "Entity ID"), value=str(active_se.entity_id), inline=True)
-            embed.add_field(name=await get_label("duration", "Duration (Turns)"), value=str(active_se.duration_turns) if active_se.duration_turns is not None else "Infinite", inline=True)
-            embed.add_field(name=await get_label("remaining", "Remaining (Turns)"), value=str(active_se.remaining_turns) if active_se.remaining_turns is not None else "Infinite", inline=True)
-            source_entity_type_val = active_se.source_entity_type if active_se.source_entity_type else "N/A"
-            source_entity_id_val = str(active_se.source_entity_id) if active_se.source_entity_id is not None else "N/A"
+            embed.add_field(name=await get_label("duration", "Duration (Turns)"), value=str(active_se.duration_turns) if active_se.duration_turns is not None else infinite_str, inline=True)
+            embed.add_field(name=await get_label("remaining", "Remaining (Turns)"), value=str(active_se.remaining_turns) if active_se.remaining_turns is not None else infinite_str, inline=True)
+            source_entity_type_val = active_se.source_entity_type if active_se.source_entity_type else na_value_str
+            source_entity_id_val = str(active_se.source_entity_id) if active_se.source_entity_id is not None else na_value_str
             embed.add_field(name=await get_label("source_entity", "Source Entity"), value=f"{source_entity_type_val}({source_entity_id_val})", inline=True)
-            embed.add_field(name=await get_label("source_ability_id", "Source Ability ID"), value=str(active_se.source_ability_id) if active_se.source_ability_id else "N/A", inline=True)
-            # active_se.source_log_id does not exist on the model, removing this field.
-            applied_at_val = discord.utils.format_dt(cast(datetime, active_se.applied_at), style='F') if active_se.applied_at else "N/A"
+            embed.add_field(name=await get_label("source_ability_id", "Source Ability ID"), value=str(active_se.source_ability_id) if active_se.source_ability_id else na_value_str, inline=True)
+            applied_at_val = discord.utils.format_dt(cast(datetime, active_se.applied_at), style='F') if active_se.applied_at else na_value_str
             embed.add_field(name=await get_label("applied_at", "Applied At"), value=applied_at_val, inline=False)
             props_str = await format_json_field(active_se.custom_properties_json, "active_se_view:value_na_json", "active_se_view:error_serialization_props")
             embed.add_field(name=await get_label("instance_props", "Instance Properties JSON"), value=f"```json\n{props_str[:1000]}\n```" + ("..." if len(props_str) > 1000 else ""), inline=False)
@@ -398,7 +462,9 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         lang_code = str(interaction.locale); entity_type_enum: Optional[RelationshipEntityType] = None
 
         if interaction.guild_id is None:
-            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -423,9 +489,14 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             total_active_ses = total_active_ses_res.scalar_one_or_none() or 0
 
             filter_parts = []
-            if entity_id is not None and entity_type_enum: filter_parts.append(f"Entity: {entity_type_enum.name}({entity_id})")
-            if status_effect_def_id is not None: filter_parts.append(f"Def ID: {status_effect_def_id}")
-            filter_display = ", ".join(filter_parts) if filter_parts else "All"
+            # Локализация названий фильтров
+            entity_filter_label = await get_localized_message_template(session, interaction.guild_id, "active_se_list:filter_entity", lang_code, "Entity") # type: ignore
+            def_id_filter_label = await get_localized_message_template(session, interaction.guild_id, "active_se_list:filter_def_id", lang_code, "Def ID") # type: ignore
+            all_filter_str = await get_localized_message_template(session, interaction.guild_id, "common:filter_all", lang_code, "All") # type: ignore
+
+            if entity_id is not None and entity_type_enum: filter_parts.append(f"{entity_filter_label}: {entity_type_enum.name}({entity_id})")
+            if status_effect_def_id is not None: filter_parts.append(f"{def_id_filter_label}: {status_effect_def_id}")
+            filter_display = ", ".join(filter_parts) if filter_parts else all_filter_str
 
             if not active_ses:
                 no_ases_msg = await get_localized_message_template(session,interaction.guild_id,"active_se_list:no_ases_found",lang_code,"No Active StatusEffects for {filter} (Page {p}).")
@@ -447,9 +518,13 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             name_tmpl = await get_localized_message_template(session,interaction.guild_id,"active_se_list:ase_name_field",lang_code,"ID: {id} | {def_name} (Def ID: {def_id})")
             val_tmpl = await get_localized_message_template(session,interaction.guild_id,"active_se_list:ase_value_field",lang_code,"On: {e_type}({e_id}), Turns Left: {turns}")
             for ase in active_ses:
-                def_name = def_names.get(ase.status_effect_id, "Unknown Def")
-                turns_left = str(ase.remaining_turns) if ase.remaining_turns is not None else "Infinite"
-                embed.add_field(name=name_tmpl.format(id=ase.id, def_name=def_name, def_id=ase.status_effect_id), value=val_tmpl.format(e_type=ase.entity_type if ase.entity_type else "N/A", e_id=ase.entity_id, turns=turns_left), inline=False)
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                infinite_str = await get_localized_message_template(session, interaction.guild_id, "common:value_infinite", lang_code, "Infinite") # type: ignore
+                unknown_def_str = await get_localized_message_template(session, interaction.guild_id, "active_se_list:unknown_definition", lang_code, "Unknown Def") # type: ignore
+
+                def_name = def_names.get(ase.status_effect_id, unknown_def_str)
+                turns_left = str(ase.remaining_turns) if ase.remaining_turns is not None else infinite_str
+                embed.add_field(name=name_tmpl.format(id=ase.id, def_name=def_name, def_id=ase.status_effect_id), value=val_tmpl.format(e_type=ase.entity_type if ase.entity_type else na_value_str, e_id=ase.entity_id, turns=turns_left), inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @status_effect_master_cmds.command(name="active_remove", description="Remove an active Status Effect instance from an entity.")
@@ -458,7 +533,9 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
         if interaction.guild_id is None:
-            await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
         async with get_db_session() as session:
             # Ensure we only try to remove an effect from the current guild

@@ -32,8 +32,11 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
     @app_commands.describe(group_id="The database ID of the Mobile Group to view.")
     async def mobile_group_view(self, interaction: discord.Interaction, group_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -66,8 +69,10 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
                 except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
 
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(group.guild_id), inline=True)
-            embed.add_field(name=await get_label("current_location_id", "Current Location ID"), value=str(group.current_location_id) if group.current_location_id else "N/A", inline=True)
+            embed.add_field(name=await get_label("current_location_id", "Current Location ID"), value=str(group.current_location_id) if group.current_location_id else na_value_str, inline=True)
 
             name_i18n_str = await format_json_field_helper(group.name_i18n, "mobile_group_view:value_na_json", "mobile_group_view:error_serialization_name")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
@@ -99,8 +104,11 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         if page < 1: page = 1
         if limit < 1: limit = 1
         if limit > 10: limit = 10
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -144,11 +152,12 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             ) # type: ignore
 
             for group_obj in groups:
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
                 group_name_display = group_obj.name_i18n.get(lang_code, group_obj.name_i18n.get("en", f"Group {group_obj.id}"))
                 embed.add_field(
                     name=field_name_template.format(id=group_obj.id, name=group_name_display),
                     value=field_value_template.format(
-                        loc_id=str(group_obj.current_location_id) if group_obj.current_location_id else "N/A"
+                        loc_id=str(group_obj.current_location_id) if group_obj.current_location_id else na_value_str
                     ),
                     inline=False
                 )
@@ -181,8 +190,10 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         parsed_name_i18n: Dict[str, str]
         parsed_route: Optional[Dict[str, Any]] = None
         parsed_props: Optional[Dict[str, Any]] = None
-        if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+        if interaction.guild_id is None: # lang_code already defined
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         async with get_db_session() as session:
@@ -251,8 +262,11 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
     )
     async def mobile_group_update(self, interaction: discord.Interaction, group_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
 
         allowed_fields = {
@@ -278,28 +292,26 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         parsed_value: Any = None
         async with get_db_session() as session:
             try:
+                error_detail_json_not_dict_template = await get_localized_message_template(session, interaction.guild_id, "mg_update:error_detail_json_not_dict", lang_code, "{field_name} must be a dictionary.") # type: ignore
+                error_detail_loc_not_found_template = await get_localized_message_template(session, interaction.guild_id, "mg_update:error_detail_loc_not_found", lang_code, "Location ID {id} not found.") # type: ignore
+                error_detail_unknown_field_template = await get_localized_message_template(session, interaction.guild_id, "mg_update:error_detail_unknown_field", lang_code, "Unknown field for update: {field_name}") # type: ignore
+
                 if db_field_name in ["name_i18n", "route_json", "properties_json"]:
                     parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, dict): raise ValueError(f"{db_field_name} must be a dict.")
+                    if not isinstance(parsed_value, dict): raise ValueError(error_detail_json_not_dict_template.format(field_name=db_field_name))
                 elif db_field_name == "current_location_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
                         parsed_value = None
                     else:
-                        parsed_value = int(new_value) # Can raise ValueError
-                        if parsed_value is not None: # Check if not None before DB call
+                        parsed_value = int(new_value)
+                        if parsed_value is not None:
                             if not await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id):
-                                error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_loc_not_found",lang_code,"Location ID {id} not found.") # type: ignore
-                                await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
-                else: # Should not be reached
-                    error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_unknown_field",lang_code,"Unknown field for update.") # type: ignore
-                    await interaction.followup.send(error_msg, ephemeral=True); return
-            except ValueError as e: # Specific exception first
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
+                                raise ValueError(error_detail_loc_not_found_template.format(id=parsed_value))
+                else:
+                    raise ValueError(error_detail_unknown_field_template.format(field_name=db_field_name))
+            except (ValueError, json.JSONDecodeError) as e:
+                error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_value_data",lang_code,"Invalid value or data for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
-            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-            # except json.JSONDecodeError as e:
-            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
-            #     await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
             group_to_update = await mobile_group_crud.get(session, id=group_id, guild_id=interaction.guild_id)
             if not group_to_update:
@@ -323,19 +335,33 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                  await interaction.followup.send(error_msg, ephemeral=True); return
 
             success_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:success",lang_code,"Mobile Group ID {id} updated. Field '{f}' set to '{v}'.") # type: ignore
-            new_val_display = str(parsed_value)
-            if isinstance(parsed_value, dict): new_val_display = json.dumps(parsed_value)
-            elif parsed_value is None: new_val_display = "None"
-            await interaction.followup.send(success_msg.format(id=updated_group.id, f=field_to_update, v=new_val_display), ephemeral=True)
+
+            new_val_display_str: str
+            if parsed_value is None:
+                new_val_display_str = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") # type: ignore
+            elif isinstance(parsed_value, dict):
+                try:
+                    json_str = json.dumps(parsed_value, indent=2, ensure_ascii=False)
+                    new_val_display_str = f"```json\n{json_str[:1000]}\n```"
+                    if len(json_str) > 1000: new_val_display_str += "..."
+                except TypeError:
+                    new_val_display_str = await get_localized_message_template(session, interaction.guild_id, "mg_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).") # type: ignore
+            else:
+                new_val_display_str = str(parsed_value)
+
+            await interaction.followup.send(success_msg.format(id=updated_group.id, f=field_to_update, v=new_val_display_str), ephemeral=True)
 
     @mobile_group_master_cmds.command(name="delete", description="Delete a Mobile Group.")
     @app_commands.describe(group_id="The database ID of the Mobile Group to delete.")
     async def mobile_group_delete(self, interaction: discord.Interaction, group_id: int):
         await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale) # Defined early
         if interaction.guild_id is None:
-            await interaction.followup.send("This command must be used in a guild.", ephemeral=True)
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.") # type: ignore
+            await interaction.followup.send(error_msg, ephemeral=True)
             return
-        lang_code = str(interaction.locale)
+        # lang_code = str(interaction.locale) # Already defined
         async with get_db_session() as session:
             group_to_delete = await mobile_group_crud.get(session, id=group_id, guild_id=interaction.guild_id)
 

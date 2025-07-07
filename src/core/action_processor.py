@@ -830,6 +830,41 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
     all_player_actions_for_turn: list[tuple[int, ParsedAction]] = []
     processed_actions_results: list[dict] = []
 
+    # Preliminary Check: Are there active conflicts requiring master resolution?
+    try:
+        from ..models.enums import ConflictStatus # Moved import here
+        from .crud.crud_pending_conflict import pending_conflict_crud # Moved import here
+
+        async with session_maker() as pre_check_session:
+            # Using a separate session for this check to avoid interference if process_actions_for_guild
+            # is ever called within an existing transaction context by another part of the system.
+            # For its current usage from turn_controller, this is fine.
+            active_conflict_count = await pending_conflict_crud.get_count_by_guild_and_status(
+                pre_check_session, guild_id=guild_id, status=ConflictStatus.PENDING_RESOLUTION
+            )
+
+        if active_conflict_count > 0:
+            logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Turn processing halted. {active_conflict_count} active conflict(s) require master resolution.")
+            # Notify master that processing is blocked.
+            # This might be too noisy if checked frequently. Consider if this notification is essential here
+            # or if the master is already aware via conflict creation notifications.
+            # For now, let's assume the master is aware from when the conflict was created.
+            # If entities were already marked as PROCESSING_GUILD_TURN, they will remain so.
+            # The turn_controller will attempt processing again later (e.g. after conflict resolution signal).
+            return # Halt processing
+    except Exception as e_conflict_check:
+        logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Error during pre-check for active conflicts: {e_conflict_check}", exc_info=True)
+        # Potentially log this to DB as a system error.
+        # Decide if to proceed or halt. Halting is safer if conflict state is unknown.
+        try:
+            async with session_maker() as error_log_session: # New session for logging
+                await log_event(error_log_session, guild_id=guild_id, event_type="CONFLICT_CHECK_ERROR",
+                                details_json={"error": str(e_conflict_check), "phase": "pre_conflict_check"})
+                await error_log_session.commit()
+        except Exception as log_e_critical: # Nested try-except for logging the error itself
+            logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Failed to log CONFLICT_CHECK_ERROR: {log_e_critical}", exc_info=True)
+        return # Halt processing due to uncertainty
+
     # 1. Load and clear all player actions for the turn in a single transaction
     try:
         async with session_maker() as session:
@@ -848,11 +883,11 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
             logger.error(f"[ACTION_PROCESSOR] Guild {guild_id}: Failed to log critical ACTION_LOAD_ERROR: {log_e_critical}", exc_info=True)
         return # Stop processing if actions can't be loaded
 
-    # 2. Conflict Analysis (Conceptual MVP)
-    # Placeholder for future conflict resolution logic
+    # 2. Conflict Analysis (Conceptual MVP) - The check above handles pre-existing conflicts.
+    # Placeholder for future conflict resolution logic for conflicts *generated* mid-turn.
     # conflict_rule = await get_rule(session_maker, guild_id, "party_conflict_policy", "leader_decides")
     # if conflict_rule == "manual_moderation_required_for_movement": ...
-    # For now, all loaded actions are assumed to be executable.
+    # For now, all loaded actions are assumed to be executable if no pre-existing conflicts.
 
     # 3. Execute player actions, each in its own transaction
     if all_player_actions_for_turn:

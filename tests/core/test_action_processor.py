@@ -763,3 +763,149 @@ async def test_handle_move_action_wrapper_execute_move_raises_exception(
     assert result["status"] == "error"
     assert f"Failed to execute move action due to an internal error: {error_message}" in result["message"]
     mock_execute_move.assert_called_once()
+
+# --- Tests for Conflict Signaling in process_actions_for_guild ---
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.get_db_session") # Patches the session_maker for process_actions_for_guild
+@patch("src.core.action_processor.pending_conflict_crud", autospec=True) # Mock the CRUD instance
+@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock) # To check if called
+@patch("src.core.action_processor.log_event", new_callable=AsyncMock) # To check error logging
+async def test_process_actions_halts_if_conflict_pending(
+    mock_log_event_conflict_check: AsyncMock,
+    mock_load_actions: AsyncMock,
+    mock_pending_conflict_crud_instance: MagicMock,
+    mock_session_maker_in_ap: MagicMock, # This is the patched get_db_session
+    mock_session: AsyncMock, # Session returned by the maker
+    caplog # For checking log messages
+):
+    """
+    Tests that process_actions_for_guild halts if pending_conflict_crud indicates active conflicts.
+    """
+    guild_id_test = DEFAULT_GUILD_ID
+    mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
+
+    # Simulate active conflicts pending
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.return_value = 1
+
+    caplog.clear() # Clear previous log captures
+    with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
+        await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
+
+    # Assertions
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once_with(
+        mock_session, # The session from pre_check_session context
+        guild_id=guild_id_test,
+        status=ANY # Assuming ConflictStatus.PENDING_RESOLUTION is used, ANY for flexibility
+    )
+    mock_load_actions.assert_not_called() # Core processing step should be skipped
+
+    assert any(
+        f"Guild {guild_id_test}: Turn processing halted. 1 active conflict(s) require master resolution." in record.message
+        for record in caplog.records
+        if record.name == "src.core.action_processor" # Ensure message is from the correct logger
+    ), "Expected log message about halting due to conflict not found."
+
+    # Ensure no error was logged for the conflict check itself
+    # (i.e., the CONFLICT_CHECK_ERROR log_event was not called)
+    # Check calls to mock_log_event_conflict_check
+    found_conflict_check_error_log = False
+    for call_obj in mock_log_event_conflict_check.call_args_list:
+        if call_obj.kwargs.get('event_type') == "CONFLICT_CHECK_ERROR":
+            found_conflict_check_error_log = True
+            break
+    assert not found_conflict_check_error_log, "CONFLICT_CHECK_ERROR should not have been logged."
+
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.get_db_session")
+@patch("src.core.action_processor.pending_conflict_crud", autospec=True)
+@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
+@patch("src.core.action_processor._execute_player_actions", new_callable=AsyncMock) # Further step
+@patch("src.core.action_processor._finalize_turn_processing", new_callable=AsyncMock) # Final step
+@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+async def test_process_actions_proceeds_if_no_conflict_pending(
+    mock_log_event_no_conflict: AsyncMock,
+    mock_finalize_turn: AsyncMock,
+    mock_execute_actions: AsyncMock,
+    mock_load_actions: AsyncMock,
+    mock_pending_conflict_crud_instance: MagicMock,
+    mock_session_maker_in_ap: MagicMock,
+    mock_session: AsyncMock,
+    caplog
+):
+    """
+    Tests that process_actions_for_guild proceeds if no conflicts are pending.
+    """
+    guild_id_test = DEFAULT_GUILD_ID
+    mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
+
+    # Simulate no active conflicts
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.return_value = 0
+    mock_load_actions.return_value = [] # Simulate no actions loaded to simplify test
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
+        await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
+
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once_with(
+        mock_session, guild_id=guild_id_test, status=ANY
+    )
+    mock_load_actions.assert_called_once() # Should be called if no conflict
+    mock_execute_actions.assert_called_once() # Should proceed if actions were loaded (even if empty list)
+    mock_finalize_turn.assert_called_once() # Should always be called at the end if not halted early
+
+    assert not any(
+        "Turn processing halted" in record.message for record in caplog.records
+        if record.name == "src.core.action_processor"
+    ), "Log message about halting should not be present."
+
+    found_conflict_check_error_log = False
+    for call_obj in mock_log_event_no_conflict.call_args_list:
+        if call_obj.kwargs.get('event_type') == "CONFLICT_CHECK_ERROR":
+            found_conflict_check_error_log = True
+            break
+    assert not found_conflict_check_error_log, "CONFLICT_CHECK_ERROR should not have been logged."
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.get_db_session")
+@patch("src.core.action_processor.pending_conflict_crud", autospec=True)
+@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
+@patch("src.core.action_processor.log_event", new_callable=AsyncMock) # For logging CONFLICT_CHECK_ERROR
+async def test_process_actions_handles_exception_during_conflict_check(
+    mock_log_event_conflict_exception: AsyncMock,
+    mock_load_actions_exception: AsyncMock, # Renamed to avoid clash
+    mock_pending_conflict_crud_instance: MagicMock,
+    mock_session_maker_in_ap: MagicMock,
+    mock_session: AsyncMock, # Session object
+    caplog
+):
+    guild_id_test = DEFAULT_GUILD_ID
+    mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
+
+    # Simulate an exception during the conflict check
+    test_exception = Exception("DB connection error during conflict check")
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.side_effect = test_exception
+
+    caplog.clear()
+    with caplog.at_level(logging.ERROR, logger="src.core.action_processor"):
+        await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
+
+    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once()
+    mock_load_actions_exception.assert_not_called() # Processing should halt
+
+    assert any(
+        f"Error during pre-check for active conflicts: {test_exception}" in record.message
+        for record in caplog.records
+        if record.name == "src.core.action_processor"
+    ), "Expected error log for conflict check failure not found."
+
+    # Check that CONFLICT_CHECK_ERROR was logged via log_event
+    mock_log_event_conflict_exception.assert_called_once()
+    log_call_args = mock_log_event_conflict_exception.call_args[0]
+    log_call_kwargs = mock_log_event_conflict_exception.call_args[1]
+
+    assert log_call_kwargs.get('guild_id') == guild_id_test
+    assert log_call_kwargs.get('event_type') == "CONFLICT_CHECK_ERROR"
+    assert log_call_kwargs.get('details_json', {}).get('error') == str(test_exception)
+    assert log_call_kwargs.get('details_json', {}).get('phase') == "pre_conflict_check"
