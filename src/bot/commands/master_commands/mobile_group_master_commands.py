@@ -38,7 +38,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            group = await mobile_group_crud.get_by_id(session, id=group_id, guild_id=interaction.guild_id)
+            group = await mobile_group_crud.get(session, id=group_id, guild_id=interaction.guild_id)
 
             if not group:
                 not_found_msg = await get_localized_message_template(
@@ -78,8 +78,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             properties_str = await format_json_field_helper(group.properties_json, "mobile_group_view:value_na_json", "mobile_group_view:error_serialization_properties")
             embed.add_field(name=await get_label("properties_json", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```" + ("..." if len(properties_str) > 1000 else ""), inline=False)
 
-            # Assuming global_npc_crud.get_multi_by_guild_and_attribute exists and works as intended.
-            members = await global_npc_crud.get_multi_by_guild_and_attribute(session, guild_id=interaction.guild_id, attribute_name="mobile_group_id", attribute_value=group_id, limit=25) # type: ignore
+            members = await global_npc_crud.get_multi_by_attribute(session, guild_id=interaction.guild_id, attribute="mobile_group_id", value=group_id, limit=25)
             members_label = await get_label("members", "Members (Global NPCs)")
             if members:
                 member_info_list = []
@@ -107,7 +106,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            groups = await mobile_group_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            groups = await mobile_group_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_groups_stmt = select(func.count(mobile_group_crud.model.id)).where(mobile_group_crud.model.guild_id == interaction.guild_id)
             total_groups_result = await session.execute(total_groups_stmt)
@@ -188,7 +187,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
 
         async with get_db_session() as session:
             if current_location_id:
-                loc = await location_crud.get_by_id(session, id=current_location_id, guild_id=interaction.guild_id)
+                loc = await location_crud.get(session, id=current_location_id, guild_id=interaction.guild_id)
                 if not loc:
                     error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_location_not_found",lang_code,"Location ID {id} not found.") # type: ignore
                     await interaction.followup.send(error_msg.format(id=current_location_id), ephemeral=True); return
@@ -209,9 +208,10 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_invalid_json",lang_code,"Invalid JSON: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_invalid_json",lang_code,"Invalid JSON: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_invalid_json",lang_code,"Invalid JSON: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
 
             mg_data_create: Dict[str, Any] = {
@@ -224,7 +224,8 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             created_mg: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_mg = await mobile_group_crud.create_with_guild(session, obj_in=mg_data_create, guild_id=interaction.guild_id) # type: ignore
+                    # guild_id is already in mg_data_create and handled by CRUDBase.create
+                    created_mg = await mobile_group_crud.create(session, obj_in=mg_data_create)
                     await session.flush();
                     if created_mg: await session.refresh(created_mg)
             except Exception as e:
@@ -286,7 +287,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                     else:
                         parsed_value = int(new_value) # Can raise ValueError
                         if parsed_value is not None: # Check if not None before DB call
-                            if not await location_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id):
+                            if not await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id):
                                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_loc_not_found",lang_code,"Location ID {id} not found.") # type: ignore
                                 await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
                 else: # Should not be reached
@@ -295,11 +296,12 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
-            group_to_update = await mobile_group_crud.get_by_id(session, id=group_id, guild_id=interaction.guild_id)
+            group_to_update = await mobile_group_crud.get(session, id=group_id, guild_id=interaction.guild_id)
             if not group_to_update:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_not_found",lang_code,"Mobile Group ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=group_id), ephemeral=True); return
@@ -335,7 +337,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             return
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            group_to_delete = await mobile_group_crud.get_by_id(session, id=group_id, guild_id=interaction.guild_id)
+            group_to_delete = await mobile_group_crud.get(session, id=group_id, guild_id=interaction.guild_id)
 
             if not group_to_delete:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_delete:error_not_found",lang_code,"Mobile Group ID {id} not found.") # type: ignore
@@ -356,7 +358,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             deleted_group: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_group = await mobile_group_crud.remove_by_id(session, id=group_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_group = await mobile_group_crud.delete(session, id=group_id, guild_id=interaction.guild_id)
 
                 if deleted_group:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"mg_delete:success",lang_code,"Mobile Group '{name}' (ID: {id}) deleted.") # type: ignore

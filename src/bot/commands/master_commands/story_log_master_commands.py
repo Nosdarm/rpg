@@ -68,7 +68,7 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
             turn_number_val = getattr(log_entry, 'turn_number', None)
             embed.add_field(name=await get_label("turn_number", "Turn Number"), value=str(turn_number_val) if turn_number_val is not None else "N/A", inline=True)
 
-            timestamp_val = discord.utils.format_dt(log_entry.timestamp, style='F') if log_entry.timestamp else "N/A" # Assuming timestamp is datetime compatible
+            timestamp_val = discord.utils.format_dt(log_entry.timestamp, style='F') if log_entry.timestamp else "N/A" # type: ignore[arg-type]
             embed.add_field(name=await get_label("timestamp", "Timestamp"), value=timestamp_val, inline=False)
 
             short_desc_i18n = getattr(log_entry, 'short_description_i18n', {})

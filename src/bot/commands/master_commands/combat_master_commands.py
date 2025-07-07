@@ -39,7 +39,7 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            encounter = await combat_encounter_crud.get_by_id(session, id=encounter_id, guild_id=interaction.guild_id)
+            encounter = await combat_encounter_crud.get(session, id=encounter_id, guild_id=interaction.guild_id)
 
             if not encounter:
                 not_found_msg = await get_localized_message_template(
@@ -209,7 +209,7 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
         lang_code = str(interaction.locale)
 
         async with get_db_session() as session:
-            encounter_to_delete = await combat_encounter_crud.get_by_id(session, id=encounter_id, guild_id=interaction.guild_id)
+            encounter_to_delete = await combat_encounter_crud.get(session, id=encounter_id, guild_id=interaction.guild_id)
 
             if not encounter_to_delete:
                 error_msg = await get_localized_message_template(
@@ -222,7 +222,7 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
             deleted_encounter: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_encounter = await combat_encounter_crud.remove_by_id(session, id=encounter_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_encounter = await combat_encounter_crud.delete(session, id=encounter_id, guild_id=interaction.guild_id)
 
                 if deleted_encounter:
                     success_msg = await get_localized_message_template(

@@ -96,7 +96,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             # lang_code already defined
             try:
                 async with session.begin():
-                    conflict_to_update = await pending_conflict_crud.get_by_id(session, id=pending_conflict_id, guild_id=interaction.guild_id)
+                    conflict_to_update = await pending_conflict_crud.get(session, id=pending_conflict_id, guild_id=interaction.guild_id)
 
                     if not conflict_to_update:
                         not_found_msg = await get_localized_message_template(
@@ -143,7 +143,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            conflict = await pending_conflict_crud.get_by_id(session, id=pending_conflict_id, guild_id=interaction.guild_id)
+            conflict = await pending_conflict_crud.get(session, id=pending_conflict_id, guild_id=interaction.guild_id)
 
             if not conflict:
                 not_found_msg = await get_localized_message_template(
@@ -165,11 +165,11 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             embed.add_field(name=await get_label("status", "Status"), value=conflict.status.value, inline=True)
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(conflict.guild_id), inline=True)
             # Assuming conflict.created_at and conflict.resolved_at are standard datetime.datetime or None
-            created_at_val = discord.utils.format_dt(conflict.created_at, style='F') if conflict.created_at else await get_label("value_na", "N/A")
+            created_at_val = discord.utils.format_dt(conflict.created_at, style='F') if conflict.created_at else await get_label("value_na", "N/A") # type: ignore[arg-type]
             embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=True)
 
             if conflict.resolved_at:
-                resolved_at_val = discord.utils.format_dt(conflict.resolved_at, style='F')
+                resolved_at_val = discord.utils.format_dt(conflict.resolved_at, style='F') # type: ignore[arg-type]
                 embed.add_field(name=await get_label("resolved_at", "Resolved At"), value=resolved_at_val, inline=True)
 
             error_serialization_msg = await get_localized_message_template(session, interaction.guild_id, "conflict_view:error_serialization", lang_code, "Error: Non-serializable data") # type: ignore

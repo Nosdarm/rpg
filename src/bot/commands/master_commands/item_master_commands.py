@@ -37,7 +37,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            item = await item_crud.get_by_id(session, id=item_id, guild_id=interaction.guild_id)
+            item = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
 
             if not item:
                 not_found_msg = await get_localized_message_template(
@@ -98,7 +98,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            items = await item_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            items = await item_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_items_stmt = select(func.count(item_crud.model.id)).where(item_crud.model.guild_id == interaction.guild_id)
             total_items_result = await session.execute(total_items_stmt)
@@ -220,13 +220,14 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "item_create:error_invalid_json_format", lang_code,
-                    "Invalid JSON format or structure for one of the input fields: {error_details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "item_create:error_invalid_json_format", lang_code,
+            #         "Invalid JSON format or structure for one of the input fields: {error_details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+            #     return
 
             item_data_to_create: Dict[str, Any] = {
                 "guild_id": interaction.guild_id, # Already checked not None
@@ -243,7 +244,8 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
             created_item: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_item = await item_crud.create_with_guild(session, obj_in=item_data_to_create, guild_id=interaction.guild_id) # type: ignore
+                    # guild_id is already in item_data_to_create and handled by CRUDBase.create
+                    created_item = await item_crud.create(session, obj_in=item_data_to_create)
                     await session.flush()
                     if created_item:
                          await session.refresh(created_item)
@@ -368,15 +370,16 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "item_update:error_invalid_json", lang_code,
-                    "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "item_update:error_invalid_json", lang_code,
+            #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
+            #     return
 
-            item_to_update = await item_crud.get_by_id(session, id=item_id, guild_id=interaction.guild_id)
+            item_to_update = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
             if not item_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "item_update:error_item_not_found", lang_code,
@@ -443,7 +446,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            item_to_delete = await item_crud.get_by_id(session, id=item_id, guild_id=interaction.guild_id)
+            item_to_delete = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
 
             if not item_to_delete:
                 error_msg = await get_localized_message_template(
@@ -473,7 +476,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
             deleted_item: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_item = await item_crud.remove_by_id(session, id=item_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_item = await item_crud.delete(session, id=item_id, guild_id=interaction.guild_id)
 
                 if deleted_item:
                     success_msg = await get_localized_message_template(

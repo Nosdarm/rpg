@@ -1,14 +1,13 @@
 from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
 from .base import Base
 # Forward declaration for type hinting
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from .guild import GuildConfig
-#     from .generated_npc import GeneratedNpc
+if TYPE_CHECKING:
+#     from .guild import GuildConfig # Not strictly needed if only using guild_id
+    from .generated_npc import GeneratedNpc # For relationship
 
 class GeneratedFaction(Base):
     __tablename__ = "generated_factions"
@@ -44,6 +43,10 @@ class GeneratedFaction(Base):
     #   "archetype": "shadowy cabal",
     #   "goals": ["control trade routes", "undermine rival faction X"]
     # }
+
+    # Relationships
+    members: Mapped[List["GeneratedNpc"]] = relationship(back_populates="faction")
+
 
     __table_args__ = (
         Index("ix_generated_factions_guild_id_static_id", "guild_id", "static_id", unique=True),

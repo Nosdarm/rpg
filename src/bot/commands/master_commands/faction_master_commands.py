@@ -37,7 +37,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            faction = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
+            faction = await crud_faction.get(session, id=faction_id, guild_id=interaction.guild_id)
 
             if not faction:
                 not_found_msg = await get_localized_message_template(
@@ -242,13 +242,14 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 ) # type: ignore
                 await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "faction_create:error_invalid_json_format", lang_code,
-                    "Invalid JSON format or structure for one of the input fields: {error_details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "faction_create:error_invalid_json_format", lang_code,
+            #         "Invalid JSON format or structure for one of the input fields: {error_details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+            #     return
 
 
             faction_data_to_create: Dict[str, Any] = {
@@ -265,7 +266,8 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
             created_faction: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_faction = await crud_faction.create_with_guild(session, obj_in=faction_data_to_create, guild_id=interaction.guild_id) # type: ignore
+                    # guild_id is already in faction_data_to_create and handled by CRUDBase.create
+                    created_faction = await crud_faction.create(session, obj_in=faction_data_to_create)
                     await session.flush()
                     if created_faction:
                          await session.refresh(created_faction)
@@ -383,15 +385,16 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
                 ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "faction_update:error_invalid_json", lang_code,
-                    "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "faction_update:error_invalid_json", lang_code,
+            #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
+            #     return
 
-            faction_to_update = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
+            faction_to_update = await crud_faction.get(session, id=faction_id, guild_id=interaction.guild_id)
             if not faction_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "faction_update:error_faction_not_found", lang_code,
@@ -455,7 +458,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            faction_to_delete = await crud_faction.get_by_id(session, id=faction_id, guild_id=interaction.guild_id)
+            faction_to_delete = await crud_faction.get(session, id=faction_id, guild_id=interaction.guild_id)
 
             if not faction_to_delete:
                 error_msg = await get_localized_message_template(
@@ -484,7 +487,7 @@ class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
             deleted_faction: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_faction = await crud_faction.remove_by_id(session, id=faction_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_faction = await crud_faction.delete(session, id=faction_id, guild_id=interaction.guild_id)
 
                 if deleted_faction:
                     success_msg = await get_localized_message_template(

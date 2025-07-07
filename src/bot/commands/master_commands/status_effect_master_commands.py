@@ -40,9 +40,9 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             # Try to get by ID, respecting guild_id if present, or allowing global if guild_id is None
-            se_def = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=interaction.guild_id)
+            se_def = await status_effect_crud.get(session, id=status_effect_id, guild_id=interaction.guild_id)
             if not se_def and interaction.guild_id is not None: # If not found in guild, try global
-                 global_se_def = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=None)
+                 global_se_def = await status_effect_crud.get(session, id=status_effect_id, guild_id=None)
                  if global_se_def:
                      se_def = global_se_def
             elif not se_def and interaction.guild_id is None: # If called from DM and not found as global
@@ -167,9 +167,10 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
             except KeyError as e: # For StatusEffectCategoryEnum
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_create:error_invalid_input",lang_code,"Invalid input: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(details=f"Invalid category value: {str(e)}"), ephemeral=True); return
@@ -179,7 +180,8 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             created_se: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_se = await status_effect_crud.create_with_guild_or_global(session, obj_in=se_data_create, guild_id=target_guild_id) # type: ignore
+                    # guild_id is already in se_data_create and handled by CRUDBase.create
+                    created_se = await status_effect_crud.create(session, obj_in=se_data_create)
                     await session.flush();
                     if created_se: await session.refresh(created_se)
             except Exception as e:
@@ -214,15 +216,15 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
 
         async with get_db_session() as session:
             # Determine if we are updating a guild-specific or global effect
-            se_def_to_update = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=interaction.guild_id)
+            se_def_to_update = await status_effect_crud.get(session, id=status_effect_id, guild_id=interaction.guild_id)
             original_guild_id_for_check = interaction.guild_id # Used for static_id uniqueness check
             if not se_def_to_update and interaction.guild_id is not None: # If not found in guild, try global
-                global_se_def = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=None)
+                global_se_def = await status_effect_crud.get(session, id=status_effect_id, guild_id=None)
                 if global_se_def:
                     se_def_to_update = global_se_def
                     original_guild_id_for_check = None # Check static_id globally
             elif not se_def_to_update and interaction.guild_id is None: # If in DM, it must be global
-                 se_def_to_update = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=None)
+                 se_def_to_update = await status_effect_crud.get(session, id=status_effect_id, guild_id=None)
                  original_guild_id_for_check = None
 
 
@@ -248,9 +250,10 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             except ValueError as e:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=command_field_name, details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(f=command_field_name, details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(f=command_field_name, details=str(e)), ephemeral=True); return
 
             update_data = {db_field_name: parsed_value}
             updated_se: Optional[Any] = None
@@ -280,18 +283,18 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
         lang_code = str(interaction.locale)
 
         async with get_db_session() as session:
-            se_def_to_delete = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=interaction.guild_id)
+            se_def_to_delete = await status_effect_crud.get(session, id=status_effect_id, guild_id=interaction.guild_id)
             target_guild_id_for_delete = interaction.guild_id
             is_global_to_delete = False
 
             if not se_def_to_delete and interaction.guild_id is not None: # If not found in guild, try global
-                global_se_def = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=None)
+                global_se_def = await status_effect_crud.get(session, id=status_effect_id, guild_id=None)
                 if global_se_def:
                     se_def_to_delete = global_se_def
                     target_guild_id_for_delete = None
                     is_global_to_delete = True
             elif not se_def_to_delete and interaction.guild_id is None: # If in DM, it must be global
-                 se_def_to_delete = await status_effect_crud.get_by_id(session, id=status_effect_id, guild_id=None)
+                 se_def_to_delete = await status_effect_crud.get(session, id=status_effect_id, guild_id=None)
                  target_guild_id_for_delete = None
                  if se_def_to_delete: is_global_to_delete = True
 
@@ -322,7 +325,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             try:
                 async with session.begin():
                     # Pass the correct guild_id for removal (None for global)
-                    deleted_se_def = await status_effect_crud.remove_by_id(session, id=status_effect_id, guild_id=target_guild_id_for_delete) # type: ignore
+                    deleted_se_def = await status_effect_crud.delete(session, id=status_effect_id, guild_id=target_guild_id_for_delete)
                 if deleted_se_def:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_delete:success",lang_code,"StatusEffect def '{name}' (ID: {id}, Scope: {scope}) deleted.") # type: ignore
                     await interaction.followup.send(success_msg.format(name=se_name_for_msg, id=status_effect_id, scope=scope_for_msg), ephemeral=True)
@@ -344,16 +347,16 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             return
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            active_se = await active_status_effect_crud.get_by_id(session, id=active_status_effect_id, guild_id=interaction.guild_id) # type: ignore
+            active_se = await active_status_effect_crud.get(session, id=active_status_effect_id, guild_id=interaction.guild_id)
             if not active_se:
                 not_found_msg = await get_localized_message_template(session, interaction.guild_id, "active_se_view:not_found", lang_code, "ActiveStatusEffect with ID {id} not found.")
                 await interaction.followup.send(not_found_msg.format(id=active_status_effect_id), ephemeral=True); return
 
             se_def_name = "Unknown Definition"
             # Try to get the definition from the same guild, then global if not found
-            se_definition = await status_effect_crud.get_by_id(session, id=active_se.status_effect_id, guild_id=active_se.guild_id)
+            se_definition = await status_effect_crud.get(session, id=active_se.status_effect_id, guild_id=active_se.guild_id)
             if not se_definition:
-                 se_definition = await status_effect_crud.get_by_id(session, id=active_se.status_effect_id, guild_id=None)
+                 se_definition = await status_effect_crud.get(session, id=active_se.status_effect_id, guild_id=None)
 
             if se_definition: se_def_name = se_definition.name_i18n.get(lang_code, se_definition.name_i18n.get("en", f"Def ID {active_se.status_effect_id}"))
 
@@ -368,11 +371,11 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
 
             embed.add_field(name=await get_label("guild", "Guild ID"), value=str(active_se.guild_id), inline=True)
             embed.add_field(name=await get_label("def_id", "Definition ID"), value=str(active_se.status_effect_id), inline=True)
-            embed.add_field(name=await get_label("entity_type", "Entity Type"), value=active_se.entity_type.value if active_se.entity_type else "N/A", inline=True)
+            embed.add_field(name=await get_label("entity_type", "Entity Type"), value=active_se.entity_type if active_se.entity_type else "N/A", inline=True)
             embed.add_field(name=await get_label("entity_id", "Entity ID"), value=str(active_se.entity_id), inline=True)
             embed.add_field(name=await get_label("duration", "Duration (Turns)"), value=str(active_se.duration_turns) if active_se.duration_turns is not None else "Infinite", inline=True)
             embed.add_field(name=await get_label("remaining", "Remaining (Turns)"), value=str(active_se.remaining_turns) if active_se.remaining_turns is not None else "Infinite", inline=True)
-            source_entity_type_val = active_se.source_entity_type.value if active_se.source_entity_type else "N/A"
+            source_entity_type_val = active_se.source_entity_type if active_se.source_entity_type else "N/A"
             source_entity_id_val = str(active_se.source_entity_id) if active_se.source_entity_id is not None else "N/A"
             embed.add_field(name=await get_label("source_entity", "Source Entity"), value=f"{source_entity_type_val}({source_entity_id_val})", inline=True)
             embed.add_field(name=await get_label("source_ability_id", "Source Ability ID"), value=str(active_se.source_ability_id) if active_se.source_ability_id else "N/A", inline=True)
@@ -444,7 +447,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             for ase in active_ses:
                 def_name = def_names.get(ase.status_effect_id, "Unknown Def")
                 turns_left = str(ase.remaining_turns) if ase.remaining_turns is not None else "Infinite"
-                embed.add_field(name=name_tmpl.format(id=ase.id, def_name=def_name, def_id=ase.status_effect_id), value=val_tmpl.format(e_type=ase.entity_type.name if ase.entity_type else "N/A", e_id=ase.entity_id, turns=turns_left), inline=False)
+                embed.add_field(name=name_tmpl.format(id=ase.id, def_name=def_name, def_id=ase.status_effect_id), value=val_tmpl.format(e_type=ase.entity_type if ase.entity_type else "N/A", e_id=ase.entity_id, turns=turns_left), inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @status_effect_master_cmds.command(name="active_remove", description="Remove an active Status Effect instance from an entity.")
@@ -457,7 +460,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             return
         async with get_db_session() as session:
             # Ensure we only try to remove an effect from the current guild
-            active_se_to_delete = await active_status_effect_crud.get_by_id(session, id=active_status_effect_id, guild_id=interaction.guild_id) # type: ignore
+            active_se_to_delete = await active_status_effect_crud.get(session, id=active_status_effect_id, guild_id=interaction.guild_id)
             if not active_se_to_delete:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"active_se_remove:error_not_found",lang_code,"ActiveStatusEffect ID {id} not found in this guild.")
                 await interaction.followup.send(error_msg.format(id=active_status_effect_id), ephemeral=True); return
@@ -469,7 +472,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             try:
                 async with session.begin():
                     # Pass guild_id to ensure we only remove from the correct guild context
-                    deleted_ase = await active_status_effect_crud.remove_by_id(session, id=active_status_effect_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_ase = await active_status_effect_crud.delete(session, id=active_status_effect_id, guild_id=interaction.guild_id)
                 if deleted_ase:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"active_se_remove:success",lang_code,"ActiveStatusEffect ID {id} (Def ID: {def_id}) removed from Entity {e_type}({e_id}).")
                     await interaction.followup.send(success_msg.format(id=active_status_effect_id, def_id=status_effect_id_for_msg, e_type=entity_type_for_msg, e_id=entity_id_for_msg), ephemeral=True)

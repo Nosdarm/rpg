@@ -30,6 +30,7 @@ def test_command_parameter_info_creation():
 def test_command_parameter_info_optional_description():
     param_info = CommandParameterInfo(
         name="target",
+        description=None, # Explicitly pass None for optional field
         type="user",
         required=False
     )
@@ -51,13 +52,13 @@ def test_command_info_creation():
     assert cmd_info.parameters[0].name == "param1"
 
 def test_command_info_no_parameters_no_description():
-    cmd_info = CommandInfo(name="simplecmd")
+    cmd_info = CommandInfo(name="simplecmd", description=None) # Explicitly pass None
     assert cmd_info.name == "simplecmd"
     assert cmd_info.description is None
     assert cmd_info.parameters == []
 
 def test_command_list_response_creation():
-    cmd1 = CommandInfo(name="cmd1")
+    cmd1 = CommandInfo(name="cmd1", description=None) # Explicitly pass None
     cmd2 = CommandInfo(name="cmd2", description="A second command.")
     response = CommandListResponse(
         commands=[cmd1, cmd2],
@@ -74,7 +75,7 @@ def test_command_list_response_empty_commands():
     assert response.language_code == "ru"
 
 def test_command_list_response_no_language_code():
-    response = CommandListResponse(commands=[CommandInfo(name="cmd")])
+    response = CommandListResponse(commands=[CommandInfo(name="cmd", description=None)]) # Explicitly pass None
     assert response.language_code is None
 
 # Пример теста на валидацию, если бы были более строгие правила

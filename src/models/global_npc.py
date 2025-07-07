@@ -21,11 +21,13 @@ class GlobalNpc(Base, TimestampMixin):
     description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True)
     current_location_id: Mapped[Optional[int]] = mapped_column(ForeignKey("locations.id"), nullable=True, index=True)
     base_npc_id: Mapped[Optional[int]] = mapped_column(ForeignKey("generated_npcs.id"), nullable=True)
+    mobile_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("mobile_groups.id", name="fk_global_npc_mobile_group_id"), nullable=True, index=True)
     properties_json: Mapped[Dict[str, Any]] = mapped_column(JSON, default=lambda: {}, nullable=False)
 
     guild: Mapped["GuildConfig"] = relationship(back_populates="global_npcs")
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="global_npcs_in_location")
     base_npc: Mapped[Optional["GeneratedNpc"]] = relationship()
+    mobile_group: Mapped[Optional["MobileGroup"]] = relationship(back_populates="members") # Assuming MobileGroup has a 'members' relationship
 
     __table_args__ = (
         Index("ix_global_npcs_guild_id_static_id", "guild_id", "static_id", unique=True),
