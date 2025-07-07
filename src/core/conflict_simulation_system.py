@@ -391,5 +391,3 @@ async def setup_conflict_simulation_system():
     # This function could be used if there's any setup needed for the system,
     # e.g., loading some global rules or configurations, though unlikely for this module.
     logger.info("Conflict Simulation System initialized (if any setup was needed).")
-
-[end of src/core/conflict_simulation_system.py]

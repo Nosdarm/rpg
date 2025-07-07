@@ -182,4 +182,4 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
 if __name__ == '__main__':
     unittest.main()
 
-[end of tests/core/test_conflict_simulation_system.py]
+
