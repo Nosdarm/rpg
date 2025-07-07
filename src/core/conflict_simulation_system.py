@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Player, GeneratedNpc, PendingConflict, GuildConfig
 from src.models.enums import RelationshipEntityType, ConflictStatus, TurnProcessingStatus # Updated import
-from src.models.parsed_action import ParsedAction # Assuming ParsedAction is a Pydantic model
+from src.models.actions import ParsedAction # Assuming ParsedAction is a Pydantic model
 from src.core.crud import player_crud, npc_crud, pending_conflict_crud
 from src.core import action_processor # To access helper functions or adapt logic
 
