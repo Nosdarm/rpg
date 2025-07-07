@@ -196,6 +196,7 @@ class ConflictStatus(enum.Enum):
     RESOLVED_BY_MASTER_FAVOR_ACTION2 = "resolved_by_master_favor_action2" # Master explicitly chose action2
     RESOLVED_BY_MASTER_CUSTOM_ACTION = "resolved_by_master_custom_action" # Master defined a custom outcome
     EXPIRED = "expired"                                     # Conflict resolution timed out (future use)
+    SIMULATED_INTERNAL_CONFLICT = "simulated_internal_conflict" # For conflicts detected by simulation tools, not persisted
 
 class StatusEffectCategory(enum.Enum):
     """

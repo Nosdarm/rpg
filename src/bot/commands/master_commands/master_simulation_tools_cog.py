@@ -378,14 +378,158 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
 
 
     # Placeholder for /master_analyze ai_generation
-    # @master_analyze_cmds.command(name="ai_generation", description="Analyze AI generated content against rules.")
-    # @app_commands.describe(generation_type="Type of content to analyze (e.g., npc, quest).")
-    # @is_administrator()
-    # async def analyze_ai_generation_command(self, interaction: discord.Interaction, generation_type: str):
-    #     if interaction.guild_id is None:
-    #         await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
-    #         return
-    #     await interaction.response.send_message(f"Analyzing AI generation for '{generation_type}' in guild {interaction.guild_id}. (Not implemented yet)", ephemeral=True)
+    @master_analyze_cmds.command(name="ai_generation", description="Analyze AI generated content against rules.")
+    @app_commands.describe(
+        entity_type="Type of content to analyze (e.g., npc, item, quest, location, faction).",
+        generation_context_json="Optional JSON string for specific generation context (e.g., {\"theme\": \"forest\"}).",
+        target_count="Number of entities to generate and analyze (default 1, max 5).",
+        use_real_ai="Whether to use real OpenAI API (True) or mock data (False, default)."
+    )
+    async def analyze_ai_generation_command(
+        self,
+        interaction: discord.Interaction,
+        entity_type: str,
+        generation_context_json: Optional[str] = None,
+        target_count: app_commands.Range[int, 1, 5] = 1, # Limit target_count for now
+        use_real_ai: bool = False
+    ):
+        await interaction.response.defer(ephemeral=True)
+        guild_id = interaction.guild_id
+        if guild_id is None:
+            async with get_db_session() as temp_session: # Added session for localization
+                error_msg = await get_localized_master_message(temp_session, None, "common:error_guild_only_command", "This command must be used in a server.", str(interaction.locale))
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+
+        # Validate entity_type (can be expanded with an Enum later)
+        supported_entity_types = ["npc", "item", "quest", "location", "faction"] # TODO: Keep this synced with ai_analysis_system
+        if entity_type.lower() not in supported_entity_types:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_master_message(
+                    temp_session, guild_id, "analyze_ai:error_unsupported_entity_type",
+                    "Unsupported entity type '{entity_type_value}'. Supported types: {supported_types_value}",
+                    str(interaction.locale),
+                    entity_type_value=entity_type, supported_types_value=", ".join(supported_entity_types)
+                )
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+
+        from src.core.ai_analysis_system import analyze_generated_content, AIAnalysisResult
+        import json # For formatting dicts in output
+
+        async with get_db_session() as session:
+            try:
+                # Note: Real AI calls can be time-consuming. Defer ensures no timeout for the initial response.
+                # Consider adding a "Thinking..." message if real AI is used.
+                if use_real_ai:
+                     # Temporary message, as real AI call might take time
+                    thinking_msg = await get_localized_master_message(session, guild_id, "analyze_ai:info_calling_real_ai", "Attempting to use real AI, this may take a moment...", str(interaction.locale))
+                    await interaction.followup.send(thinking_msg, ephemeral=True) # Send initial followup
+
+                analysis_result: AIAnalysisResult = await analyze_generated_content(
+                    session=session,
+                    guild_id=guild_id,
+                    entity_type=entity_type.lower(),
+                    generation_context_json=generation_context_json,
+                    target_count=target_count,
+                    use_real_ai=use_real_ai
+                    # openai_client could be passed here if managed by the bot instance
+                )
+
+                embed = discord.Embed(
+                    title=await get_localized_master_message(
+                        session, guild_id, "analyze_ai:embed_title",
+                        "AI Generation Analysis Result ({entity_type_value})", str(interaction.locale),
+                        entity_type_value=analysis_result.requested_entity_type.capitalize()
+                    ),
+                    description=analysis_result.overall_summary,
+                    color=discord.Color.purple()
+                )
+                embed.add_field(name=await get_localized_master_message(session, guild_id, "analyze_ai:field_requested_count", "Requested Count", str(interaction.locale)), value=str(analysis_result.requested_target_count))
+                embed.add_field(name=await get_localized_master_message(session, guild_id, "analyze_ai:field_used_real_ai", "Used Real AI", str(interaction.locale)), value=str(analysis_result.used_real_ai))
+
+                if analysis_result.generation_context_provided:
+                    context_str = json.dumps(analysis_result.generation_context_provided, indent=2, ensure_ascii=False)
+                    if len(context_str) > 1020: context_str = context_str[:1020] + "..."
+                    embed.add_field(
+                        name=await get_localized_master_message(session, guild_id, "analyze_ai:field_gen_context", "Generation Context Provided", str(interaction.locale)),
+                        value=f"```json\n{context_str}\n```",
+                        inline=False
+                    )
+
+                for report in analysis_result.analysis_reports:
+                    report_title = await get_localized_master_message(
+                        session, guild_id, "analyze_ai:field_report_for_entity",
+                        "Report for Entity #{index} ({name})", str(interaction.locale),
+                        index=report.entity_index + 1, name=report.entity_data_preview.get("name", "N/A")
+                    )
+                    report_value_parts = []
+                    if report.validation_errors:
+                        val_errors_str = "\n".join([f"- {e}" for e in report.validation_errors])
+                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_validation_errors', 'Validation Errors', str(interaction.locale))}:**\n{val_errors_str}")
+                    if report.issues_found:
+                        issues_str = "\n".join([f"- {issue}" for issue in report.issues_found])
+                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_issues_found', 'Issues Found', str(interaction.locale))}:**\n{issues_str}")
+                    if report.suggestions:
+                        sugg_str = "\n".join([f"- {sugg}" for sugg in report.suggestions])
+                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_suggestions', 'Suggestions', str(interaction.locale))}:**\n{sugg_str}")
+                    if report.balance_score is not None:
+                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_balance_score', 'Balance Score', str(interaction.locale))}:** {report.balance_score:.2f}")
+
+                    # Parsed data preview
+                    if report.parsed_entity_data:
+                        parsed_str = json.dumps(report.parsed_entity_data, indent=2, ensure_ascii=False, default=str) # Add default=str for datetimes etc.
+                        preview_len = 200
+                        parsed_preview = parsed_str[:preview_len] + ("..." if len(parsed_str) > preview_len else "")
+                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_parsed_data_preview', 'Parsed Data (Preview)', str(interaction.locale))}:**\n```json\n{parsed_preview}\n```")
+
+                    # Raw AI response preview
+                    # if report.raw_ai_response:
+                    #     raw_preview_len = 100
+                    #     raw_preview = report.raw_ai_response[:raw_preview_len] + ("..." if len(report.raw_ai_response) > raw_preview_len else "")
+                    #     report_value_parts.append(f"**Raw AI Response (Preview):**\n```\n{raw_preview}\n```")
+
+
+                    full_report_value = "\n\n".join(report_value_parts)
+                    if not full_report_value:
+                        full_report_value = await get_localized_master_message(session, guild_id, "analyze_ai:value_no_issues_or_details", "No specific issues or details to report for this entity.", str(interaction.locale))
+
+                    if len(full_report_value) > 1024: # Embed field value limit
+                        full_report_value = full_report_value[:1020] + "..."
+                    embed.add_field(name=report_title, value=full_report_value, inline=False)
+
+                # If there's only one report and it has a full raw response, maybe add it if space permits
+                if len(analysis_result.analysis_reports) == 1 and analysis_result.analysis_reports[0].raw_ai_response:
+                    raw_resp = analysis_result.analysis_reports[0].raw_ai_response
+                    if len(raw_resp) < 800 and len(embed) < 5500 : # Check total embed length too
+                         embed.add_field(
+                            name=await get_localized_master_message(session, guild_id, "analyze_ai:field_raw_ai_response", "Raw AI Response (Full)", str(interaction.locale)),
+                            value=f"```text\n{raw_resp[:1000]}\n```", # Limit raw display
+                            inline=False)
+
+
+                # Use followup.edit_message for the thinking message if it was sent
+                if use_real_ai and interaction.channel: # Check if channel is available
+                    # We need the original response message ID to edit it.
+                    # interaction.followup.send creates a new message.
+                    # interaction.edit_original_response() edits the "Thinking..." message from defer.
+                    # If we sent a thinking_msg via followup, we need its ID. This is tricky.
+                    # For simplicity, we'll just send a new followup.
+                    # A more complex solution would store the message ID of the "Thinking..." followup.
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+                else:
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+
+            except Exception as e:
+                logger.error(f"Unexpected error in analyze_ai_generation_command for guild {guild_id}: {e}", exc_info=True)
+                error_msg = await get_localized_master_message(
+                    session, guild_id, "common:error_generic_unexpected",
+                    "An unexpected error occurred: {error_details}", str(interaction.locale),
+                    error_details=str(e)
+                )
+                # If a thinking message was sent via followup, we can't easily edit it without its ID.
+                # So, just send another followup.
+                await interaction.followup.send(error_msg, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
@@ -405,3 +549,104 @@ async def setup(bot: commands.Bot):
 #             entity_name="Test Entity"
 #         )
 #     await interaction.response.send_message(msg, ephemeral=True)
+
+    @master_simulate_cmds.command(name="conflict", description="Simulate conflict detection for a set of actions.")
+    @app_commands.describe(
+        actions_json="JSON string representing a list of actions to check for conflicts. Each action: {\"actor_id\": int, \"actor_type\": \"player\"|\"generated_npc\", \"parsed_action\": {\"intent_name\": str, \"entities\": {}, \"text\": str}}"
+    )
+    async def simulate_conflict_command(
+        self,
+        interaction: discord.Interaction,
+        actions_json: str
+    ):
+        await interaction.response.defer(ephemeral=True)
+        guild_id = interaction.guild_id
+        if guild_id is None:
+            # This should ideally not be reached due to guild_only=True
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_master_message(temp_session, None, "common:error_guild_only_command", "This command must be used in a server.", str(interaction.locale))
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+
+        import json
+        from src.core.conflict_simulation_system import simulate_conflict_detection
+        from src.models.pending_conflict import PendingConflict # For type hint
+
+        parsed_actions_data: List[Dict[str, Any]]
+        try:
+            parsed_actions_data = json.loads(actions_json)
+            if not isinstance(parsed_actions_data, list):
+                raise ValueError("Actions JSON must be a list of action objects.")
+            # Further validation of each action object structure can be done here or in the simulation function
+        except (json.JSONDecodeError, ValueError) as e:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_master_message(
+                    temp_session, guild_id, "simulate_conflict:error_invalid_actions_json",
+                    "Invalid actions_json: {error_details}", str(interaction.locale),
+                    error_details=str(e)
+                )
+            await interaction.followup.send(error_msg, ephemeral=True)
+            return
+
+        async with get_db_session() as session:
+            try:
+                simulated_conflicts: List[PendingConflict] = await simulate_conflict_detection(
+                    session=session,
+                    guild_id=guild_id,
+                    actions_input_data=parsed_actions_data
+                )
+
+                embed = discord.Embed(
+                    title=await get_localized_master_message(session, guild_id, "simulate_conflict:embed_title", "Conflict Simulation Result", str(interaction.locale)),
+                    color=discord.Color.blue()
+                )
+
+                if not simulated_conflicts:
+                    embed.description = await get_localized_master_message(session, guild_id, "simulate_conflict:no_conflicts_detected", "No conflicts detected for the given actions.", str(interaction.locale))
+                    embed.color = discord.Color.green()
+                else:
+                    embed.description = await get_localized_master_message(
+                        session, guild_id, "simulate_conflict:conflicts_detected_summary",
+                        "Detected {count} potential conflict(s):", str(interaction.locale),
+                        count=len(simulated_conflicts)
+                    )
+                    for i, conflict in enumerate(simulated_conflicts):
+                        conflict_details_list = []
+                        for entity_action in conflict.involved_entities_json:
+                            actor_type = entity_action.get('entity_type', 'Unknown type')
+                            actor_id = entity_action.get('entity_id', 'N/A')
+                            intent = entity_action.get('action_intent', 'Unknown intent')
+                            text = entity_action.get('action_text', '')
+                            conflict_details_list.append(
+                                await get_localized_master_message(
+                                    session, guild_id, "simulate_conflict:conflict_entity_action_detail",
+                                    "- {actor_type} ID {actor_id}: Intent `{intent}`, Text: \"{text}\"",
+                                    str(interaction.locale),
+                                    actor_type=actor_type.capitalize(), actor_id=actor_id, intent=intent, text=text[:50] + ('...' if len(text) > 50 else '')
+                                )
+                            )
+
+                        conflict_value = "\n".join(conflict_details_list)
+                        if len(conflict_value) > 1020:
+                             conflict_value = conflict_value[:1020] + "..."
+
+                        embed.add_field(
+                            name=await get_localized_master_message(
+                                session, guild_id, "simulate_conflict:field_conflict_num",
+                                "Conflict #{num} (Type: {conflict_type})", str(interaction.locale),
+                                num=i + 1, conflict_type=conflict.conflict_type
+                            ),
+                            value=conflict_value or await get_localized_master_message(session, guild_id, "simulate_conflict:value_no_details", "No details.", str(interaction.locale)),
+                            inline=False
+                        )
+
+                await interaction.followup.send(embed=embed, ephemeral=True)
+
+            except Exception as e:
+                logger.error(f"Unexpected error in simulate_conflict_command for guild {guild_id}: {e}", exc_info=True)
+                error_msg = await get_localized_master_message(
+                    session, guild_id, "common:error_generic_unexpected",
+                    "An unexpected error occurred: {error_details}", str(interaction.locale),
+                    error_details=str(e)
+                )
+                await interaction.followup.send(error_msg, ephemeral=True)

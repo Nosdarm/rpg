@@ -126,11 +126,7 @@ This block presents tasks for implementing tools for the game Master.
 
 {Task 47: 🛠️ 15.1 Master Command System. - Moved to Done.txt}
 
-Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
-Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
-Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.
-AI generation analyzers (18): Check the quality and balance of generated content against rules 13/41.
-Results are output in the Master's language (49).
+{Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild). - Moved to Done.txt}
 
 Task 49: 🛠️ 15.3 Monitoring Tools (Guild-Scoped).
 Description: Provide the Master with information about the game state and history in their guild.
