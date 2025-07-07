@@ -68,7 +68,10 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(item.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=item.static_id or "N/A", inline=True)
-            embed.add_field(name=await get_label("item_type", "Type"), value=item.item_type or "N/A", inline=True)
+            item_type_display = "N/A"
+            if item.item_type_i18n:
+                item_type_display = item.item_type_i18n.get(lang_code, item.item_type_i18n.get("en", "N/A"))
+            embed.add_field(name=await get_label("item_type", "Type"), value=item_type_display, inline=True)
             embed.add_field(name=await get_label("base_value", "Base Value"), value=str(item.base_value) if item.base_value is not None else "N/A", inline=True)
             embed.add_field(name=await get_label("slot_type", "Slot Type"), value=item.slot_type or "N/A", inline=True)
             embed.add_field(name=await get_label("is_stackable", "Is Stackable"), value=str(item.is_stackable), inline=True)
@@ -137,10 +140,13 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
 
             for item_obj in items:
                 item_name_display = item_obj.name_i18n.get(lang_code, item_obj.name_i18n.get("en", f"Item {item_obj.id}"))
+                item_type_display = "N/A"
+                if item_obj.item_type_i18n:
+                    item_type_display = item_obj.item_type_i18n.get(lang_code, item_obj.item_type_i18n.get("en", "N/A"))
                 embed.add_field(
                     name=field_name_template.format(item_id=item_obj.id, item_name=item_name_display, static_id=item_obj.static_id or "N/A"),
                     value=field_value_template.format(
-                        type=item_obj.item_type or "N/A",
+                        type=item_type_display,
                         value=str(item_obj.base_value) if item_obj.base_value is not None else "N/A",
                         stackable=str(item_obj.is_stackable)
                     ),
@@ -233,7 +239,7 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"):
                 "guild_id": interaction.guild_id, # Already checked not None
                 "static_id": static_id,
                 "name_i18n": parsed_name_i18n,
-                "item_type": item_type,
+                "item_type_i18n": {"en": item_type, lang_code: item_type} if lang_code != "en" else {"en": item_type},
                 "description_i18n": parsed_description_i18n if parsed_description_i18n else {},
                 "properties_json": parsed_properties if parsed_properties else {},
                 "base_value": base_value,

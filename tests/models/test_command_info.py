@@ -40,7 +40,7 @@ def test_command_parameter_info_optional_description():
     assert param_info.required is False
 
 def test_command_info_creation():
-    param1 = CommandParameterInfo(name="param1", type="string", required=True)
+    param1 = CommandParameterInfo(name="param1", description=None, type="string", required=True)
     cmd_info = CommandInfo(
         name="mycommand",
         description="This is a test command.",
@@ -75,7 +75,7 @@ def test_command_list_response_empty_commands():
     assert response.language_code == "ru"
 
 def test_command_list_response_no_language_code():
-    response = CommandListResponse(commands=[CommandInfo(name="cmd", description=None)]) # Explicitly pass None
+    response = CommandListResponse(commands=[CommandInfo(name="cmd", description=None)], language_code=None) # Explicitly pass None
     assert response.language_code is None
 
 # Пример теста на валидацию, если бы были более строгие правила
@@ -113,13 +113,13 @@ def test_command_list_response_no_language_code():
 
 def test_command_parameter_info_validation_error():
     with pytest.raises(ValidationError):
-        CommandParameterInfo(name="test", type="str") # 'required' is missing, description is optional
+        CommandParameterInfo(name="test", description="some description", type="str") # 'required' is missing
 
     with pytest.raises(ValidationError):
-        CommandParameterInfo(name="test", required=True) # 'type' is missing, description is optional
+        CommandParameterInfo(name="test", description="some description", required=True) # 'type' is missing
 
     with pytest.raises(ValidationError):
-        CommandParameterInfo(type="str", required=True) # 'name' is missing, description is optional
+        CommandParameterInfo(description="some description", type="str", required=True) # 'name' is missing
 
 def test_command_info_validation_error():
     with pytest.raises(ValidationError):
@@ -132,13 +132,13 @@ def test_command_list_response_validation_error():
 # Corrected tests based on pyright feedback for genuinely missing fields
 def test_command_parameter_info_actually_missing_fields():
     with pytest.raises(ValidationError, match="required"): # Expecting error about 'required'
-        CommandParameterInfo(name="test", type="str")
+        CommandParameterInfo(name="test", description="some description", type="str")
 
     with pytest.raises(ValidationError, match="type"): # Expecting error about 'type'
-        CommandParameterInfo(name="test", required=True)
+        CommandParameterInfo(name="test", description="some description", required=True)
 
     with pytest.raises(ValidationError, match="name"): # Expecting error about 'name'
-        CommandParameterInfo(type="str", required=True)
+        CommandParameterInfo(description="some description", type="str", required=True)
 
 def test_command_info_actually_missing_fields():
     with pytest.raises(ValidationError, match="name"): # Expecting error about 'name'

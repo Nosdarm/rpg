@@ -359,7 +359,8 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(gq.guild_id), inline=True)
             embed.add_field(name=await get_label("static_id", "Static ID"), value=gq.static_id or "N/A", inline=True)
             embed.add_field(name=await get_label("questline_id", "Questline ID"), value=str(gq.questline_id) if gq.questline_id else "N/A", inline=True)
-            embed.add_field(name=await get_label("type", "Type"), value=gq.quest_type or "N/A", inline=True) # Changed gq.type to gq.quest_type
+            quest_type_val = (gq.properties_json.get("quest_type") if gq.properties_json else None) or "N/A"
+            embed.add_field(name=await get_label("type", "Type"), value=quest_type_val, inline=True)
             embed.add_field(name=await get_label("is_repeatable", "Is Repeatable"), value=str(gq.is_repeatable), inline=True)
             title_i18n_str = await format_json_field(gq.title_i18n, "gq_view:value_na_json", "gq_view:error_serialization_title")
             embed.add_field(name=await get_label("title_i18n", "Title (i18n)"), value=f"```json\n{title_i18n_str[:1000]}\n```" + ("..." if len(title_i18n_str) > 1000 else ""), inline=False)
@@ -409,8 +410,9 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
 
             for gq_obj in g_quests:
                 gq_title_display = gq_obj.title_i18n.get(lang_code, gq_obj.title_i18n.get("en", f"Quest {gq_obj.id}"))
+                quest_type_val = (gq_obj.properties_json.get("quest_type") if gq_obj.properties_json else None) or "N/A"
                 embed.add_field(name=field_name_template.format(gq_id=gq_obj.id, gq_title=gq_title_display, static_id=gq_obj.static_id or "N/A"),
-                                value=field_value_template.format(type=gq_obj.quest_type or "N/A", ql_id=str(gq_obj.questline_id) if gq_obj.questline_id else "N/A", repeatable=str(gq_obj.is_repeatable)), # Changed gq_obj.type to gq_obj.quest_type
+                                value=field_value_template.format(type=quest_type_val, ql_id=str(gq_obj.questline_id) if gq_obj.questline_id else "N/A", repeatable=str(gq_obj.is_repeatable)),
                                 inline=False)
             if len(embed.fields) == 0:
                 no_display_msg = await get_localized_message_template(session, interaction.guild_id, "gq_list:no_gq_to_display", lang_code, "No GeneratedQuests found to display on page {page} for {filter_criteria}.")
@@ -457,7 +459,11 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             #     error_msg = await get_localized_message_template(session, interaction.guild_id, "gq_create:error_invalid_json", lang_code, "Invalid JSON for i18n/properties/rewards: {details}")
             #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
-            gq_data_create: Dict[str, Any] = {"guild_id": interaction.guild_id, "static_id": static_id, "title_i18n": parsed_title_i18n, "description_i18n": parsed_desc_i18n or {}, "quest_type": quest_type, "questline_id": questline_id, "is_repeatable": is_repeatable, "properties_json": parsed_props or {}, "rewards_json": parsed_rewards or {}} # Changed "type" to "quest_type"
+            final_properties = parsed_props or {}
+            if quest_type:
+                final_properties["quest_type"] = quest_type
+
+            gq_data_create: Dict[str, Any] = {"guild_id": interaction.guild_id, "static_id": static_id, "title_i18n": parsed_title_i18n, "description_i18n": parsed_desc_i18n or {}, "questline_id": questline_id, "is_repeatable": is_repeatable, "properties_json": final_properties, "rewards_json": parsed_rewards or {}}
             created_gq: Optional[Any] = None
             try:
                 async with session.begin():
@@ -482,16 +488,24 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @quest_master_cmds.command(name="generated_quest_update", description="Update a specific field for a GeneratedQuest.")
-    @app_commands.describe(quest_id="The database ID of the GeneratedQuest to update.", field_to_update="Field to update (e.g., static_id, title_i18n_json, questline_id, is_repeatable).", new_value="New value for the field (use JSON for complex types; 'None' for nullable; True/False for boolean).")
+    @app_commands.describe(quest_id="The database ID of the GeneratedQuest to update.", field_to_update="Field to update (e.g., static_id, title_i18n_json, quest_type, questline_id, is_repeatable).", new_value="New value for the field (use JSON for complex types; 'None' for nullable; True/False for boolean).") # Added quest_type to desc
     async def generated_quest_update(self, interaction: discord.Interaction, quest_id: int, field_to_update: str, new_value: str):
         await interaction.response.defer(ephemeral=True)
-        allowed_fields = {"static_id": str, "title_i18n": dict, "description_i18n": dict, "type": (str, type(None)), "questline_id": (int, type(None)), "is_repeatable": bool, "properties_json": dict, "rewards_json": dict}
+        # Note: "quest_type" is handled specially as it's stored in properties_json
+        allowed_fields = {"static_id": str, "title_i18n": dict, "description_i18n": dict, "quest_type": (str, type(None)), "questline_id": (int, type(None)), "is_repeatable": bool, "properties_json": dict, "rewards_json": dict}
         lang_code = str(interaction.locale)
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
              db_field_name = field_to_update_lower.replace("_json","")
-        field_type_info = allowed_fields.get(db_field_name)
+        # Special handling for quest_type, as it's not a direct DB field in the updated logic
+        is_updating_quest_type_in_props = (db_field_name == "quest_type")
+        if not is_updating_quest_type_in_props: # Only get field_type_info if not quest_type
+            field_type_info = allowed_fields.get(db_field_name)
+        else: # For quest_type, we'll handle its type parsing separately
+            field_type_info = allowed_fields.get("quest_type")
+
+
         if interaction.guild_id is None:
             await interaction.followup.send("This command can only be used in a guild.", ephemeral=True)
             return
@@ -514,10 +528,10 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 elif db_field_name in ["title_i18n", "description_i18n", "properties_json", "rewards_json"]:
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, dict): raise ValueError(f"{db_field_name} must be a dict.")
-                elif db_field_name == "type": # Should be quest_type
+                elif is_updating_quest_type_in_props: # Handle quest_type separately
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else: parsed_value = new_value
-                    db_field_name = "quest_type" # Correct field name
+                    # db_field_name remains "quest_type" for the purpose of updating properties_json
                 elif db_field_name == "questline_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else:
@@ -547,7 +561,16 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"gq_update:error_not_found",lang_code,"GeneratedQuest ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=quest_id), ephemeral=True); return
 
-            update_data = {db_field_name: parsed_value}
+            if is_updating_quest_type_in_props:
+                current_properties = dict(gq_to_update.properties_json or {})
+                if parsed_value is None: # If new_value was 'none' or 'null'
+                    current_properties.pop("quest_type", None) # Remove the key if it exists
+                else:
+                    current_properties["quest_type"] = parsed_value
+                update_data = {"properties_json": current_properties}
+            else:
+                update_data = {db_field_name: parsed_value}
+
             updated_gq: Optional[Any] = None
             try:
                 async with session.begin():

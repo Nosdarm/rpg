@@ -2,8 +2,8 @@ import asyncio
 import unittest
 from typing import Dict, Any
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+# from sqlalchemy.orm import sessionmaker # Replaced with async_sessionmaker
 
 from src.models.base import Base
 from src.models.item import Item
@@ -14,8 +14,8 @@ from src.core.crud.crud_item import item_crud
 ASYNC_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 async_engine = create_async_engine(ASYNC_DATABASE_URL, echo=False)
-# type: ignore[var-annotated] # Pyright can sometimes struggle with complex sessionmaker types
-AsyncSessionLocal = sessionmaker(
+# Use async_sessionmaker from sqlalchemy.ext.asyncio
+AsyncSessionLocal = async_sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
 
