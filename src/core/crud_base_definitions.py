@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-from sqlalchemy import select, update as sqlalchemy_update, delete as sqlalchemy_delete
+from sqlalchemy import select, update as sqlalchemy_update, delete as sqlalchemy_delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -99,6 +99,24 @@ class CRUDBase(Generic[ModelType]):
         statement = statement.offset(skip).limit(limit)
         result = await session.execute(statement)
         return list(result.scalars().all())
+
+    async def count(
+        self, session: AsyncSession, *, guild_id: Optional[int] = None
+    ) -> int:
+        """
+        Count records, optionally filtered by guild_id.
+
+        :param session: The database session.
+        :param guild_id: Optional guild ID to filter by.
+        :return: The total number of records.
+        """
+        statement = select(func.count()).select_from(self.model) # Use func from sqlalchemy.sql.expression
+        if guild_id is not None and hasattr(self.model, "guild_id"):
+            statement = statement.where(getattr(self.model, "guild_id") == guild_id)
+
+        result = await session.execute(statement)
+        count = result.scalar_one_or_none()
+        return count if count is not None else 0
 
     async def update(
         self, session: AsyncSession, *, db_obj: ModelType, obj_in: Union[Dict[str, Any], ModelType]

@@ -43,4 +43,36 @@ class CRUDRuleConfig(CRUDBase[RuleConfig]):
         await session.refresh(db_obj)
         return db_obj
 
+    async def get_multi_by_guild_and_prefix(
+        self, session: AsyncSession, *, guild_id: int, prefix: str, skip: int = 0, limit: int = 100
+    ) -> Sequence[RuleConfig]:
+        """
+        Get multiple RuleConfig records for a guild, filtered by key prefix.
+        """
+        statement = (
+            select(self.model)
+            .where(self.model.guild_id == guild_id, self.model.key.startswith(prefix))
+            .order_by(self.model.key)
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await session.execute(statement)
+        return result.scalars().all()
+
+    async def count_by_guild_and_prefix(
+        self, session: AsyncSession, *, guild_id: int, prefix: str
+    ) -> int:
+        """
+        Count RuleConfig records for a guild, filtered by key prefix.
+        """
+        from sqlalchemy.sql.expression import func # Local import for func
+        statement = (
+            select(func.count())
+            .select_from(self.model)
+            .where(self.model.guild_id == guild_id, self.model.key.startswith(prefix))
+        )
+        result = await session.execute(statement)
+        count = result.scalar_one_or_none()
+        return count if count is not None else 0
+
 rule_config_crud = CRUDRuleConfig(RuleConfig)

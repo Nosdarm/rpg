@@ -202,6 +202,7 @@ BOT_COGS = [
     "src.bot.commands.master_commands.master_skill_commands", # Added Skill Cog
     "src.bot.commands.master_commands.master_memory_commands", # Added Memory Cog
     "src.bot.commands.master_commands.master_simulation_tools_cog", # For Task 48
+    "src.bot.commands.master_commands.monitoring_master_commands", # Added MasterMonitoringCog
 ]
 
 # Master User IDs - comma-separated string in .env, parsed into a list here
