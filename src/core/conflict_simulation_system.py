@@ -39,29 +39,29 @@ async def simulate_conflict_detection(
     guild_id: int,
     actions_input_data: List[Dict[str, Any]]
 ) -> List[PendingConflict]:
-    try:
-        """
-        Simulates conflict detection for a given list of actions without persisting data.
+    """
+    Simulates conflict detection for a given list of actions without persisting data.
 
-        Args:
-            session: The SQLAlchemy async session.
-            guild_id: The ID of the guild.
-            actions_input_data: A list of dictionaries, each describing an action:
-                {
-                    "actor_id": int,
-                    "actor_type": "player" | "generated_npc",
-                    "parsed_action": { // ParsedAction structure
-                        "intent_name": "attack",
-                        "entities": { ... },
-                        "confidence": 1.0,
-                        "text": "Attack goblin!"
-                    }
+    Args:
+        session: The SQLAlchemy async session.
+        guild_id: The ID of the guild.
+        actions_input_data: A list of dictionaries, each describing an action:
+            {
+                "actor_id": int,
+                "actor_type": "player" | "generated_npc",
+                "parsed_action": { // ParsedAction structure
+                    "intent_name": "attack",
+                    "entities": { ... },
+                    "confidence": 1.0,
+                    "text": "Attack goblin!"
                 }
+            }
 
-        Returns:
-            A list of Pydantic PendingConflict models if conflicts are detected,
-            otherwise an empty list. These are NOT saved to the database.
-        """
+    Returns:
+        A list of Pydantic PendingConflict models if conflicts are detected,
+        otherwise an empty list. These are NOT saved to the database.
+    """
+    try:
         simulated_actors: List[SimulatedActionActor] = []
         for action_data in actions_input_data:
             actor_id = action_data.get("actor_id")
