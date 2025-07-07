@@ -407,21 +407,11 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             if db_field_name == "player_ids_json":
                 original_player_ids_before_update = list(party_to_update.player_ids_json) if party_to_update.player_ids_json else []
 
+            # original_player_ids_before_update is initialized and set if db_field_name == "player_ids_json"
+            # The party_to_update object is already fetched and validated at the start of the command.
+
             update_data_dict = {db_field_name: parsed_value}
             updated_party: Optional[Party] = None
-            try:
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "party_update:error_party_not_found", lang_code,
-                    "Party with ID {party_id} not found in this guild."
-                )
-                await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True)
-                return
-
-            if db_field_name == "player_ids_json":
-                original_player_ids_before_update = list(party_to_update.player_ids_json) if party_to_update.player_ids_json else []
-
-            update_data_dict = {db_field_name: parsed_value}
-            updated_party: Optional[Party] = None # Explicitly type
             try:
                 async with session.begin():
                     updated_party = await update_entity(session, entity=party_to_update, data=update_data_dict)
