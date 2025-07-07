@@ -1,8 +1,8 @@
-"""add_faction_id_to_generated_npcs
+"""add_faction_id_direct_env_import_test
 
-Revision ID: ce03d28ef722
-Revises: 8a72cf8116a2
-Create Date: 2025-07-07 22:24:11.873459
+Revision ID: 112c7a612f6c
+Revises: 
+Create Date: 2025-07-07 23:10:47.632039
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ce03d28ef722'
-down_revision: Union[str, Sequence[str], None] = '8a72cf8116a2'
+revision: str = '112c7a612f6c'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
