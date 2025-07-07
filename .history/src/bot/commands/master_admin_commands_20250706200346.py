@@ -90,7 +90,11 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
             embed.add_field(name=await get_label("party_id", "Current Party ID"), value=str(player.current_party_id) if player.current_party_id else "N/A", inline=True)
             embed.add_field(name=await get_label("status", "Status"), value=player.current_status.value if player.current_status else "N/A", inline=True)
             embed.add_field(name=await get_label("language", "Language"), value=player.language or "N/A", inline=True)
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
             attributes_label = await get_label("attributes_json", "Attributes JSON")
             attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:no_attributes", lang_code, "No attributes")
             if player.attributes_json:
@@ -98,9 +102,15 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                     attributes_str = json.dumps(player.attributes_json, indent=2, ensure_ascii=False)
                 except TypeError:
                     attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:error_attributes_serialization", lang_code, "Error displaying attributes (non-serializable).")
+<<<<<<< HEAD
             
             embed.add_field(name=attributes_label, value=f"```json\n{attributes_str[:1000]}\n```" + ("..." if len(attributes_str) > 1000 else ""), inline=False)
             
+=======
+
+            embed.add_field(name=attributes_label, value=f"```json\n{attributes_str[:1000]}\n```" + ("..." if len(attributes_str) > 1000 else ""), inline=False)
+
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @player_group.command(name="list", description="List players in this guild.")
@@ -122,7 +132,11 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
         async with get_db_session() as session:
             offset = (page - 1) * limit
             players = await player_crud.get_multi_by_guild(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
             total_players_stmt = select(func.count(player_crud.model.id)).where(player_crud.model.guild_id == interaction.guild_id)
             total_players_result = await session.execute(total_players_stmt)
             total_players = total_players_result.scalar_one_or_none() or 0
@@ -443,7 +457,11 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
 
         rules_list = sorted(all_rules_dict.items())
         total_rules = len(rules_list)
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
         start_index = (page - 1) * limit
         end_index = start_index + limit
         paginated_rules = rules_list[start_index:end_index]
@@ -692,7 +710,11 @@ class MasterAdminCog(commands.Cog, name="Master Admin"): # Added name="Master Ad
                 )
                 await interaction.followup.send(generic_error_msg.format(conflict_id=pending_conflict_id, error_message=str(e)), ephemeral=True)
                 return
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
     @conflict_group.command(name="view", description="View details of a specific pending conflict.")
     @app_commands.describe(pending_conflict_id="The ID of the pending conflict to view.")
     # No specific permission decorator needed

@@ -12,8 +12,13 @@ from src.core.crud.crud_status_effect import status_effect_crud, active_status_e
 from src.core.database import get_db_session
 from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
+<<<<<<< HEAD
+# Attempting relative import to see if it resolves pyright issue for StatusEffectCategory
+from ....models.enums import StatusEffectCategory as StatusEffectCategoryEnum, RelationshipEntityType # RelationshipEntityType for ActiveSE
+=======
 # Using absolute import from src path
 from src.models.enums import StatusEffectCategory as StatusEffectCategoryEnum, RelationshipEntityType # RelationshipEntityType for ActiveSE
+>>>>>>> 3648882d7ce127ff9cdbdd88b7ec75d55362e395
 
 logger = logging.getLogger(__name__)
 
