@@ -181,10 +181,9 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
             }
             created_npc: Optional[Any] = None
             try:
-                async with session.begin():
-                    created_npc = await npc_crud.create(session, obj_in=npc_data_to_create)
-                    await session.flush();
-                    if created_npc: await session.refresh(created_npc)
+                created_npc = await npc_crud.create(session, obj_in=npc_data_to_create)
+                await session.flush()
+                if created_npc: await session.refresh(created_npc)
             except Exception as e:
                 logger.error(f"Error creating NPC: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "npc_create:error_generic_create", lang_code, "An error occurred while creating the NPC: {error_message}")
