@@ -56,7 +56,8 @@ class Player(Base):
         primaryjoin=f"and_(Player.id==InventoryItem.owner_entity_id, InventoryItem.owner_entity_type=='{OwnerEntityType.PLAYER.value}')",
         foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type],
         cascade="all, delete-orphan",
-        lazy="selectin"
+        lazy="selectin",
+        overlaps="inventory_items"  # Added to address SAWarning
     )
 
     __table_args__ = (
