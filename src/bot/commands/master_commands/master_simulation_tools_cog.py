@@ -218,7 +218,8 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
         combat_encounter_id="ID of the existing CombatEncounter.",
         actor_id="ID of the entity performing the action.",
         actor_type="Type of the actor (Player, GeneratedNpc).",
-        action_json_data="JSON string describing the action (e.g., {\"action_type\": \"attack\", \"target_id\": 102, \"target_type\": \"npc\"})."
+        action_json_data="JSON string describing the action (e.g., {\"action_type\": \"attack\", \"target_id\": 102, \"target_type\": \"npc\"}).",
+        dry_run="Set to True to simulate without making database changes (default: False)."
     )
     async def simulate_combat_action_command(
         self,
@@ -226,7 +227,8 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
         combat_encounter_id: int,
         actor_id: int,
         actor_type: str,
-        action_json_data: str
+        action_json_data: str,
+        dry_run: bool = False
     ):
         await interaction.response.defer(ephemeral=True)
         guild_id = interaction.guild_id
@@ -295,29 +297,47 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                     combat_instance_id=combat_encounter_id,
                     actor_id=actor_id,
                     actor_type=actor_type.lower(), # Ensure lowercase for consistency
-                    action_data=parsed_action_data
+                    action_data=parsed_action_data,
+                    dry_run=dry_run # Pass the dry_run flag
                 )
-                # If process_combat_action commits internally (e.g. via log_event), those changes ARE persisted.
-                # To make this a true dry run, process_combat_action would need a dry_run flag that
-                # is propagated to log_event and any other DB-writing functions.
 
-                # Fetch the combat encounter to show its state *after* the action
-                # This read should happen after process_combat_action has potentially modified it.
-                # If process_combat_action committed, we'll see the new state.
-                await session.commit() # Commit the changes made by process_combat_action (including log_event)
-                                     # This makes it NOT a dry run.
-                                     # If a dry run is strictly needed, this commit must not happen,
-                                     # and log_event must also be prevented from committing.
+                if not dry_run:
+                    await session.commit() # Commit changes only if not a dry run
+                    updated_combat_encounter = await session.get(CombatEncounter, combat_encounter_id)
+                else:
+                    # For a dry run, we might want to fetch the encounter state before the action
+                    # to show a "before" state, or rely on the combat_action_result entirely.
+                    # Since process_combat_action modifies participants_json in memory even on dry_run,
+                    # we can display that modified in-memory state.
+                    # To get the "current DB state" for a dry run, we'd have to re-fetch,
+                    # but that might be confusing. Let's assume the returned result is sufficient.
+                    # We also need to be careful: if process_combat_action *refreshes* combat_encounter from session
+                    # during a dry run, it might discard in-memory changes.
+                    # The current implementation of process_combat_action updates a *copy* of participant data (target_participant_data)
+                    # and then assigns it back to combat_encounter.participants_json["entities"].
+                    # So the combat_encounter object modified in process_combat_action *should* have the in-memory changes.
+                    # To be safe, let's re-get from session to ensure we don't show stale data IF a refresh happened inside.
+                    # But since we are not committing, this get should return the original state.
+                    # The result from process_combat_action is the primary source of info for dry run.
+                    # Updated_combat_encounter will reflect the *persisted* state.
+                    # In a dry run, updated_combat_encounter will be the state *before* the action.
+                    # This is fine, as the embed focuses on the action's outcome.
+                    # We can add a note about the state not being persisted.
+                    updated_combat_encounter = await session.get(CombatEncounter, combat_encounter_id) # Get original state for dry run context
 
-                updated_combat_encounter = await session.get(CombatEncounter, combat_encounter_id)
+                embed_title_key = "simulate_combat_action:embed_title_dry_run" if dry_run else "simulate_combat_action:embed_title"
+                embed_title_default = "Combat Action Simulation Result (Dry Run)" if dry_run else "Combat Action Simulation Result"
 
                 embed = discord.Embed(
                     title=await get_localized_master_message(
-                        session, guild_id, "simulate_combat_action:embed_title",
-                        "Combat Action Simulation Result", str(interaction.locale)
+                        session, guild_id, embed_title_key,
+                        embed_title_default, str(interaction.locale)
                     ),
                     color=discord.Color.green() if combat_action_result.success else discord.Color.red()
                 )
+                if dry_run:
+                    embed.set_footer(text=await get_localized_master_message(session, guild_id, "simulate_combat_action:footer_dry_run_notice", "DRY RUN: No changes were saved to the database.", str(interaction.locale)))
+
                 embed.add_field(name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_action_type", "Action Type", str(interaction.locale)), value=combat_action_result.action_type, inline=True)
                 embed.add_field(name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_actor", "Actor", str(interaction.locale)), value=f"{combat_action_result.actor_type.capitalize()} ID: {combat_action_result.actor_id}", inline=True)
                 if combat_action_result.target_id and combat_action_result.target_type:

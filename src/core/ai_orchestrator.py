@@ -273,6 +273,55 @@ async def trigger_ai_generation_flow(
         logger.error(f"Guild {guild_id}: Exception in trigger_ai_generation_flow: {e}", exc_info=True)
         return f"Internal server error during AI generation flow: {str(e)}"
 
+async def make_real_ai_call(prompt: str, api_key: Optional[str] = None) -> str:
+    """
+    Makes a real call to the OpenAI API (ChatCompletion endpoint).
+    """
+    import openai
+    import os
+
+    resolved_api_key = api_key or os.getenv("OPENAI_API_KEY")
+    if not resolved_api_key:
+        logger.error("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
+        return "Error: OpenAI API key not configured."
+
+    client = openai.AsyncOpenAI(api_key=resolved_api_key)
+
+    logger.info(f"Making real OpenAI API call (prompt starts with: {prompt[:100]}...)")
+    try:
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant for a text-based RPG, generating game content according to specific schemas and instructions.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="gpt-3.5-turbo", # Or consider gpt-4-turbo if available/needed
+            # Add other parameters like temperature, max_tokens if needed
+        )
+        response_content = chat_completion.choices[0].message.content
+        if response_content is None:
+            logger.warning("OpenAI API returned None content.")
+            return "Error: AI returned empty content."
+        logger.info(f"OpenAI API call successful. Response length: {len(response_content)}")
+        return response_content
+    except openai.APIConnectionError as e:
+        logger.error(f"OpenAI API request failed to connect: {e}", exc_info=True)
+        return f"Error: Failed to connect to OpenAI API. {e}"
+    except openai.RateLimitError as e:
+        logger.error(f"OpenAI API request exceeded rate limit: {e}", exc_info=True)
+        return f"Error: OpenAI API rate limit exceeded. {e}"
+    except openai.APIStatusError as e:
+        logger.error(f"OpenAI API returned an API Error: {e.status_code} - {e.response}", exc_info=True)
+        return f"Error: OpenAI API error ({e.status_code}). {e.message}"
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during OpenAI API call: {e}", exc_info=True)
+        return f"Error: An unexpected error occurred with the AI call. {e}"
+
 
 @transactional
 async def save_approved_generation(
