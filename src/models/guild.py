@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from .ability import Ability # Added for Ability relationship
     from .status_effect import StatusEffect, ActiveStatusEffect # Added for StatusEffect relationship
     from .combat_encounter import CombatEncounter # Added for CombatEncounter relationship
+    from .global_npc import GlobalNpc # Added for GlobalNpc relationship
+    from .mobile_group import MobileGroup # Added for MobileGroup relationship
+    from .global_event import GlobalEvent # Added for GlobalEvent relationship
+
 
 class GuildConfig(Base):
     """
@@ -39,6 +43,10 @@ class GuildConfig(Base):
     status_effects: Mapped[List["StatusEffect"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     active_status_effects: Mapped[List["ActiveStatusEffect"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     combat_encounters: Mapped[List["CombatEncounter"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    # New relationships for global entities
+    global_npcs: Mapped[List["GlobalNpc"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    mobile_groups: Mapped[List["MobileGroup"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
+    global_events: Mapped[List["GlobalEvent"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"

@@ -79,15 +79,15 @@ class EventCog(commands.Cog):
         # This check is more for traditional prefixed commands if they are also supported.
 
         # Get the actual command prefix(es) for the current message
-        # self.bot.command_prefix is likely a callable (e.g., commands.when_mentioned_or(...))
-        actual_prefixes = self.bot.command_prefix(self.bot, message)
+        # Use await self.bot.get_prefix(message) for robust prefix fetching
+        actual_prefixes = await self.bot.get_prefix(message)
 
         # Check if the message starts with any of the determined prefixes
         is_command = False
         if isinstance(actual_prefixes, str):
             if message.content.startswith(actual_prefixes):
                 is_command = True
-        elif isinstance(actual_prefixes, (list, tuple)): # commands.when_mentioned_or can return a list
+        elif isinstance(actual_prefixes, list): # get_prefix returns List[str] or str
             for prefix in actual_prefixes:
                 if message.content.startswith(prefix):
                     is_command = True
@@ -105,7 +105,7 @@ class EventCog(commands.Cog):
         try:
             # Pass `self.bot` if `process_player_message_for_nlu` needs it.
             # For now, it doesn't, but good practice if it might for e.g. sending messages.
-            await process_player_message_for_nlu(self.bot, message) # type: ignore[call-arg]
+            await process_player_message_for_nlu(self.bot, message) # type: ignore[call-arg] # Pyright might complain if process_player_message_for_nlu doesn't expect bot.
         except Exception as e:
             logger.error(f"Error during NLU processing in on_message for guild {message.guild.id}: {e}", exc_info=True)
 

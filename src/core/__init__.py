@@ -48,7 +48,7 @@ from .report_formatter import format_turn_report
 from . import ability_system # Import the new ability_system module
 from .ability_system import activate_ability, apply_status, remove_status # Import public functions
 from . import world_generation # Added new module
-from .world_generation import generate_location, generate_factions_and_relationships, generate_quests_for_guild # Updated function name & added new
+from .world_generation import generate_location, generate_factions_and_relationships, generate_quests_for_guild, generate_economic_entities # Updated function name & added new
 from . import map_management # Import the map_management module
 from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
 from . import combat_engine # Import the new combat_engine module
@@ -63,11 +63,13 @@ from . import relationship_system # Import the new relationship_system module
 from .relationship_system import update_relationship # Import the main function
 from . import quest_system # Added for Task 41
 from .quest_system import handle_player_event_for_quest # Added for Task 41
+from . import trade_system # Task 44
+from .trade_system import handle_trade_action, TradeActionResult # Task 44
 from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
 
 
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager, experience_system, relationship_system, quest_system.")
+logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager, experience_system, relationship_system, quest_system, trade_system.")
 
 # Define __all__ for explicit public API of the 'core' package, if desired.
 # This controls what 'from core import *' imports.
@@ -118,6 +120,7 @@ __all__ = [
     "generate_location",
     "generate_factions_and_relationships", # Added
     "generate_quests_for_guild", # Task 40
+    "generate_economic_entities", # Added for Task 43
     "map_management", # Added
     "add_location_master", # Added
     "remove_location_master", # Added
@@ -138,4 +141,7 @@ __all__ = [
     "update_relationship", # Added for Task 36
     "quest_system", # Added for Task 41
     "handle_player_event_for_quest", # Added for Task 41
+    "trade_system", # Task 44
+    "handle_trade_action", # Task 44
+    "TradeActionResult", # Task 44
 ]

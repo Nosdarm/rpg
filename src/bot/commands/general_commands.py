@@ -254,34 +254,47 @@ class GeneralCog(commands.Cog, name="General Commands"):
                     await interaction.followup.send(f"Command `/{command_name}` not found. Use `/help` to see all available commands.", ephemeral=True)
             else:
                 logger.debug("Processing general help (listing all commands).")
-                embed = discord.Embed(
-                    title="Bot Commands Help",
-                    description=f"Here's a list of available commands. Use `/help command_name` for more details on a specific command.\nLanguage: {lang_code}",
-                    color=discord.Color.blue()
-                )
-                embed.set_footer(text=f"Total commands: {len(all_commands)}")
+                logger.debug("Processing general help (listing all commands).")
 
-                command_list_str = []
-                current_length = 0
+                # Build description string carefully
+                description_content = f"Here's a list of available commands. Use `/help command_name` for more details on a specific command.\nLanguage: {lang_code}"
+
+                command_list_entries = []
+                # Calculate initial length of the base description part.
+                # Add some buffer for "\n\n" and potential footer text if it were part of description.
+                # Max embed description is 4096.
+                current_command_text_length = 0
+
                 for cmd_info in all_commands:
                     desc = cmd_info.description or "No description available."
                     entry = f"**/{cmd_info.name}** - {desc}"
-                    if current_length + len(entry) + 2 < 4000: # Embed description limit
-                        command_list_str.append(entry)
-                        current_length += len(entry) + 2
+
+                    # Check if adding this entry exceeds the limit (4096 for total description)
+                    # Need to account for the length of description_content, newlines, etc.
+                    # Simplified check: if adding this entry makes the command list part too long.
+                    # A more accurate check would sum current_command_text_length + len(description_content) + len(entry) + separators.
+                    # Let's assume max length for command entries part is around 3800 to be safe.
+                    if current_command_text_length + len(entry) + 2 < 3800: # +2 for potential newline separators
+                        command_list_entries.append(entry)
+                        current_command_text_length += len(entry) + 2
                     else:
-                        command_list_str.append("...")
-                        logger.warning(f"General help message truncated due to length limits. Displaying {len(command_list_str)-1} commands out of {len(all_commands)}.")
+                        command_list_entries.append("...")
+                        logger.warning(f"General help message truncated. Displaying {len(command_list_entries)-1} commands out of {len(all_commands)}.")
                         break
 
-                if command_list_str:
-                    embed.description += "\n\n" + "\n".join(command_list_str)
-                else: # Should not happen if all_commands is not empty
-                    logger.warning("Command list string is empty for general help embed, though all_commands was not empty.")
-                    embed.description += "\n\nNo commands to display."
+                if command_list_entries:
+                    description_content += "\n\n" + "\n".join(command_list_entries)
+                else:
+                    description_content += "\n\nNo commands to display."
 
+                embed = discord.Embed(
+                    title="Bot Commands Help",
+                    description=description_content,
+                    color=discord.Color.blue()
+                )
+                embed.set_footer(text=f"Total commands: {len(all_commands)}")
                 await interaction.followup.send(embed=embed, ephemeral=True)
-                logger.debug("Successfully sent general help embed.") # Changed back to debug for successful send
+                logger.debug("Successfully sent general help embed.")
 
         except Exception as e:
             # Log the error first thing in the except block

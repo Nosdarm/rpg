@@ -85,7 +85,7 @@ def mock_session() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
-    session.add = MagicMock()
+    session.add = AsyncMock() # Changed to AsyncMock
     mock_transaction_cm = AsyncMock()
     async def mock_aenter_for_begin(): return None
     async def mock_aexit_for_begin(exc_type, exc, tb):

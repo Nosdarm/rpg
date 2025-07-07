@@ -121,10 +121,20 @@ def mock_combat_encounter(
     mock_target_npc_friendly_faction: GeneratedNpc
 ) -> CombatEncounter:
     # Max HP values from individual fixtures or sensible defaults for combat data
-    actor_max_hp = mock_actor_npc.properties_json.get("stats", {}).get("hp", 50)
+    actor_props = mock_actor_npc.properties_json if mock_actor_npc.properties_json is not None else {}
+    actor_stats = actor_props.get("stats", {}) if isinstance(actor_props, dict) else {}
+    actor_max_hp = actor_stats.get("hp", 50) if isinstance(actor_stats, dict) else 50
+
     player_max_hp = 100 # As per mock_target_player.current_hp and general assumption
-    hostile_npc_max_hp = mock_target_npc_hostile.properties_json.get("stats", {}).get("hp", 40)
-    friendly_npc_max_hp = mock_target_npc_friendly_faction.properties_json.get("stats", {}).get("hp", 30)
+
+    hostile_npc_props = mock_target_npc_hostile.properties_json if mock_target_npc_hostile.properties_json is not None else {}
+    hostile_npc_stats = hostile_npc_props.get("stats", {}) if isinstance(hostile_npc_props, dict) else {}
+    hostile_npc_max_hp = hostile_npc_stats.get("hp", 40) if isinstance(hostile_npc_stats, dict) else 40
+
+    friendly_npc_props = mock_target_npc_friendly_faction.properties_json if mock_target_npc_friendly_faction.properties_json is not None else {}
+    friendly_npc_stats = friendly_npc_props.get("stats", {}) if isinstance(friendly_npc_props, dict) else {}
+    friendly_npc_max_hp = friendly_npc_stats.get("hp", 30) if isinstance(friendly_npc_stats, dict) else 30
+
     defeated_player_max_hp = 100 # Arbitrary typical max HP for a defeated player
 
     return CombatEncounter(
@@ -270,7 +280,8 @@ async def test_get_npc_ai_rules_merges_defaults_and_specific_relationship_rules(
     assert rel_behavior["target_score_modifier_formula"] == default_rel_influence_rules_in_code["target_score_modifier_formula"]
     assert rel_behavior["action_choice"]["hostile_negative_threshold"] == default_rel_influence_rules_in_code["action_choice"]["hostile_negative_threshold"]
     assert rel_behavior["action_choice"]["actions_if_hostile"] == default_rel_influence_rules_in_code["action_choice"]["actions_if_hostile"]
-    assert "parsed_hidden_relationship_combat_effects" not in compiled_rules # No hidden rels passed
+    # Check that parsed_hidden_relationship_combat_effects is an empty list when no hidden relationships are passed
+    assert compiled_rules.get("parsed_hidden_relationship_combat_effects") == []
 
 
 @pytest.mark.asyncio
@@ -698,8 +709,11 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
 
 
     for p_data in participants_list_for_setup: # mock_combat_encounter.participants_json:
-        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value:
-            p_data["current_hp"] = 0 # Use current_hp
+        # Pyright errors on these lines seem to be misinterpretations.
+        # p_data is a dict, so .get() is fine.
+        # The __getitem__ error for GeneratedNpc/Player on this line is also likely confusion.
+        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value: # Line 626
+            p_data["current_hp"] = 0
             defeated_actor_combat_data = p_data
             break
 
@@ -709,7 +723,7 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
             with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
                 action_result = await get_npc_combat_action(
-                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id
+                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id # Line 632 / 633
                 )
                 assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
 

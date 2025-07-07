@@ -108,34 +108,16 @@ Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according 
 Task Block: Phase 10: Economy, Items, and Trade
 This block presents tasks related to economy, items, and trade mechanics.
 
-Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n).
-Description: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
+{Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n). - Moved to Done.txt}
 
-Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild).
-Description: AI generates items and NPC traders for a guild according to rules.
-Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules 13/41 FOR THIS GUILD, including traders (with roles, inventory), base prices (calculated by rules 13/41), i18n texts. Entities get guild_id.
-
-Task 44: 💰 10.3 Trade System (Guild-Scoped).
-Description: Managing a trade session.
-API handle_trade_action(guild_id: int, session: Session, player_id: int, target_npc_id: int, action_type: str, item_id: Optional[int] = None, count: Optional[int] = None). Called from 21 (Action Processing Module) or 46 (Dialogue Module). REQUIRES guild_id and session.
-Implements logic: opening trade interface, processing "buy"/"sell". Prices are calculated DYNAMICALLY according to rules 13/41/36, considering relationships (30/31).
-Within the provided transaction (session): Check feasibility of transaction, calculate final price, move items (call 15 add/remove), update gold (15/0.2/0.3). If the transaction fails (e.g., item already bought by another party member) -> ROLLBACK (of the action transaction in 15).
-Log (19) for the guild. Provide feedback (47). Change Relationships (30/31) according to rules 13/41 for trades.
+{Task 44: 💰 10.3 Trade System (Guild-Scoped). - Moved to Done.txt}
 
 Task Block: Phase 14: Global Entities and Dynamic World
 This block presents tasks related to entities that move around the world independently of players (caravans, patrols, random NPCs), and their simulation.
 
-Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n).
-Description: Models for entities moving in the world within each guild.
-Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition.
+{Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n). - Moved to Done.txt}
 
-Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
-Description: Module simulating the life and movement of global entities for each guild.
-Async Worker(s): Iterates through the list of all active guilds. For each guild_id:
-Loads Global Entities, rules (13/0.3/41) for this guild.
-Simulates GE movement.
-Simulates interactions (with other GEs, entities, players) IN THE CONTEXT OF THIS GUILD: Detection check (12 by 13/41), Reaction (determined by rules 13/41 and relationships 30/31/32), Triggers (Combat 27, Dialogue 46, Quest 31, World Event).
-Log events (19).
+{Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration). - Moved to Done.txt}
 
 
 

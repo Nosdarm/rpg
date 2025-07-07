@@ -63,8 +63,11 @@ class EventType(enum.Enum):
     ITEM_ACQUIRED = "item_acquired"
     ITEM_USED = "item_used"
     ITEM_DROPPED = "item_dropped"
-    TRADE_INITIATED = "trade_initiated"
-    TRADE_COMPLETED = "trade_completed"
+    TRADE_INITIATED = "trade_initiated" # General event when trade process starts
+    TRADE_COMPLETED = "trade_completed" # General event when a trade session ends (maybe not item specific)
+    TRADE_ITEM_BOUGHT = "trade_item_bought" # Player bought an item
+    TRADE_ITEM_SOLD = "trade_item_sold"   # Player sold an item
+    # Consider more granular events for failures if needed by other systems, e.g., TRADE_BUY_FAILED_INSUFFICIENT_GOLD
     LEVEL_UP = "level_up"
     XP_GAINED = "xp_gained"
     RELATIONSHIP_CHANGE = "relationship_change"
@@ -97,6 +100,13 @@ class EventType(enum.Enum):
     MASTER_ACTION_LOCATIONS_CONNECTED = "master_action_locations_connected" # Master connected
     MASTER_ACTION_LOCATIONS_DISCONNECTED = "master_action_locations_disconnected" # Master disconnected
     WORLD_EVENT_FACTIONS_GENERATED = "world_event_factions_generated" # AI generated factions and relationships
+    WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED = "world_event_economic_entities_generated" # Added for Task 43
+
+    # Global Entity related events (Task 46)
+    GLOBAL_ENTITY_MOVED = "global_entity_moved"
+    GLOBAL_ENTITY_DETECTED_ENTITY = "global_entity_detected_entity"
+    GLOBAL_ENTITY_ACTION = "global_entity_action" # General action by GE, details in json
+    GE_TRIGGERED_DIALOGUE_PLACEHOLDER = "ge_triggered_dialogue_placeholder" # Placeholder for GE initiating dialogue
 
 
     # TODO: Add more event types as needed for other modules
@@ -110,6 +120,8 @@ class RelationshipEntityType(enum.Enum):
     PARTY = "party"
     GENERATED_NPC = "generated_npc"
     GENERATED_FACTION = "generated_faction"
+    GLOBAL_NPC = "global_npc"        # Added for Task 46
+    MOBILE_GROUP = "mobile_group"    # Added for Task 46
     # Consider if specific NPC types or other global entities need to be here
 
 class QuestStatus(enum.Enum):

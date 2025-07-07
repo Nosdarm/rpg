@@ -3,11 +3,19 @@ from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Enum as SQ
 # JSONB import is removed as we use custom type
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional, Dict, List, Any, Union, TYPE_CHECKING # Added TYPE_CHECKING
 
 from .base import Base
 from .custom_types import JsonBForSQLite # Import custom type
 # from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
+
+if TYPE_CHECKING:
+    from .player import Player # For players_present relationship
+    from .generated_npc import GeneratedNpc # For npcs_present relationship
+    # Add imports for new global entities if not already present
+    from .global_npc import GlobalNpc
+    from .mobile_group import MobileGroup
+    from .global_event import GlobalEvent
 
 
 class LocationType(enum.Enum):
@@ -37,10 +45,13 @@ class Location(Base):
     # Optional: Link to GuildConfig object, if direct access is often needed.
     # guild: Mapped["GuildConfig"] = relationship(back_populates="locations") # Assuming GuildConfig has a 'locations' backref
 
+    parent_location_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("locations.id", name="fk_location_parent_id", use_alter=True), nullable=True, index=True
+    )
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
     name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
-    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Reverted to plural
 
     type: Mapped[LocationType] = mapped_column(SQLAlchemyEnum(LocationType), nullable=False, default=LocationType.GENERIC)
 
@@ -49,6 +60,14 @@ class Location(Base):
     neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JsonBForSQLite, nullable=True)
     generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
     ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+
+    # Relationships for entities present in the location
+    players_present: Mapped[List["Player"]] = relationship(back_populates="location") # Corrected from current_location to location
+    npcs_present: Mapped[List["GeneratedNpc"]] = relationship(back_populates="current_location")
+    global_npcs_in_location: Mapped[List["GlobalNpc"]] = relationship(back_populates="current_location")
+    mobile_groups_in_location: Mapped[List["MobileGroup"]] = relationship(back_populates="current_location")
+    global_events_in_location: Mapped[List["GlobalEvent"]] = relationship(back_populates="location")
+
 
     __table_args__ = (
         Index("ix_locations_guild_id_static_id", "guild_id", "static_id", unique=True),

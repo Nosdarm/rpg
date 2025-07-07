@@ -6,6 +6,7 @@ from .crud_party import party_crud
 from .crud_pending_generation import pending_generation_crud
 from .crud_npc import npc_crud
 from .crud_item import item_crud
+from .crud_inventory_item import inventory_item_crud # Added inventory_item_crud
 from .crud_ability import ability_crud
 from .crud_status_effect import status_effect_crud, active_status_effect_crud
 from .crud_guild import guild_crud # Added guild_crud
@@ -21,8 +22,9 @@ import logging
 logger = logging.getLogger(__name__)
 logger.info(
     "CRUD subpackage initialized. Loaded: location_crud, player_crud, party_crud, guild_crud, "
-    "pending_generation_crud, npc_crud, item_crud, ability_crud, "
-    "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction."
+    "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
+    "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction, "
+    "crud_relationship, generated_quest_crud, quest_step_crud, player_quest_progress_crud, questline_crud, pending_conflict_crud."
 )
 
 __all__ = [
@@ -32,6 +34,7 @@ __all__ = [
     "pending_generation_crud",
     "npc_crud",
     "item_crud",
+    "inventory_item_crud", # Added inventory_item_crud
     "ability_crud",
     "status_effect_crud",
     "active_status_effect_crud",
@@ -43,11 +46,19 @@ __all__ = [
     "player_quest_progress_crud",
     "questline_crud",
     "crud_faction", # Added crud_faction
+    "global_npc_crud", # Task 46
+    "mobile_group_crud", # Task 46
+    "rule_config_crud", # Added for RuleConfig
+    "pending_conflict_crud", # Added for PendingConflict
 ]
 from .crud_relationship import crud_relationship
+from .crud_pending_conflict import pending_conflict_crud # Added for PendingConflict
 from .crud_quest import ( # Added
     generated_quest_crud,
     quest_step_crud,
     player_quest_progress_crud,
     questline_crud
 )
+from .crud_global_npc import global_npc_crud # Task 46
+from .crud_mobile_group import mobile_group_crud # Task 46
+from .crud_rule_config import rule_config_crud # For RuleConfig specific CRUD

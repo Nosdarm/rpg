@@ -9,6 +9,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.models.check_results import CheckOutcome # Removed CheckOutcomeStatus
 
 from src.core.interaction_handlers import handle_intra_location_action
 from src.models import Player, Location, LocationType # Added LocationType
@@ -112,7 +113,9 @@ def mock_location_with_details(request) -> Location:
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_existing_object(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -137,7 +140,9 @@ async def test_examine_existing_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_non_existent_object(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -153,7 +158,9 @@ async def test_examine_non_existent_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_unexaminable_object(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock,
+    mock_location_crud: AsyncMock,
+    mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -171,8 +178,12 @@ async def test_examine_unexaminable_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_with_check_success(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
-    mock_resolve_check: AsyncMock, mock_get_rule: AsyncMock, mock_session: AsyncSession,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
+    mock_resolve_check: AsyncMock, # type: ignore
+    mock_get_rule: AsyncMock, # type: ignore
+    mock_session: AsyncSession,
     mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -186,7 +197,7 @@ async def test_interact_object_with_check_success(
     }
     mock_get_rule.return_value = mock_rule
     mock_successful_check_result = MagicMock()
-    mock_successful_check_result.outcome = CheckOutcome(status="success", description="Test Success") # Corrected
+    mock_successful_check_result.outcome = CheckOutcome(status="success", description="Test Success") # Reverted
     mock_successful_check_result.model_dump.return_value = {"outcome": {"status":"success", "description":"Test Success"}, "roll_value": 18, "dc": 15}
     mock_resolve_check.return_value = mock_successful_check_result
     action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
@@ -218,8 +229,12 @@ async def test_interact_object_with_check_success(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_with_check_failure(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
-    mock_resolve_check: AsyncMock, mock_get_rule: AsyncMock, mock_session: AsyncSession,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
+    mock_resolve_check: AsyncMock, # type: ignore
+    mock_get_rule: AsyncMock, # type: ignore
+    mock_session: AsyncSession,
     mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -231,7 +246,7 @@ async def test_interact_object_with_check_failure(
     }
     mock_get_rule.return_value = mock_rule
     mock_failed_check_result = MagicMock()
-    mock_failed_check_result.outcome = CheckOutcome(status="failure", description="Test Failure") # Corrected
+    mock_failed_check_result.outcome = CheckOutcome(status="failure", description="Test Failure") # Reverted
     mock_failed_check_result.model_dump.return_value = {"outcome": {"status":"failure", "description":"Test Failure"}, "roll_value": 5, "dc": 18}
     mock_resolve_check.return_value = mock_failed_check_result
     action_data = {"intent": "interact", "entities": [{"name": "Old Chest"}]}
@@ -246,7 +261,9 @@ async def test_interact_object_with_check_failure(
     assert details_json_val is not None; assert isinstance(details_json_val, dict)
     check_result_val = details_json_val.get("check_result")
     assert check_result_val is not None; assert isinstance(check_result_val, dict)
-    assert check_result_val.get("outcome")["status"] == "failure"
+    outcome_dict = check_result_val.get("outcome")
+    assert outcome_dict is not None; assert isinstance(outcome_dict, dict)
+    assert outcome_dict.get("status") == "failure"
     assert details_json_val.get("applied_consequences_key") == "lever_stuck"
 
 @pytest.mark.asyncio
@@ -256,8 +273,12 @@ async def test_interact_object_with_check_failure(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_no_check_required(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
-    mock_resolve_check: AsyncMock, mock_get_rule: AsyncMock, mock_session: AsyncSession,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
+    mock_resolve_check: AsyncMock, # type: ignore
+    mock_get_rule: AsyncMock, # type: ignore
+    mock_session: AsyncSession,
     mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -295,8 +316,11 @@ async def test_interact_object_no_check_required(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_rule_not_found(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
-    mock_get_rule: AsyncMock, mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
+    mock_get_rule: AsyncMock, # type: ignore
+    mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
     mock_location_crud.get.return_value = mock_location_with_details
@@ -315,8 +339,7 @@ async def test_interact_object_rule_not_found(
     assert isinstance(log_kwargs, dict), "log_event.call_args.kwargs should be a dict"
 
     details_json_val = log_kwargs.get("details_json")
-    assert isinstance(details_json_val, dict), "details_json should be present in log_kwargs and be a dict"
-
+    assert isinstance(details_json_val, dict), f"details_json should be a dict, got {type(details_json_val)}"
     assert details_json_val.get("rule_found") is False
 
 @pytest.mark.asyncio
@@ -324,7 +347,9 @@ async def test_interact_object_rule_not_found(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_no_interaction_key(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -351,7 +376,9 @@ async def test_interact_object_no_interaction_key(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_non_existent_object(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -367,7 +394,9 @@ async def test_interact_non_existent_object(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_move_to_valid_sublocation(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player_crud.get.return_value = mock_player
@@ -544,7 +573,9 @@ def test_find_target_item_no_name_key():
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_present(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player.selected_language = "es"
@@ -561,7 +592,9 @@ async def test_examine_object_player_lang_present(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_missing_fallback_en(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
 ):
     mock_player.selected_language = "de"
@@ -578,7 +611,9 @@ async def test_examine_object_player_lang_missing_fallback_en(
 @patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_and_en_missing_fallback_default(
-    mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
+    mock_log_event: AsyncMock, # type: ignore
+    mock_location_crud: AsyncMock, # type: ignore
+    mock_player_crud: AsyncMock, # type: ignore
     mock_session: AsyncSession, mock_player: Player,
 ):
     mock_player.selected_language = "fr"

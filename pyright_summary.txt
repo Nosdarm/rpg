@@ -1,0 +1,71 @@
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
+  Line 94   [ERROR] Argument missing for parameter "entity_type"
+  Line 211  [ERROR] Argument missing for parameter "entity_type"
+  Line 287  [ERROR] Argument missing for parameter "entity_type"
+  Line 289  [ERROR] Argument missing for parameter "entity_type"
+  Line 358  [ERROR] Argument missing for parameter "entity_type"
+  Line 360  [ERROR] Argument missing for parameter "entity_type"
+  Line 401  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
+┬а┬аAttribute "call_args_list" is unknown
+  Line 504  [ERROR] Argument missing for parameter "entity_type"
+  Line 832  [ERROR] Argument missing for parameter "entity_type"
+  Line 833  [ERROR] Argument missing for parameter "entity_type"
+  Line 834  [ERROR] Argument missing for parameter "entity_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 10 issue(s):
+  Line 116  [ERROR] Argument missing for parameter "required"
+  Line 119  [ERROR] Argument missing for parameter "type"
+  Line 122  [ERROR] Argument missing for parameter "name"
+  Line 126  [ERROR] Argument missing for parameter "name"
+  Line 130  [ERROR] Argument missing for parameter "commands"
+  Line 135  [ERROR] Argument missing for parameter "required"
+  Line 138  [ERROR] Argument missing for parameter "type"
+  Line 141  [ERROR] Argument missing for parameter "name"
+  Line 145  [ERROR] Argument missing for parameter "name"
+  Line 149  [ERROR] Argument missing for parameter "commands"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
+  Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 632  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+┬а┬аAttribute "id" is unknown
+  Line 633  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 633  [ERROR] "__getitem__" method not defined on type "Player"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 3 issue(s):
+  Line 147  [ERROR] Argument missing for parameter "name_i18n"
+  Line 150  [ERROR] Argument missing for parameter "description_i18n"
+  Line 191  [ERROR] Argument missing for parameter "static_id"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 3 issue(s):
+  Line 415  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 435  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 452  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\conflict_master_commands.py] — 1 issue(s):
+  Line 284  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
+┬а┬а"DateTime" is not assignable to "datetime"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 1 issue(s):
+  Line 16   [ERROR] "StatusEffectCategory" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
+  Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
+  Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 1 issue(s):
+  Line 711  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present

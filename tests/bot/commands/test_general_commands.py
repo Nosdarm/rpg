@@ -9,12 +9,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from sqlalchemy.ext.asyncio import AsyncSession # Added import
 import discord # type: ignore
 from discord.ext import commands # Added commands import
 
 from src.bot.commands.general_commands import GeneralCog
 from src.models.player import Player, PlayerStatus
 from src.models.location import Location, LocationType
+from src.models.guild import GuildConfig # Added import
 from src.bot.events import DEFAULT_STATIC_LOCATIONS # Для мокирования или проверки
 
 # Для удобства мокирования объектов discord.py
@@ -40,10 +42,23 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         # Патчим get_db_session, чтобы он возвращал мок сессии
         self.session_mock = AsyncMock()
-        self.session_mock.add = MagicMock() # Ensure .add is a sync mock
+        self.session_mock = AsyncMock(spec=AsyncSession) # Added spec for better mocking
         self.patcher_get_db_session = patch('src.bot.commands.general_commands.get_db_session')
         self.mock_get_db_session = self.patcher_get_db_session.start()
         self.mock_get_db_session.return_value.__aenter__.return_value = self.session_mock
+
+        # Настройка mock_session_mock.execute для тестов RuleConfig
+        # Это общий мок, который будет использоваться, если тест не переопределит session.execute
+        mock_execute_result = AsyncMock() # Мок для результата session.execute
+        # scalar_one_or_none должен быть синхронным методом мока результата
+        mock_execute_result.scalar_one_or_none = MagicMock(return_value=None) # По умолчанию правило не найдено
+
+        # scalars() должен возвращать объект, у которого all() является синхронным методом
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = [] # .all() возвращает список
+        mock_execute_result.scalars = MagicMock(return_value=mock_scalars_result) # .scalars() возвращает этот мок
+        self.session_mock.execute.return_value = mock_execute_result
+
 
         # Патчим CRUD операции
         self.patcher_player_crud = patch('src.bot.commands.general_commands.player_crud', new_callable=AsyncMock)
@@ -51,6 +66,9 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         self.patcher_location_crud = patch('src.bot.commands.general_commands.location_crud', new_callable=AsyncMock)
         self.mock_location_crud = self.patcher_location_crud.start()
+
+        self.patcher_guild_crud = patch('src.bot.commands.general_commands.guild_crud', new_callable=AsyncMock)
+        self.mock_guild_crud = self.patcher_guild_crud.start()
 
         # Мокируем DEFAULT_STATIC_LOCATIONS, если нужно контролировать его в тестах
         self.patcher_default_locs = patch('src.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
@@ -78,6 +96,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.patcher_get_db_session.stop()
         self.patcher_player_crud.stop()
         self.patcher_location_crud.stop()
+        self.patcher_guild_crud.stop()
         self.patcher_default_locs.stop()
 
     async def test_start_command_new_player(self):
@@ -86,6 +105,11 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
 
         self.mock_player_crud.get_by_discord_id.return_value = None # Игрок не существует
+        # Предполагаем, что конфиг гильдии еще не существует и будет создан
+        self.mock_guild_crud.get.return_value = None
+        mock_created_guild_config = GuildConfig(id=mock_guild.id, name=mock_guild.name, main_language="ru")
+        self.mock_guild_crud.create.return_value = mock_created_guild_config
+
 
         mock_start_loc = Location(id=1, guild_id=mock_guild.id, static_id="start", name_i18n={"en": "Start Zone", "ru": "Стартовая Зона"}, descriptions_i18n={}, type=LocationType.TOWN)
         self.mock_location_crud.get_by_static_id.return_value = mock_start_loc
@@ -103,7 +127,8 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
             session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=mock_start_loc.id, selected_language="ru"
         )
-        self.session_mock.add.assert_called_once_with(created_player) # Проверка, что new_player.current_status обновлен и добавлен в сессию
+        self.session_mock.add.assert_any_call(created_player) # Игрок должен быть добавлен
+        self.assertEqual(self.session_mock.add.call_count, 2) # Ожидаем два вызова add: RuleConfig и Player
         self.assertEqual(created_player.current_status, PlayerStatus.EXPLORING)
 
         mock_interaction.followup.send.assert_called_once() # Changed from response.send_message
@@ -125,6 +150,10 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         existing_player = Player(id=2, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.name, level=5)
         self.mock_player_crud.get_by_discord_id.return_value = existing_player
 
+        # Мокируем существующий GuildConfig
+        existing_guild_config = GuildConfig(id=mock_guild.id, name=mock_guild.name, main_language="en")
+        self.mock_guild_crud.get.return_value = existing_guild_config
+
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
         self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
@@ -140,7 +169,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         # The wrapper `start_command` handles the no-guild case before calling internal
         # For app commands, callback is already bound, so cog instance isn't passed first.
-        await self.cog.start_command.callback(mock_interaction) # type: ignore
+        await self.cog.start_command.callback(self.cog, mock_interaction) # type: ignore
 
         mock_interaction.response.send_message.assert_called_once_with(
             "Эту команду можно использовать только на сервере.", ephemeral=True
@@ -153,6 +182,11 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_interaction = self._create_mock_interaction(user=mock_user, guild=mock_guild)
 
         self.mock_player_crud.get_by_discord_id.return_value = None
+        # Предполагаем, что конфиг гильдии еще не существует и будет создан
+        self.mock_guild_crud.get.return_value = None
+        mock_created_guild_config = GuildConfig(id=mock_guild.id, name=mock_guild.name, main_language="de")
+        self.mock_guild_crud.create.return_value = mock_created_guild_config
+
         self.mock_location_crud.get_by_static_id.return_value = None # Локация не найдена
         self.mock_default_locs.append({"static_id": "non_existent_start"})
 
