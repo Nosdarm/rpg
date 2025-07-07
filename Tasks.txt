@@ -124,6 +124,8 @@ This block presents tasks related to entities that move around the world indepen
 Task Block: Phase 15: Management and Monitoring Tools
 This block presents tasks for implementing tools for the game Master.
 
+{Task 47: 🛠️ 15.1 Master Command System. - Moved to Done.txt}
+
 Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
 Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
 Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.
