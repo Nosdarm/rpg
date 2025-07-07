@@ -34,10 +34,10 @@ class OwnerEntityType(enum.Enum):
     """
     Represents the type of entity that can own an inventory.
     """
-    PLAYER = "player"
-    GENERATED_NPC = "generated_npc"
-    PARTY = "party" # For shared party inventory
-    LOCATION_CONTAINER = "location_container" # E.g. a chest in a location
+    PLAYER = "PLAYER"
+    GENERATED_NPC = "GENERATED_NPC"
+    PARTY = "PARTY" # For shared party inventory
+    LOCATION_CONTAINER = "LOCATION_CONTAINER" # E.g. a chest in a location
     # Add more types as needed, e.g., specific NPC types if they have separate table
 
 class EventType(enum.Enum):
