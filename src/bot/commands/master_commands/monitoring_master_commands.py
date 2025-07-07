@@ -145,12 +145,39 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
         event_type_filter="Filter by a specific event type.",
         # TODO: Add more filters like entity_id, entity_type, turn_number, timestamps
     )
+    @app_commands.choices(event_type_filter=[
+        app_commands.Choice(name="Player Action", value="PLAYER_ACTION"),
+        app_commands.Choice(name="NPC Action", value="NPC_ACTION"),
+        app_commands.Choice(name="System Event", value="SYSTEM_EVENT"),
+        app_commands.Choice(name="Combat Start", value="COMBAT_START"),
+        app_commands.Choice(name="Combat Action", value="COMBAT_ACTION"),
+        app_commands.Choice(name="Combat End", value="COMBAT_END"),
+        app_commands.Choice(name="Movement", value="MOVEMENT"),
+        app_commands.Choice(name="Dialogue Start", value="DIALOGUE_START"),
+        app_commands.Choice(name="Dialogue Line", value="DIALOGUE_LINE"),
+        app_commands.Choice(name="Dialogue End", value="DIALOGUE_END"),
+        app_commands.Choice(name="World Event Quests Generated", value="WORLD_EVENT_QUESTS_GENERATED"),
+        app_commands.Choice(name="Quest Accepted", value="QUEST_ACCEPTED"),
+        app_commands.Choice(name="Quest Step Completed", value="QUEST_STEP_COMPLETED"),
+        app_commands.Choice(name="Quest Completed", value="QUEST_COMPLETED"),
+        app_commands.Choice(name="Quest Failed", value="QUEST_FAILED"),
+        app_commands.Choice(name="Item Acquired", value="ITEM_ACQUIRED"),
+        app_commands.Choice(name="Item Used", value="ITEM_USED"),
+        app_commands.Choice(name="Item Dropped", value="ITEM_DROPPED"),
+        app_commands.Choice(name="Trade Initiated", value="TRADE_INITIATED"),
+        app_commands.Choice(name="Trade Completed", value="TRADE_COMPLETED"),
+        app_commands.Choice(name="Trade Item Bought", value="TRADE_ITEM_BOUGHT"),
+        app_commands.Choice(name="Trade Item Sold", value="TRADE_ITEM_SOLD"),
+        app_commands.Choice(name="Level Up", value="LEVEL_UP"),
+        app_commands.Choice(name="XP Gained", value="XP_GAINED"),
+        app_commands.Choice(name="Relationship Change", value="RELATIONSHIP_CHANGE"),
+    ])
     async def log_list(
         self,
         interaction: discord.Interaction,
         page: app_commands.Range[int, 1] = 1,
         limit: app_commands.Range[int, 1, 100] = 10,
-        event_type_filter: Optional[str] = None, # Changed EventType to str
+        event_type_filter: Optional[app_commands.Choice[str]] = None,
     ):
         """Lists StoryLog entries with pagination and optional filters."""
         await interaction.response.defer(ephemeral=True)
@@ -161,8 +188,10 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
         processed_event_type: Optional[EventType] = None
         if event_type_filter:
             try:
-                processed_event_type = EventType[event_type_filter.upper()]
+                # Access the value of the Choice object
+                processed_event_type = EventType[event_type_filter.value.upper()]
             except KeyError:
+                # This should ideally not happen if choices are correctly synced
                 error_msg_template = await get_localized_message_template(
                     session, # type: ignore
                     interaction.guild_id,
@@ -170,7 +199,7 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                     str(interaction.locale),
                     "Invalid event type: '{input_event_type}'. Please use a valid event type name (e.g., PLAYER_ACTION, COMBAT_START)."
                 )
-                error_msg = error_msg_template.format(input_event_type=event_type_filter)
+                error_msg = error_msg_template.format(input_event_type=event_type_filter.name) # Use .name for display
                 await interaction.followup.send(error_msg, ephemeral=True)
                 if session: await session.close()
                 return
