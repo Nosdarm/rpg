@@ -129,10 +129,10 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
         description_i18n_json="Optional: JSON for Questline description.",
         starting_quest_static_id="Optional: Static ID of the first GeneratedQuest in this line.",
         is_main_storyline="Is this a main storyline? (True/False, defaults to False).",
-        required_previous_questline_static_id="Optional: Static ID of a Questline that must be completed first.",
+        prev_questline_id="Optional: Static ID of a Questline that must be completed first.",
         properties_json="Optional: JSON for additional Questline properties."
     )
-    async def questline_create(self, interaction: discord.Interaction, static_id: str, title_i18n_json: str, description_i18n_json: Optional[str] = None, starting_quest_static_id: Optional[str] = None, is_main_storyline: bool = False, required_previous_questline_static_id: Optional[str] = None, properties_json: Optional[str] = None):
+    async def questline_create(self, interaction: discord.Interaction, static_id: str, title_i18n_json: str, description_i18n_json: Optional[str] = None, starting_quest_static_id: Optional[str] = None, is_main_storyline: bool = False, prev_questline_id: Optional[str] = None, properties_json: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
         if interaction.guild_id is None:
@@ -163,11 +163,11 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 if not start_quest:
                     error_msg = await get_localized_message_template(session, interaction.guild_id, "questline_create:error_start_quest_not_found", lang_code, "Starting quest with static_id '{id}' not found.")
                     await interaction.followup.send(error_msg.format(id=starting_quest_static_id), ephemeral=True); return
-            if required_previous_questline_static_id:
-                prev_ql = await questline_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=required_previous_questline_static_id)
+            if prev_questline_id:
+                prev_ql = await questline_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=prev_questline_id)
                 if not prev_ql:
                     error_msg = await get_localized_message_template(session, interaction.guild_id, "questline_create:error_prev_ql_not_found", lang_code, "Required previous questline with static_id '{id}' not found.")
-                    await interaction.followup.send(error_msg.format(id=required_previous_questline_static_id), ephemeral=True); return
+                    await interaction.followup.send(error_msg.format(id=prev_questline_id), ephemeral=True); return
 
             ql_data_create: Dict[str, Any] = {
                 "guild_id": interaction.guild_id, "static_id": static_id,
@@ -175,7 +175,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 "description_i18n": parsed_desc_i18n or {},
                 "starting_quest_static_id": starting_quest_static_id,
                 "is_main_storyline": is_main_storyline,
-                "required_previous_questline_static_id": required_previous_questline_static_id,
+                "required_previous_questline_static_id": prev_questline_id,
                 "properties_json": parsed_props or {}
             }
             created_ql: Optional[Any] = None
