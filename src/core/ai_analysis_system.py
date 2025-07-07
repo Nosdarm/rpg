@@ -14,6 +14,7 @@ from src.core.ai_prompt_builder import (
 )
 from src.core.ai_response_parser import parse_and_validate_ai_response, BaseGeneratedEntity
 from src.core.rules import get_rule
+from src.core.ai_orchestrator import make_real_ai_call # Import the new function
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +95,15 @@ async def analyze_generated_content(
 
             raw_response_text = ""
             if use_real_ai:
-                report.issues_found.append("Real AI call functionality is NOT YET IMPLEMENTED in this system.")
-                raw_response_text = f"SKIPPED: Real AI call for {entity_type} {i+1}."
+                # report.issues_found.append("Real AI call functionality is NOT YET IMPLEMENTED in this system.")
+                # raw_response_text = f"SKIPPED: Real AI call for {entity_type} {i+1}."
+                logger.info(f"Attempting real AI call for {entity_type} {i+1} with prompt (first 100 chars): {prompt[:100]}...")
+                raw_response_text = await make_real_ai_call(prompt)
+                if raw_response_text.startswith("Error:"):
+                    report.issues_found.append(f"Real AI call failed: {raw_response_text}")
+                    logger.warning(f"Real AI call for {entity_type} {i+1} failed: {raw_response_text}")
+                else:
+                    logger.info(f"Real AI call for {entity_type} {i+1} successful. Response length: {len(raw_response_text)}")
             else:
                 mock_entity_data = {}
                 if entity_type_lower == "npc":
@@ -235,6 +243,56 @@ async def analyze_generated_content(
 
                 if not report.issues_found and not report.validation_errors:
                     report.suggestions.append("No obvious issues found based on current basic analysis rules.")
+
+                # Rule 1: Check for placeholder text in i18n fields
+                placeholder_texts_rule = await get_rule(session, guild_id, "analysis:common:placeholder_texts", {"placeholders": ["todo", "fixme", "[description needed]", "...", "placeholder", "tbd"]})
+                placeholders_to_check = [ph.lower() for ph in placeholder_texts_rule.get("placeholders", [])]
+
+                fields_for_placeholder_check = list(set(i18n_fields_to_check + ["text_i18n"])) # Add any other relevant text fields
+
+                for field_name in fields_for_placeholder_check:
+                    if field_name in data:
+                        content = data[field_name]
+                        if isinstance(content, dict): # i18n dict
+                            for lang, text_val in content.items():
+                                if isinstance(text_val, str):
+                                    for ph in placeholders_to_check:
+                                        if ph in text_val.lower():
+                                            report.issues_found.append(f"Potential placeholder text '{ph}' found in '{field_name}.{lang}'.")
+                        elif isinstance(content, str): # Simple string field
+                             for ph in placeholders_to_check:
+                                if ph in content.lower():
+                                    report.issues_found.append(f"Potential placeholder text '{ph}' found in field '{field_name}'.")
+
+                if entity_type_lower == "quest" and "steps" in data and isinstance(data["steps"], list):
+                    for step_idx, step_data in enumerate(data["steps"]):
+                        if isinstance(step_data, dict):
+                            for field_name_i18n in ["title_i18n", "description_i18n"]:
+                                if field_name_i18n in step_data:
+                                    i18n_content = step_data[field_name_i18n]
+                                    if isinstance(i18n_content, dict):
+                                        for lang_code_step, text_val_step in i18n_content.items():
+                                            if isinstance(text_val_step, str):
+                                                for ph in placeholders_to_check:
+                                                    if ph in text_val_step.lower():
+                                                        report.issues_found.append(f"Quest Step {step_idx+1}: Placeholder '{ph}' in '{field_name_i18n}.{lang_code_step}'.")
+                                    # else: report.issues_found.append(f"Quest Step {step_idx+1}: Field '{field_name_i18n}' not a valid i18n dict for placeholder check.") # Already checked above
+
+                # Rule 2: Basic NPC health check
+                if entity_type_lower == "npc":
+                    npc_stats = data.get("properties_json", {}).get("stats", {})
+                    if isinstance(npc_stats, dict):
+                        health = npc_stats.get("health")
+                        if health is not None: # Allow 0 health if explicitly set, but not None or non-numeric
+                            if not isinstance(health, (int, float)):
+                                report.issues_found.append(f"NPC 'properties_json.stats.health' is not a number (found: {type(health)}).")
+                            elif health <= 0: # Changed from >0 to <=0 for issue reporting
+                                report.issues_found.append(f"NPC 'properties_json.stats.health' is not positive ({health}). Consider if this is intended for a non-combatant or defeated NPC.")
+                        # else: # Health not present, might be okay depending on NPC type
+                        #    report.suggestions.append("NPC 'properties_json.stats.health' is not defined. This might be acceptable for non-combat NPCs.")
+
+
+                # Recalculate balance score based on new checks potentially adding issues
                 report.balance_score = 0.75 if not report.issues_found and not report.validation_errors else 0.25
 
         except Exception as e_outer_loop:
