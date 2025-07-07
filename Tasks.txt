@@ -133,10 +133,6 @@ AI generation analyzers (18): Check the quality and balance of generated content
 Results are output in the Master's language (49).
 Note: Partially completed. Real AI call for analyzer, basic combat dry run, and minor analyzer extensions implemented (2024-07-19). In-depth conflict simulation remains a deferred task.
 
-Task 49: 🛠️ 15.3 Monitoring Tools (Guild-Scoped).
-Description: Provide the Master with information about the game state and history in their guild.
-Viewing commands (Log 17, WS 36, Map 4.1, Entities, Statistics): Automatically filter data BY the command's guild_id. Use 47 to format reports in the Master's language.
-
 Task Block: Phase 11: Dynamic Dialogue and NPC Memory
 This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.
 

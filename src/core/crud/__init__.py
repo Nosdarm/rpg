@@ -25,7 +25,7 @@ logger.info(
     "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
     "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction, "
     "crud_relationship, generated_quest_crud, quest_step_crud, player_quest_progress_crud, questline_crud, pending_conflict_crud, "
-    "crud_crafting_recipe, skill_crud, crud_player_npc_memory."
+    "crud_crafting_recipe, skill_crud, crud_player_npc_memory, story_log_crud." # Added story_log_crud
 )
 
 __all__ = [
@@ -54,6 +54,7 @@ __all__ = [
     "crud_crafting_recipe", # Added for CraftingRecipe
     "skill_crud", # Added for Skill
     "crud_player_npc_memory", # Added for PlayerNpcMemory
+    "story_log_crud", # Added StoryLog CRUD
 ]
 from .crud_crafting_recipe import crud_crafting_recipe # Added for CraftingRecipe
 from .crud_skill import skill_crud # Added for Skill
@@ -69,3 +70,4 @@ from .crud_quest import ( # Added
 from .crud_global_npc import global_npc_crud # Task 46
 from .crud_mobile_group import mobile_group_crud # Task 46
 from .crud_rule_config import rule_config_crud # For RuleConfig specific CRUD
+from .crud_story_log import story_log_crud # Added StoryLog CRUD
