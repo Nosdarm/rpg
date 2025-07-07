@@ -1,146 +1,17 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\party_master_commands.py] — 17 issue(s):
-  Line 41   [ERROR] Cannot access attribute "get_by_id" for class "CRUDParty"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 115  [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDParty"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 199  [ERROR] Cannot access attribute "get_by_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 220  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 252  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 272  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 285  [ERROR] Cannot access attribute "ACTIVE" for class "type[PartyTurnStatus]"
-┬а┬аAttribute "ACTIVE" is unknown
-  Line 327  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 327  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 327  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 384  [ERROR] Cannot access attribute "get_by_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 442  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 450  [ERROR] Cannot access attribute "get_by_id" for class "CRUDParty"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 507  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 507  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 507  [ERROR] Cannot access attribute "name_i18n" for class "Party"
-┬а┬аAttribute "name_i18n" is unknown
-  Line 535  [ERROR] Cannot access attribute "get_by_id" for class "CRUDParty"
-┬а┬аAttribute "get_by_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 16 issue(s):
-  Line 31   [ERROR] Argument missing for parameter "description"
-  Line 42   [ERROR] Argument missing for parameter "description"
-  Line 54   [ERROR] Argument missing for parameter "description"
-  Line 60   [ERROR] Argument missing for parameter "description"
-  Line 77   [ERROR] Argument missing for parameter "description"
-  Line 77   [ERROR] Argument missing for parameter "language_code"
-  Line 115  [ERROR] Arguments missing for parameters "description", "required"
-  Line 118  [ERROR] Arguments missing for parameters "description", "type"
-  Line 121  [ERROR] Arguments missing for parameters "name", "description"
-  Line 125  [ERROR] Argument missing for parameter "name"
-  Line 129  [ERROR] Argument missing for parameter "commands"
-  Line 134  [ERROR] Arguments missing for parameters "description", "required"
-  Line 137  [ERROR] Arguments missing for parameters "description", "type"
-  Line 140  [ERROR] Arguments missing for parameters "name", "description"
-  Line 144  [ERROR] Argument missing for parameter "name"
-  Line 148  [ERROR] Argument missing for parameter "commands"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 15 issue(s):
-  Line 14   [ERROR] "StatusEffectCategory" is unknown import symbol
-  Line 43   [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 45   [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 170  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 217  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 220  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 225  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 251  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 272  [ERROR] Cannot access attribute "name" for class "dict[Unknown, Unknown]"
-┬а┬аAttribute "name" is unknown
-  Line 283  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 288  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 294  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 354  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 356  [ERROR] Cannot access attribute "get_by_id" for class "CRUDStatusEffect"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 447  [ERROR] Cannot access attribute "name" for class "str"
-┬а┬аAttribute "name" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\ability_master_commands.py] — 13 issue(s):
-  Line 38   [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 41   [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 47   [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 54   [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 175  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 187  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 190  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 193  [ERROR] Argument of type "int | None" cannot be assigned to parameter "guild_id" of type "int" in function "get_localized_message_template"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
-  Line 230  [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 233  [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 264  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 304  [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 307  [ERROR] Cannot access attribute "get_by_id" for class "CRUDAbility"
-┬а┬аAttribute "get_by_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\inventory_master_commands.py] — 11 issue(s):
-  Line 44   [ERROR] Cannot access attribute "get_by_id" for class "CRUDInventoryItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 56   [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 58   [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 218  [ERROR] Cannot access attribute "get_by_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 220  [ERROR] Cannot access attribute "get_by_id" for class "CRUDNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 227  [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 229  [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 246  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 326  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 330  [ERROR] Cannot access attribute "get_by_id" for class "CRUDInventoryItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 378  [ERROR] Cannot access attribute "get_by_id" for class "CRUDInventoryItem"
-┬а┬аAttribute "get_by_id" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 12 issue(s):
+  Line 43   [ERROR] Argument missing for parameter "description"
+  Line 78   [ERROR] Argument missing for parameter "language_code"
+  Line 116  [ERROR] Arguments missing for parameters "description", "required"
+  Line 119  [ERROR] Arguments missing for parameters "description", "type"
+  Line 122  [ERROR] Arguments missing for parameters "name", "description"
+  Line 126  [ERROR] Argument missing for parameter "name"
+  Line 130  [ERROR] Argument missing for parameter "commands"
+  Line 135  [ERROR] Arguments missing for parameters "description", "required"
+  Line 138  [ERROR] Arguments missing for parameters "description", "type"
+  Line 141  [ERROR] Arguments missing for parameters "name", "description"
+  Line 145  [ERROR] Argument missing for parameter "name"
+  Line 149  [ERROR] Argument missing for parameter "commands"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
@@ -156,131 +27,20 @@
   Line 833  [ERROR] Argument missing for parameter "entity_type"
   Line 834  [ERROR] Argument missing for parameter "entity_type"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\global_npc_master_commands.py] — 10 issue(s):
-  Line 42   [ERROR] Cannot access attribute "get_by_id" for class "CRUDGlobalNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 195  [ERROR] Cannot access attribute "get_by_id" for class "CRUDNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 200  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 205  [ERROR] Cannot access attribute "get_by_id" for class "CRUDMobileGroup"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 226  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 307  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 311  [ERROR] Cannot access attribute "get_by_id" for class "CRUDMobileGroup"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 320  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 324  [ERROR] Cannot access attribute "get_by_id" for class "CRUDGlobalNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 360  [ERROR] Cannot access attribute "get_by_id" for class "CRUDGlobalNpc"
-┬а┬аAttribute "get_by_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\npc_master_commands.py] — 10 issue(s):
-  Line 43   [ERROR] Cannot access attribute "get_by_id" for class "CRUDNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 103  [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDNpc"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 189  [ERROR] Cannot access attribute "get_by_id" for class "CRUDFaction"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 199  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 241  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 360  [ERROR] Cannot access attribute "get_by_id" for class "CRUDFaction"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 374  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 396  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 404  [ERROR] Cannot access attribute "get_by_id" for class "CRUDNpc"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 468  [ERROR] Cannot access attribute "get_by_id" for class "CRUDNpc"
-┬а┬аAttribute "get_by_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\location_master_commands.py] — 9 issue(s):
-  Line 42   [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 103  [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDLocation"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 206  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 261  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 405  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 434  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 442  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 509  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 541  [ERROR] Cannot access attribute "parent_location_id" for class "type[Location]"
-┬а┬аAttribute "parent_location_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\mobile_group_master_commands.py] — 8 issue(s):
-  Line 41   [ERROR] Cannot access attribute "get_by_id" for class "CRUDMobileGroup"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 191  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 212  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 289  [ERROR] Cannot access attribute "get_by_id" for class "CRUDLocation"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 298  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 302  [ERROR] Cannot access attribute "get_by_id" for class "CRUDMobileGroup"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 338  [ERROR] Cannot access attribute "get_by_id" for class "CRUDMobileGroup"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 347  [ERROR] Cannot access attribute "mobile_group_id" for class "type[GlobalNpc]"
-┬а┬аAttribute "mobile_group_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 7 issue(s):
-  Line 40   [ERROR] Cannot access attribute "get_by_id" for class "CRUDQuestline"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 86   [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDQuestline"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 165  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 256  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 410  [ERROR] Cannot access attribute "quest_type" for class "GeneratedQuest"
-┬а┬аAttribute "quest_type" is unknown
-  Line 452  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 535  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\faction_master_commands.py] — 6 issue(s):
-  Line 40   [ERROR] Cannot access attribute "get_by_id" for class "CRUDFaction"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 245  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 386  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 394  [ERROR] Cannot access attribute "get_by_id" for class "CRUDFaction"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 458  [ERROR] Cannot access attribute "get_by_id" for class "CRUDFaction"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 471  [ERROR] Cannot access attribute "faction_id" for class "type[GeneratedNpc]"
-┬а┬аAttribute "faction_id" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\item_master_commands.py] — 6 issue(s):
-  Line 40   [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 101  [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDItem"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 223  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 371  [ERROR] Except clause is unreachable because exception is already handled
-┬а┬а"JSONDecodeError" is a subclass of "ValueError"
-  Line 379  [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 446  [ERROR] Cannot access attribute "get_by_id" for class "CRUDItem"
-┬а┬аAttribute "get_by_id" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\status_effect_master_commands.py] — 7 issue(s):
+  Line 14   [ERROR] "StatusEffectCategory" is unknown import symbol
+  Line 275  [ERROR] Cannot access attribute "name" for class "dict[Unknown, Unknown]"
+┬а┬аAttribute "name" is unknown
+  Line 382  [ERROR] Cannot access attribute "source_log_id" for class "ActiveStatusEffect"
+┬а┬аAttribute "source_log_id" is unknown
+  Line 382  [ERROR] Cannot access attribute "source_log_id" for class "ActiveStatusEffect"
+┬а┬аAttribute "source_log_id" is unknown
+  Line 383  [ERROR] Argument of type "TIMESTAMP" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
+┬а┬а"TIMESTAMP" is not assignable to "datetime"
+  Line 385  [ERROR] Cannot access attribute "instance_properties_json" for class "ActiveStatusEffect"
+┬а┬аAttribute "instance_properties_json" is unknown
+  Line 469  [ERROR] Cannot access attribute "name" for class "str"
+┬а┬аAttribute "name" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 5 issue(s):
   Line 147  [ERROR] Argument missing for parameter "name_i18n"
@@ -292,24 +52,25 @@
 ┬а┬а┬а┬а"Literal['not a list']" is not assignable to "None"
   Line 282  [ERROR] Argument of type "list[dict[str, str]]" cannot be assigned to parameter "generated_inventory_items" of type "List[GeneratedInventoryItemEntry] | None" in function "__init__"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\relationship_master_commands.py] — 4 issue(s):
-  Line 43   [ERROR] Cannot access attribute "get_by_id" for class "CRUDRelationship"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 225  [ERROR] Cannot access attribute "FACTION" for class "type[RelationshipEntityType]"
-┬а┬аAttribute "FACTION" is unknown
-  Line 346  [ERROR] Cannot access attribute "get_by_id" for class "CRUDRelationship"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 396  [ERROR] Cannot access attribute "get_by_id" for class "CRUDRelationship"
-┬а┬аAttribute "get_by_id" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\combat_master_commands.py] — 4 issue(s):
+  Line 94   [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
+┬а┬аAttribute "created_at" is unknown
+  Line 94   [ERROR] Cannot access attribute "created_at" for class "CombatEncounter"
+┬а┬аAttribute "created_at" is unknown
+  Line 95   [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
+┬а┬аAttribute "updated_at" is unknown
+  Line 95   [ERROR] Cannot access attribute "updated_at" for class "CombatEncounter"
+┬а┬аAttribute "updated_at" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 4 issue(s):
-  Line 250  [ERROR] Object of type "None" is not subscriptable
-  Line 386  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 406  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
-  Line 423  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
-┬а┬а"MethodType" is not assignable to "AsyncMock"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\relationship_master_commands.py] — 4 issue(s):
+  Line 75   [ERROR] Cannot access attribute "created_at" for class "Relationship"
+┬а┬аAttribute "created_at" is unknown
+  Line 75   [ERROR] Cannot access attribute "created_at" for class "Relationship"
+┬а┬аAttribute "created_at" is unknown
+  Line 76   [ERROR] Cannot access attribute "updated_at" for class "Relationship"
+┬а┬аAttribute "updated_at" is unknown
+  Line 76   [ERROR] Cannot access attribute "updated_at" for class "Relationship"
+┬а┬аAttribute "updated_at" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
   Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
@@ -319,35 +80,50 @@
   Line 633  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
   Line 633  [ERROR] "__getitem__" method not defined on type "Player"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\conflict_master_commands.py] — 3 issue(s):
-  Line 99   [ERROR] Cannot access attribute "get_by_id" for class "CRUDPendingConflict"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 146  [ERROR] Cannot access attribute "get_by_id" for class "CRUDPendingConflict"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 284  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
-┬а┬а"DateTime" is not assignable to "datetime"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\global_npc_master_commands.py] — 3 issue(s):
+  Line 71   [ERROR] Cannot access attribute "npc_template_id" for class "GlobalNpc"
+┬а┬аAttribute "npc_template_id" is unknown
+  Line 71   [ERROR] Cannot access attribute "npc_template_id" for class "GlobalNpc"
+┬а┬аAttribute "npc_template_id" is unknown
+  Line 82   [ERROR] Cannot access attribute "route_json" for class "GlobalNpc"
+┬а┬аAttribute "route_json" is unknown
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 3 issue(s):
-  Line 39   [ERROR] Cannot access attribute "get_by_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 97   [ERROR] Cannot access attribute "get_multi_by_guild_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_multi_by_guild_id" is unknown
-  Line 225  [ERROR] Cannot access attribute "get_by_id" for class "CRUDPlayer"
-┬а┬аAttribute "get_by_id" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\location_master_commands.py] — 3 issue(s):
+  Line 78   [ERROR] Cannot access attribute "description_i18n" for class "Location"
+┬а┬аAttribute "description_i18n" is unknown
+  Line 81   [ERROR] Cannot access attribute "properties_json" for class "Location"
+┬а┬аAttribute "properties_json" is unknown
+  Line 84   [ERROR] Argument of type "List[Dict[str, Any]] | Dict[str, Any] | None" cannot be assigned to parameter "data" of type "Dict[Any, Any] | None" in function "format_json_field_helper"
+┬а┬аType "List[Dict[str, Any]] | Dict[str, Any] | None" is not assignable to type "Dict[Any, Any] | None"
+┬а┬а┬а┬аType "List[Dict[str, Any]]" is not assignable to type "Dict[Any, Any] | None"
+┬а┬а┬а┬а┬а┬а"List[Dict[str, Any]]" is not assignable to "Dict[Any, Any]"
+┬а┬а┬а┬а┬а┬а"List[Dict[str, Any]]" is not assignable to "None"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\global_entity_manager.py] — 3 issue(s):
-  Line 323  [ERROR] No parameter named "actor_check_modifier"
-  Line 324  [ERROR] No parameter named "target_check_modifier"
-  Line 384  [ERROR] Argument of type "list[dict[str, Unknown]]" cannot be assigned to parameter "participant_entities" of type "List[Player | GeneratedNpc]" in function "start_combat"
-┬а┬а"list[dict[str, Unknown]]" is not assignable to "List[Player | GeneratedNpc]"
-┬а┬а┬а┬аType parameter "_T@list" is invariant, but "dict[str, Unknown]" is not the same as "Player | GeneratedNpc"
-┬а┬а┬а┬аConsider switching from "list" to "Sequence" which is covariant
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 3 issue(s):
+  Line 415  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 435  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
+  Line 452  [ERROR] Type "() -> CoroutineType[Any, Any, None]" is not assignable to declared type "AsyncMock"
+┬а┬а"MethodType" is not assignable to "AsyncMock"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\combat_master_commands.py] — 2 issue(s):
-  Line 42   [ERROR] Cannot access attribute "get_by_id" for class "CRUDCombatEncounter"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 212  [ERROR] Cannot access attribute "get_by_id" for class "CRUDCombatEncounter"
-┬а┬аAttribute "get_by_id" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\item_master_commands.py] — 2 issue(s):
+  Line 71   [ERROR] Cannot access attribute "item_type" for class "Item"
+┬а┬аAttribute "item_type" is unknown
+  Line 143  [ERROR] Cannot access attribute "item_type" for class "Item"
+┬а┬аAttribute "item_type" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\party_master_commands.py] — 2 issue(s):
+  Line 70   [ERROR] Cannot access attribute "properties_json" for class "Party"
+┬а┬аAttribute "properties_json" is unknown
+  Line 72   [ERROR] Cannot access attribute "properties_json" for class "Party"
+┬а┬аAttribute "properties_json" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 2 issue(s):
+  Line 362  [ERROR] Cannot access attribute "quest_type" for class "GeneratedQuest"
+┬а┬аAttribute "quest_type" is unknown
+  Line 413  [ERROR] Cannot access attribute "quest_type" for class "GeneratedQuest"
+┬а┬аAttribute "quest_type" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_inventory_item.py] — 2 issue(s):
   Line 21   [ERROR] No overloads for "__init__" match the provided arguments
@@ -365,14 +141,31 @@
 ┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
 ┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\conflict_master_commands.py] — 1 issue(s):
+  Line 284  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
+┬а┬а"DateTime" is not assignable to "datetime"
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\story_log_master_commands.py] — 1 issue(s):
   Line 155  [ERROR] Argument of type "DateTime" cannot be assigned to parameter "dt" of type "datetime" in function "format_dt"
 ┬а┬а"DateTime" is not assignable to "datetime"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\global_entity_manager.py] — 1 issue(s):
+  Line 327  [ERROR] Cannot access attribute "SUCCESS" for class "type[CheckOutcome]"
+┬а┬аAttribute "SUCCESS" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
   Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
 ┬а┬аType "str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\generated_npc.py] — 1 issue(s):
+  Line 66   [ERROR] "GeneratedFaction" is not defined
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\global_npc.py] — 1 issue(s):
+  Line 30   [ERROR] "MobileGroup" is not defined
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\models\status_effect.py] — 1 issue(s):
+  Line 19   [ERROR] "StatusEffectCategory" is unknown import symbol
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
   Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"

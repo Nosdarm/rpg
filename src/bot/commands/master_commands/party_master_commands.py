@@ -67,9 +67,9 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             embed.add_field(name=await get_label("name", "Name"), value=party.name, inline=False)
 
             properties_str = await get_localized_message_template(session, interaction.guild_id, "party_view:value_na_json", lang_code, "Not available") # type: ignore
-            if hasattr(party, 'properties_json') and party.properties_json: # Check if properties_json exists
+            if hasattr(party, 'properties_json') and party.properties_json: # type: ignore[attr-defined] # Check if properties_json exists
                 try:
-                    properties_str = json.dumps(party.properties_json, indent=2, ensure_ascii=False)
+                    properties_str = json.dumps(party.properties_json, indent=2, ensure_ascii=False) # type: ignore[attr-defined]
                 except TypeError:
                     properties_str = await get_localized_message_template(session, interaction.guild_id, "party_view:error_serialization", lang_code, "Error serializing Properties JSON") # type: ignore
             embed.add_field(name=await get_label("properties", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```" + ("..." if len(properties_str) > 1000 else ""), inline=False)

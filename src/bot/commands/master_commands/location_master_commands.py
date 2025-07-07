@@ -66,7 +66,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             embed.add_field(name=await get_label("type", "Type"), value=loc.type.value if loc.type else "N/A", inline=True)
             embed.add_field(name=await get_label("parent_id", "Parent ID"), value=str(loc.parent_location_id) if loc.parent_location_id else "N/A", inline=True)
 
-            async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str: # Renamed to avoid conflict
+            async def format_json_field_helper(data: Optional[Union[Dict[Any, Any], List[Any]]], default_na_key: str, error_key: str) -> str: # Renamed to avoid conflict
                 na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
@@ -75,11 +75,12 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
             name_i18n_str = await format_json_field_helper(loc.name_i18n, "location_view:value_na_json", "location_view:error_serialization")
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
 
-            desc_i18n_str = await format_json_field_helper(loc.description_i18n, "location_view:value_na_json", "location_view:error_serialization")
+            desc_i18n_str = await format_json_field_helper(loc.descriptions_i18n, "location_view:value_na_json", "location_view:error_serialization")
             embed.add_field(name=await get_label("description_i18n", "Description (i18n)"), value=f"```json\n{desc_i18n_str[:1000]}\n```" + ("..." if len(desc_i18n_str) > 1000 else ""), inline=False)
 
-            props_str = await format_json_field_helper(loc.properties_json, "location_view:value_na_json", "location_view:error_serialization")
-            embed.add_field(name=await get_label("properties", "Properties JSON"), value=f"```json\n{props_str[:1000]}\n```" + ("..." if len(props_str) > 1000 else ""), inline=False)
+            # Changed loc.properties_json to loc.generated_details_json to match model
+            details_str = await format_json_field_helper(loc.generated_details_json, "location_view:value_na_json", "location_view:error_serialization")
+            embed.add_field(name=await get_label("generated_details", "Generated Details JSON"), value=f"```json\n{details_str[:1000]}\n```" + ("..." if len(details_str) > 1000 else ""), inline=False)
 
             neighbors_str = await format_json_field_helper(loc.neighbor_locations_json, "location_view:value_na_json", "location_view:error_serialization")
             embed.add_field(name=await get_label("neighbors", "Neighbor Locations JSON"), value=f"```json\n{neighbors_str[:1000]}\n```" + ("..." if len(neighbors_str) > 1000 else ""), inline=False)
@@ -274,7 +275,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 "description_i18n": parsed_description_i18n if parsed_description_i18n else {},
                 "type": parsed_location_type,
                 "parent_location_id": parent_location_id,
-                "properties_json": parsed_properties if parsed_properties else {},
+                "generated_details_json": parsed_properties if parsed_properties else {}, # Store input 'properties_json' here
                 "neighbor_locations_json": parsed_neighbors if parsed_neighbors else [],
             }
 

@@ -152,7 +152,7 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
             for entry in log_entries:
                 short_desc_i18n = getattr(entry, 'short_description_i18n', {})
                 desc_short = short_desc_i18n.get(lang_code, short_desc_i18n.get("en", "No description")) if short_desc_i18n else "No description"
-                ts_formatted = discord.utils.format_dt(entry.timestamp, style='R') if entry.timestamp else "No timestamp" # Assuming timestamp is datetime compatible
+                ts_formatted = discord.utils.format_dt(entry.timestamp, style='R') if entry.timestamp else "No timestamp" # type: ignore[arg-type] # Assuming timestamp is datetime compatible
                 turn_number_val = getattr(entry, 'turn_number', None)
                 embed.add_field(
                     name=name_tmpl.format(id=entry.id, event_type_val=entry.event_type.value if entry.event_type else "N/A", tn=str(turn_number_val) if turn_number_val is not None else "N/A"),

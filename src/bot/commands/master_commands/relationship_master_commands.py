@@ -72,10 +72,11 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
             source_log_id_val = str(relationship.source_log_id) if relationship.source_log_id else "N/A"
             embed.add_field(name=await get_label("source_log_id", "Source Log ID"), value=source_log_id_val, inline=True)
 
-            created_at_val = discord.utils.format_dt(relationship.created_at, style='F') if relationship.created_at else "N/A"
-            updated_at_val = discord.utils.format_dt(relationship.updated_at, style='F') if relationship.updated_at else "N/A"
-            embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=False)
-            embed.add_field(name=await get_label("updated_at", "Updated At"), value=updated_at_val, inline=False)
+            # Relationship model does not have created_at/updated_at, removing these fields.
+            # created_at_val = discord.utils.format_dt(relationship.created_at, style='F') if relationship.created_at else "N/A"
+            # updated_at_val = discord.utils.format_dt(relationship.updated_at, style='F') if relationship.updated_at else "N/A"
+            # embed.add_field(name=await get_label("created_at", "Created At"), value=created_at_val, inline=False)
+            # embed.add_field(name=await get_label("updated_at", "Updated At"), value=updated_at_val, inline=False)
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 

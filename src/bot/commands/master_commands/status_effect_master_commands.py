@@ -1,6 +1,7 @@
 import logging
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
+from datetime import datetime # For casting active_se.applied_at
 
 import discord
 from discord import app_commands
@@ -11,7 +12,8 @@ from src.core.crud.crud_status_effect import status_effect_crud, active_status_e
 from src.core.database import get_db_session
 from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
-from src.models.enums import StatusEffectCategory as StatusEffectCategoryEnum, RelationshipEntityType # RelationshipEntityType for ActiveSE
+# Attempting relative import to see if it resolves pyright issue for StatusEffectCategory
+from ....models.enums import StatusEffectCategory as StatusEffectCategoryEnum, RelationshipEntityType # RelationshipEntityType for ActiveSE
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +274,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
                 await interaction.followup.send(error_msg, ephemeral=True); return
 
             success_msg = await get_localized_message_template(session,interaction.guild_id,"se_def_update:success",lang_code,"StatusEffect def ID {id} updated. Field '{f}' set to '{v}'.") # type: ignore
-            new_val_display = str(parsed_value.name if isinstance(parsed_value, StatusEffectCategoryEnum) else parsed_value)
+            new_val_display = str(parsed_value.name if isinstance(parsed_value, StatusEffectCategoryEnum) else parsed_value) # type: ignore[attr-defined]
             if isinstance(parsed_value, dict): new_val_display = json.dumps(parsed_value) # type: ignore
             await interaction.followup.send(success_msg.format(id=updated_se.id, f=command_field_name, v=new_val_display), ephemeral=True)
 
@@ -379,10 +381,10 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
             source_entity_id_val = str(active_se.source_entity_id) if active_se.source_entity_id is not None else "N/A"
             embed.add_field(name=await get_label("source_entity", "Source Entity"), value=f"{source_entity_type_val}({source_entity_id_val})", inline=True)
             embed.add_field(name=await get_label("source_ability_id", "Source Ability ID"), value=str(active_se.source_ability_id) if active_se.source_ability_id else "N/A", inline=True)
-            embed.add_field(name=await get_label("source_log_id", "Source Log ID"), value=str(active_se.source_log_id) if active_se.source_log_id else "N/A", inline=True)
-            applied_at_val = discord.utils.format_dt(active_se.applied_at, style='F') if active_se.applied_at else "N/A"
+            # active_se.source_log_id does not exist on the model, removing this field.
+            applied_at_val = discord.utils.format_dt(cast(datetime, active_se.applied_at), style='F') if active_se.applied_at else "N/A"
             embed.add_field(name=await get_label("applied_at", "Applied At"), value=applied_at_val, inline=False)
-            props_str = await format_json_field(active_se.instance_properties_json, "active_se_view:value_na_json", "active_se_view:error_serialization_props")
+            props_str = await format_json_field(active_se.custom_properties_json, "active_se_view:value_na_json", "active_se_view:error_serialization_props")
             embed.add_field(name=await get_label("instance_props", "Instance Properties JSON"), value=f"```json\n{props_str[:1000]}\n```" + ("..." if len(props_str) > 1000 else ""), inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -466,7 +468,7 @@ class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
                 await interaction.followup.send(error_msg.format(id=active_status_effect_id), ephemeral=True); return
 
             entity_id_for_msg = active_se_to_delete.entity_id
-            entity_type_for_msg = active_se_to_delete.entity_type.name if active_se_to_delete.entity_type else "Unknown"
+            entity_type_for_msg = active_se_to_delete.entity_type if active_se_to_delete.entity_type else "Unknown"
             status_effect_id_for_msg = active_se_to_delete.status_effect_id
             deleted_ase: Optional[Any] = None
             try:
