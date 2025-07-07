@@ -60,27 +60,70 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
-            # Formatting the log entry
-            # Assuming format_story_log_entry_for_master_display exists and is adapted or created
-            # For now, a simple representation:
+            # Formatting the log entry using the new formatter
+            formatted_description = await format_story_log_entry_for_master_display(
+                session=session,
+                log_entry=log_entry,
+                language=str(interaction.locale)
+                # fallback_language can be specified if needed, defaults to "en"
+            )
+
             embed = discord.Embed(
-                title=get_localized_text("master_monitor.log_view.embed_title", str(interaction.locale), {"log_id": log_entry.id}),
+                title=get_localized_text(
+                    "master_monitor.log_view.embed_title",
+                    str(interaction.locale),
+                    default="Story Log Entry Details - ID: {log_id}",
+                    log_id=log_entry.id
+                ),
+                description=formatted_description,
                 color=discord.Color.blue()
             )
-            embed.add_field(name=get_localized_text("master_monitor.log_view.field_event_type", str(interaction.locale)), value=log_entry.event_type.value, inline=False)
-            embed.add_field(name=get_localized_text("master_monitor.log_view.field_timestamp", str(interaction.locale)), value=discord.utils.format_dt(log_entry.timestamp), inline=False)
-            if log_entry.location_id:
-                embed.add_field(name=get_localized_text("master_monitor.log_view.field_location_id", str(interaction.locale)), value=str(log_entry.location_id), inline=True)
-            if log_entry.turn_number is not None:
-                embed.add_field(name=get_localized_text("master_monitor.log_view.field_turn_number", str(interaction.locale)), value=str(log_entry.turn_number), inline=True)
 
-            embed.add_field(name=get_localized_text("master_monitor.log_view.field_details_json", str(interaction.locale)), value=f"```json\n{discord.utils.escape_markdown(str(log_entry.details_json))[:1000]}\n```", inline=False) # Truncate for safety
-            embed.add_field(name=get_localized_text("master_monitor.log_view.field_entity_ids_json", str(interaction.locale)), value=f"```json\n{discord.utils.escape_markdown(str(log_entry.entity_ids_json))[:1000]}\n```", inline=False)
+            # Add some key fields that might not be in the formatted_description or are good for quick view
+            embed.add_field(
+                name=get_localized_text("master_monitor.log_view.field_timestamp", str(interaction.locale), default="Timestamp"),
+                value=discord.utils.format_dt(log_entry.timestamp),
+                inline=True
+            )
+            embed.add_field(
+                name=get_localized_text("master_monitor.log_view.field_event_type", str(interaction.locale), default="Event Type"),
+                value=log_entry.event_type.value if log_entry.event_type else get_localized_text("generic.unknown", str(interaction.locale), default="Unknown"),
+                inline=True
+            )
+
+            if log_entry.turn_number is not None:
+                embed.add_field(
+                    name=get_localized_text("master_monitor.log_view.field_turn_number", str(interaction.locale), default="Turn"),
+                    value=str(log_entry.turn_number),
+                    inline=True
+                )
+
+            if log_entry.location_id:
+                # Potentially fetch location name here if formatter doesn't include it prominently
+                # For now, just ID is fine as formatter should handle name if relevant for the event type
+                embed.add_field(
+                    name=get_localized_text("master_monitor.log_view.field_location_id", str(interaction.locale), default="Location ID"),
+                    value=str(log_entry.location_id),
+                    inline=True
+                )
+
+            # Optionally, add raw JSON details if desired, but formatted_description should be primary
+            # embed.add_field(name="Raw Details (JSON)", value=f"```json\n{discord.utils.escape_markdown(str(log_entry.details_json))[:900]}\n```", inline=False)
+            # embed.add_field(name="Raw Entity IDs (JSON)", value=f"```json\n{discord.utils.escape_markdown(str(log_entry.entity_ids_json))[:900]}\n```", inline=False)
+
             if log_entry.narrative_i18n:
-                 narrative_text = get_localized_text(log_entry.narrative_i18n, str(interaction.locale)) # Assuming narrative_i18n itself can be a key or dict
-                 if not narrative_text and isinstance(log_entry.narrative_i18n, dict): # Fallback if direct key fails
+                 narrative_text = get_localized_text(log_entry.narrative_i18n, str(interaction.locale))
+                 if not narrative_text and isinstance(log_entry.narrative_i18n, dict):
                      narrative_text = log_entry.narrative_i18n.get(str(interaction.locale), log_entry.narrative_i18n.get("en", "N/A"))
-                 embed.add_field(name=get_localized_text("master_monitor.log_view.field_narrative", str(interaction.locale)), value=narrative_text, inline=False)
+
+                 # Check if narrative text is already part of formatted_description to avoid redundancy
+                 # This is a simple check; more sophisticated checks might be needed if formats vary widely.
+                 if narrative_text not in formatted_description:
+                    embed.add_field(
+                        name=get_localized_text("master_monitor.log_view.field_narrative", str(interaction.locale), default="Narrative"),
+                        value=narrative_text,
+                        inline=False
+                    )
 
 
             await interaction.followup.send(embed=embed, ephemeral=True)
