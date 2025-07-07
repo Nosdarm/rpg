@@ -45,7 +45,10 @@ class GeneratedFaction(Base):
     # }
 
     # Relationships
-    members: Mapped[List["GeneratedNpc"]] = relationship(back_populates="faction")
+    members: Mapped[List["GeneratedNpc"]] = relationship(
+        back_populates="faction",
+        foreign_keys="GeneratedNpc.faction_id"  # Specify the foreign key on the GeneratedNpc table
+    )
 
 
     __table_args__ = (

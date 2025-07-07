@@ -49,7 +49,10 @@ class MobileGroup(Base, TimestampMixin): # Inherit from TimestampMixin
     guild_config: Mapped["GuildConfig"] = relationship(back_populates="mobile_groups")
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="mobile_groups_in_location")
     # leader_global_npc: Mapped[Optional["GlobalNpc"]] = relationship(foreign_keys=[leader_global_npc_id]) # This would be for a direct leader FK
-    members: Mapped[List["GlobalNpc"]] = relationship(back_populates="mobile_group")
+    members: Mapped[List["GlobalNpc"]] = relationship(
+        back_populates="mobile_group",
+        foreign_keys="[GlobalNpc.mobile_group_id]"
+    )
 
 
     __table_args__ = (

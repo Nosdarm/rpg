@@ -28,7 +28,10 @@ class GlobalNpc(Base, TimestampMixin):
     guild: Mapped["GuildConfig"] = relationship(back_populates="global_npcs")
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="global_npcs_in_location")
     base_npc: Mapped[Optional["GeneratedNpc"]] = relationship()
-    mobile_group: Mapped[Optional["MobileGroup"]] = relationship(back_populates="members") # Assuming MobileGroup has a 'members' relationship
+    mobile_group: Mapped[Optional["MobileGroup"]] = relationship(
+        back_populates="members",
+        foreign_keys="[GlobalNpc.mobile_group_id]"
+    ) # Assuming MobileGroup has a 'members' relationship
 
     __table_args__ = (
         Index("ix_global_npcs_guild_id_static_id", "guild_id", "static_id", unique=True),
