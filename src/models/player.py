@@ -32,6 +32,7 @@ class Player(Base):
     unspent_xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False) # Or points derived from XP
     gold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     current_hp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # Current health points
+    max_hp: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # Maximum health points
 
     current_status: Mapped[PlayerStatus] = mapped_column(
         SQLAlchemyEnum(PlayerStatus, name="player_status_enum", create_constraint=True),

@@ -64,7 +64,10 @@ class GeneratedNpc(Base):
         lazy="selectin"
     )
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="npcs_present")
-    faction: Mapped[Optional["GeneratedFaction"]] = relationship(back_populates="members") # Assuming GeneratedFaction will have 'members'
+    faction: Mapped[Optional["GeneratedFaction"]] = relationship(
+        back_populates="members",
+        foreign_keys=[faction_id] # Explicitly specify the foreign key
+    )
 
 
     __table_args__ = (
