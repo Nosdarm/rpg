@@ -195,8 +195,9 @@ async def init_db():
         try:
             # await conn.run_sync(Base.metadata.drop_all) # Опционально: удалить все таблицы перед созданием
             # logger.info("Старые таблицы удалены (если были).")
-            await conn.run_sync(Base.metadata.create_all)
-            logger.info("Таблицы успешно созданы на основе метаданных моделей.")
+            # await conn.run_sync(Base.metadata.create_all) # IMPORTANT: Commented out to let Alembic manage schema
+            # logger.info("Base.metadata.create_all() was previously here. Schema should be managed by Alembic.")
+            logger.info("init_db completed. Schema management should be handled by Alembic.") # New log message
         except Exception as e:
             logger.error(f"Ошибка при инициализации таблиц БД ({safe_url_for_log}, connect_args: {logged_connect_args if connect_args else 'None'}): {e}", exc_info=True)
             raise
