@@ -712,7 +712,7 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
         # Pyright errors on these lines seem to be misinterpretations.
         # p_data is a dict, so .get() is fine.
         # The __getitem__ error for GeneratedNpc/Player on this line is also likely confusion.
-        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value: # type: ignore[attr-defined]
+        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value: # Line 626
             p_data["current_hp"] = 0
             defeated_actor_combat_data = p_data
             break
@@ -723,7 +723,7 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
             with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
                 action_result = await get_npc_combat_action(
-                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id # type: ignore[attr-defined]
+                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id # Line 632 / 633
                 )
                 assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
 

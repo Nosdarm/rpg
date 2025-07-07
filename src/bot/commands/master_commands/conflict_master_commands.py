@@ -281,7 +281,7 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
             for c in conflicts:
                 involved_count = len(c.involved_entities_json) if isinstance(c.involved_entities_json, list) else 0
                 # Assuming c.created_at is a standard datetime object or None
-                created_at_dt_str = discord.utils.format_dt(c.created_at, style='R') if c.created_at else "N/A"
+                created_at_dt_str = discord.utils.format_dt(c.created_at, style='R') if c.created_at else "N/A" # type: ignore[arg-type]
                 embed.add_field(
                     name=field_name_template.format(conflict_id=c.id, status_value=c.status.value),
                     value=field_value_template.format(created_at_dt=created_at_dt_str, involved_count=involved_count),

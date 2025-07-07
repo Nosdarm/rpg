@@ -233,7 +233,7 @@ async def test_save_approved_generation_success(
     )
 
     assert success is True
-    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID)
+    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID) # Line 211 area
 
     assert mock_create_entity.call_count == 1
     create_npc_call_args = mock_create_entity.call_args.args[2]
@@ -244,7 +244,7 @@ async def test_save_approved_generation_success(
 
     update_pending_gen_call = None
     update_player_call = None  # Initialize update_player_call
-    for call_obj in mock_update_entity.call_args_list: # type: ignore[attr-defined] # Pyright might struggle with complex mocks
+    for call_obj in mock_update_entity.call_args_list: # Pyright might struggle with complex mocks
         if call_obj.args[1] == mock_pending_gen:
             update_pending_gen_call = call_obj
         elif call_obj.args[1] == mock_player:
@@ -309,11 +309,11 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
     success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction")
-    mock_crud_relationship_create.assert_called_once()
+    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction") # Line 287
+    mock_crud_relationship_create.assert_called_once() # Line 289
     # Call is crud_relationship.create(session, obj_in=rel_obj_in)
     # So, rel_obj_in is in kwargs
-    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in']
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # Line 289 related
     assert created_rel_obj_in["entity1_id"] == created_npc_db.id
     assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
     assert created_rel_obj_in["entity2_id"] == existing_faction_db.id
@@ -386,7 +386,7 @@ async def test_save_approved_generation_updates_existing_relationship(
     success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_relationship_create.assert_not_called() # Should update, not create
+    mock_crud_relationship_create.assert_not_called() # Line 358: Should update, not create
 
     # Check that existing_rel_db was updated in the session
     # The logic in save_approved_generation directly modifies existing_rel.value and existing_rel.relationship_type
@@ -398,9 +398,9 @@ async def test_save_approved_generation_updates_existing_relationship(
     # Verify that session.add was called with the modified existing_rel object
     # This requires session.add to be a MagicMock that records calls.
     # The current mock_session.add is a MagicMock.
-    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)]
+    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)] # Line 360 related
     found_updated_rel_in_session_add = False
-    for added_obj in add_calls:
+    for added_obj in add_calls: # Line 360 related
         if added_obj.id == existing_rel_db.id: # Check if it's the same relationship object by ID
             assert added_obj.value == 95 # New value
             assert added_obj.relationship_type == "friendship_level" # Type could also be updated
@@ -586,8 +586,8 @@ async def test_generate_narrative_success_player_language(
     )
 
     assert narrative == expected_narrative
-    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined]
-    mock_get_rule.assert_not_called() # Guild language rule should not be fetched # type: ignore[attr-defined]
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_not_called() # Guild language rule should not be fetched
 
     # Check prompt construction (simplified check)
     mock_narrative_call.assert_called_once()
@@ -636,10 +636,10 @@ async def test_generate_narrative_success_guild_language_player_context(
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context)
 
     assert narrative == expected_narrative
-    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined]
-    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language") # type: ignore[attr-defined]
-    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined]
-    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language") # type: ignore[attr-defined]
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_rule.assert_called_once_with(mock_session, DEFAULT_GUILD_ID, "guild_main_language")
 
     call_args, _ = mock_narrative_call.call_args
     assert "Generate a short, engaging narrative piece in DE." in call_args[0]
@@ -870,10 +870,10 @@ async def test_save_approved_generation_with_npc_relationships(
     assert npc_creation_call_count == 2
 
     # Check relationship was created with correct DB IDs
-    mock_crud_relationship_create.assert_called_once()
-    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in']
+    mock_crud_relationship_create.assert_called_once() # Line 832
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # Line 833
 
-    assert created_rel_obj_in["entity1_id"] == created_npc1_db.id
+    assert created_rel_obj_in["entity1_id"] == created_npc1_db.id # Line 834
     assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
     assert created_rel_obj_in["entity2_id"] == created_npc2_db.id
     assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_NPC

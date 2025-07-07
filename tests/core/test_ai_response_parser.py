@@ -144,10 +144,10 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         from src.core.ai_response_parser import ParsedNpcData
         with self.assertRaises(PydanticNativeValidationError):
             # Missing name_i18n
-            ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"}) # level is optional
+            ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"}) # type: ignore # level is optional
         with self.assertRaises(PydanticNativeValidationError):
             # Missing description_i18n
-            ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"}) # level is optional
+            ParsedNpcData(entity_type="npc", name_i18n={"en": "Name"}) # type: ignore # level is optional
 
     # --- Tests for ParsedItemData (Task 43) ---
     # This test_parsed_item_data_valid seems to be duplicated. Removing one instance.
@@ -188,7 +188,7 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
     def test_parsed_item_data_invalid(self):
         # Missing static_id
         with self.assertRaisesRegex(PydanticNativeValidationError, "Field required"):
-            ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
+            ParsedItemData(entity_type="item", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc") # type: ignore
         # Empty static_id
         with self.assertRaisesRegex(PydanticNativeValidationError, "static_id must be a non-empty string for ParsedItemData"):
             ParsedItemData(entity_type="item", static_id=" ", name_i18n={"en":"a"}, description_i18n={"en":"b"}, item_type="misc")
