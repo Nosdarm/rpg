@@ -531,25 +531,6 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                 # So, just send another followup.
                 await interaction.followup.send(error_msg, ephemeral=True)
 
-
-async def setup(bot: commands.Bot):
-    cog = MasterSimulationToolsCog(bot)
-    await bot.add_cog(cog)
-    logger.info("MasterSimulationToolsCog loaded and added to bot.")
-
-# Example of how to use get_localized_master_message (for future reference within this Cog)
-# async def _example_usage_localization(interaction: discord.Interaction):
-#     async with get_db_session() as session:
-#         msg = await get_localized_master_message(
-#             session,
-#             interaction.guild_id, # type: ignore
-#             message_key="example:success",
-#             default_template="Operation successful for {entity_name}.",
-#             locale=str(interaction.locale),
-#             entity_name="Test Entity"
-#         )
-#     await interaction.response.send_message(msg, ephemeral=True)
-
     @master_simulate_cmds.command(name="conflict", description="Simulate conflict detection for a set of actions.")
     @app_commands.describe(
         actions_json="JSON string representing a list of actions to check for conflicts. Each action: {\"actor_id\": int, \"actor_type\": \"player\"|\"generated_npc\", \"parsed_action\": {\"intent_name\": str, \"entities\": {}, \"text\": str}}"
@@ -650,3 +631,21 @@ async def setup(bot: commands.Bot):
                     error_details=str(e)
                 )
                 await interaction.followup.send(error_msg, ephemeral=True)
+
+async def setup(bot: commands.Bot):
+    cog = MasterSimulationToolsCog(bot)
+    await bot.add_cog(cog)
+    logger.info("MasterSimulationToolsCog loaded and added to bot.")
+
+# Example of how to use get_localized_master_message (for future reference within this Cog)
+# async def _example_usage_localization(interaction: discord.Interaction):
+#     async with get_db_session() as session:
+#         msg = await get_localized_master_message(
+#             session,
+#             interaction.guild_id, # type: ignore
+#             message_key="example:success",
+#             default_template="Operation successful for {entity_name}.",
+#             locale=str(interaction.locale),
+#             entity_name="Test Entity"
+#         )
+#     await interaction.response.send_message(msg, ephemeral=True)
