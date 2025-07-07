@@ -55,6 +55,7 @@ class StoryLog(Base):
     narrative_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example: {"en": "The goblin shrieks as the fireball engulfs it!", "ru": "Гоблин визжит, охваченный огненным шаром!"}
 
+    turn_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="The game turn number when this event occurred, if applicable.")
 
     def __repr__(self) -> str:
         return f"<StoryLog(id={self.id}, guild_id={self.guild_id}, type='{self.event_type.value}', ts='{self.timestamp}')>"

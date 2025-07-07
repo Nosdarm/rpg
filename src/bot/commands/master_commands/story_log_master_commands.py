@@ -43,9 +43,9 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             # Use the initialized CRUD instance
-            log_entry = await self.story_log_crud_instance.get_by_id(session, id=log_id, guild_id=interaction.guild_id)
+            log_entry = await self.story_log_crud_instance.get(session, id=log_id, guild_id=interaction.guild_id) # Changed get_by_id to get
 
-            if not log_entry or log_entry.guild_id != interaction.guild_id: # Explicitly check guild_id if get_by_id doesn't filter
+            if not log_entry or log_entry.guild_id != interaction.guild_id: # Explicitly check guild_id
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "story_log_view:not_found", lang_code,
                     "Story Log entry with ID {id} not found."
@@ -72,10 +72,10 @@ class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(log_entry.guild_id), inline=True)
             embed.add_field(name=await get_label("event_type", "Event Type"), value=log_entry.event_type.value if log_entry.event_type else na_value_str, inline=True)
-            turn_number_val = getattr(log_entry, 'turn_number', None)
+            turn_number_val = getattr(log_entry, 'turn_number', None) # turn_number is now a direct attribute
             embed.add_field(name=await get_label("turn_number", "Turn Number"), value=str(turn_number_val) if turn_number_val is not None else na_value_str, inline=True)
 
-            timestamp_val = discord.utils.format_dt(log_entry.timestamp, style='F') if log_entry.timestamp else na_value_str
+            timestamp_val = discord.utils.format_dt(cast(datetime, log_entry.timestamp), style='F') if log_entry.timestamp else na_value_str # Already cast
             embed.add_field(name=await get_label("timestamp", "Timestamp"), value=timestamp_val, inline=False)
 
             short_desc_i18n = getattr(log_entry, 'short_description_i18n', {})

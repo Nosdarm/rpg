@@ -245,7 +245,7 @@ async def test_save_approved_generation_success(
     update_pending_gen_call = None
     update_player_call = None  # Initialize update_player_call
     assert isinstance(mock_update_entity, AsyncMock) # Hint for Pyright
-    for call_obj in mock_update_entity.call_args_list: # Pyright might struggle with complex mocks
+    for call_obj in mock_update_entity.call_args_list: # type: ignore
         if call_obj.args[1] == mock_pending_gen:
             update_pending_gen_call = call_obj
         elif call_obj.args[1] == mock_player:
