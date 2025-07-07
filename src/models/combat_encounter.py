@@ -3,7 +3,7 @@ from sqlalchemy import Integer, BigInteger, String, ForeignKey, Enum as SQLAlche
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .base import Base
+from .base import Base, TimestampMixin # Import TimestampMixin
 from .enums import CombatStatus
 from .custom_types import JsonBForSQLite # Import the custom type
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .location import Location
 
 
-class CombatEncounter(Base):
+class CombatEncounter(Base, TimestampMixin): # Inherit from TimestampMixin
     """
     Represents the state of an active combat encounter within a guild.
     """

@@ -164,6 +164,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
 
     expected_final_message = (base_success_msg.format(conflict_id=pending_conflict_id_fixture, notes_value="Test resolution") +
                               reprocessing_msg)
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with(expected_final_message, ephemeral=True)
 
 
@@ -218,6 +219,7 @@ async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
 
     expected_final_message = (base_success_msg.format(conflict_id=pending_conflict_id_fixture, notes_value="Another Test") +
                               others_pending_msg.format(count=1))
+    assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with(expected_final_message, ephemeral=True)
 
 # TODO: Add more tests for other aspects of conflict_resolve, list, view commands,

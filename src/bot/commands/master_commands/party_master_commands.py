@@ -38,7 +38,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -50,28 +50,28 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 not_found_msg_template = await get_localized_message_template(
                     session, interaction.guild_id, "party_view:not_found", lang_code,
                     "Party with ID {party_id} not found in this guild."
-                ) # type: ignore
+                )
                 await interaction.followup.send(not_found_msg_template.format(party_id=party_id), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_view:title", lang_code,
                 "Party Details: {party_name} (ID: {party_id})"
-            ) # type: ignore
+            )
             # Use party.name directly as name_i18n is not in the model
             embed_title = title_template.format(party_name=party.name, party_id=party.id) # Uses party.name
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_gold())
 
             async def get_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"party_view:label_{key}", lang_code, default) # type: ignore
+                return await get_localized_message_template(session, interaction.guild_id, f"party_view:label_{key}", lang_code, default)
 
             async def format_json_field_helper(data: Optional[Dict[Any, Any]], default_na_key: str, error_key: str) -> str:
-                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available") # type: ignore
+                na_str = await get_localized_message_template(session, interaction.guild_id, default_na_key, lang_code, "Not available")
                 if not data: return na_str
                 try: return json.dumps(data, indent=2, ensure_ascii=False)
-                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON") # type: ignore
+                except TypeError: return await get_localized_message_template(session, interaction.guild_id, error_key, lang_code, "Error serializing JSON")
 
-            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
 
             embed.add_field(name=await get_label("guild_id", "Guild ID"), value=str(party.guild_id), inline=True)
@@ -89,7 +89,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             if player_ids:
                 players_in_party = await player_crud.get_many_by_ids(session, ids=player_ids, guild_id=interaction.guild_id)
                 player_id_to_name_map = {p.id: p.name for p in players_in_party}
-                unknown_player_name_str = await get_localized_message_template(session, interaction.guild_id, "party_view:unknown_player_name", lang_code, "Unknown Player") # type: ignore
+                unknown_player_name_str = await get_localized_message_template(session, interaction.guild_id, "party_view:unknown_player_name", lang_code, "Unknown Player")
 
 
                 for p_id in player_ids:
@@ -100,7 +100,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             if members_info:
                 embed.add_field(name=f"{members_label} ({len(members_info)})", value="\n".join(members_info)[:1020] + ("..." if len("\n".join(members_info)) > 1020 else ""), inline=False)
             else:
-                no_members_msg = await get_localized_message_template(session, interaction.guild_id, "party_view:no_members", lang_code, "No members in this party.") # type: ignore
+                no_members_msg = await get_localized_message_template(session, interaction.guild_id, "party_view:no_members", lang_code, "No members in this party.")
                 embed.add_field(name=members_label, value=no_members_msg, inline=False)
 
             await interaction.followup.send(embed=embed, ephemeral=True)
@@ -118,7 +118,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -135,14 +135,14 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 no_parties_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_list:no_parties_found_page", lang_code,
                     "No parties found for this guild (Page {page})."
-                ) # type: ignore
+                )
                 await interaction.followup.send(no_parties_msg.format(page=page), ephemeral=True)
                 return
 
             title_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_list:title", lang_code,
                 "Party List (Page {page} of {total_pages})"
-            ) # type: ignore
+            )
             total_pages = ((total_parties - 1) // limit) + 1
             embed_title = title_template.format(page=page, total_pages=total_pages)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_teal())
@@ -150,22 +150,22 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             footer_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_list:footer", lang_code,
                 "Displaying {count} of {total} total parties."
-            ) # type: ignore
+            )
             embed.set_footer(text=footer_template.format(count=len(parties), total=total_parties))
 
             field_name_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_list:party_field_name", lang_code,
                 "ID: {party_id} | {party_name}"
-            ) # type: ignore
+            )
             field_value_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_list:party_field_value", lang_code,
                 "Leader ID: {leader_id}, Members: {member_count}, Status: {status}, Location ID: {location_id}"
-            ) # type: ignore
+            )
 
             for p in parties:
                 # Use p.name directly
                 member_count = len(p.player_ids_json) if p.player_ids_json else 0
-                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
                 embed.add_field(
                     name=field_name_template.format(party_id=p.id, party_name=p.name),
                     value=field_value_template.format(
@@ -212,7 +212,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -223,7 +223,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_create:error_leader_not_found", lang_code,
                         "Leader player with ID {player_id} not found in this guild."
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(player_id=leader_player_id), ephemeral=True)
                     return
 
@@ -235,7 +235,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_create:error_location_not_found", lang_code,
                         "Location with ID {location_id} not found in this guild."
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(location_id=current_location_id), ephemeral=True)
                     return
 
@@ -254,14 +254,14 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                             error_msg = await get_localized_message_template(
                                 session, interaction.guild_id, "party_create:error_member_not_found", lang_code,
                                 "One or more player IDs in player_ids_json not found in this guild: {missing_ids}"
-                            ) # type: ignore
+                            )
                             await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True)
                             return
                 except ValueError as e:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
                         "Invalid format for player_ids_json: {error_details}"
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                     return
                 # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
@@ -269,7 +269,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 #     error_msg = await get_localized_message_template(
                 #         session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
                 #         "Invalid format for player_ids_json: {error_details}"
-                #     ) # type: ignore
+                #     )
                 #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 #     return
 
@@ -282,7 +282,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
                         "Invalid format for properties_json: {error_details}"
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                     return
                 # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
@@ -290,7 +290,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 #     error_msg = await get_localized_message_template(
                 #         session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
                 #         "Invalid format for properties_json: {error_details}"
-                #     ) # type: ignore
+                #     )
                 #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 #     return
 
@@ -324,7 +324,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_create:error_generic_create", lang_code,
                     "An error occurred while creating the party: {error_message}"
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg.format(error_message=str(e)), ephemeral=True)
                 return
 
@@ -332,23 +332,23 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                      session, interaction.guild_id, "party_create:error_creation_failed_unknown", lang_code,
                     "Party creation failed for an unknown reason."
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_create:success_title", lang_code,
                 "Party Created: {party_name} (ID: {party_id})"
-            ) # type: ignore
+            )
             # Use created_party.name directly
             embed = discord.Embed(title=success_title_template.format(party_name=created_party.name, party_id=created_party.id), color=discord.Color.green())
 
             async def get_created_label(key: str, default: str) -> str:
-                return await get_localized_message_template(session, interaction.guild_id, f"party_create:label_{key}", lang_code, default) # type: ignore
-            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A") # type: ignore
+                return await get_localized_message_template(session, interaction.guild_id, f"party_create:label_{key}", lang_code, default)
+            na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
             embed.add_field(name=await get_created_label("leader_id", "Leader Player ID"), value=str(created_party.leader_player_id) if created_party.leader_player_id else na_value_str, inline=True)
-            embed.add_field(name=await get_created_label("member_count", "Member Count"), value=str(len(created_party.player_ids_json or [])), inline=True) # type: ignore
+            embed.add_field(name=await get_created_label("member_count", "Member Count"), value=str(len(created_party.player_ids_json or [])), inline=True)
             embed.add_field(name=await get_created_label("status", "Status"), value=created_party.turn_status.value, inline=True)
             if created_party.current_location_id:
                  embed.add_field(name=await get_created_label("location_id", "Location ID"), value=str(created_party.current_location_id), inline=True)
@@ -369,7 +369,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
@@ -382,7 +382,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             "turn_status": PartyTurnStatus,
         }
 
-        lang_code = str(interaction.locale)
+        # lang_code is already defined
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
         # Remove specific handling for name_i18n_json as it's now just 'name'
@@ -396,7 +396,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "party_update:error_field_not_allowed", lang_code,
                     "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}"
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
             return
 
@@ -418,14 +418,14 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "party_update:error_leader_not_found", lang_code,
                                     "New leader player with ID {player_id} not found in this guild."
-                                ) # type: ignore
+                                )
                                 await interaction.followup.send(error_msg.format(player_id=parsed_value), ephemeral=True)
                                 return
                 # name_i18n case removed
                 elif db_field_name == "player_ids_json":
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, list) or not all(isinstance(pid, int) for pid in parsed_value):
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_player_ids_not_list_int", lang_code, "player_ids_json must be a list of integers.") # type: ignore
+                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_player_ids_not_list_int", lang_code, "player_ids_json must be a list of integers.")
                         raise ValueError(error_detail_template)
                     if parsed_value: # Only validate if list is not empty
                         found_players = await player_crud.get_many_by_ids(session, ids=parsed_value, guild_id=interaction.guild_id)
@@ -435,20 +435,20 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                             error_msg = await get_localized_message_template(
                                 session, interaction.guild_id, "party_update:error_member_not_found", lang_code,
                                 "One or more player IDs in new player_ids_json not found: {missing_ids}"
-                            ) # type: ignore
+                            )
                             await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True)
                             return
                 elif db_field_name == "properties_json":
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, dict):
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_properties_not_dict", lang_code, "properties_json must be a dictionary.") # type: ignore
+                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_properties_not_dict", lang_code, "properties_json must be a dictionary.")
                         raise ValueError(error_detail_template)
                 elif db_field_name == "turn_status":
                     try:
                         parsed_value = PartyTurnStatus[new_value.upper()]
                     except KeyError:
                         valid_statuses = ", ".join([s.name for s in PartyTurnStatus])
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_invalid_turn_status", lang_code, "Invalid turn_status. Use one of: {valid_options}") # type: ignore
+                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_invalid_turn_status", lang_code, "Invalid turn_status. Use one of: {valid_options}")
                         raise ValueError(error_detail_template.format(valid_options=valid_statuses))
                 elif db_field_name == "current_location_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
@@ -459,13 +459,13 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                             from src.core.crud.crud_location import location_crud # Local import
                             location = await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not location:
-                                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_location_not_found", lang_code, "Location with ID {location_id} not found.") # type: ignore
+                                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_location_not_found", lang_code, "Location with ID {location_id} not found.")
                                 raise ValueError(error_detail_template.format(location_id=parsed_value))
                 else: # Should not be reached if field_type check is correct
                     error_msg = await get_localized_message_template(
                          session, interaction.guild_id, "party_update:error_unknown_field_type", lang_code,
                         "Internal error: Unknown field type for '{field_name}'."
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True)
                     return
             except ValueError as e: # Specific exception first
@@ -473,7 +473,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     session, interaction.guild_id, "party_update:error_invalid_value_type", lang_code,
                     # Removed {expected_type} as it's hard to determine accurately here for all cases
                     "Invalid value '{value}' for field '{field_name}'. Details: {details}"
-                ) # type: ignore
+                )
                 expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None' # type: ignore
                 if field_type == PartyTurnStatus: expected_type_str = "PartyTurnStatus enum name" # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str, details=str(e)), ephemeral=True)
@@ -483,7 +483,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             #     error_msg = await get_localized_message_template(
             #         session, interaction.guild_id, "party_update:error_invalid_json", lang_code,
             #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-            #     ) # type: ignore
+            #     )
             #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
             #     return
 
@@ -492,7 +492,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_update:error_party_not_found", lang_code,
                     "Party with ID {party_id} not found in this guild."
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True)
                 return
 
@@ -527,7 +527,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_update:error_generic_update", lang_code,
                     "An error occurred while updating party {party_id}: {error_message}"
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg.format(party_id=party_id, error_message=str(e)), ephemeral=True)
                 return
 
@@ -535,7 +535,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_update:error_update_failed_unknown", lang_code,
                     "Party update failed for an unknown reason."
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg, ephemeral=True)
                 return
 
@@ -543,12 +543,12 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             success_title_template = await get_localized_message_template(
                 session, interaction.guild_id, "party_update:success_title", lang_code,
                 "Party Updated: {party_name} (ID: {party_id})"
-            ) # type: ignore
+            )
             # Use updated_party.name directly
             embed = discord.Embed(title=success_title_template.format(party_name=updated_party.name, party_id=updated_party.id), color=discord.Color.orange())
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_field_updated", lang_code, "Field Updated") # type: ignore
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_new_value", lang_code, "New Value") # type: ignore
+            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_field_updated", lang_code, "Field Updated")
+            new_value_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_new_value", lang_code, "New Value")
 
             new_value_display = str(parsed_value) # Default
             if isinstance(parsed_value, (dict, list)):
@@ -556,11 +556,11 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     new_value_display = f"```json\n{json.dumps(parsed_value, indent=2, ensure_ascii=False)[:1000]}\n```"
                     if len(json.dumps(parsed_value, indent=2, ensure_ascii=False)) > 1000: new_value_display += "..."
                 except TypeError:
-                    new_value_display = await get_localized_message_template(session, interaction.guild_id, "party_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).") # type: ignore
+                    new_value_display = await get_localized_message_template(session, interaction.guild_id, "party_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).")
             elif isinstance(parsed_value, PartyTurnStatus):
                 new_value_display = parsed_value.name
             elif parsed_value is None:
-                 new_value_display = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") # type: ignore
+                 new_value_display = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None")
 
             embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
             embed.add_field(name=new_value_label, value=new_value_display, inline=True)
@@ -576,11 +576,11 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
                     "This command must be used in a server."
-                ) # type: ignore
+                )
             await interaction.followup.send(error_msg, ephemeral=True)
             return
 
-        # lang_code = str(interaction.locale) # Already defined
+        # lang_code is already defined
         async with get_db_session() as session:
             party_to_delete = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
 
@@ -588,7 +588,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_delete:error_not_found", lang_code,
                     "Party with ID {party_id} not found in this guild. Nothing to delete."
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True)
                 return
 
@@ -610,20 +610,20 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     success_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_delete:success", lang_code,
                         "Party '{party_name}' (ID: {party_id}) has been deleted successfully."
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(success_msg.format(party_name=party_name_for_message, party_id=party_id), ephemeral=True)
                 else: # Should not happen if found before
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_delete:error_not_deleted_unknown", lang_code,
                         "Party (ID: {party_id}) was found but could not be deleted for an unknown reason."
-                    ) # type: ignore
+                    )
                     await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True)
             except Exception as e:
                 logger.error(f"Error deleting party {party_id} for guild {interaction.guild_id}: {e}", exc_info=True)
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_delete:error_generic", lang_code,
                     "An error occurred while deleting party '{party_name}' (ID: {party_id}): {error_message}"
-                ) # type: ignore
+                )
                 await interaction.followup.send(error_msg.format(party_name=party_name_for_message, party_id=party_id, error_message=str(e)), ephemeral=True)
                 return
 

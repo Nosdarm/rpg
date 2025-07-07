@@ -840,7 +840,7 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
             # is ever called within an existing transaction context by another part of the system.
             # For its current usage from turn_controller, this is fine.
             active_conflict_count = await pending_conflict_crud.get_count_by_guild_and_status(
-                pre_check_session, guild_id=guild_id, status=ConflictStatus.PENDING_RESOLUTION
+                pre_check_session, guild_id=guild_id, status=ConflictStatus.PENDING_MASTER_RESOLUTION
             )
 
         if active_conflict_count > 0:
