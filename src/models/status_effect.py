@@ -7,7 +7,8 @@ from sqlalchemy import (
     Integer,
     Text,
     UniqueConstraint,
-    func
+    func,
+    Enum as SQLAlchemyEnum
 )
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,6 +16,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from .base import Base
 from .custom_types import JsonBForSQLite # Added
+from .enums import StatusEffectCategory # Import the actual enum
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
@@ -37,6 +39,12 @@ class StatusEffect(Base):
     properties_json: Mapped[Dict[str, Any]] = mapped_column(
         JsonBForSQLite, nullable=False, default=dict
     )  # e.g. {"modifiers": {"strength": -1}, "duration_turns": 5, "tick_effects": ["deal_damage_1d4_fire"]}
+
+    category: Mapped[StatusEffectCategory] = mapped_column(
+        SQLAlchemyEnum(StatusEffectCategory, name="status_effect_category_enum", create_constraint=True),
+        nullable=False,
+        default=StatusEffectCategory.NEUTRAL
+    )
 
     # Relationships
     guild: Mapped["GuildConfig"] = relationship(back_populates="status_effects")

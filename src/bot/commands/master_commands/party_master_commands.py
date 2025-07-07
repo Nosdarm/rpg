@@ -38,7 +38,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            party = await party_crud.get_by_id(session, id=party_id, guild_id=interaction.guild_id)
+            party = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
 
             if not party:
                 not_found_msg_template = await get_localized_message_template(
@@ -52,8 +52,8 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 session, interaction.guild_id, "party_view:title", lang_code,
                 "Party Details: {party_name} (ID: {party_id})"
             ) # type: ignore
-            party_name_i18n = party.name_i18n.get(lang_code, party.name_i18n.get("en", f"Party {party.id}")) if hasattr(party, 'name_i18n') and party.name_i18n else f"Party {party.id}"
-            embed_title = title_template.format(party_name=party_name_i18n, party_id=party.id)
+            # Use party.name directly as name_i18n is not in the model
+            embed_title = title_template.format(party_name=party.name, party_id=party.id)
             embed = discord.Embed(title=embed_title, color=discord.Color.dark_gold())
 
             async def get_label(key: str, default: str) -> str:
@@ -63,16 +63,11 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             embed.add_field(name=await get_label("leader_id", "Leader Player ID"), value=str(party.leader_player_id) if party.leader_player_id else "N/A", inline=True)
             embed.add_field(name=await get_label("status", "Turn Status"), value=party.turn_status.value if party.turn_status else "N/A", inline=True)
 
-            name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "party_view:value_na_json", lang_code, "Not available") # type: ignore
-            if hasattr(party, 'name_i18n') and party.name_i18n:
-                try:
-                    name_i18n_str = json.dumps(party.name_i18n, indent=2, ensure_ascii=False)
-                except TypeError:
-                    name_i18n_str = await get_localized_message_template(session, interaction.guild_id, "party_view:error_serialization", lang_code, "Error serializing Name i18n") # type: ignore
-            embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```" + ("..." if len(name_i18n_str) > 1000 else ""), inline=False)
+            # Display the simple party.name instead of name_i18n
+            embed.add_field(name=await get_label("name", "Name"), value=party.name, inline=False)
 
             properties_str = await get_localized_message_template(session, interaction.guild_id, "party_view:value_na_json", lang_code, "Not available") # type: ignore
-            if party.properties_json:
+            if hasattr(party, 'properties_json') and party.properties_json: # Check if properties_json exists
                 try:
                     properties_str = json.dumps(party.properties_json, indent=2, ensure_ascii=False)
                 except TypeError:
@@ -112,7 +107,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            parties = await party_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            parties = await party_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_parties_stmt = select(func.count(party_crud.model.id)).where(party_crud.model.guild_id == interaction.guild_id)
             total_parties_result = await session.execute(total_parties_stmt)
@@ -150,10 +145,10 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             ) # type: ignore
 
             for p in parties:
-                party_name_i18n = p.name_i18n.get(lang_code, p.name_i18n.get("en", f"Party {p.id}")) if hasattr(p, 'name_i18n') and p.name_i18n else f"Party {p.id}"
+                # Use p.name directly
                 member_count = len(p.player_ids_json) if p.player_ids_json else 0
                 embed.add_field(
-                    name=field_name_template.format(party_id=p.id, party_name=party_name_i18n),
+                    name=field_name_template.format(party_id=p.id, party_name=p.name),
                     value=field_value_template.format(
                         leader_id=str(p.leader_player_id) if p.leader_player_id else "N/A",
                         member_count=member_count,
@@ -174,20 +169,20 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
 
     @party_master_cmds.command(name="create", description="Create a new party in this guild.")
     @app_commands.describe(
+        name="The name of the party.",
         leader_player_id="Optional: The database ID of the player who will lead this party.",
-        name_i18n_json="Optional: JSON string for party name (e.g., {\"en\": \"My Party\", \"ru\": \"Моя группа\"}).",
         player_ids_json="Optional: JSON string of player IDs to add to this party (e.g., [1, 2, 3]).",
         properties_json="Optional: JSON string for additional party properties."
     )
     async def party_create(self, interaction: discord.Interaction,
+                           name: str, # Changed from name_i18n_json
                            leader_player_id: Optional[int] = None,
-                           name_i18n_json: Optional[str] = None,
                            player_ids_json: Optional[str] = None,
                            properties_json: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
 
-        lang_code = str(interaction.locale)
-        parsed_name_i18n: Optional[Dict[str, str]] = None
+        lang_code = str(interaction.locale) # Keep for other localizations if any
+        # parsed_name_i18n is no longer needed
         parsed_player_ids: Optional[List[int]] = None
         parsed_properties: Optional[Dict[str, Any]] = None
         if interaction.guild_id is None:
@@ -196,7 +191,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
 
         async with get_db_session() as session:
             if leader_player_id:
-                leader_player = await player_crud.get_by_id(session, id=leader_player_id, guild_id=interaction.guild_id)
+                leader_player = await player_crud.get(session, id=leader_player_id, guild_id=interaction.guild_id)
                 if not leader_player:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "party_create:error_leader_not_found", lang_code,
@@ -205,26 +200,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     await interaction.followup.send(error_msg.format(player_id=leader_player_id), ephemeral=True)
                     return
 
-            if name_i18n_json:
-                try:
-                    parsed_name_i18n = json.loads(name_i18n_json)
-                    if not isinstance(parsed_name_i18n, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in parsed_name_i18n.items()):
-                        raise ValueError("name_i18n_json must be a dictionary of string keys and string values.")
-                except ValueError as e: # Specific exception first
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_name_json", lang_code,
-                        "Invalid format for name_i18n_json: {error_details}"
-                    ) # type: ignore
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
-                except json.JSONDecodeError as e: # Broader exception later
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_name_json", lang_code,
-                        "Invalid format for name_i18n_json: {error_details}"
-                    ) # type: ignore
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
-
+            # name_i18n_json logic removed
 
             if player_ids_json:
                 try:
@@ -249,13 +225,14 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     ) # type: ignore
                     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                     return
-                except json.JSONDecodeError as e:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
-                        "Invalid format for player_ids_json: {error_details}"
-                    ) # type: ignore
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
+                # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+                # except json.JSONDecodeError as e:
+                #     error_msg = await get_localized_message_template(
+                #         session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
+                #         "Invalid format for player_ids_json: {error_details}"
+                #     ) # type: ignore
+                #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+                #     return
 
             if properties_json:
                 try:
@@ -269,34 +246,33 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     ) # type: ignore
                     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                     return
-                except json.JSONDecodeError as e:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
-                        "Invalid format for properties_json: {error_details}"
-                    ) # type: ignore
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
+                # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+                # except json.JSONDecodeError as e:
+                #     error_msg = await get_localized_message_template(
+                #         session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
+                #         "Invalid format for properties_json: {error_details}"
+                #     ) # type: ignore
+                #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+                #     return
 
             party_data_to_create: Dict[str, Any] = {
                 "guild_id": interaction.guild_id, # Already checked not None
+                "name": name, # Use the new 'name' parameter
                 "leader_player_id": leader_player_id,
-                "name_i18n": parsed_name_i18n if parsed_name_i18n else {"en": "New Party", lang_code: "New Party"}, # Default name
                 "player_ids_json": parsed_player_ids if parsed_player_ids else [],
-                "turn_status": PartyTurnStatus.ACTIVE, # Default status
+                "turn_status": PartyTurnStatus.IDLE, # Default status, ACTIVE was not a valid member
                 "properties_json": parsed_properties if parsed_properties else {}
             }
-            # Ensure a default name in the interaction language or English if not provided
-            if lang_code not in party_data_to_create["name_i18n"] and "en" not in party_data_to_create["name_i18n"]:
-                 party_data_to_create["name_i18n"][lang_code] = f"Party (Unnamed)"
-
+            # name_i18n default logic removed
 
             created_party: Optional[Party] = None
             try:
                 async with session.begin():
-                    created_party = await party_crud.create_with_guild(session, obj_in=party_data_to_create, guild_id=interaction.guild_id) # type: ignore
+                    # guild_id is already in party_data_to_create and handled by CRUDBase.create
+                    created_party = await party_crud.create(session, obj_in=party_data_to_create)
                     if created_party and parsed_player_ids:
                         for p_id in parsed_player_ids:
-                            player_to_update = await player_crud.get_by_id(session, id=p_id, guild_id=interaction.guild_id) # type: ignore
+                            player_to_update = await player_crud.get(session, id=p_id, guild_id=interaction.guild_id)
                             if player_to_update:
                                 player_to_update.current_party_id = created_party.id
                                 session.add(player_to_update)
@@ -324,19 +300,17 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 session, interaction.guild_id, "party_create:success_title", lang_code,
                 "Party Created: {party_name} (ID: {party_id})"
             ) # type: ignore
-            created_party_name_i18n = created_party.name_i18n.get(lang_code, created_party.name_i18n.get("en", f"Party {created_party.id}")) if hasattr(created_party, 'name_i18n') and created_party.name_i18n else f"Party {created_party.id}"
-
-
-            embed = discord.Embed(title=success_title_template.format(party_name=created_party_name_i18n, party_id=created_party.id), color=discord.Color.green())
+            # Use created_party.name directly
+            embed = discord.Embed(title=success_title_template.format(party_name=created_party.name, party_id=created_party.id), color=discord.Color.green())
             embed.add_field(name="Leader Player ID", value=str(created_party.leader_player_id) if created_party.leader_player_id else "N/A", inline=True)
-            embed.add_field(name="Member Count", value=str(len(created_party.player_ids_json or [])), inline=True)
+            embed.add_field(name="Member Count", value=str(len(created_party.player_ids_json or [])), inline=True) # type: ignore
             embed.add_field(name="Status", value=created_party.turn_status.value, inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @party_master_cmds.command(name="update", description="Update a specific field for a party.")
     @app_commands.describe(
         party_id="The database ID of the party to update.",
-        field_to_update="The name of the party field to update (e.g., leader_player_id, name_i18n_json, player_ids_json, properties_json, turn_status).",
+        field_to_update="The name of the party field to update (e.g., name, leader_player_id, player_ids_json, properties_json, turn_status).",
         new_value="The new value for the field (use JSON for complex types; for player_ids_json, provide a complete new list; for turn_status, use enum name like ACTIVE)."
     )
     async def party_update(self, interaction: discord.Interaction, party_id: int, field_to_update: str, new_value: str):
@@ -346,8 +320,8 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
             return
 
         allowed_fields = {
+            "name": str, # Changed from name_i18n
             "leader_player_id": (int, type(None)),
-            "name_i18n": dict,  # from name_i18n_json
             "player_ids_json": list,
             "properties_json": dict,
             "turn_status": PartyTurnStatus,
@@ -356,8 +330,9 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
         lang_code = str(interaction.locale)
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
-        if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
-             db_field_name = field_to_update_lower.replace("_json","")
+        # Remove specific handling for name_i18n_json as it's now just 'name'
+        if field_to_update_lower.endswith("_json") and field_to_update_lower in allowed_fields:
+             db_field_name = field_to_update_lower # No replace needed if direct match
 
         field_type = allowed_fields.get(db_field_name)
 
@@ -375,13 +350,15 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
 
         async with get_db_session() as session:
             try:
-                if db_field_name == "leader_player_id":
+                if db_field_name == "name":
+                    parsed_value = new_value # It's a simple string now
+                elif db_field_name == "leader_player_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
                         parsed_value = None
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            leader_player = await player_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id)
+                            leader_player = await player_crud.get(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not leader_player:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "party_update:error_leader_not_found", lang_code,
@@ -389,10 +366,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                                 ) # type: ignore
                                 await interaction.followup.send(error_msg.format(player_id=parsed_value), ephemeral=True)
                                 return
-                elif db_field_name == "name_i18n":
-                    parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in parsed_value.items()):
-                        raise ValueError("name_i18n must be a dictionary of string keys and string values.")
+                # name_i18n case removed
                 elif db_field_name == "player_ids_json":
                     parsed_value = json.loads(new_value)
                     if not isinstance(parsed_value, list) or not all(isinstance(pid, int) for pid in parsed_value):
@@ -435,19 +409,20 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                     session, interaction.guild_id, "party_update:error_invalid_value_type", lang_code,
                     "Invalid value '{value}' for field '{field_name}'. Expected type: {expected_type}. Details: {details}"
                 ) # type: ignore
-                expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None'
-                if field_type == PartyTurnStatus: expected_type_str = "PartyTurnStatus enum name"
+                expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None' # type: ignore
+                if field_type == PartyTurnStatus: expected_type_str = "PartyTurnStatus enum name" # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "party_update:error_invalid_json", lang_code,
-                    "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "party_update:error_invalid_json", lang_code,
+            #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
+            #     return
 
-            party_to_update = await party_crud.get_by_id(session, id=party_id, guild_id=interaction.guild_id)
+            party_to_update = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
             if not party_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_update:error_party_not_found", lang_code,
@@ -470,12 +445,12 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                         players_to_remove_from_party = old_player_ids_set - new_player_ids_set
                         players_to_add_to_party = new_player_ids_set - old_player_ids_set
                         for p_id in players_to_remove_from_party:
-                            player = await player_crud.get_by_id(session, id=p_id, guild_id=interaction.guild_id) # type: ignore
+                            player = await player_crud.get(session, id=p_id, guild_id=interaction.guild_id)
                             if player and player.current_party_id == updated_party.id:
                                 player.current_party_id = None
                                 session.add(player)
                         for p_id in players_to_add_to_party:
-                            player = await player_crud.get_by_id(session, id=p_id, guild_id=interaction.guild_id) # type: ignore
+                            player = await player_crud.get(session, id=p_id, guild_id=interaction.guild_id)
                             if player:
                                 player.current_party_id = updated_party.id
                                 session.add(player)
@@ -504,8 +479,8 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 session, interaction.guild_id, "party_update:success_title", lang_code,
                 "Party Updated: {party_name} (ID: {party_id})"
             ) # type: ignore
-            updated_party_name_i18n = updated_party.name_i18n.get(lang_code, updated_party.name_i18n.get("en", f"Party {updated_party.id}")) if hasattr(updated_party, 'name_i18n') and updated_party.name_i18n else f"Party {updated_party.id}"
-            embed = discord.Embed(title=success_title_template.format(party_name=updated_party_name_i18n, party_id=updated_party.id), color=discord.Color.orange())
+            # Use updated_party.name directly
+            embed = discord.Embed(title=success_title_template.format(party_name=updated_party.name, party_id=updated_party.id), color=discord.Color.orange())
 
             field_updated_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_field_updated", lang_code, "Field Updated") # type: ignore
             new_value_label = await get_localized_message_template(session, interaction.guild_id, "party_update:label_new_value", lang_code, "New Value") # type: ignore
@@ -532,7 +507,7 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            party_to_delete = await party_crud.get_by_id(session, id=party_id, guild_id=interaction.guild_id)
+            party_to_delete = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
 
             if not party_to_delete:
                 error_msg = await get_localized_message_template(
@@ -542,18 +517,19 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                 await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True)
                 return
 
-            party_name_for_message = party_to_delete.name_i18n.get(lang_code, party_to_delete.name_i18n.get("en", f"Party {party_to_delete.id}")) if hasattr(party_to_delete, 'name_i18n') and party_to_delete.name_i18n else f"Party {party_to_delete.id}"
+            # Use party_to_delete.name directly
+            party_name_for_message = party_to_delete.name
             player_ids_in_party = list(party_to_delete.player_ids_json) if party_to_delete.player_ids_json else []
 
             try:
                 async with session.begin():
                     if player_ids_in_party:
                         for p_id in player_ids_in_party:
-                            player = await player_crud.get_by_id(session, id=p_id, guild_id=interaction.guild_id) # type: ignore
+                            player = await player_crud.get(session, id=p_id, guild_id=interaction.guild_id)
                             if player and player.current_party_id == party_id:
                                 player.current_party_id = None
                                 session.add(player)
-                    deleted_party = await party_crud.remove_by_id(session, id=party_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_party = await party_crud.delete(session, id=party_id, guild_id=interaction.guild_id)
 
                 if deleted_party:
                     success_msg = await get_localized_message_template(

@@ -36,7 +36,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
             return
 
         async with get_db_session() as session:
-            player = await player_crud.get_by_id(session, id=player_id, guild_id=interaction.guild_id)
+            player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id)
             lang_code = str(interaction.locale)
 
             if not player:
@@ -94,7 +94,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
 
         async with get_db_session() as session:
             offset = (page - 1) * limit
-            players = await player_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            players = await player_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_players_stmt = select(func.count(player_crud.model.id)).where(player_crud.model.guild_id == interaction.guild_id)
             total_players_result = await session.execute(total_players_stmt)
@@ -222,7 +222,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
         update_data = {field_to_update_lower: parsed_value}
 
         async with get_db_session() as session:
-            player = await player_crud.get_by_id(session, id=player_id, guild_id=interaction.guild_id)
+            player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id)
             if not player:
                 not_found_msg = await get_localized_message_template(
                     session, interaction.guild_id, "player_update:player_not_found", lang_code,

@@ -53,15 +53,17 @@ class GeneratedNpc(Base):
     #   "temperament": "grumpy",
     #   "dialogue_style": "curt"
     # }
+    faction_id: Mapped[Optional[int]] = mapped_column(ForeignKey("generated_factions.id", name="fk_generated_npc_faction_id"), nullable=True, index=True)
 
     # Relationships
     inventory_items: Mapped[List["InventoryItem"]] = relationship(
         primaryjoin=f"and_(GeneratedNpc.id==InventoryItem.owner_entity_id, InventoryItem.owner_entity_type=='{OwnerEntityType.GENERATED_NPC.value}')",
-        foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type],
+        foreign_keys=[InventoryItem.owner_entity_id, InventoryItem.owner_entity_type], # type: ignore[list-arg]
         cascade="all, delete-orphan",
         lazy="selectin"
     )
     current_location: Mapped[Optional["Location"]] = relationship(back_populates="npcs_present")
+    faction: Mapped[Optional["GeneratedFaction"]] = relationship(back_populates="members") # Assuming GeneratedFaction will have 'members'
 
 
     __table_args__ = (

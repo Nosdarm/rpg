@@ -40,7 +40,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            relationship = await crud_relationship.get_by_id(session, id=relationship_id, guild_id=interaction.guild_id)
+            relationship = await crud_relationship.get(session, id=relationship_id, guild_id=interaction.guild_id)
 
             if not relationship:
                 not_found_msg = await get_localized_message_template(
@@ -222,7 +222,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
             crud_map = {
                 RelationshipEntityType.PLAYER: player_crud,
                 RelationshipEntityType.GENERATED_NPC: npc_crud,
-                RelationshipEntityType.FACTION: crud_faction,
+                RelationshipEntityType.GENERATED_FACTION: crud_faction, # Corrected from FACTION
                 # Add other entity types if they can have relationships
             }
             crud_instance = crud_map.get(entity_type_enum_val)
@@ -231,7 +231,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
                 await interaction.followup.send(error_msg_loc.format(type=entity_type_str_val), ephemeral=True)
                 return False
 
-            entity = await crud_instance.get_by_id(session, id=entity_id_val, guild_id=guild_id_val)
+            entity = await crud_instance.get(session, id=entity_id_val, guild_id=guild_id_val)
             if not entity:
                 error_msg_loc = await get_localized_message_template(session, guild_id_val, "relationship_create:error_entity_not_found", lang_code, f"{entity_label} with ID {{id}} and Type {{type}} not found in this guild.") # type: ignore
                 await interaction.followup.send(error_msg_loc.format(id=entity_id_val, type=entity_type_str_val), ephemeral=True)
@@ -273,7 +273,8 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
             created_relationship: Optional[Any] = None
             try:
                 async with session.begin():
-                    created_relationship = await crud_relationship.create_with_guild(session, obj_in=relationship_data_to_create, guild_id=interaction.guild_id) # type: ignore
+                    # guild_id is already in relationship_data_to_create and handled by CRUDBase.create
+                    created_relationship = await crud_relationship.create(session, obj_in=relationship_data_to_create)
                     await session.flush()
                     if created_relationship:
                          await session.refresh(created_relationship)
@@ -343,7 +344,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, expected_type=field_type.__name__), ephemeral=True)
                 return
 
-            relationship_to_update = await crud_relationship.get_by_id(session, id=relationship_id, guild_id=interaction.guild_id)
+            relationship_to_update = await crud_relationship.get(session, id=relationship_id, guild_id=interaction.guild_id)
             if not relationship_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "relationship_update:error_relationship_not_found", lang_code,
@@ -393,7 +394,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            relationship_to_delete = await crud_relationship.get_by_id(session, id=relationship_id, guild_id=interaction.guild_id)
+            relationship_to_delete = await crud_relationship.get(session, id=relationship_id, guild_id=interaction.guild_id)
 
             if not relationship_to_delete:
                 error_msg = await get_localized_message_template(
@@ -407,7 +408,7 @@ class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
             deleted_relationship: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_relationship = await crud_relationship.remove_by_id(session, id=relationship_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_relationship = await crud_relationship.delete(session, id=relationship_id, guild_id=interaction.guild_id)
 
                 if deleted_relationship:
                     success_msg = await get_localized_message_template(

@@ -41,7 +41,7 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            inv_item = await inventory_item_crud.get_by_id(session, id=inventory_item_id, guild_id=interaction.guild_id)
+            inv_item = await inventory_item_crud.get(session, id=inventory_item_id, guild_id=interaction.guild_id)
 
             if not inv_item:
                 not_found_msg = await get_localized_message_template(
@@ -53,9 +53,9 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
 
             # Item definitions might be global or guild-specific depending on item_crud implementation
             # Assuming item_crud.get can handle finding the item definition correctly.
-            item_definition = await item_crud.get_by_id(session, id=inv_item.item_id, guild_id=interaction.guild_id) # Try guild-specific first
+            item_definition = await item_crud.get(session, id=inv_item.item_id, guild_id=interaction.guild_id) # Try guild-specific first
             if not item_definition: # Fallback to global if not found in guild
-                item_definition = await item_crud.get_by_id(session, id=inv_item.item_id, guild_id=None)
+                item_definition = await item_crud.get(session, id=inv_item.item_id, guild_id=None)
 
 
             item_name_display = "Unknown Item"
@@ -215,18 +215,18 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
 
             owner_exists = False
             if owner_type_enum == OwnerEntityType.PLAYER:
-                owner_exists = await player_crud.get_by_id(session, id=owner_id, guild_id=interaction.guild_id) is not None
+                owner_exists = await player_crud.get(session, id=owner_id, guild_id=interaction.guild_id) is not None
             elif owner_type_enum == OwnerEntityType.GENERATED_NPC:
-                owner_exists = await npc_crud.get_by_id(session, id=owner_id, guild_id=interaction.guild_id) is not None
+                owner_exists = await npc_crud.get(session, id=owner_id, guild_id=interaction.guild_id) is not None
 
             if not owner_exists:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_owner_not_found",lang_code,"Owner {type}({id}) not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(type=owner_type_enum.name, id=owner_id), ephemeral=True); return
 
             # Assuming item definitions can be global or guild-specific. Try guild first.
-            base_item = await item_crud.get_by_id(session, id=item_id, guild_id=interaction.guild_id)
+            base_item = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
             if not base_item: # Fallback to global if not found in guild
-                 base_item = await item_crud.get_by_id(session, id=item_id, guild_id=None)
+                 base_item = await item_crud.get(session, id=item_id, guild_id=None)
 
             if not base_item:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_item_def_not_found",lang_code,"Base Item with ID {id} not found.") # type: ignore
@@ -243,9 +243,10 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             except ValueError as e: # Specific exception first
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_json_props",lang_code,"Invalid JSON for properties: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_json_props",lang_code,"Invalid JSON for properties: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_create:error_invalid_json_props",lang_code,"Invalid JSON for properties: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
 
             created_inv_item: Optional[InventoryItem] = None
@@ -323,11 +324,12 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             except ValueError as e: # Specific exception first for int conversion or explicit raises
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_invalid_value",lang_code,"Invalid value for {f}: {details}") # type: ignore
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
-            except json.JSONDecodeError as e: # Broader JSON error
-                error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
-                await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_invalid_json",lang_code,"Invalid JSON for {f}: {details}") # type: ignore
+            #     await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 
-            inv_item_to_update = await inventory_item_crud.get_by_id(session, id=inventory_item_id, guild_id=interaction.guild_id)
+            inv_item_to_update = await inventory_item_crud.get(session, id=inventory_item_id, guild_id=interaction.guild_id)
             if not inv_item_to_update:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:error_not_found",lang_code,"InventoryItem ID {id} not found.") # type: ignore
                 await interaction.followup.send(error_msg.format(id=inventory_item_id), ephemeral=True); return
@@ -335,7 +337,7 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             if db_field_name == "quantity" and parsed_value == 0:
                 try:
                     async with session.begin():
-                        await inventory_item_crud.remove_by_id(session, id=inventory_item_id, guild_id=interaction.guild_id) # type: ignore
+                        await inventory_item_crud.delete(session, id=inventory_item_id, guild_id=interaction.guild_id)
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_update:success_deleted_qty_zero",lang_code,"InventoryItem ID {id} quantity set to 0 and was deleted.") # type: ignore
                     await interaction.followup.send(success_msg.format(id=inventory_item_id), ephemeral=True)
                     return
@@ -375,7 +377,7 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             return
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            inv_item_to_delete = await inventory_item_crud.get_by_id(session, id=inventory_item_id, guild_id=interaction.guild_id)
+            inv_item_to_delete = await inventory_item_crud.get(session, id=inventory_item_id, guild_id=interaction.guild_id)
 
             if not inv_item_to_delete:
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_delete:error_not_found",lang_code,"InventoryItem ID {id} not found.") # type: ignore
@@ -388,7 +390,7 @@ class MasterInventoryItemCog(commands.Cog, name="Master Inventory Item Commands"
             deleted_inv_item: Optional[Any] = None
             try:
                 async with session.begin():
-                    deleted_inv_item = await inventory_item_crud.remove_by_id(session, id=inventory_item_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_inv_item = await inventory_item_crud.delete(session, id=inventory_item_id, guild_id=interaction.guild_id)
 
                 if deleted_inv_item:
                     success_msg = await get_localized_message_template(session,interaction.guild_id,"inv_item_delete:success",lang_code,"InventoryItem ID {id} (Item ID: {item_id}) for Owner {owner_type}({owner_id}) deleted.") # type: ignore

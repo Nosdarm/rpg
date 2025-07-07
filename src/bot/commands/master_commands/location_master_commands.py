@@ -39,7 +39,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
 
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
-            loc = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
+            loc = await location_crud.get(session, id=location_id, guild_id=interaction.guild_id)
 
             if not loc:
                 not_found_msg = await get_localized_message_template(
@@ -100,7 +100,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
         async with get_db_session() as session:
             lang_code = str(interaction.locale)
             offset = (page - 1) * limit
-            locations = await location_crud.get_multi_by_guild_id(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
+            locations = await location_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
 
             total_locations_stmt = select(func.count(location_crud.model.id)).where(location_crud.model.guild_id == interaction.guild_id)
             total_locations_result = await session.execute(total_locations_stmt)
@@ -203,7 +203,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 return
 
             if parent_location_id:
-                parent_loc = await location_crud.get_by_id(session, id=parent_location_id, guild_id=interaction.guild_id)
+                parent_loc = await location_crud.get(session, id=parent_location_id, guild_id=interaction.guild_id)
                 if not parent_loc:
                     error_msg = await get_localized_message_template(
                         session, interaction.guild_id, "location_create:error_parent_not_found", lang_code,
@@ -258,13 +258,14 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 )
                 await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "location_create:error_invalid_json_format", lang_code,
-                    "Invalid JSON format or structure for one of the input fields: {error_details}"
-                )
-                await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "location_create:error_invalid_json_format", lang_code,
+            #         "Invalid JSON format or structure for one of the input fields: {error_details}"
+            #     )
+            #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
+            #     return
 
             location_data_to_create: Dict[str, Any] = {
                 "guild_id": interaction.guild_id, # Ensured not None by early check
@@ -402,7 +403,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            parent_loc = await location_crud.get_by_id(session, id=parsed_value, guild_id=interaction.guild_id)
+                            parent_loc = await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id)
                             if not parent_loc:
                                 error_msg = await get_localized_message_template(
                                     session, interaction.guild_id, "location_update:error_parent_not_found", lang_code,
@@ -431,15 +432,16 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 ) # type: ignore
                 await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
-            except json.JSONDecodeError as e: # Broader exception later
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "location_update:error_invalid_json", lang_code,
-                    "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-                ) # type: ignore
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
-                return
+            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
+            # except json.JSONDecodeError as e:
+            #     error_msg = await get_localized_message_template(
+            #         session, interaction.guild_id, "location_update:error_invalid_json", lang_code,
+            #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
+            #     ) # type: ignore
+            #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
+            #     return
 
-            location_to_update = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
+            location_to_update = await location_crud.get(session, id=location_id, guild_id=interaction.guild_id)
             if not location_to_update:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "location_update:error_location_not_found", lang_code,
@@ -506,7 +508,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
 
         lang_code = str(interaction.locale)
         async with get_db_session() as session:
-            location_to_delete = await location_crud.get_by_id(session, id=location_id, guild_id=interaction.guild_id)
+            location_to_delete = await location_crud.get(session, id=location_id, guild_id=interaction.guild_id)
 
             if not location_to_delete:
                 error_msg = await get_localized_message_template(
@@ -538,7 +540,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                 await interaction.followup.send(error_msg.format(name=location_name_for_message, id=location_id), ephemeral=True)
                 return
 
-            child_locations_stmt = select(location_crud.model.id).where(location_crud.model.parent_location_id == location_id, location_crud.model.guild_id == interaction.guild_id).limit(1)
+            child_locations_stmt = select(location_crud.model.id).where(location_crud.model.parent_location_id == location_id, location_crud.model.guild_id == interaction.guild_id).limit(1) # type: ignore
             child_dependency = (await session.execute(child_locations_stmt)).scalar_one_or_none()
             if child_dependency:
                 error_msg = await get_localized_message_template(
@@ -570,7 +572,7 @@ class MasterLocationCog(commands.Cog, name="Master Location Commands"):
                                 updated_other_locations = True
                     if updated_other_locations:
                         await session.flush()
-                    deleted_location = await location_crud.remove_by_id(session, id=location_id, guild_id=interaction.guild_id) # type: ignore
+                    deleted_location = await location_crud.delete(session, id=location_id, guild_id=interaction.guild_id)
 
                 if deleted_location:
                     success_msg = await get_localized_message_template(

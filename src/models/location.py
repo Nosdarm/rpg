@@ -45,10 +45,13 @@ class Location(Base):
     # Optional: Link to GuildConfig object, if direct access is often needed.
     # guild: Mapped["GuildConfig"] = relationship(back_populates="locations") # Assuming GuildConfig has a 'locations' backref
 
+    parent_location_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("locations.id", name="fk_location_parent_id", use_alter=True), nullable=True, index=True
+    )
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
     name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
-    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Reverted to plural
 
     type: Mapped[LocationType] = mapped_column(SQLAlchemyEnum(LocationType), nullable=False, default=LocationType.GENERIC)
 

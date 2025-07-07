@@ -318,13 +318,13 @@ async def _simulate_entity_interactions(session: AsyncSession, guild_id: int, en
                        actor_entity_id=entity.id, actor_entity_type=actor_rel_type,
                        target_entity_id=target_entity.id, target_entity_type=target_rel_type, # type: ignore
                        check_type=str(detection_rule.get("check_type", "perception")), # type: ignore
-                       # Assuming resolve_check takes these as specific params or within a details dict
-                       # For now, passing them as if they are direct. This might need adjustment.
-                       actor_check_modifier=actor_perception, # Example: if resolve_check expects this
-                       target_check_modifier=target_stealth,  # Example
-                       dc=int(detection_rule.get("base_dc", 10)) # type: ignore
+                       # Pass actor_perception and target_stealth via check_context if resolve_check is updated to use them,
+                       # or adjust DC based on target_stealth. For now, removing incorrect kwargs.
+                       # check_context might be useful here: e.g. {"actor_skill_override": actor_perception, "target_skill_override": target_stealth}
+                       # or dc modification: dc = int(detection_rule.get("base_dc", 10)) + (target_stealth - 10) // 2
+                       difficulty_dc=int(detection_rule.get("base_dc", 10)) # type: ignore
                     )
-                    if check_result.outcome == CheckOutcome.SUCCESS: # type: ignore
+                    if check_result.outcome == CheckOutcome.SUCCESS:
                        detected = True
                 else: # Fallback if types can't be mapped for check resolver
                     logger.warning(f"Cannot resolve relationship types for detection check between {entity_actor_type_key} and {target_entity_type_key}. Assuming detection for rule '{detection_rule_key}'.")
@@ -376,15 +376,51 @@ async def _simulate_entity_interactions(session: AsyncSession, guild_id: int, en
                 if chosen_action_key == "initiate_combat":
                     if actor_rel_type_enum and target_rel_type_enum:
                         try:
-                            participants_for_combat = [
-                                {"id": entity.id, "type": actor_rel_type_enum.value, "team": "A"}, # Use .value for string
-                                {"id": target_entity.id, "type": target_rel_type_enum.value, "team": "B"}
-                            ]
-                            # TODO: Expand MobileGroup members into participants list
-                            await start_combat(session, guild_id, entity.current_location_id, participants_for_combat)
-                            action_log_details["combat_initiated"] = True
+                            actual_combatants: List[Union[Player, GeneratedNpc]] = []
+                            actor_combatant_entity: Optional[Union[Player, GeneratedNpc]] = None
+                            target_combatant_entity: Optional[Union[Player, GeneratedNpc]] = None
+
+                            # Determine actor combatant
+                            if isinstance(entity, GlobalNpc):
+                                if not entity.base_npc_id: # Ensure base_npc is loaded if using entity.base_npc
+                                    await session.refresh(entity, attribute_names=['base_npc'])
+                                actor_combatant_entity = entity.base_npc
+                                if not actor_combatant_entity:
+                                    logger.warning(f"GlobalNpc {entity.static_id} tried to initiate combat but has no base_npc.")
+                            elif isinstance(entity, (Player, GeneratedNpc)): # Should not happen based on current entity types
+                                actor_combatant_entity = entity
+                            else: # MobileGroup
+                                logger.warning(f"MobileGroup {entity.static_id} cannot directly initiate combat as an actor. Member expansion needed.")
+
+                            # Determine target combatant
+                            if isinstance(target_entity, (Player, GeneratedNpc)):
+                                target_combatant_entity = target_entity
+                            elif isinstance(target_entity, GlobalNpc):
+                                if not target_entity.base_npc_id: # Ensure base_npc is loaded
+                                    await session.refresh(target_entity, attribute_names=['base_npc'])
+                                target_combatant_entity = target_entity.base_npc
+                                if not target_combatant_entity:
+                                    logger.warning(f"GlobalNpc target {target_entity.static_id} has no base_npc for combat.")
+                            else: # MobileGroup target
+                                logger.warning(f"Targeting MobileGroup {target_entity.static_id} for combat is not yet supported. Member expansion needed.")
+
+                            if actor_combatant_entity:
+                                actual_combatants.append(actor_combatant_entity)
+                            if target_combatant_entity and target_combatant_entity not in actual_combatants: # Avoid duplicates if actor targets self's base
+                                actual_combatants.append(target_combatant_entity)
+
+                            if len(actual_combatants) >= 2: # Need at least two distinct combatants
+                                # TODO: Expand MobileGroup members into participants list if one of the entities was a MobileGroup
+                                # This part is still a placeholder if MobileGroups are involved.
+                                # For now, it only works if actor/target resolve to Player or GeneratedNpc.
+                                await start_combat(session, guild_id, entity.current_location_id, actual_combatants)
+                                action_log_details["combat_initiated"] = True
+                            else:
+                                logger.warning(f"Combat not initiated between {entity.static_id} and {target_id_for_log} due to insufficient valid combatants.")
+                                action_log_details["combat_initiation_skipped"] = "Insufficient valid combatants"
+
                         except Exception as e:
-                            logger.error(f"Error starting combat for GE {entity.static_id} vs {target_id_for_log}: {e}", exc_info=True)
+                            logger.error(f"Error processing entities for combat: GE {entity.static_id} vs {target_id_for_log}: {e}", exc_info=True)
                             action_log_details["combat_initiation_error"] = str(e)
                     else:
                         logger.error(f"Cannot initiate combat due to unknown RelationshipEntityType for {entity.static_id} or {target_id_for_log}")
