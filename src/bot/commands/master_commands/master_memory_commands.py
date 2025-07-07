@@ -9,10 +9,12 @@ from discord.ext import commands
 from sqlalchemy import func, select, and_ # Added func for count
 
 from src.core.crud.crud_player_npc_memory import crud_player_npc_memory
-from src.core.crud.crud_player import player_crud # For fetching names
-from src.core.crud.crud_npc import npc_crud # For fetching names
+from src.core.crud.crud_player import player_crud # For fetching names and validation
+from src.core.crud.crud_npc import npc_crud # For fetching names and validation
 from src.core.database import get_db_session
+from src.core.crud_base_definitions import update_entity # For update command
 from src.core.localization_utils import get_localized_message_template
+from src.bot.utils import parse_json_parameter # Import the utility
 from src.models.player_npc_memory import PlayerNpcMemory # For type hinting
 
 logger = logging.getLogger(__name__)
@@ -154,6 +156,152 @@ class MasterMemoryCog(commands.Cog, name="Master Memory Commands"):
                     inline=False
                 )
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @memory_master_cmds.command(name="create", description="Create a new Player-NPC Memory entry.")
+    @app_commands.describe(
+        player_id="ID of the Player.",
+        npc_id="ID of the NPC.",
+        event_type="Optional: Type of the event this memory relates to.",
+        memory_details_i18n_json="Optional: JSON string for localized memory details (e.g., {\"en\": \"Player helped me\"}).",
+        memory_data_json="Optional: JSON string for structured data related to the memory.",
+        ai_significance_score="Optional: Integer score indicating AI's view of this memory's importance."
+    )
+    async def memory_create(self, interaction: discord.Interaction,
+                            player_id: int,
+                            npc_id: int,
+                            event_type: Optional[str] = None,
+                            memory_details_i18n_json: Optional[str] = None,
+                            memory_data_json: Optional[str] = None,
+                            ai_significance_score: Optional[int] = None):
+        await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        async with get_db_session() as session:
+            player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id)
+            if not player:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_create:error_player_not_found", lang_code, "Player with ID {id} not found.")
+                await interaction.followup.send(error_msg.format(id=player_id), ephemeral=True); return
+
+            npc = await npc_crud.get(session, id=npc_id, guild_id=interaction.guild_id)
+            if not npc:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_create:error_npc_not_found", lang_code, "NPC with ID {id} not found.")
+                await interaction.followup.send(error_msg.format(id=npc_id), ephemeral=True); return
+
+            parsed_details = await parse_json_parameter(interaction, memory_details_i18n_json, "memory_details_i18n_json", session)
+            if parsed_details is None and memory_details_i18n_json is not None: return
+
+            parsed_data = await parse_json_parameter(interaction, memory_data_json, "memory_data_json", session)
+            if parsed_data is None and memory_data_json is not None: return
+
+            memory_data_create = {
+                "guild_id": interaction.guild_id, "player_id": player_id, "npc_id": npc_id,
+                "event_type": event_type,
+                "memory_details_i18n": parsed_details or {},
+                "memory_data_json": parsed_data or {},
+                "ai_significance_score": ai_significance_score,
+                "timestamp": datetime.utcnow() # Set current time for new memory
+            }
+            created_memory: Optional[PlayerNpcMemory] = None
+            try:
+                async with session.begin():
+                    created_memory = await crud_player_npc_memory.create(session, obj_in=memory_data_create) # type: ignore
+                    await session.flush()
+                    if created_memory: await session.refresh(created_memory)
+            except Exception as e:
+                logger.error(f"Error creating PlayerNpcMemory: {e}", exc_info=True)
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_create:error_generic_create", lang_code, "Error creating memory entry: {error}")
+                await interaction.followup.send(error_msg.format(error=str(e)), ephemeral=True); return
+
+            if not created_memory:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_create:error_unknown_fail", lang_code, "Memory entry creation failed.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+            success_msg = await get_localized_message_template(session, interaction.guild_id, "memory_create:success", lang_code, "Memory entry ID {id} created for Player {p_id} and NPC {n_id}.")
+            await interaction.followup.send(success_msg.format(id=created_memory.id, p_id=player_id, n_id=npc_id), ephemeral=True)
+
+    @memory_master_cmds.command(name="update", description="Update a Player-NPC Memory entry.")
+    @app_commands.describe(
+        memory_id="ID of the memory entry to update.",
+        field_to_update="Field to update (event_type, memory_details_i18n_json, memory_data_json, ai_significance_score).",
+        new_value="New value for the field (use JSON for JSON fields; 'None' for nullable string/int)."
+    )
+    @app_commands.choices(field_to_update=[
+        app_commands.Choice(name="Event Type", value="event_type"),
+        app_commands.Choice(name="Memory Details (i18n JSON)", value="memory_details_i18n_json"),
+        app_commands.Choice(name="Memory Data (JSON)", value="memory_data_json"),
+        app_commands.Choice(name="AI Significance Score", value="ai_significance_score"),
+    ])
+    async def memory_update(self, interaction: discord.Interaction, memory_id: int, field_to_update: app_commands.Choice[str], new_value: str):
+        await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        db_field_name = field_to_update.value
+        user_facing_field_name = field_to_update.value # For parse_json_parameter messages
+
+        # Map choice value to actual database field name if different
+        if field_to_update.value == "memory_details_i18n_json": db_field_name = "memory_details_i18n"
+        elif field_to_update.value == "memory_data_json": db_field_name = "memory_data_json"
+
+        parsed_value: Any = None
+
+        async with get_db_session() as session:
+            memory_to_update = await crud_player_npc_memory.get(session, id=memory_id, guild_id=interaction.guild_id)
+            if not memory_to_update:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:error_not_found", lang_code, "Memory entry ID {id} not found.")
+                await interaction.followup.send(error_msg.format(id=memory_id), ephemeral=True); return
+
+            try:
+                if db_field_name == "event_type":
+                    parsed_value = None if new_value.lower() == 'none' else new_value
+                elif db_field_name == "ai_significance_score":
+                    parsed_value = None if new_value.lower() == 'none' else int(new_value)
+                elif db_field_name in ["memory_details_i18n", "memory_data_json"]:
+                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                    if parsed_value is None: return # Error already sent by utility
+                else: # Should not happen due to choices
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:error_invalid_field", lang_code, "Invalid field for update.")
+                    await interaction.followup.send(error_msg, ephemeral=True); return
+            except ValueError as e:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}")
+                await interaction.followup.send(error_msg.format(f=field_to_update.name, details=str(e)), ephemeral=True); return
+
+            update_data = {db_field_name: parsed_value}
+            updated_memory: Optional[PlayerNpcMemory] = None
+            try:
+                async with session.begin():
+                    updated_memory = await update_entity(session, entity=memory_to_update, data=update_data) # type: ignore
+                    await session.flush()
+                    if updated_memory: await session.refresh(updated_memory)
+            except Exception as e:
+                logger.error(f"Error updating PlayerNpcMemory {memory_id}: {e}", exc_info=True)
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:error_generic_update", lang_code, "Error updating memory entry {id}: {err}")
+                await interaction.followup.send(error_msg.format(id=memory_id, err=str(e)), ephemeral=True); return
+
+            if not updated_memory:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:error_unknown_fail", lang_code, "Memory entry update failed.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+            success_msg = await get_localized_message_template(session, interaction.guild_id, "memory_update:success", lang_code, "Memory entry ID {id} updated. Field '{f}' set to '{v}'.")
+
+            new_val_display_str: str
+            if isinstance(parsed_value, dict):
+                new_val_display_str = f"```json\n{json.dumps(parsed_value, indent=2, ensure_ascii=False)[:1000]}\n```"
+                if len(json.dumps(parsed_value)) > 1000: new_val_display_str += "..."
+            elif parsed_value is None:
+                new_val_display_str = "None"
+            else:
+                new_val_display_str = str(parsed_value)
+
+            await interaction.followup.send(success_msg.format(id=updated_memory.id, f=field_to_update.name, v=new_val_display_str), ephemeral=True)
+
 
     @memory_master_cmds.command(name="delete", description="Delete a Player-NPC Memory entry.")
     @app_commands.describe(memory_id="The database ID of the PlayerNpcMemory entry to delete.")

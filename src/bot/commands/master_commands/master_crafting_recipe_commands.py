@@ -13,6 +13,7 @@ from src.core.crud.crud_skill import skill_crud # For validating required_skill_
 from src.core.database import get_db_session
 from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
+from src.bot.utils import parse_json_parameter # Import the utility
 # from src.models.crafting_recipe import CraftingRecipe # For type hinting if needed directly
 
 logger = logging.getLogger(__name__)
@@ -158,20 +159,39 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                             is_global: bool = False):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
-        parsed_name_i18n: Dict[str, str]
-        parsed_desc_i18n: Optional[Dict[str, str]] = None
-        parsed_ingredients: List[Dict[str, Any]]
-        parsed_props: Optional[Dict[str, Any]] = None
 
         target_guild_id_for_recipe: Optional[int] = interaction.guild_id if not is_global else None
-        # Guild ID for messages should be interaction.guild_id if available, or a fallback for global context
         current_guild_id_for_messages: Optional[int] = interaction.guild_id
 
         if not is_global and current_guild_id_for_messages is None:
-            await interaction.followup.send("Cannot create a guild-specific recipe outside of a guild. Use `is_global=True` or run in a guild.", ephemeral=True)
-            return
+            await interaction.followup.send("Cannot create a guild-specific recipe outside of a guild. Use `is_global=True` or run in a guild.", ephemeral=True); return
 
         async with get_db_session() as session:
+            parsed_name_i18n = await parse_json_parameter(interaction, name_i18n_json, "name_i18n_json", session)
+            if parsed_name_i18n is None: return
+            error_detail_name_lang = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_detail_name_lang", lang_code, "name_i18n_json must contain 'en' or current language key.")
+            if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code):
+                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_invalid_json_content", lang_code, "Invalid JSON content: {details}")
+                await interaction.followup.send(error_msg.format(details=error_detail_name_lang), ephemeral=True); return
+
+            parsed_desc_i18n = await parse_json_parameter(interaction, description_i18n_json, "description_i18n_json", session)
+            if parsed_desc_i18n is None and description_i18n_json is not None: return
+
+            parsed_ingredients_list = await parse_json_parameter(interaction, ingredients_json, "ingredients_json", session)
+            if parsed_ingredients_list is None : return # If ingredients_json was provided and parsing failed
+
+            parsed_ingredients: List[Dict[str, Any]] = []
+            if isinstance(parsed_ingredients_list, list):
+                parsed_ingredients = parsed_ingredients_list
+            elif parsed_ingredients_list is not None: # Should not happen if parse_json_parameter enforces dict or sends error
+                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_ingredients_not_list", lang_code, "ingredients_json must be a list of objects.")
+                 await interaction.followup.send(error_msg, ephemeral=True); return
+
+
+            parsed_props = await parse_json_parameter(interaction, properties_json, "properties_json", session)
+            if parsed_props is None and properties_json is not None: return
+
+
             # Validate static_id uniqueness
             existing_recipe_static = await crud_crafting_recipe.get_by_static_id(session, static_id=static_id, guild_id=target_guild_id_for_recipe)
             if existing_recipe_static:
@@ -179,70 +199,42 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_static_id_exists", lang_code, "Recipe static_id '{id}' already exists in scope {sc}.")
                 await interaction.followup.send(error_msg.format(id=static_id, sc=scope_str), ephemeral=True); return
 
-            # Validate result_item_id (check if item exists, could be global or guild-specific)
-            res_item = await item_crud.get(session, id=result_item_id, guild_id=current_guild_id_for_messages) # Check in current guild
-            if not res_item: # If not in current guild, check global
-                 res_item = await item_crud.get(session, id=result_item_id, guild_id=None)
+            res_item = await item_crud.get(session, id=result_item_id, guild_id=current_guild_id_for_messages)
+            if not res_item: res_item = await item_crud.get(session, id=result_item_id, guild_id=None)
             if not res_item:
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_result_item_not_found", lang_code, "Result Item ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=result_item_id), ephemeral=True); return
 
-            # Validate required_skill_id (if provided)
             if required_skill_id:
-                # Skills can be global or guild-specific, similar to items/abilities
                 req_skill = await skill_crud.get(session, id=required_skill_id, guild_id=current_guild_id_for_messages)
-                if not req_skill: # Fallback to global
-                    req_skill = await skill_crud.get(session, id=required_skill_id, guild_id=None)
+                if not req_skill: req_skill = await skill_crud.get(session, id=required_skill_id, guild_id=None)
                 if not req_skill:
                     error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_skill_not_found", lang_code, "Required Skill ID {id} not found.")
                     await interaction.followup.send(error_msg.format(id=required_skill_id), ephemeral=True); return
 
             if result_quantity < 1: result_quantity = 1
 
-            try:
-                parsed_name_i18n = json.loads(name_i18n_json)
-                if not isinstance(parsed_name_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_name_i18n.items()): raise ValueError("name_i18n_json must be dict str:str.")
-                if not parsed_name_i18n.get("en") and not parsed_name_i18n.get(lang_code): raise ValueError("name_i18n_json must contain 'en' or current language key.")
-
-                parsed_ingredients = json.loads(ingredients_json)
-                if not isinstance(parsed_ingredients, list) or not all(isinstance(ing, dict) and isinstance(ing.get("item_id"), int) and isinstance(ing.get("quantity"), int) and ing["quantity"] > 0 for ing in parsed_ingredients):
+            try: # Specific validation for ingredients structure after parsing
+                if not all(isinstance(ing, dict) and isinstance(ing.get("item_id"), int) and isinstance(ing.get("quantity"), int) and ing["quantity"] > 0 for ing in parsed_ingredients):
                     raise ValueError("ingredients_json must be a list of objects, each with 'item_id' (int) and 'quantity' (int > 0).")
-
-                # Validate ingredient item_ids
                 ingredient_item_ids = [ing["item_id"] for ing in parsed_ingredients]
                 if ingredient_item_ids:
-                    # Fetch both guild-specific and global items that match these IDs
-                    # This check is simplified; ideally, it should confirm each specific item_id exists.
-                    # A more robust check would iterate and try fetching each item_id.
-                    # For now, assuming item_crud.get_many_by_ids can find them across scopes if designed that way,
-                    # or we check each one individually.
-                    # Let's do a quick check for each.
                     for ing_item_id in ingredient_item_ids:
                         ing_item_def = await item_crud.get(session, id=ing_item_id, guild_id=current_guild_id_for_messages)
                         if not ing_item_def: ing_item_def = await item_crud.get(session, id=ing_item_id, guild_id=None)
                         if not ing_item_def:
                             raise ValueError(f"Ingredient Item ID {ing_item_id} not found.")
+            except ValueError as e:
+                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_invalid_json_data", lang_code, "Invalid JSON or data: {details}")
+                 await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
-                if description_i18n_json:
-                    parsed_desc_i18n = json.loads(description_i18n_json)
-                    if not isinstance(parsed_desc_i18n, dict) or not all(isinstance(k,str)and isinstance(v,str) for k,v in parsed_desc_i18n.items()): raise ValueError("description_i18n_json must be dict str:str.")
-                if properties_json:
-                    parsed_props = json.loads(properties_json)
-                    if not isinstance(parsed_props, dict): raise ValueError("properties_json must be a dict.")
-            except (json.JSONDecodeError, ValueError, AssertionError) as e:
-                error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_create:error_invalid_json_data", lang_code, "Invalid JSON or data: {details}")
-                await interaction.followup.send(error_msg.format(details=str(e)), ephemeral=True); return
 
             recipe_data_create: Dict[str, Any] = {
-                "guild_id": target_guild_id_for_recipe,
-                "static_id": static_id,
-                "name_i18n": parsed_name_i18n,
-                "description_i18n": parsed_desc_i18n or {},
-                "result_item_id": result_item_id,
-                "result_quantity": result_quantity,
-                "ingredients_json": parsed_ingredients,
-                "required_skill_id": required_skill_id,
-                "required_skill_level": required_skill_level,
+                "guild_id": target_guild_id_for_recipe, "static_id": static_id,
+                "name_i18n": parsed_name_i18n, "description_i18n": parsed_desc_i18n or {},
+                "result_item_id": result_item_id, "result_quantity": result_quantity,
+                "ingredients_json": parsed_ingredients, # Already validated
+                "required_skill_id": required_skill_id, "required_skill_level": required_skill_level,
                 "properties_json": parsed_props or {}
             }
             created_recipe: Optional[Any] = None
@@ -290,8 +282,11 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
         }
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
+        user_facing_field_name = field_to_update_lower # For messages from parse_json_parameter
+
         if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json", "") in allowed_fields:
             db_field_name = field_to_update_lower.replace("_json", "")
+        # No specific mapping like item_type -> item_type_i18n needed here for now
 
         field_type_info = allowed_fields.get(db_field_name)
         if not field_type_info:
@@ -299,28 +294,31 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
             await interaction.followup.send(error_msg.format(f=field_to_update), ephemeral=True); return
 
         parsed_value: Any = None
-        from typing import cast # For casting IDs
+        from typing import cast
 
         async with get_db_session() as session:
-            recipe_to_update = await crud_crafting_recipe.get(session, id=recipe_id) # Get by primary ID
+            recipe_to_update = await crud_crafting_recipe.get(session, id=recipe_id)
             if not recipe_to_update or (recipe_to_update.guild_id is not None and recipe_to_update.guild_id != current_guild_id_for_messages):
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_not_found", lang_code, "Recipe ID {id} not found or not accessible.")
                 await interaction.followup.send(error_msg.format(id=recipe_id), ephemeral=True); return
 
-            original_recipe_guild_id_scope = recipe_to_update.guild_id # This is the scope for static_id check
+            original_recipe_guild_id_scope = recipe_to_update.guild_id
 
             try:
                 if db_field_name == "static_id":
                     parsed_value = new_value
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
-                    existing_recipe = await crud_crafting_recipe.get_by_static_id(session, static_id=parsed_value, guild_id=original_recipe_guild_id_scope)
-                    if existing_recipe and existing_recipe.id != recipe_id:
-                        error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.")
-                        await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
-                elif field_type_info == dict: parsed_value = json.loads(new_value); assert isinstance(parsed_value, dict)
-                elif field_type_info == list: parsed_value = json.loads(new_value); assert isinstance(parsed_value, list)
-                elif field_type_info == int: parsed_value = int(new_value)
-                elif isinstance(field_type_info, tuple) and int in field_type_info and type(None) in field_type_info: # Optional[int]
+                    if parsed_value != recipe_to_update.static_id: # Only check if changed
+                        existing_recipe = await crud_crafting_recipe.get_by_static_id(session, static_id=parsed_value, guild_id=original_recipe_guild_id_scope)
+                        if existing_recipe and existing_recipe.id != recipe_id:
+                            error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_static_id_exists", lang_code, "Static ID '{id}' already in use for its scope.")
+                            await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
+                elif field_type_info == dict or field_type_info == list:
+                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                    if parsed_value is None: return
+                elif field_type_info == int:
+                    parsed_value = int(new_value)
+                elif isinstance(field_type_info, tuple) and int in field_type_info and type(None) in field_type_info:
                     if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
                     else: parsed_value = int(new_value)
                 else: raise ValueError(f"Unsupported type for field {db_field_name}")
@@ -332,7 +330,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     if not res_item_val: res_item_val = await item_crud.get(session, id=item_id_to_check, guild_id=None)
                     if not res_item_val: raise ValueError(f"Result Item ID {item_id_to_check} not found.")
                 if db_field_name == "ingredients_json":
-                    if not all(isinstance(ing, dict) and isinstance(ing.get("item_id"), int) and isinstance(ing.get("quantity"), int) and ing["quantity"] > 0 for ing in parsed_value): # type: ignore
+                    if not isinstance(parsed_value, list) or not all(isinstance(ing, dict) and isinstance(ing.get("item_id"), int) and isinstance(ing.get("quantity"), int) and ing["quantity"] > 0 for ing in parsed_value): # type: ignore
                         raise ValueError("ingredients_json must be list of {'item_id': int, 'quantity': int > 0}.")
                     for ing in parsed_value: # type: ignore
                         ing_item_id_val = cast(int, ing["item_id"])
@@ -345,7 +343,7 @@ class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Command
                     if not req_skill_val: req_skill_val = await skill_crud.get(session, id=skill_id_to_check, guild_id=None)
                     if not req_skill_val: raise ValueError(f"Required Skill ID {skill_id_to_check} not found.")
 
-            except (ValueError, json.JSONDecodeError, AssertionError) as e:
+            except (ValueError, AssertionError) as e: # Removed json.JSONDecodeError as it's handled by parse_json_parameter
                 error_msg = await get_localized_message_template(session, current_guild_id_for_messages, "recipe_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}")
                 await interaction.followup.send(error_msg.format(f=field_to_update, details=str(e)), ephemeral=True); return
 

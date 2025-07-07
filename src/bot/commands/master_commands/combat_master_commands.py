@@ -10,9 +10,10 @@ from sqlalchemy import func, select, and_
 from src.core.crud.crud_combat_encounter import combat_encounter_crud
 # from src.core.crud.crud_player import player_crud # Potentially for resetting status on delete
 from src.core.database import get_db_session
-# from src.core.crud_base_definitions import update_entity # Not used for CombatEncounter yet
+from src.core.crud_base_definitions import update_entity # Now used
 from src.core.localization_utils import get_localized_message_template
 from src.models.enums import CombatStatus # For status validation
+from src.bot.utils import parse_json_parameter # Import the utility
 # from src.models.enums import PlayerStatus # If resetting status on delete
 
 logger = logging.getLogger(__name__)
@@ -213,6 +214,77 @@ class MasterCombatEncounterCog(commands.Cog, name="Master Combat Encounter Comma
                 return
 
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @combat_master_cmds.command(name="update", description="Update a field for a Combat Encounter.")
+    @app_commands.describe(
+        encounter_id="The ID of the Combat Encounter to update.",
+        field_to_update="Field to update (status or participants_json).",
+        new_value="New value (CombatStatus enum name for status; JSON string for participants_json)."
+    )
+    @app_commands.choices(field_to_update=[
+        app_commands.Choice(name="Status", value="status"),
+        app_commands.Choice(name="Participants JSON", value="participants_json"),
+    ])
+    async def combat_encounter_update(self, interaction: discord.Interaction, encounter_id: int, field_to_update: app_commands.Choice[str], new_value: str):
+        await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        db_field_name = field_to_update.value
+        parsed_value: Any = None
+
+        async with get_db_session() as session:
+            encounter_to_update = await combat_encounter_crud.get(session, id=encounter_id, guild_id=interaction.guild_id)
+            if not encounter_to_update:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_not_found", lang_code, "Combat Encounter ID {id} not found.")
+                await interaction.followup.send(error_msg.format(id=encounter_id), ephemeral=True); return
+
+            try:
+                if db_field_name == "status":
+                    try:
+                        parsed_value = CombatStatus[new_value.upper()]
+                    except KeyError:
+                        valid_statuses = ", ".join([s.name for s in CombatStatus])
+                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_detail_invalid_status", lang_code, "Invalid status. Valid options: {valid_options}")
+                        raise ValueError(error_detail_template.format(valid_options=valid_statuses))
+                elif db_field_name == "participants_json":
+                    parsed_value = await parse_json_parameter(interaction, new_value, "participants_json", session)
+                    if parsed_value is None: return # Error already sent by utility
+                else: # Should not happen due to choices
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_invalid_field", lang_code, "Invalid field selected for update.")
+                    await interaction.followup.send(error_msg, ephemeral=True); return
+            except ValueError as e:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_invalid_value", lang_code, "Invalid value for {f}: {details}")
+                await interaction.followup.send(error_msg.format(f=field_to_update.name, details=str(e)), ephemeral=True); return
+
+            update_data = {db_field_name: parsed_value}
+            updated_encounter: Optional[Any] = None
+            try:
+                async with session.begin():
+                    updated_encounter = await update_entity(session, entity=encounter_to_update, data=update_data)
+                    await session.flush()
+                    if updated_encounter: await session.refresh(updated_encounter)
+            except Exception as e:
+                logger.error(f"Error updating Combat Encounter {encounter_id}: {e}", exc_info=True)
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_generic_update", lang_code, "Error updating Combat Encounter {id}: {err}")
+                await interaction.followup.send(error_msg.format(id=encounter_id, err=str(e)), ephemeral=True); return
+
+            if not updated_encounter:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:error_unknown_update_fail", lang_code, "Combat Encounter update failed.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+            success_msg = await get_localized_message_template(session, interaction.guild_id, "ce_update:success", lang_code, "Combat Encounter ID {id} updated. Field '{f}' set to '{v}'.")
+
+            new_val_display_str: str
+            if isinstance(parsed_value, CombatStatus): new_val_display_str = parsed_value.name
+            elif isinstance(parsed_value, dict): new_val_display_str = f"```json\n{json.dumps(parsed_value, indent=2, ensure_ascii=False)[:1000]}\n```"
+            else: new_val_display_str = str(parsed_value)
+
+            await interaction.followup.send(success_msg.format(id=updated_encounter.id, f=field_to_update.name, v=new_val_display_str), ephemeral=True)
+
 
     @combat_master_cmds.command(name="delete", description="Delete a Combat Encounter.")
     @app_commands.describe(encounter_id="The database ID of the Combat Encounter to delete.")

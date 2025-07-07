@@ -380,11 +380,18 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
                         raise ValueError(error_detail_template.format(valid_options=valid_statuses))
                 elif field_type_info == dict: # For attributes_json
                     if db_field_name == "attributes_json":
-                        parsed_value = json.loads(new_value)
-                        if not isinstance(parsed_value, dict):
-                            error_detail_template = await get_localized_message_template(session, interaction.guild_id, "player_update:error_detail_attributes_not_object", lang_code, "attributes_json must be a valid JSON object string.")
-                            raise ValueError(error_detail_template)
+                        # Use the utility for parsing JSON
+                        from src.bot.utils import parse_json_parameter # Import utility
+                        parsed_value = await parse_json_parameter(
+                            interaction=interaction,
+                            json_str=new_value,
+                            field_name="attributes_json_str", # User-facing field name
+                            session=session
+                        )
+                        if parsed_value is None: # Error occurred during parsing, message already sent
+                            return
                         # Ensure 'dm_preferences_allow_guilds', if present and None, becomes an empty list
+                        # This specific logic should remain if it's a business rule for this field
                         if "dm_preferences_allow_guilds" in parsed_value and parsed_value["dm_preferences_allow_guilds"] is None:
                             parsed_value["dm_preferences_allow_guilds"] = []
                     else:

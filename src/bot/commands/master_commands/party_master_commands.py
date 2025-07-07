@@ -13,6 +13,7 @@ from src.core.database import get_db_session
 from src.core.crud_base_definitions import update_entity
 from src.core.localization_utils import get_localized_message_template
 from src.models.party import PartyTurnStatus, Party
+from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
@@ -202,109 +203,59 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                            current_location_id: Optional[int] = None,
                            properties_json: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
-
-        lang_code = str(interaction.locale) # Keep for other localizations if any
-        # parsed_name_i18n is no longer needed
-        parsed_player_ids: Optional[List[int]] = None
-        parsed_properties: Optional[Dict[str, Any]] = None
-        if interaction.guild_id is None: # lang_code already defined
+        lang_code = str(interaction.locale)
+        if interaction.guild_id is None:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(
-                    temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code,
-                    "This command must be used in a server."
-                )
-            await interaction.followup.send(error_msg, ephemeral=True)
-            return
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
 
         async with get_db_session() as session:
+            parsed_player_ids_list = await parse_json_parameter(interaction, player_ids_json, "player_ids_json", session)
+            if parsed_player_ids_list is None and player_ids_json is not None: return # Error already sent by utility
+
+            parsed_player_ids: Optional[List[int]] = None
+            if isinstance(parsed_player_ids_list, list):
+                if not all(isinstance(pid, int) for pid in parsed_player_ids_list):
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_create:error_invalid_player_ids_type", lang_code, "player_ids_json must be a list of integers.")
+                    await interaction.followup.send(error_msg, ephemeral=True); return
+                parsed_player_ids = parsed_player_ids_list
+            elif parsed_player_ids_list is not None: # If it was provided but not a list
+                 error_msg = await get_localized_message_template(session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code, "player_ids_json must be a list of integers.")
+                 await interaction.followup.send(error_msg, ephemeral=True); return
+
+
+            parsed_properties = await parse_json_parameter(interaction, properties_json, "properties_json", session)
+            if parsed_properties is None and properties_json is not None: return
+
+
             if leader_player_id:
                 leader_player = await player_crud.get(session, id=leader_player_id, guild_id=interaction.guild_id)
                 if not leader_player:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_leader_not_found", lang_code,
-                        "Leader player with ID {player_id} not found in this guild."
-                    )
-                    await interaction.followup.send(error_msg.format(player_id=leader_player_id), ephemeral=True)
-                    return
-
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_create:error_leader_not_found", lang_code, "Leader player with ID {player_id} not found in this guild.")
+                    await interaction.followup.send(error_msg.format(player_id=leader_player_id), ephemeral=True); return
             if current_location_id:
-                # Need to import location_crud
                 from src.core.crud.crud_location import location_crud
                 location = await location_crud.get(session, id=current_location_id, guild_id=interaction.guild_id)
                 if not location:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_location_not_found", lang_code,
-                        "Location with ID {location_id} not found in this guild."
-                    )
-                    await interaction.followup.send(error_msg.format(location_id=current_location_id), ephemeral=True)
-                    return
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_create:error_location_not_found", lang_code, "Location with ID {location_id} not found in this guild.")
+                    await interaction.followup.send(error_msg.format(location_id=current_location_id), ephemeral=True); return
 
-            # name_i18n_json logic removed
-
-            if player_ids_json:
-                try:
-                    parsed_player_ids = json.loads(player_ids_json)
-                    if not isinstance(parsed_player_ids, list) or not all(isinstance(pid, int) for pid in parsed_player_ids):
-                        raise ValueError("player_ids_json must be a list of integers.")
-                    if parsed_player_ids:
-                        found_players = await player_crud.get_many_by_ids(session, ids=parsed_player_ids, guild_id=interaction.guild_id)
-                        found_player_ids = {p.id for p in found_players}
-                        missing_player_ids = [pid for pid in parsed_player_ids if pid not in found_player_ids]
-                        if missing_player_ids:
-                            error_msg = await get_localized_message_template(
-                                session, interaction.guild_id, "party_create:error_member_not_found", lang_code,
-                                "One or more player IDs in player_ids_json not found in this guild: {missing_ids}"
-                            )
-                            await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True)
-                            return
-                except ValueError as e:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
-                        "Invalid format for player_ids_json: {error_details}"
-                    )
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
-                # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-                # except json.JSONDecodeError as e:
-                #     error_msg = await get_localized_message_template(
-                #         session, interaction.guild_id, "party_create:error_invalid_player_ids_json", lang_code,
-                #         "Invalid format for player_ids_json: {error_details}"
-                #     )
-                #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                #     return
-
-            if properties_json:
-                try:
-                    parsed_properties = json.loads(properties_json)
-                    if not isinstance(parsed_properties, dict):
-                        raise ValueError("properties_json must be a dictionary.")
-                except ValueError as e:
-                    error_msg = await get_localized_message_template(
-                        session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
-                        "Invalid format for properties_json: {error_details}"
-                    )
-                    await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                    return
-                # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-                # except json.JSONDecodeError as e:
-                #     error_msg = await get_localized_message_template(
-                #         session, interaction.guild_id, "party_create:error_invalid_properties_json", lang_code,
-                #         "Invalid format for properties_json: {error_details}"
-                #     )
-                #     await interaction.followup.send(error_msg.format(error_details=str(e)), ephemeral=True)
-                #     return
+            if parsed_player_ids:
+                found_players = await player_crud.get_many_by_ids(session, ids=parsed_player_ids, guild_id=interaction.guild_id)
+                found_player_ids_set = {p.id for p in found_players}
+                missing_player_ids = [pid for pid in parsed_player_ids if pid not in found_player_ids_set]
+                if missing_player_ids:
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_create:error_member_not_found", lang_code, "One or more player IDs in player_ids_json not found: {missing_ids}")
+                    await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True); return
 
             party_data_to_create: Dict[str, Any] = {
-                "guild_id": interaction.guild_id, # Already checked not None
-                "name": name, # Use the new 'name' parameter
+                "guild_id": interaction.guild_id, "name": name,
                 "leader_player_id": leader_player_id,
-                "player_ids_json": parsed_player_ids if parsed_player_ids else [],
+                "player_ids_json": parsed_player_ids or [],
                 "current_location_id": current_location_id,
-                "turn_status": PartyTurnStatus.IDLE, # Default status
-                "properties_json": parsed_properties if parsed_properties else {}
+                "turn_status": PartyTurnStatus.IDLE,
+                "properties_json": parsed_properties or {}
             }
-            # name_i18n default logic removed
-
             created_party: Optional[Party] = None
             try:
                 async with session.begin():
@@ -385,64 +336,58 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
         # lang_code is already defined
         field_to_update_lower = field_to_update.lower()
         db_field_name = field_to_update_lower
-        # Remove specific handling for name_i18n_json as it's now just 'name'
+        user_facing_field_name = field_to_update_lower
+
         if field_to_update_lower.endswith("_json") and field_to_update_lower in allowed_fields:
-             db_field_name = field_to_update_lower # No replace needed if direct match
+             db_field_name = field_to_update_lower
+        # No specific mapping like name_i18n_json needed as 'name' is now a direct string field
 
         field_type = allowed_fields.get(db_field_name)
 
         if not field_type:
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(
-                    temp_session, interaction.guild_id, "party_update:error_field_not_allowed", lang_code,
-                    "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}"
-                )
-            await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True)
-            return
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "party_update:error_field_not_allowed", lang_code, "Field '{field_name}' is not allowed for update or does not exist. Allowed fields: {allowed_list}")
+            await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True); return
 
         parsed_value: Any = None
         original_player_ids_before_update: Optional[List[int]] = None
 
         async with get_db_session() as session:
+            party_to_update = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
+            if not party_to_update:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_party_not_found", lang_code, "Party with ID {party_id} not found in this guild.")
+                await interaction.followup.send(error_msg.format(party_id=party_id), ephemeral=True); return
             try:
                 if db_field_name == "name":
-                    parsed_value = new_value # It's a simple string now
-                elif db_field_name == "leader_player_id":
+                    parsed_value = new_value
+                elif db_field_name == "leader_player_id" or db_field_name == "current_location_id":
                     if new_value.lower() == 'none' or new_value.lower() == 'null':
                         parsed_value = None
                     else:
                         parsed_value = int(new_value)
                         if parsed_value is not None:
-                            leader_player = await player_crud.get(session, id=parsed_value, guild_id=interaction.guild_id)
-                            if not leader_player:
-                                error_msg = await get_localized_message_template(
-                                    session, interaction.guild_id, "party_update:error_leader_not_found", lang_code,
-                                    "New leader player with ID {player_id} not found in this guild."
-                                )
-                                await interaction.followup.send(error_msg.format(player_id=parsed_value), ephemeral=True)
-                                return
-                # name_i18n case removed
-                elif db_field_name == "player_ids_json":
-                    parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, list) or not all(isinstance(pid, int) for pid in parsed_value):
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_player_ids_not_list_int", lang_code, "player_ids_json must be a list of integers.")
-                        raise ValueError(error_detail_template)
-                    if parsed_value: # Only validate if list is not empty
-                        found_players = await player_crud.get_many_by_ids(session, ids=parsed_value, guild_id=interaction.guild_id)
-                        found_player_ids = {p.id for p in found_players}
-                        missing_player_ids = [pid for pid in parsed_value if pid not in found_player_ids]
-                        if missing_player_ids:
-                            error_msg = await get_localized_message_template(
-                                session, interaction.guild_id, "party_update:error_member_not_found", lang_code,
-                                "One or more player IDs in new player_ids_json not found: {missing_ids}"
-                            )
-                            await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True)
-                            return
-                elif db_field_name == "properties_json":
-                    parsed_value = json.loads(new_value)
-                    if not isinstance(parsed_value, dict):
-                        error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_properties_not_dict", lang_code, "properties_json must be a dictionary.")
-                        raise ValueError(error_detail_template)
+                            if db_field_name == "leader_player_id" and not await player_crud.get(session, id=parsed_value, guild_id=interaction.guild_id):
+                                error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_leader_not_found", lang_code, "New leader player ID {player_id} not found.")
+                                await interaction.followup.send(error_msg.format(player_id=parsed_value), ephemeral=True); return
+                            if db_field_name == "current_location_id":
+                                from src.core.crud.crud_location import location_crud
+                                if not await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id):
+                                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_location_not_found", lang_code, "Location ID {location_id} not found.")
+                                    await interaction.followup.send(error_msg.format(location_id=parsed_value), ephemeral=True); return
+                elif db_field_name == "player_ids_json" or db_field_name == "properties_json":
+                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                    if parsed_value is None: return
+                    if db_field_name == "player_ids_json":
+                        if not isinstance(parsed_value, list) or not all(isinstance(pid, int) for pid in parsed_value):
+                            error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_player_ids_not_list_int", lang_code, "player_ids_json must be a list of integers.")
+                            raise ValueError(error_detail_template)
+                        if parsed_value:
+                            found_players = await player_crud.get_many_by_ids(session, ids=parsed_value, guild_id=interaction.guild_id)
+                            found_player_ids_set = {p.id for p in found_players}
+                            missing_player_ids = [pid for pid in parsed_value if pid not in found_player_ids_set]
+                            if missing_player_ids:
+                                error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_member_not_found", lang_code, "One or more player IDs in new player_ids_json not found: {missing_ids}")
+                                await interaction.followup.send(error_msg.format(missing_ids=", ".join(map(str, missing_player_ids))), ephemeral=True); return
                 elif db_field_name == "turn_status":
                     try:
                         parsed_value = PartyTurnStatus[new_value.upper()]
@@ -450,45 +395,21 @@ class MasterPartyCog(commands.Cog, name="Master Party Commands"):
                         valid_statuses = ", ".join([s.name for s in PartyTurnStatus])
                         error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_invalid_turn_status", lang_code, "Invalid turn_status. Use one of: {valid_options}")
                         raise ValueError(error_detail_template.format(valid_options=valid_statuses))
-                elif db_field_name == "current_location_id":
-                    if new_value.lower() == 'none' or new_value.lower() == 'null':
-                        parsed_value = None
-                    else:
-                        parsed_value = int(new_value)
-                        if parsed_value is not None:
-                            from src.core.crud.crud_location import location_crud # Local import
-                            location = await location_crud.get(session, id=parsed_value, guild_id=interaction.guild_id)
-                            if not location:
-                                error_detail_template = await get_localized_message_template(session, interaction.guild_id, "party_update:error_detail_location_not_found", lang_code, "Location with ID {location_id} not found.")
-                                raise ValueError(error_detail_template.format(location_id=parsed_value))
-                else: # Should not be reached if field_type check is correct
-                    error_msg = await get_localized_message_template(
-                         session, interaction.guild_id, "party_update:error_unknown_field_type", lang_code,
-                        "Internal error: Unknown field type for '{field_name}'."
-                    )
-                    await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True)
-                    return
-            except ValueError as e: # Specific exception first
-                error_msg = await get_localized_message_template(
-                    session, interaction.guild_id, "party_update:error_invalid_value_type", lang_code,
-                    # Removed {expected_type} as it's hard to determine accurately here for all cases
-                    "Invalid value '{value}' for field '{field_name}'. Details: {details}"
-                )
-                expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None' # type: ignore
-                if field_type == PartyTurnStatus: expected_type_str = "PartyTurnStatus enum name" # type: ignore
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str, details=str(e)), ephemeral=True)
-                return
-            # JSONDecodeError is a subclass of ValueError, so this block is unreachable if ValueError is caught first.
-            # except json.JSONDecodeError as e:
-            #     error_msg = await get_localized_message_template(
-            #         session, interaction.guild_id, "party_update:error_invalid_json", lang_code,
-            #         "Invalid JSON string '{value}' for field '{field_name}'. Details: {details}"
-            #     )
-            #     await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
-            #     return
+                else:
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_unknown_field_type", lang_code, "Internal error: Unknown field type for '{field_name}'.")
+                    await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True); return
+            except ValueError as e:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "party_update:error_invalid_value_type", lang_code, "Invalid value '{value}' for field '{field_name}'. Details: {details}")
+                expected_type_str = field_type.__name__ if not isinstance(field_type, tuple) else 'int or None'
+                if field_type == PartyTurnStatus: expected_type_str = "PartyTurnStatus enum name"
+                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, expected_type=expected_type_str, details=str(e)), ephemeral=True); return
 
-            party_to_update = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
-            if not party_to_update:
+            if db_field_name == "player_ids_json":
+                original_player_ids_before_update = list(party_to_update.player_ids_json) if party_to_update.player_ids_json else []
+
+            update_data_dict = {db_field_name: parsed_value}
+            updated_party: Optional[Party] = None
+            try:
                 error_msg = await get_localized_message_template(
                     session, interaction.guild_id, "party_update:error_party_not_found", lang_code,
                     "Party with ID {party_id} not found in this guild."
