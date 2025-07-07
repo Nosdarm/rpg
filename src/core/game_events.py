@@ -38,9 +38,11 @@ async def log_event(
     party_id: Optional[int] = None,  # Retained for placeholder info, not directly on StoryLog model
     location_id: Optional[int] = None,
     entity_ids_json: Optional[dict] = None,
+    dry_run: bool = False,
 ) -> Optional["StoryLog"]: # Modified to return StoryLog or None
     """
     Logs a game event to the StoryLog and returns the created entry.
+    If dry_run is True, it simulates logging and returns a mock-like StoryLog without DB interaction.
     The event_type should match a key in the EventType enum.
     The caller is responsible for session management (commit/rollback).
     """
@@ -71,6 +73,28 @@ async def log_event(
         location_id=location_id,
         entity_ids_json=final_entity_ids if final_entity_ids else None,
     )
+
+    if dry_run:
+        logger.info(f"Dry run: StoryLog event '{event_type}' for guild {guild_id} would be created with details: {details_json}")
+        # Simulate a StoryLog object without saving to DB.
+        # Some fields like id, created_at, updated_at won't be populated as they are DB-generated.
+        # This mock StoryLog is primarily for functions that might expect a StoryLog object
+        # in a dry_run scenario, though its utility might be limited without DB state.
+        mock_log_entry = StoryLog(
+            id=0, # Placeholder ID for dry run
+            guild_id=guild_id,
+            event_type=event_type_enum_member,
+            details_json=details_json,
+            location_id=location_id,
+            entity_ids_json=final_entity_ids if final_entity_ids else None
+        )
+        # Timestamps could be faked if necessary:
+        # from datetime import datetime, timezone
+        # now = datetime.now(timezone.utc)
+        # mock_log_entry.created_at = now
+        # mock_log_entry.updated_at = now
+        return mock_log_entry
+
     session.add(log_entry)
     try:
         await session.flush() # Flush to get the ID and other server-set defaults like timestamp

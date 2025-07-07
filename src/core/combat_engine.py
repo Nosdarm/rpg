@@ -165,12 +165,15 @@ async def process_combat_action(
     combat_instance_id: int,
     actor_id: int,
     actor_type: str,
-    action_data: dict
+    action_data: dict,
+    dry_run: bool = False
 ) -> CombatActionResult:
     """
     Processes a combat action for a given actor within a combat encounter.
+    If dry_run is True, it simulates the action without making DB changes.
     """
-    logger.info(f"Processing combat action for guild {guild_id}, combat {combat_instance_id}, actor {actor_type}:{actor_id}")
+    log_prefix = "[DRY RUN] " if dry_run else ""
+    logger.info(f"{log_prefix}Processing combat action for guild {guild_id}, combat {combat_instance_id}, actor {actor_type}:{actor_id}")
     logger.debug(f"Action data: {action_data}")
 
     action_type_str = action_data.get("action_type", "unknown")
@@ -407,7 +410,10 @@ async def process_combat_action(
         "action_details": log_entry_details
     })
 
-    session.add(combat_encounter) # Mark for saving
+    if not dry_run:
+        session.add(combat_encounter) # Mark for saving
+    else:
+        logger.info(f"{log_prefix}Combat encounter {combat_instance_id} changes (participants_json, combat_log_json) were in-memory only.")
 
     # Log to global StoryLog
     # Prepare entity_ids for StoryLog
@@ -421,10 +427,11 @@ async def process_combat_action(
         event_type=EventType.COMBAT_ACTION.name, # Use enum member name
         details_json=combat_action_result.model_dump(exclude_none=True),
         location_id=combat_encounter.location_id,
-        entity_ids_json=story_log_entity_ids
+        entity_ids_json=story_log_entity_ids,
+        dry_run=dry_run # Pass dry_run flag
     )
 
-    logger.info(f"Combat action processed. Result: Success={combat_action_result.success}, Damage={combat_action_result.damage_dealt}")
+    logger.info(f"{log_prefix}Combat action processed. Result: Success={combat_action_result.success}, Damage={combat_action_result.damage_dealt}")
     return combat_action_result
 
 logger.info("Combat engine module initialized with process_combat_action.")
