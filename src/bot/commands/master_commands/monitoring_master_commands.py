@@ -150,7 +150,7 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
         interaction: discord.Interaction,
         page: app_commands.Range[int, 1] = 1,
         limit: app_commands.Range[int, 1, 100] = 10,
-        event_type_filter: Optional[EventType] = None, # Directly using EventType from models
+        event_type_filter: Optional[str] = None, # Changed EventType to str
     ):
         """Lists StoryLog entries with pagination and optional filters."""
         await interaction.response.defer(ephemeral=True)
@@ -158,19 +158,36 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
         if not master_player or not session:
             return
 
+        processed_event_type: Optional[EventType] = None
+        if event_type_filter:
+            try:
+                processed_event_type = EventType[event_type_filter.upper()]
+            except KeyError:
+                error_msg_template = await get_localized_message_template(
+                    session, # type: ignore
+                    interaction.guild_id,
+                    "master_monitor.log_list.invalid_event_type",
+                    str(interaction.locale),
+                    "Invalid event type: '{input_event_type}'. Please use a valid event type name (e.g., PLAYER_ACTION, COMBAT_START)."
+                )
+                error_msg = error_msg_template.format(input_event_type=event_type_filter)
+                await interaction.followup.send(error_msg, ephemeral=True)
+                if session: await session.close()
+                return
+
         try:
             skip = (page - 1) * limit
             total_entries = await story_log_crud.count_by_guild_with_filters(
                 session,
                 guild_id=interaction.guild_id,
-                event_type=event_type_filter,
+                event_type=processed_event_type, # Use the processed enum member
             )
             log_entries = await story_log_crud.get_multi_by_guild_with_filters(
                 session,
                 guild_id=interaction.guild_id,
                 skip=skip,
                 limit=limit,
-                event_type=event_type_filter,
+                event_type=processed_event_type, # Use the processed enum member
                 descending=True, # Show newest first
             )
 
