@@ -570,8 +570,8 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
             return
 
         import json
-        from src.core.conflict_simulation_system import simulate_conflict_detection
-        from src.models.pending_conflict import PendingConflict # For type hint
+        from src.core.conflict_simulation_system import simulate_conflict_detection, PydanticConflictForSim # Import PydanticConflictForSim
+        # from src.models.pending_conflict import PendingConflict # No longer needed for type hint
 
         parsed_actions_data: List[Dict[str, Any]]
         try:
@@ -591,7 +591,7 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
 
         async with get_db_session() as session:
             try:
-                simulated_conflicts: List[PendingConflict] = await simulate_conflict_detection(
+                simulated_conflicts: List[PydanticConflictForSim] = await simulate_conflict_detection( # Updated type hint
                     session=session,
                     guild_id=guild_id,
                     actions_input_data=parsed_actions_data
