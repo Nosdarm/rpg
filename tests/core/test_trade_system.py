@@ -208,8 +208,71 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "sell")
         self.assertAlmostEqual(price, 50.0 * 0.95) # 47.5
 
+    async def test_calculate_price_relationship_modifier_tiers_sell_high_relation(self):
+        mock_relationship = Relationship(value=80) # Friendly
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = mock_relationship
+        relationship_trade_rule = {
+            "tiers": [
+                {"relationship_above": 75, "sell_multiplier_mod": 0.15}, # Player sells for 15% more
+                {"relationship_above": 0, "sell_multiplier_mod": 0.0},
+            ]
+        }
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: relationship_trade_rule if key == "relationship_influence:trade:price_adjustment" else None
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "sell")
+        self.assertAlmostEqual(price, 50.0 * 1.15) # 57.5
+
+    async def test_calculate_price_relationship_modifier_tiers_neutral_no_default(self):
+        mock_relationship = Relationship(value=10) # Neutral-ish
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = mock_relationship
+        relationship_trade_rule = {
+            "tiers": [ # No tier for 10, and no default
+                {"relationship_above": 75, "buy_multiplier_mod": -0.10},
+                {"relationship_above": 25, "buy_multiplier_mod": -0.05},
+            ]
+        }
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: relationship_trade_rule if key == "relationship_influence:trade:price_adjustment" else None
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "buy")
+        self.assertAlmostEqual(price, 50.0) # Should be base price as no relationship modifier applies
+
+    async def test_calculate_price_relationship_modifier_tiers_use_default_tier(self):
+        mock_relationship = Relationship(value=-10) # Negative, but no specific tier for it
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = mock_relationship
+        relationship_trade_rule = {
+            "tiers": [
+                {"relationship_above": 75, "buy_multiplier_mod": -0.10},
+                {"relationship_default": True, "buy_multiplier_mod": 0.05}, # Default makes it 5% more expensive
+            ]
+        }
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: relationship_trade_rule if key == "relationship_influence:trade:price_adjustment" else None
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "buy")
+        self.assertAlmostEqual(price, 50.0 * 1.05) # 52.5
+
+    async def test_calculate_price_no_relationship_rule_defined(self):
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = Relationship(value=100)
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: None # No rule for relationship_influence:trade:price_adjustment
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "buy")
+        self.assertAlmostEqual(price, 50.0) # Should be base price
+
+    async def test_calculate_price_relationship_rule_invalid_structure(self):
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = Relationship(value=100)
+        # Rule exists but is malformed (e.g., not a dict, or missing 'tiers' and formulas)
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: {"bad_structure": True} if key == "relationship_influence:trade:price_adjustment" else None
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "buy")
+        self.assertAlmostEqual(price, 50.0) # Should default to base price without erroring out, multiplier remains 1.0
+
+    async def test_calculate_price_relationship_modifier_formula_buy_positive_relation(self):
+        mock_relationship = Relationship(value=50) # Positive relationship
+        self.mock_crud_relationship.get_relationship_between_entities.return_value = mock_relationship
+        relationship_trade_rule = {
+             "buy_price_adjustment_formula": "1.0 - (@relationship_value@ * 0.002)" # 1.0 - (50 * 0.002) = 1.0 - 0.1 = 0.9
+        }
+        self.mock_get_rule.side_effect = lambda session, guild_id, key: relationship_trade_rule if key == "relationship_influence:trade:price_adjustment" else None
+        self.mock_evaluate_formula.side_effect = lambda formula_str, context: 1.0 - (context["relationship_value"] * 0.002)
+        price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, self.item_sword, "buy")
+        self.assertAlmostEqual(price, 50.0 * 0.9) # 45.0
+
     async def test_calculate_price_min_price_applied(self):
-        very_cheap_item = Item(**mock_item_data(id=100, static_id="dirt_pile", name_en="Dirt", base_value=1)) # Changed 0.2 to 1
+        very_cheap_item = Item(**mock_item_data(id=100, static_id="dirt_pile", name_en="Dirt", base_value=1))
         # Make multipliers very low
         self.mock_evaluate_formula.return_value = 0.01 # This will result in 1 * 0.01 = 0.01, so min price 1.0 should apply
         price = await _calculate_item_price(self.mock_session, self.guild_id, self.mock_player, self.mock_npc, very_cheap_item, "sell")
