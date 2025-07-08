@@ -763,5 +763,8 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
 async def setup(bot: commands.Bot):
     await bot.add_cog(MasterMonitoringCog(bot))
     logger.info("MasterMonitoringCog added to bot.")
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> b0a64547be3388017802a9bd1f1800343f0c8262

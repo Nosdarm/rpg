@@ -94,6 +94,20 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         }
         self.mock_get_rule.side_effect = lambda session, guild_id, key, default: default
 
+<<<<<<< HEAD
+    async def _run_analysis(self, entity_type: str, mock_parsed_entity: Optional[BaseGeneratedEntity], context_json: Optional[str] = None):
+        from src.core.ai_response_parser import ParsedAiData # Import for wrapping
+        entities_for_payload = []
+        if mock_parsed_entity:
+            # Pass as dict for Pydantic to validate against the Union
+            entities_for_payload.append(mock_parsed_entity.model_dump(mode='json'))
+
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="mock raw output for test", # Added required field
+            generated_entities=entities_for_payload
+            # errors=[] # Removed, ParsedAiData does not have an 'errors' field
+        )
+=======
     async def _run_analysis(self, entity_type: str, mock_test_data_entity: Optional[BaseGeneratedEntity], context_json: Optional[str] = None):
         from src.core.ai_response_parser import ParsedAiData, GeneratedEntity, PydanticNativeValidationError # Ensure imports
 
@@ -118,6 +132,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         # self.mock_parse_and_validate.return_value directly. This is handled by previous diffs
         # for tests like test_key_field_missing_for_item, test_filtering_..., etc.
         # test_pydantic_validation_error_captured also sets this mock directly to a CustomValidationError.
+>>>>>>> b0a64547be3388017802a9bd1f1800343f0c8262
 
         return await analyze_generated_content(
             session=self.mock_session, guild_id=self.guild_id, entity_type=entity_type,
@@ -298,9 +313,14 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(report.validation_errors), 1) # type: ignore[arg-type]
         # The SUT stores details as JSON strings in the report
         self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0]) # type: ignore[index]
+<<<<<<< HEAD
+        self.assertIn("'loc': ('name_i18n',)", report.validation_errors[0]) # type: ignore[index]
+        self.assertIn("'msg': 'field required'", report.validation_errors[0]) # type: ignore[index]
+=======
         # Pydantic v2 errors() returns loc as a list of strings/ints, not a tuple
         self.assertIn('"loc": ["name_i18n"]', report.validation_errors[0]) # type: ignore[index]
         self.assertIn('"msg": "field required"', report.validation_errors[0]) # type: ignore[index] # Use double quotes for JSON string value
+>>>>>>> b0a64547be3388017802a9bd1f1800343f0c8262
 
 
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):

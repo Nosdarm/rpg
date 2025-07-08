@@ -74,6 +74,7 @@ def _extract_primary_target_signature(action: ParsedAction) -> Optional[str]:
         obj_name = find_entity_value("target_object_name")
         if obj_name: return f"obj_name:{obj_name.lower()}"
     if intent == "use":
+        # Priority: Item, then Skill, then World Object
         target_item_id_for_use = find_entity_value("target_item_id")
         item_static_id_for_use = find_entity_value("item_static_id")
         item_name_val = find_entity_value("item_name")
@@ -81,26 +82,40 @@ def _extract_primary_target_signature(action: ParsedAction) -> Optional[str]:
         if target_item_id_for_use: item_signature_part = f"item_instance:{target_item_id_for_use}"
         elif item_static_id_for_use: item_signature_part = f"item_static:{item_static_id_for_use}"
         elif item_name_val: item_signature_part = f"item_name:{item_name_val.lower()}"
+
         if item_signature_part:
             target_npc_id_for_item_use = find_entity_value("target_npc_id")
             if target_npc_id_for_item_use: return f"use:{item_signature_part}@target:npc:{target_npc_id_for_item_use}"
             target_player_id_for_item_use = find_entity_value("target_player_id")
             if target_player_id_for_item_use: return f"use:{item_signature_part}@target:player:{target_player_id_for_item_use}"
             if any(e.type == "target_self" and e.value.lower() == "true" for e in entities) or \
-               not (target_npc_id_for_item_use or target_player_id_for_item_use):
+               not (target_npc_id_for_item_use or target_player_id_for_item_use): # Default to self if no other target
                  return f"use_on_self:{item_signature_part}"
+            # If item signature part exists but no specific target or self, it might be an invalid use or context-dependent
+            # For now, let it fall through or return a generic item use signature if that makes sense.
+            # However, typically 'use item' implies a target or self.
+
         skill_id_val = find_entity_value("skill_id")
         skill_name_val = find_entity_value("skill_name")
         actual_skill_ref = None
         if skill_id_val: actual_skill_ref = skill_id_val
         elif skill_name_val: actual_skill_ref = skill_name_val.lower()
+
         if actual_skill_ref:
             skill_sig_part = f"skill:{actual_skill_ref}"
             target_npc_id_for_skill_use = find_entity_value("target_npc_id")
             if target_npc_id_for_skill_use: return f"use:{skill_sig_part}@target:npc:{target_npc_id_for_skill_use}"
             target_player_id_for_skill_use = find_entity_value("target_player_id")
             if target_player_id_for_skill_use: return f"use:{skill_sig_part}@target:player:{target_player_id_for_skill_use}"
+            # Default to self if no other target for skill
             return f"use_on_self:{skill_sig_part}"
+
+        # New: Check for using a world object directly with 'use' intent
+        target_object_static_id_for_use = find_entity_value("target_object_static_id")
+        if target_object_static_id_for_use: return f"use_obj_static:{target_object_static_id_for_use}" # Reverted to use_obj_static
+        target_object_name_for_use = find_entity_value("target_object_name")
+        if target_object_name_for_use: return f"use_obj_name:{target_object_name_for_use.lower()}" # Reverted to use_obj_name
+
     if intent == "move":
         loc_static_id = find_entity_value("location_static_id")
         if loc_static_id: return f"location_static:{loc_static_id}"
@@ -150,11 +165,18 @@ DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG: Dict[str, Dict[str, Any]] = {
         "target_prefixes": ["item_instance:", "item_static:", "item_name:"],
         "description": "Only one actor can 'take' the same item instance/type at a time."
     },
-    "EXCLUSIVE_OBJECT_INTERACTION": {
-        "intents": ["interact", "use"],
-        "target_prefixes": ["obj_static:", "obj_name:"],
+    "EXCLUSIVE_OBJECT_MANIPULATION": { # Renamed and expanded
+        "intents": ["interact", "use"], # Added "use"
+        "target_prefixes": ["obj_static:", "obj_name:", "use_obj_static:", "use_obj_name:"], # Added new prefixes
         "description": "'interact' or 'use' on the same specific object by multiple actors."
     },
+    # Conceptual rule for future expansion if actor state becomes available
+    # "EXCLUSIVE_TARGET_USAGE_WITH_STATE": {
+    #     "intents": ["use_object_exclusive"], # Hypothetical intent for objects like alchemy tables
+    #     "target_prefixes": ["obj_static:", "obj_name:"],
+    #     "description": "Only one actor can 'use' an exclusive-use object at a time, considering state."
+    #     # "requires_actor_state": {"field": "is_using_exclusive_object", "value": false} # Hypothetical
+    # },
     "COMBAT_ENGAGEMENT_SHARED_TARGET": {
         "intents": ["attack"],
         "target_prefixes": ["npc:", "player:", "npc_name:"],
@@ -191,25 +213,36 @@ DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG: List[Dict[str, Any]] = [
     {
         "intent_pair": ["attack", "trade_view_inventory"],
         "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+        "description": "Attacking an NPC during trade initiation." # Added description
     },
     {
         "intent_pair": ["attack", "trade_buy_item"],
         "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+        "description": "Attacking an NPC during a buy transaction." # Added description
     },
     {
         "intent_pair": ["attack", "trade_sell_item"],
         "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+        "description": "Attacking an NPC during a sell transaction." # Added description
     },
     {
-        "intent_pair": ["interact", "destroy_object"],
-        "applies_to": [{"conflict_name_template": "object_state_conflict", "target_prefixes": ["obj_static:", "obj_name:"]}],
+        "intent_pair": ["interact", "destroy_object"], # Assuming "destroy_object" is a valid intent
+        "applies_to": [{"conflict_name_template": "object_state_conflict", "target_prefixes": ["obj_static:", "obj_name:", "use_obj_static:", "use_obj_name:"]}], # Expanded target_prefixes
         "description": "Interacting with an object while another tries to destroy it."
     },
     {
-        "intent_pair": ["talk", "use"],
+        "intent_pair": ["talk", "use"], # 'use' can be item or skill on NPC
         "applies_to": [{"conflict_name_template": "npc_interaction_interference", "target_prefixes": ["npc:", "npc_name:"]}],
         "description": "Talking to an NPC while another tries to 'use' an item/skill on them."
     },
+    # Conceptual rule for future expansion
+    # {
+    #     "intent_pair": ["activate_portal_step1", "activate_portal_step2"], # Hypothetical sequence
+    #     "applies_to": [{"conflict_name_template": "portal_activation_sequence_conflict", "target_prefixes": ["obj_static:portal_main"]}],
+    #     "description": "Two actors trying to perform different steps of a sequential activation on the same portal.",
+    #     # "requires_sequence_order": true, # Hypothetical property
+    #     # "actor_must_not_be_same": true # Hypothetical: different actors conflict, same actor is fine
+    # },
 ]
 
 async def _get_rules_same_intent_same_target(session: AsyncSession, guild_id: int) -> Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]]:

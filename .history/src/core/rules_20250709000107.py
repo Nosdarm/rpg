@@ -37,10 +37,14 @@ async def load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> D
         except Exception as e_scalars:
             logger.error(f"In load_rules_config_for_guild: Error calling executed_statement.scalars(): {e_scalars}")
 
+<<<<<<< HEAD
+    rules_from_db = executed_statement.scalars().all() # This is line ~35 now
+=======
     # executed_statement is the result of `await session.execute(statement)`
     # .scalars() on this result is a synchronous method returning a ScalarResult (or similar).
     # .all() on the ScalarResult is also synchronous.
     rules_from_db = executed_statement.scalars().all()
+>>>>>>> b0a64547be3388017802a9bd1f1800343f0c8262
 
     guild_rules: Dict[str, Any] = {}
     for rule in rules_from_db: # This will be line ~38
