@@ -128,7 +128,7 @@ async def test_trigger_ai_generation_flow_success(
     assert create_entity_call_args["status"] == ModerationStatus.PENDING_MODERATION
     assert create_entity_call_args["parsed_validated_data_json"] == mock_parsed_ai_data.model_dump()
 
-    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc]
+    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
     mock_update_entity.assert_any_call(mock_session, mock_player, {"current_status": PlayerStatus.AWAITING_MODERATION}) # type: ignore[attr-defined, misc]
 
     mock_notify_master.assert_called_once() # type: ignore[attr-defined, misc]
@@ -233,7 +233,7 @@ async def test_save_approved_generation_success(
     )
 
     assert success is True
-    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc]
+    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
 
     assert mock_create_entity.call_count == 1
     create_npc_call_args = mock_create_entity.call_args.args[2]
@@ -310,7 +310,7 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
     success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction")
+    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction") # type: ignore[reportCallIssue]
     mock_crud_relationship_create.assert_called_once()
     # Call is crud_relationship.create(session, obj_in=rel_obj_in)
     # So, rel_obj_in is in kwargs
@@ -587,7 +587,7 @@ async def test_generate_narrative_success_player_language(
     )
 
     assert narrative == expected_narrative
-    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc]
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
     mock_get_rule.assert_not_called() # Guild language rule should not be fetched
 
     # Check prompt construction (simplified check)

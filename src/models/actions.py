@@ -24,7 +24,7 @@ class ParsedAction(BaseModel):
 
     # Contextual information
     guild_id: int # Should always be present
-    player_id: int # Discord ID of the player
+    player_id: Optional[int] = None # Discord ID of the player, optional for system/NPC actions
 
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.now)
 

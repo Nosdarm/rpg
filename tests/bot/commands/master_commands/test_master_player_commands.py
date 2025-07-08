@@ -146,7 +146,7 @@ async def test_master_player_create_success(
         mock_get_localized_template.side_effect = mock_localization_side_effect
 
         # Call the command with correct parameters
-        await cog.player_create.callback(
+        await cog.player_create.callback( # type: ignore[reportCallIssue]
             cog,
             mock_interaction_fixture,
             discord_user=mock_discord_user,         # Pass discord.User object
@@ -187,7 +187,7 @@ async def test_master_player_create_success(
         # attributes_json would be {} if attributes_json_str is None and parsed_attributes becomes {}
 
     # Localization for success message
-    mock_get_localized_template.assert_any_call(
+    mock_get_localized_template.assert_any_call( # type: ignore[reportAttributeAccessIssue]
         ANY, # session
         guild_id_fixture,
         "player_create:success_title", # SUT uses this for embed title
@@ -209,8 +209,8 @@ async def test_master_player_create_success(
     # And if mock_localization_side_effect returned that for "player_create:success_title"
     # Then the title would be formatted.
     # For simplicity, we'll assume the title contains the player name from created_player_fixture.
-    assert created_player_fixture.name in sent_embed.title
-    assert str(created_player_fixture.id) in sent_embed.title
+    assert sent_embed.title is not None and created_player_fixture.name in sent_embed.title
+    assert sent_embed.title is not None and str(created_player_fixture.id) in sent_embed.title
     assert call_kwargs.get("ephemeral") == True
 
 @pytest.mark.asyncio
@@ -242,7 +242,7 @@ async def test_master_player_create_handles_guild_none(
     mock_dummy_user = AsyncMock(spec=discord.User)
     mock_dummy_user.id = 123 # Matches the discord_id it was trying to pass
 
-    await cog.player_create.callback(
+    await cog.player_create.callback( # type: ignore[reportCallIssue]
         cog,
         mock_interaction_fixture,
         discord_user=mock_dummy_user, # Correct parameter
@@ -351,7 +351,7 @@ async def test_master_player_create_with_attributes_json(
         # Configure the mock update_entity to return the player, so the rest of the SUT can proceed
         mock_update_entity_func_attr.return_value = created_player_fixture
 
-        await cog.player_create.callback(
+        await cog.player_create.callback( # type: ignore[reportCallIssue]
             cog,
             mock_interaction_fixture,
             discord_user=mock_discord_user_attr,
@@ -359,7 +359,7 @@ async def test_master_player_create_with_attributes_json(
             attributes_json_str=attributes_str
         )
         # Assert json.loads was called correctly inside the SUT path
-        mock_json_loads.assert_called_once_with(attributes_str)
+        mock_json_loads.assert_called_once_with(attributes_str) # type: ignore[reportAttributeAccessIssue]
 
         mock_update_entity_func_attr.assert_called_once()
         update_call_args_attr = mock_update_entity_func_attr.call_args.kwargs
@@ -375,7 +375,7 @@ async def test_master_player_create_with_attributes_json(
     # Example: Check title (depends on how "Success" template is handled for titles)
     # If mock_get_localized_template.return_value = "Success" was for the title key:
     # assert "Success" in sent_embed_attr.title # Or more specific if title includes player name
-    assert "AttrPlayer" in sent_embed_attr.title # Assuming title includes player name
+    assert sent_embed_attr.title is not None and "AttrPlayer" in sent_embed_attr.title # Assuming title includes player name
     assert call_kwargs_send.get("ephemeral") == True
 
 
@@ -404,7 +404,7 @@ async def test_master_player_create_bad_attributes_json(
     mock_discord_user_bad_json = AsyncMock(spec=discord.User)
     mock_discord_user_bad_json.id = 12345
 
-    await cog.player_create.callback(
+    await cog.player_create.callback( # type: ignore[reportCallIssue]
         cog,
         mock_interaction_fixture,
         discord_user=mock_discord_user_bad_json,

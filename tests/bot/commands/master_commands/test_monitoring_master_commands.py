@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 from discord.ext import commands # Added import
+from sqlalchemy.ext.asyncio import AsyncSession # Added for type hinting
 
 from src.bot.commands.master_commands.monitoring_master_commands import MasterMonitoringCog
 from src.models import StoryLog, EventType, Player, RuleConfig, Location, LocationType, GeneratedNpc, Party, GlobalNpc, MobileGroup

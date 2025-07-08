@@ -116,7 +116,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     }.get(key, df)
 
 
-    await cog.conflict_resolve.callback(
+    await cog.conflict_resolve.callback( # type: ignore[reportCallIssue]
         cog,
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
@@ -130,7 +130,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     mock_crud_pending_conflict_instance.update.assert_called_once() # Check args if necessary
 
     # Check that get_count_by_guild_and_status was called after update to check remaining
-    mock_crud_pending_conflict_instance.get_count_by_guild_and_status.assert_called_once_with(
+    mock_crud_pending_conflict_instance.get_count_by_guild_and_status.assert_called_once_with( # type: ignore[reportAttributeAccessIssue]
         mock_session_fixture, guild_id=guild_id_fixture, status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
 
@@ -203,7 +203,7 @@ async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
         "common:value_na": "N/A"
     }.get(key, df)
 
-    await cog.conflict_resolve.callback(
+    await cog.conflict_resolve.callback( # type: ignore[reportCallIssue]
         cog,
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
