@@ -764,4 +764,4 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(MasterMonitoringCog(bot))
     logger.info("MasterMonitoringCog added to bot.")
 
-[end of src/bot/commands/master_commands/monitoring_master_commands.py]
+
