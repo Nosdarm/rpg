@@ -14,6 +14,7 @@ class TestGlobalEventModel(unittest.TestCase):
             name_i18n={"en": "Dragon Sighting Delta"},
             description_i18n={"en": "A dragon was reportedly sighted."}, # description is required
             event_type="sighting",
+            properties_json={} # Explicitly provide default for test
         )
         # self.assertIsNotNone(event.created_at) # Default might not apply without session
         # self.assertIsNotNone(event.updated_at)

@@ -24,11 +24,23 @@ async def load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> D
     """
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
-    result = await session.execute(statement) # Renamed db to session
-    rules_from_db = result.scalars().all() # Fixed: .all() is not async here for scalars
+    executed_statement = await session.execute(statement) # Renamed db to session
+    logger.info(f"In load_rules_config_for_guild: type(executed_statement) = {type(executed_statement)}")
+    logger.info(f"In load_rules_config_for_guild: dir(executed_statement) = {dir(executed_statement)}")
+    if hasattr(executed_statement, 'scalars'):
+        logger.info(f"In load_rules_config_for_guild: type(executed_statement.scalars) = {type(executed_statement.scalars)}")
+        logger.info(f"In load_rules_config_for_guild: dir(executed_statement.scalars) = {dir(executed_statement.scalars)}")
+        try:
+            scalars_result = executed_statement.scalars()
+            logger.info(f"In load_rules_config_for_guild: type(scalars_result) = {type(scalars_result)}")
+            logger.info(f"In load_rules_config_for_guild: dir(scalars_result) = {dir(scalars_result)}")
+        except Exception as e_scalars:
+            logger.error(f"In load_rules_config_for_guild: Error calling executed_statement.scalars(): {e_scalars}")
+
+    rules_from_db = executed_statement.scalars().all() # This is line ~35 now
 
     guild_rules: Dict[str, Any] = {}
-    for rule in rules_from_db:
+    for rule in rules_from_db: # This will be line ~38
         guild_rules[rule.key] = rule.value_json
 
     _rules_cache[guild_id] = guild_rules
