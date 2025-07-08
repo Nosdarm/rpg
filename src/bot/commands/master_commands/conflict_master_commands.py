@@ -14,7 +14,7 @@ from src.core.localization_utils import get_localized_message_template
 
 logger = logging.getLogger(__name__)
 
-class MasterConflictCog(commands.Cog, name="Master Conflict Commands"):
+class MasterConflictCog(commands.Cog, name="Master Conflict Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterConflictCog initialized.")

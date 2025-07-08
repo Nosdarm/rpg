@@ -16,7 +16,7 @@ from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
-class MasterFactionCog(commands.Cog, name="Master Faction Commands"):
+class MasterFactionCog(commands.Cog, name="Master Faction Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterFactionCog initialized.")

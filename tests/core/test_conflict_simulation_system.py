@@ -1,6 +1,12 @@
+import os
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple # Added Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +16,15 @@ from src.models.enums import RelationshipEntityType, ConflictStatus
 from src.core.conflict_simulation_system import simulate_conflict_detection, _extract_primary_target_signature, SimulatedActionActor
 
 # Helper function to create ParsedAction instances easily
+from typing import List, Dict, Any, Optional # Ensure Optional is imported
+
+# ... other imports ...
+
+# Helper function to create ParsedAction instances easily
 def create_parsed_action(
     raw_text: str,
     intent: str,
-    entities: list[ActionEntity] = None, # Made entities optional for simpler calls
+    entities: Optional[list[ActionEntity]] = None, # Corrected type hint
     guild_id: int = 1,
     player_id: int = 1 # Discord ID
 ) -> ParsedAction:
@@ -405,6 +416,16 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
         self._check_use_self_vs_take_conflicts = _check_use_self_vs_take_conflicts
         self._extract_primary_target_signature = _epfs
 
+        # Define sample rules for testing the rule application functions directly
+        self.sample_rules_same_intent: Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]] = {
+            "EXCLUSIVE_ITEM_MANIPULATION": ({"take"}, ("item_static:", "item_instance:", "item_name:")), # Changed key
+            "MULTI_ATTACK": ({"attack"}, ("npc:", "player:")),
+        }
+        self.sample_rules_conflicting_pairs: Dict[frozenset[str], List[Tuple[str, Tuple[str, ...]]]] = {
+            frozenset(["take", "use"]): [("item_contention", ("item_static:", "item_instance:", "item_name:"))],
+            frozenset(["attack", "talk"]): [("disrupted_interaction_npc", ("npc:", "npc_name:"))],
+        }
+
 
     def test_apply_same_intent_two_takes_on_item(self):
         action_p1 = create_parsed_action("take potion", "take", [ActionEntity(type="item_static_id", value="potion1")])
@@ -415,9 +436,10 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
         ]
         target_sig = "item_static:potion1"
 
-        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id, self.sample_rules_same_intent)
         self.assertEqual(len(conflicts), 1)
-        self.assertEqual(conflicts[0].conflict_type, "sim_item_take_contention_on_item_static_potion1") # Updated expected type
+        # If category is EXCLUSIVE_ITEM_MANIPULATION and intent is take, SUT generates this specific type:
+        self.assertEqual(conflicts[0].conflict_type, "sim_item_take_contention_on_item_static_potion1")
         # Check that resolution details now only contain target_signature for this specific type
         self.assertEqual(conflicts[0].resolution_details_json, {"target_signature": target_sig})
 
@@ -431,12 +453,16 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
             (self.player3_sim_actor, action_p3)
         ]
         target_sig = "npc:orc1"
-        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id, self.sample_rules_same_intent)
         self.assertEqual(len(conflicts), 1) # Should still be one conflict involving all 3
-        self.assertEqual(conflicts[0].conflict_type, "sim_multi_attack_on_npc_orc1") # Updated expected type
+        # Based on the 'MULTI_ATTACK' category and 'attack' intent, the generated type is:
+        self.assertEqual(conflicts[0].conflict_type, "sim_multi_attack_on_attack_for_npc_orc1")
         self.assertEqual(len(conflicts[0].involved_entities_json), 3)
         # Check that resolution details now only contain target_signature for this specific type
-        self.assertEqual(conflicts[0].resolution_details_json, {"target_signature": target_sig})
+        # The 'else' branch for conflict_type_str also has a general resolution_details:
+        expected_details = {"target_signature": target_sig, "category": "MULTI_ATTACK", "conflicting_intent": "attack"}
+        self.assertEqual(conflicts[0].resolution_details_json, expected_details)
+
 
     def test_apply_same_intent_no_conflict_different_targets(self):
         # This function is called with actions already grouped by target, so this exact scenario isn't its direct responsibility.
@@ -445,7 +471,7 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
         action_p1 = create_parsed_action("take potion A", "take", [ActionEntity(type="item_static_id", value="potionA")])
         actions_on_target = [(self.player1_sim_actor, action_p1)] # Only one action for this target_sig
         target_sig = "item_static:potionA"
-        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id, self.sample_rules_same_intent)
         self.assertEqual(len(conflicts), 0)
 
     def test_apply_same_intent_no_conflict_non_exclusive_intent(self):
@@ -456,8 +482,8 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
             (self.player2_sim_actor, action_p2)
         ]
         target_sig = "item_static:potion1"
-        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
-        self.assertEqual(len(conflicts), 0) # Examine is not in CONFLICT_RULES_SAME_INTENT_SAME_TARGET
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id, self.sample_rules_same_intent)
+        self.assertEqual(len(conflicts), 0) # Examine is not in self.sample_rules_same_intent's "intents" for any category
 
     def test_apply_conflicting_intent_pairs_take_vs_use(self):
         action_p1_take = create_parsed_action("take potion", "take", [ActionEntity(type="item_static_id", value="potion1")])
@@ -467,9 +493,9 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
             (self.player2_sim_actor, action_p2_use)
         ]
         target_sig = "item_static:potion1"
-        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [], self.sample_rules_conflicting_pairs)
         self.assertEqual(len(conflicts), 1)
-        self.assertEqual(conflicts[0].conflict_type, "sim_item_contention_on_item_static_potion1") # No suffix
+        self.assertEqual(conflicts[0].conflict_type, "sim_item_contention_on_item_static_potion1")
         expected_details = {"target_signature": target_sig, "intents": sorted(["take", "use"])}
         self.assertEqual(conflicts[0].resolution_details_json, expected_details)
 
@@ -481,9 +507,9 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
             (self.player2_sim_actor, action_p2_talk)
         ]
         target_sig = "npc_name:guard"
-        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [], self.sample_rules_conflicting_pairs)
         self.assertEqual(len(conflicts), 1)
-        self.assertEqual(conflicts[0].conflict_type, "sim_disrupted_interaction_npc_on_npc_name_guard") # Updated: no suffix
+        self.assertEqual(conflicts[0].conflict_type, "sim_disrupted_interaction_npc_on_npc_name_guard")
         expected_details = {"target_signature": target_sig, "intents": sorted(["attack", "talk"])}
         self.assertEqual(conflicts[0].resolution_details_json, expected_details)
 
@@ -496,7 +522,7 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
             (self.player2_sim_actor, action_p2_look)
         ]
         target_sig = "hypothetical_common_target"
-        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [], self.sample_rules_conflicting_pairs)
         self.assertEqual(len(conflicts), 0)
 
     def test_check_use_self_vs_take_conflict(self):

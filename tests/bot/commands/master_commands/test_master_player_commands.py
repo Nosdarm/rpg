@@ -129,8 +129,21 @@ async def test_master_player_create_success(
         mock_update_entity_func.return_value = created_player_fixture # Assume update also returns the player
 
         # Mock localization
-        success_template_str = "Player Created: {player_name} (ID: {player_id})" # From SUT
-        mock_get_localized_template.return_value = success_template_str
+        success_template_str = "Player Created: {player_name} (ID: {player_id})"
+        generic_error_template_str = "Generic error creating player: {error_message}" # Test-safe
+        existing_player_error_template_str = "Player already exists for Discord ID {discord_id}."
+
+        def mock_localization_side_effect(session, guild_id, key, locale_str_call, default_msg_text, **kwargs): # Added **kwargs to match SUT call
+            # kwargs might include format_params if get_localized_message_template is robust
+            if key == "player_create:success":
+                return success_template_str
+            elif key == "player_create:error_generic_create":
+                return generic_error_template_str
+            elif key == "player_create:error_discord_id_exists":
+                return existing_player_error_template_str
+            return default_msg_text # Fallback
+
+        mock_get_localized_template.side_effect = mock_localization_side_effect
 
         # Call the command with correct parameters
         await cog.player_create.callback(
@@ -174,23 +187,31 @@ async def test_master_player_create_success(
         # attributes_json would be {} if attributes_json_str is None and parsed_attributes becomes {}
 
     # Localization for success message
-    # The SUT constructs this key: "player_create:success_title"
     mock_get_localized_template.assert_any_call(
         ANY, # session
         guild_id_fixture,
-        "player_create:success",
+        "player_create:success_title", # SUT uses this for embed title
         command_locale_fixture,
         ANY # default message
     )
+    # Assert that other label keys are called if needed for more robust testing.
 
-    expected_message = success_template_str.format(
-        player_name=name_to_create,
-        player_id=player_id_to_create,
-        discord_id=discord_id_to_create,
-        guild_id=guild_id_fixture
-    )
     assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
-    mock_interaction_fixture.followup.send.assert_called_once_with(expected_message, ephemeral=True)
+    # Check that send was called and an embed was part of the call
+    mock_interaction_fixture.followup.send.assert_called_once()
+    call_kwargs = mock_interaction_fixture.followup.send.call_args.kwargs
+    assert "embed" in call_kwargs
+    sent_embed = call_kwargs["embed"]
+    assert isinstance(sent_embed, discord.Embed)
+    # Example check on embed title (assuming success_template_str is used for title)
+    # This depends on how mock_localization_side_effect is configured for "player_create:success_title"
+    # If success_template_str was "Player Created: {player_name} (ID: {player_id})"
+    # And if mock_localization_side_effect returned that for "player_create:success_title"
+    # Then the title would be formatted.
+    # For simplicity, we'll assume the title contains the player name from created_player_fixture.
+    assert created_player_fixture.name in sent_embed.title
+    assert str(created_player_fixture.id) in sent_embed.title
+    assert call_kwargs.get("ephemeral") == True
 
 @pytest.mark.asyncio
 @patch('src.bot.commands.master_commands.player_master_commands.get_db_session')
@@ -242,7 +263,7 @@ async def test_master_player_create_handles_guild_none(
 
     assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
     mock_interaction_fixture.followup.send.assert_called_once_with(guild_only_error_template, ephemeral=True)
-    mock_player_crud_instance.create_with_specific_id.assert_not_called()
+    mock_player_crud_instance.create_with_defaults.assert_not_called() # Changed from create_with_specific_id
 
 # To run these tests:
 # Ensure pytest and pytest-asyncio are installed
@@ -276,7 +297,8 @@ async def test_master_player_create_with_attributes_json(
     attributes_str = '{"charisma": 12, "intelligence": 14}'
     parsed_attributes = {"charisma": 12, "intelligence": 14}
     mock_json_loads.return_value = parsed_attributes
-    mock_player_crud_instance.create_with_specific_id.return_value = created_player_fixture
+    # mock_player_crud_instance.create_with_specific_id.return_value = created_player_fixture # This method does not exist
+    mock_player_crud_instance.create_with_defaults.return_value = created_player_fixture # player_create uses this
     mock_get_localized_template.return_value = "Success" # Simplified for this test
 
     # Mock discord.User object
@@ -288,17 +310,9 @@ async def test_master_player_create_with_attributes_json(
     # Mock player_crud.get_by_discord_id for this test path
     mock_player_crud_instance.get_by_discord_id.return_value = None
 
+    # Removed the redundant call that was here. The call is now inside the with block.
 
-    await cog.player_create.callback(
-        cog,
-        mock_interaction_fixture,
-        discord_user=mock_discord_user_attr,
-        player_name="AttrPlayer",
-        attributes_json_str=attributes_str
-        # Other optional parameters will use their defaults in the command
-    )
-
-    mock_json_loads.assert_called_once_with(attributes_str)
+    mock_json_loads.assert_called_once_with(attributes_str) # This should be checked after the call
 
     # Assert create_with_defaults was called
     mock_player_crud_instance.create_with_defaults.assert_called_once()
@@ -332,8 +346,37 @@ async def test_master_player_create_with_attributes_json(
     # For now, this test will primarily ensure json.loads and the command flow happens.
     # A more accurate check of `attributes_json` being set would involve inspecting `update_entity` call.
 
+    # Patch update_entity for this test's scope
+    with patch('src.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func_attr:
+        # Configure the mock update_entity to return the player, so the rest of the SUT can proceed
+        mock_update_entity_func_attr.return_value = created_player_fixture
+
+        await cog.player_create.callback(
+            cog,
+            mock_interaction_fixture,
+            discord_user=mock_discord_user_attr,
+            player_name="AttrPlayer",
+            attributes_json_str=attributes_str
+        )
+        # Assert json.loads was called correctly inside the SUT path
+        mock_json_loads.assert_called_once_with(attributes_str)
+
+        mock_update_entity_func_attr.assert_called_once()
+        update_call_args_attr = mock_update_entity_func_attr.call_args.kwargs
+        assert update_call_args_attr['data']['attributes_json'] == parsed_attributes
+
     assert isinstance(mock_interaction_fixture.followup.send, AsyncMock) # Hint for Pyright
-    mock_interaction_fixture.followup.send.assert_called_once_with("Success", ephemeral=True)
+    # Command sends an embed on success
+    mock_interaction_fixture.followup.send.assert_called_once()
+    call_kwargs_send = mock_interaction_fixture.followup.send.call_args.kwargs
+    assert "embed" in call_kwargs_send
+    sent_embed_attr = call_kwargs_send["embed"]
+    assert isinstance(sent_embed_attr, discord.Embed)
+    # Example: Check title (depends on how "Success" template is handled for titles)
+    # If mock_get_localized_template.return_value = "Success" was for the title key:
+    # assert "Success" in sent_embed_attr.title # Or more specific if title includes player name
+    assert "AttrPlayer" in sent_embed_attr.title # Assuming title includes player name
+    assert call_kwargs_send.get("ephemeral") == True
 
 
 @pytest.mark.asyncio
@@ -392,4 +435,4 @@ async def test_master_player_create_bad_attributes_json(
     assert "Error" in sent_message # Check for error detail (simplified)
     assert mock_interaction_fixture.followup.send.call_args[1]['ephemeral'] == True
 
-    mock_player_crud_instance.create_with_specific_id.assert_not_called()
+    mock_player_crud_instance.create_with_defaults.assert_not_called() # Changed from create_with_specific_id

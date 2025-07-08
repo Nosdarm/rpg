@@ -401,11 +401,11 @@ async def generate_factions_and_relationships(
                     "ai_metadata_json": entity_data.ai_metadata_json,
                 }
                 # Check for unique static_id within the guild before creating
-                existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id)
+                existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id) # type: ignore[arg-type]
                 if existing_faction:
                     logger.warning(f"Faction with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping.")
                     # Optionally, map this static_id to the existing DB ID for relationship creation
-                    static_id_to_db_id_map[entity_data.static_id] = existing_faction.id
+                    static_id_to_db_id_map[entity_data.static_id] = existing_faction.id # type: ignore # Pyright might struggle with Mapped type as dict key
                     created_factions.append(existing_faction) # Add existing to list if needed for return
                     continue
 
@@ -413,7 +413,7 @@ async def generate_factions_and_relationships(
                 await session.flush() # Ensure ID is available
                 if new_faction_db:
                     created_factions.append(new_faction_db)
-                    static_id_to_db_id_map[new_faction_db.static_id] = new_faction_db.id # type: ignore
+                    static_id_to_db_id_map[new_faction_db.static_id] = new_faction_db.id # type: ignore # Pyright might struggle with Mapped type as dict key
                     logger.info(f"Created faction '{new_faction_db.name_i18n.get('en')}' (ID: {new_faction_db.id}, StaticID: {new_faction_db.static_id}) for guild {guild_id}")
                 else:
                     logger.error(f"Failed to create faction DB entry for static_id: {entity_data.static_id}")
@@ -778,10 +778,10 @@ async def generate_economic_entities(
         # First pass: Create Items
         for entity_data in parsed_ai_data.generated_entities:
             if isinstance(entity_data, ParsedItemData):
-                existing_item = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id)
+                existing_item = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id) # type: ignore[arg-type]
                 if existing_item:
                     logger.warning(f"Item with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping creation. DB ID: {existing_item.id}")
-                    item_static_to_db_id_map[existing_item.static_id] = existing_item.id # type: ignore
+                    item_static_to_db_id_map[existing_item.static_id] = existing_item.id # type: ignore # Pyright might struggle with Mapped type as dict key
                     created_items_db.append(existing_item) # Add existing to list for return if needed
                     continue
 

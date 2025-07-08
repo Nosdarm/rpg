@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Dict, Any, Optional
+from typing import Optional, Dict, Any, Union, List # Added Union, List
 
 import discord
 from discord import app_commands
@@ -18,7 +18,7 @@ from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
-class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
+class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterGlobalNpcCog initialized.")
@@ -30,7 +30,7 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
         guild_only=True
     )
 
-    async def _format_json_field_display(self, interaction: discord.Interaction, data: Optional[Dict[Any, Any]], lang_code: str) -> str:
+    async def _format_json_field_display(self, interaction: discord.Interaction, data: Optional[Union[Dict[Any, Any], List[Any]]], lang_code: str) -> str:
         # Simplified helper for display, not using default_na_key/error_key from view directly to avoid session issues
         # Fallback to basic strings if localization fails or not in session context of this helper
         na_str = "Not available"
@@ -97,7 +97,7 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
             properties_str = await self._format_json_field_display(interaction, gnpc.properties_json, lang_code)
             embed.add_field(name=await get_label("properties_json", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```", inline=False)
 
-            ai_meta_str = await self._format_json_field_display(interaction, gnpc.ai_metadata_json, lang_code)
+            ai_meta_str = await self._format_json_field_display(interaction, gnpc.ai_metadata_json, lang_code) # type: ignore[attr-defined]
             embed.add_field(name=await get_label("ai_metadata_json", "AI Metadata JSON"), value=f"```json\n{ai_meta_str[:1000]}\n```", inline=False)
 
 
@@ -195,7 +195,7 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
             parsed_ai_meta = await parse_json_parameter(interaction, ai_metadata_json, "ai_metadata_json", session)
             if parsed_ai_meta is None and ai_metadata_json is not None: return
 
-            if await global_npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id):
+            if await global_npc_crud.get_by_attribute(session, attribute="static_id", value=static_id, guild_id=interaction.guild_id):
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"gnpc_create:error_static_id_exists",lang_code,"Global NPC with static_id '{id}' already exists.")
                 await interaction.followup.send(error_msg.format(id=static_id), ephemeral=True); return
             if npc_template_id and not await npc_crud.get(session, id=npc_template_id, guild_id=interaction.guild_id):
@@ -319,7 +319,7 @@ class MasterGlobalNpcCog(commands.Cog, name="Master Global NPC Commands"):
                 if db_field_name == "static_id":
                     parsed_value = new_value
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
-                    if parsed_value != gnpc_to_update.static_id and await global_npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value):
+                    if parsed_value != gnpc_to_update.static_id and await global_npc_crud.get_by_attribute(session, attribute="static_id", value=parsed_value, guild_id=interaction.guild_id):
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"gnpc_update:error_static_id_exists",lang_code,"Static ID '{id}' already in use.")
                         await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
                 elif db_field_name in ["name_i18n", "description_i18n", "behavior_type_i18n", "properties_json", "ai_metadata_json"] or field_to_update_lower == "route_json":

@@ -17,7 +17,7 @@ from src.models.enums import StatusEffectCategory as StatusEffectCategoryEnum, R
 
 logger = logging.getLogger(__name__)
 
-class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"):
+class MasterStatusEffectCog(commands.Cog, name="Master Status Effect Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterStatusEffectCog initialized.")

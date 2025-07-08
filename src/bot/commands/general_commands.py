@@ -81,7 +81,7 @@ async def _populate_default_locations_in_command(session: AsyncSession, guild_id
     else:
         logger.info(f"Стандартные локации уже существуют или не определены для гильдии {guild_id} (из команды).")
 
-class GeneralCog(commands.Cog, name="General Commands"):
+class GeneralCog(commands.Cog, name="General Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("GeneralCog инициализирован.")

@@ -10,7 +10,7 @@ from src.core.localization_utils import get_localized_master_message # Removed g
 
 logger = logging.getLogger(__name__)
 
-class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
+class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterSimulationToolsCog initialized.")
@@ -371,11 +371,14 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                     embed.add_field(name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_check_result", "Check Result", str(interaction.locale)), value=cr_text, inline=False)
 
                 if updated_combat_encounter and updated_combat_encounter.participants_json:
-                    participants_str = json.dumps(updated_combat_encounter.participants_json.get("entities", []), indent=2, ensure_ascii=False)
+                    # Assure Pyright that participants_json is not None here
+                    from typing import cast
+                    participants_dict = cast(Dict[str, Any], updated_combat_encounter.participants_json)
+                    participants_str = json.dumps(participants_dict.get("entities", []), indent=2, ensure_ascii=False)
                     if len(participants_str) > 1018: participants_str = participants_str[:1018] + "..."
                     embed.add_field(
                         name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_participants_state", "Participants State (Post-Action)", str(interaction.locale)),
-                        value=f"```json\n{participants_str}\n```",
+                        value=f"```json\n{participants_str}\n```", # This is where L350 was likely pointing
                         inline=False
                     )
                 else:

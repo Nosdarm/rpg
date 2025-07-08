@@ -15,7 +15,7 @@ from src.core.localization_utils import get_localized_message_template
 
 logger = logging.getLogger(__name__)
 
-class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
+class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterPlayerCog initialized.")
@@ -183,9 +183,11 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
 
                 if update_data_for_override:
                     async with session.begin_nested(): # Use nested transaction for the update part
+                        # update_entity (via CRUDBase.update) already refreshes the entity with the session.
                         new_player = await update_entity(session, entity=new_player, data=update_data_for_override)
-                        if new_player: # Should always be true if update_entity succeeds
-                             await session.refresh(new_player)
+                        # The redundant refresh below was causing issues in tests and is not needed.
+                        # if new_player:
+                        #      await session.refresh(new_player)
 
                 await session.commit() # Commit the main transaction (create + optional update)
 

@@ -345,7 +345,7 @@ logger.info("Localization utils (localization_utils.py) created.")
 
 async def get_localized_master_message(
     session: AsyncSession,
-    guild_id: int,
+    guild_id: Optional[int], # Changed to Optional[int]
     message_key: str,
     default_template: str,
     locale: str, # This should be the target locale string e.g. "en-US", "ru"
@@ -385,31 +385,35 @@ async def get_localized_master_message(
 
     template_to_format = default_template # Start with the ultimate fallback
 
-    try:
-        # Attempt to get i18n templates dictionary from RuleConfig
-        i18n_templates: Optional[Dict[str, str]] = await get_rule(
-            session, guild_id, full_rule_key, default=None
-        )
+    if guild_id is not None: # Only try to fetch from RuleConfig if guild_id is provided
+        try:
+            # Attempt to get i18n templates dictionary from RuleConfig
+            i18n_templates: Optional[Dict[str, str]] = await get_rule(
+                session, guild_id, full_rule_key, default=None
+            )
 
-        if i18n_templates and isinstance(i18n_templates, dict):
-            # We have a dictionary of locales and templates from RuleConfig
-            # Use get_localized_text to pick the best one based on current locale and fallback logic
-            selected_template = get_localized_text(i18n_templates, locale) # primary_fallback_lang is "en" by default in get_localized_text
-            if selected_template: # If get_localized_text found a suitable template
-                template_to_format = selected_template
-            else:
-                logger.debug(f"RuleConfig '{full_rule_key}' found for guild {guild_id}, but no template for locale '{locale}' or fallbacks. Using default template for key '{message_key}'.")
-        elif i18n_templates: # It's not a dict, maybe a direct string? (legacy or misconfiguration)
-             if isinstance(i18n_templates, str):
-                template_to_format = i18n_templates # Use it directly
-                logger.debug(f"RuleConfig '{full_rule_key}' for guild {guild_id} is a direct string. Using it as template.")
-             else:
-                logger.warning(f"RuleConfig '{full_rule_key}' for guild {guild_id} is not a dict or string. Using default template for key '{message_key}'.")
-        # If i18n_templates is None, we stick with default_template initialized above
+            if i18n_templates and isinstance(i18n_templates, dict):
+                # We have a dictionary of locales and templates from RuleConfig
+                # Use get_localized_text to pick the best one based on current locale and fallback logic
+                selected_template = get_localized_text(i18n_templates, locale) # primary_fallback_lang is "en" by default in get_localized_text
+                if selected_template: # If get_localized_text found a suitable template
+                    template_to_format = selected_template
+                else:
+                    logger.debug(f"RuleConfig '{full_rule_key}' found for guild {guild_id}, but no template for locale '{locale}' or fallbacks. Using default template for key '{message_key}'.")
+            elif i18n_templates: # It's not a dict, maybe a direct string? (legacy or misconfiguration)
+                 if isinstance(i18n_templates, str):
+                    template_to_format = i18n_templates # Use it directly
+                    logger.debug(f"RuleConfig '{full_rule_key}' for guild {guild_id} is a direct string. Using it as template.")
+                 else:
+                    logger.warning(f"RuleConfig '{full_rule_key}' for guild {guild_id} is not a dict or string. Using default template for key '{message_key}'.")
+            # If i18n_templates is None, we stick with default_template initialized above
 
-    except Exception as e:
-        logger.error(f"Error accessing RuleConfig for key '{full_rule_key}' in guild {guild_id}: {e}. Using default template for key '{message_key}'.", exc_info=True)
-        # template_to_format remains default_template
+        except Exception as e:
+            logger.error(f"Error accessing RuleConfig for key '{full_rule_key}' in guild {guild_id}: {e}. Using default template for key '{message_key}'.", exc_info=True)
+            # template_to_format remains default_template
+    else:
+        logger.debug(f"guild_id is None for get_localized_master_message key '{message_key}'. Using default template.")
+
 
     # Format the chosen template
     try:
