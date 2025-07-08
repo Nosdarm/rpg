@@ -33,10 +33,10 @@ class TestQuestModels(unittest.TestCase):
         self.assertEqual(questline.is_main_storyline, data["is_main_storyline"])
         self.assertEqual(questline.required_previous_questline_static_id, data["required_previous_questline_static_id"])
         self.assertEqual(questline.properties_json, data["properties_json"])
-        self.assertIsInstance(questline.created_at, datetime.datetime)
-        self.assertIsInstance(questline.updated_at, datetime.datetime)
-        self.assertIsNotNone(questline.created_at) # Проверка, что default сработал
-        self.assertIsNotNone(questline.updated_at) # Проверка, что default сработал
+        # TimestampMixin defaults (like created_at, updated_at) are typically None on direct instantiation
+        # and are set by SQLAlchemy during session flush/commit.
+        self.assertIsNone(questline.created_at)
+        self.assertIsNone(questline.updated_at)
 
 
     def test_create_generated_quest(self):
@@ -63,8 +63,8 @@ class TestQuestModels(unittest.TestCase):
         self.assertEqual(quest.rewards_json, data["rewards_json"])
         self.assertEqual(quest.properties_json, data["properties_json"])
         self.assertEqual(quest.ai_metadata_json, data["ai_metadata_json"])
-        self.assertIsInstance(quest.created_at, datetime.datetime)
-        self.assertIsInstance(quest.updated_at, datetime.datetime)
+        self.assertIsNone(quest.created_at)
+        self.assertIsNone(quest.updated_at)
 
     def test_create_quest_step(self):
         data = {
@@ -85,8 +85,8 @@ class TestQuestModels(unittest.TestCase):
         # ... (проверки для остальных полей)
         self.assertEqual(step.required_mechanics_json, data["required_mechanics_json"])
         self.assertEqual(step.next_step_order, data["next_step_order"])
-        self.assertIsInstance(step.created_at, datetime.datetime)
-        self.assertIsInstance(step.updated_at, datetime.datetime)
+        self.assertIsNone(step.created_at)
+        self.assertIsNone(step.updated_at)
 
     def test_create_player_quest_progress_for_player(self):
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -110,8 +110,8 @@ class TestQuestModels(unittest.TestCase):
         # ... (проверки для остальных полей)
         self.assertEqual(progress.status, data["status"])
         self.assertEqual(progress.accepted_at, data["accepted_at"])
-        self.assertIsInstance(progress.created_at, datetime.datetime)
-        self.assertIsInstance(progress.updated_at, datetime.datetime)
+        self.assertIsNone(progress.created_at)
+        self.assertIsNone(progress.updated_at)
 
     def test_create_player_quest_progress_for_party(self):
         data = {
@@ -124,7 +124,8 @@ class TestQuestModels(unittest.TestCase):
         progress = PlayerQuestProgress(**data) # type: ignore
         self.assertEqual(progress.party_id, data["party_id"])
         self.assertIsNone(progress.player_id)
-        self.assertIsInstance(progress.created_at, datetime.datetime)
+        self.assertIsNone(progress.created_at)
+        self.assertIsNone(progress.updated_at) # PlayerQuestProgress also uses TimestampMixin
 
     def test_questline_quest_relationship(self):
         questline = Questline(guild_id=1, static_id="ql1", title_i18n={}, description_i18n={})

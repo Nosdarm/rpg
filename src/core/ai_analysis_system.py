@@ -12,7 +12,7 @@ from src.core.ai_prompt_builder import (
     prepare_ai_prompt as prepare_general_location_content_prompt,
     _get_entity_schema_terms
 )
-from src.core.ai_response_parser import parse_and_validate_ai_response, BaseGeneratedEntity
+from src.core.ai_response_parser import parse_and_validate_ai_response, BaseGeneratedEntity, CustomValidationError, ParsedAiData # Added CustomValidationError, ParsedAiData
 from src.core.rules import get_rule
 from src.core.ai_orchestrator import make_real_ai_call # Import the new function
 
@@ -149,15 +149,22 @@ async def analyze_generated_content(
 
             report.raw_ai_response = raw_response_text
 
-            parsed_data_list: List[BaseGeneratedEntity] = []
-            try:
-                parsed_data_list = await parse_and_validate_ai_response(
-                    session=session, guild_id=guild_id, response_text=raw_response_text, expected_entity_type=entity_type_lower
-                )
-                filtered_parsed_data = [p for p in parsed_data_list if p.entity_type == entity_type_lower]
-                if entity_type_lower == "npc" and not filtered_parsed_data: # Special case for npc_trader
-                     filtered_parsed_data = [p for p in parsed_data_list if p.entity_type == "npc_trader"]
+            # Corrected call to parse_and_validate_ai_response
+            parsed_or_error_response = await parse_and_validate_ai_response(
+                raw_ai_output_text=raw_response_text,
+                guild_id=guild_id
+            )
 
+            if isinstance(parsed_or_error_response, CustomValidationError):
+                logger.error(f"Validation error for {entity_type} {i+1}: {parsed_or_error_response.message}")
+                report.issues_found.append(f"AI Response Validation Error: {parsed_or_error_response.message}")
+                if parsed_or_error_response.details:
+                    report.validation_errors = [json.dumps(detail) for detail in parsed_or_error_response.details] # Store details as strings
+            elif isinstance(parsed_or_error_response, ParsedAiData):
+                # Filter for the expected entity type from the parsed data
+                filtered_parsed_data = [p for p in parsed_or_error_response.generated_entities if p.entity_type == entity_type_lower]
+                if entity_type_lower == "npc" and not filtered_parsed_data: # Special case for npc_trader
+                     filtered_parsed_data = [p for p in parsed_or_error_response.generated_entities if p.entity_type == "npc_trader"]
 
                 if filtered_parsed_data:
                     main_parsed_entity = filtered_parsed_data[0]
@@ -168,14 +175,19 @@ async def analyze_generated_content(
                                                   "static_id": getattr(main_parsed_entity, 'static_id', 'N/A')}
                 else:
                     report.issues_found.append(f"AI response parsed, but no entities of type '{entity_type_lower}' found after filtering.")
+            else: # Should not happen if types are correct
+                logger.error(f"Unexpected return type from parse_and_validate_ai_response: {type(parsed_or_error_response)}")
+                report.issues_found.append("Internal error: Unexpected data type from AI parser.")
 
-            except Exception as e_parse:
-                logger.error(f"Error parsing AI response for {entity_type} {i+1}: {e_parse}", exc_info=True)
-                report.issues_found.append(f"Error parsing AI response: {str(e_parse)}")
-                if hasattr(e_parse, 'errors') and callable(getattr(e_parse, 'errors', None)):
-                    report.validation_errors = [str(err) for err in e_parse.errors()]
-                elif hasattr(e_parse, 'errors') and isinstance(getattr(e_parse, 'errors', None), list):
-                     report.validation_errors = [str(err) for err in e_parse.errors]
+
+            # The following try-except block for e_parse is now less likely to be hit for Pydantic ValidationErrors
+            # as they are caught by the CustomValidationError handling above.
+            # It might still catch other unexpected errors if parse_and_validate_ai_response raises something else.
+            # For safety, keep it, but the specific handling for .errors() might be redundant now.
+            # Consider removing or simplifying the specific .errors() attribute check here if CustomValidationError handles it.
+            # For now, let's assume CustomValidationError contains the necessary details.
+            # The previous `except Exception as e_parse:` block is now effectively part of the CustomValidationError handling.
+            # The PydanticNativeValidationError is caught inside parse_and_validate_ai_response and converted.
 
             if report.parsed_entity_data:
                 data = report.parsed_entity_data

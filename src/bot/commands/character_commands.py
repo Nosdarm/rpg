@@ -12,7 +12,7 @@ from src.models import Player
 
 logger = logging.getLogger(__name__)
 
-class CharacterCog(commands.Cog, name="Character Commands"):
+class CharacterCog(commands.Cog, name="Character Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("CharacterCog инициализирован.")

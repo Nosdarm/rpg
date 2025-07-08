@@ -23,7 +23,10 @@ def create_mock_interaction(guild_id: int, user_id: int, locale: str = "en") -> 
     interaction.user.guild_permissions.administrator = True
     interaction.client = MagicMock(spec=discord.Client) # Needed for ensure_guild_configured_and_get_session
     interaction.client.user = MagicMock(spec=discord.ClientUser)
-    interaction.locale = discord.Locale(locale)
+    # interaction.locale = discord.Locale(locale) # This was causing errors
+    mock_locale = MagicMock(spec=discord.Locale)
+    mock_locale.__str__ = MagicMock(return_value=locale)
+    interaction.locale = mock_locale
     interaction.response = MagicMock(spec=discord.InteractionResponse)
     interaction.response.defer = AsyncMock()
     interaction.followup = MagicMock(spec=discord.Webhook)
@@ -37,8 +40,20 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.cog = MasterMonitoringCog(self.bot_mock)
 
         # Mock ensure_guild_configured_and_get_session to avoid DB dependency in most tests
-        self.mock_session = AsyncMock()
+        self.mock_session = AsyncMock(spec=AsyncSession) # Added spec
         self.mock_master_player = MagicMock(spec=Player)
+
+        # Configure the mock_session.execute behavior
+        mock_execute_result = AsyncMock()
+
+        mock_scalars_obj = MagicMock()
+        mock_scalars_obj.all.return_value = [] # Default: no rules found
+        mock_scalars_obj.one_or_none.return_value = None # Default for scalar_one_or_none
+
+        mock_execute_result.scalars.return_value = mock_scalars_obj
+        mock_execute_result.scalar_one_or_none.return_value = None # For direct scalar results from execute
+
+        self.mock_session.execute.return_value = mock_execute_result
 
         self.patch_ensure_guild = patch(
             "src.bot.commands.master_commands.monitoring_master_commands.ensure_guild_configured_and_get_session",
@@ -79,7 +94,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
 
         mock_story_log_get.return_value = mock_log_entry
 
-        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view)
+        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view) # type: ignore[call-arg]
 
         interaction.response.defer.assert_called_once_with(ephemeral=True)
         mock_story_log_get.assert_called_once_with(self.mock_session, id=log_id_to_view, guild_id=interaction.guild_id)
@@ -97,7 +112,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         log_id_to_view = 404
         mock_story_log_get.return_value = None
 
-        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view)
+        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view) # type: ignore[call-arg]
 
         interaction.response.defer.assert_called_once_with(ephemeral=True)
         mock_story_log_get.assert_called_once_with(self.mock_session, id=log_id_to_view, guild_id=interaction.guild_id)
@@ -113,7 +128,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_log_entries = [MagicMock(spec=StoryLog, id=i, event_type=EventType.SYSTEM_EVENT, timestamp=discord.utils.utcnow(), details_json={"msg":f"Entry {i}"}) for i in range(1,3)]
         mock_get_multi.return_value = mock_log_entries
 
-        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None)
+        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None) # type: ignore[call-arg]
 
         interaction.response.defer.assert_called_once_with(ephemeral=True)
         mock_count.assert_called_once_with(self.mock_session, guild_id=interaction.guild_id, event_type=None)
@@ -134,7 +149,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_count.return_value = 0
         mock_get_multi.return_value = []
 
-        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None)
+        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None) # type: ignore[call-arg]
 
         interaction.followup.send.assert_called_once_with(f"loc_master_monitor.log_list.no_entries_{{'page': {page}}}", ephemeral=True)
 
@@ -151,7 +166,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_rule_entry.updated_at = discord.utils.utcnow()
         mock_rule_get_by_key.return_value = mock_rule_entry
 
-        await self.cog.worldstate_get.callback(self.cog, interaction, key=key_to_get)
+        await self.cog.worldstate_get.callback(self.cog, interaction, key=key_to_get) # type: ignore[call-arg]
 
         mock_rule_get_by_key.assert_called_once_with(self.mock_session, guild_id=interaction.guild_id, key=key_to_get)
         sent_embed = interaction.followup.send.call_args[1]['embed']
@@ -169,7 +184,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_loc_entry = MagicMock(spec=Location, id=1, static_id="loc1", name_i18n={"en":"Test Location"}, type=LocationType.TOWN)
         mock_get_multi_loc.return_value = [mock_loc_entry]
 
-        await self.cog.map_list_locations.callback(self.cog, interaction, page=page, limit=limit)
+        await self.cog.map_list_locations.callback(self.cog, interaction, page=page, limit=limit) # type: ignore[call-arg]
 
         mock_count_loc.assert_called_once_with(self.mock_session, guild_id=interaction.guild_id)
         mock_get_multi_loc.assert_called_once_with(self.mock_session, guild_id=interaction.guild_id, skip=0, limit=limit)
@@ -205,7 +220,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_location = MagicMock(spec=Location, id=1, name_i18n={"en":"Player's Town"})
         mock_location_get.return_value = mock_location
 
-        await self.cog.entities_view_player.callback(self.cog, interaction, player_id=player_id_to_view)
+        await self.cog.entities_view_player.callback(self.cog, interaction, player_id=player_id_to_view) # type: ignore[call-arg]
 
         mock_player_get.assert_called_once_with(self.mock_session, id=player_id_to_view, guild_id=interaction.guild_id)
         sent_embed = interaction.followup.send.call_args[1]['embed']

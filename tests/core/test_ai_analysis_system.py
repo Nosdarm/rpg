@@ -1,3 +1,9 @@
+import os
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
@@ -89,10 +95,17 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_get_rule.side_effect = lambda session, guild_id, key, default: default
 
     async def _run_analysis(self, entity_type: str, mock_parsed_entity: Optional[BaseGeneratedEntity], context_json: Optional[str] = None):
+        from src.core.ai_response_parser import ParsedAiData # Import for wrapping
+        entities_for_payload = []
         if mock_parsed_entity:
-            self.mock_parse_and_validate.return_value = [mock_parsed_entity]
-        else: # Simulate parsing error or no entity found
-            self.mock_parse_and_validate.return_value = []
+            # Pass as dict for Pydantic to validate against the Union
+            entities_for_payload.append(mock_parsed_entity.model_dump(mode='json'))
+
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="mock raw output for test", # Added required field
+            generated_entities=entities_for_payload,
+            errors=[]
+        )
 
         return await analyze_generated_content(
             session=self.mock_session, guild_id=self.guild_id, entity_type=entity_type,
@@ -164,18 +177,34 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Quest Step 1 is malformed or missing key fields (step_order, title_i18n, description_i18n).", result.analysis_reports[0].issues_found)
 
     async def test_pydantic_validation_error_captured(self):
-        mock_pydantic_errors = [{"loc": ("name_i18n",), "msg": "field required", "type": "value_error.missing"}]
-        # Simulate parse_and_validate raising a Pydantic ValidationError
-        self.mock_parse_and_validate.side_effect = ValidationError.from_exception_data(title="MockError", line_errors=mock_pydantic_errors)
+        from src.core.ai_response_parser import CustomValidationError # Import for test
 
-        result = await self._run_analysis("npc", None) # Entity doesn't matter as parsing will fail
+        # Simulate parse_and_validate_ai_response returning a CustomValidationError
+        custom_error_details_dicts = [{"loc": ("name_i18n",), "msg": "field required", "type": "value_error.missing", "input": {}}]
+        # Convert details to list of strings as SUT stores them
+        custom_error_details_json_strings = [json.dumps(detail) for detail in custom_error_details_dicts]
+
+        self.mock_parse_and_validate.return_value = CustomValidationError(
+            error_type="TestPydanticValidationError", # Added required field
+            message="Mocked Pydantic Error From Test",
+            details=custom_error_details_dicts # parse_and_validate_ai_response returns dicts here
+        )
+
+        result = await self._run_analysis("npc", None) # Entity type doesn't matter as parsing will "fail" via CustomValidationError
 
         self.assertEqual(len(result.analysis_reports), 1)
         report = result.analysis_reports[0]
-        self.assertTrue(any("Error parsing AI response" in issue for issue in report.issues_found))
+
+        # Check that the SUT correctly identifies the CustomValidationError
+        self.assertTrue(any("AI Response Validation Error: Mocked Pydantic Error From Test" in issue for issue in report.issues_found))
+
         self.assertIsNotNone(report.validation_errors)
-        self.assertEqual(len(report.validation_errors), 1) # type: ignore
-        self.assertIn("'loc': ('name_i18n',)", report.validation_errors[0]) # type: ignore
+        self.assertEqual(len(report.validation_errors), 1)
+        # The SUT stores details as JSON strings in the report
+        self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0])
+        self.assertIn("'loc': ('name_i18n',)", report.validation_errors[0])
+        self.assertIn("'msg': 'field required'", report.validation_errors[0])
+
 
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):
         # Economic prompt generates items and npc_traders

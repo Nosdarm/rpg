@@ -18,7 +18,7 @@ from src.models.enums import RelationshipEntityType
 
 logger = logging.getLogger(__name__)
 
-class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"):
+class MasterRelationshipCog(commands.Cog, name="Master Relationship Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterRelationshipCog initialized.")

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .localization_utils import get_batch_localized_entity_names # Import the new batch function
 from .rules import get_rule # Added import for get_rule
 from ..models.story_log import StoryLog
+from ..models.enums import EventType # Import EventType
 
 logger = logging.getLogger(__name__)
 
@@ -104,30 +105,256 @@ async def _format_log_entry_with_names_cache(
     # but the full content from the read_files output would be used.
     # For brevity, I will just put a placeholder comment, but imagine the full function body is here.
     # [ FULL BODY of _format_log_entry_with_names_cache ]
-    if event_type_str == "PLAYER_ACTION":
-        action_intent = _safe_get(log_entry_details_json, ["action", "intent"], "unknown_action")
+    # IMPORTANT: All conditions below must compare event_type_str with EventType.ENUM_MEMBER.value.upper()
+
+    if event_type_str == EventType.PLAYER_ACTION.value.upper():
+        action_intent = _safe_get(log_entry_details_json, ["action", "intent"], "unknown_action").lower() # Ensure intent is lowercase for term keys
         actor_id = _safe_get(log_entry_details_json, ["actor", "id"])
         actor_type = _safe_get(log_entry_details_json, ["actor", "type"], "entity")
-        target_name_str = _safe_get(log_entry_details_json, ["action", "entities", 0, "name"], "something")
-        actor_name = get_name_from_cache(actor_type, actor_id, actor_type.capitalize()) if actor_id and actor_type else "Someone"
-        # ... and so on for all event types
-        return f"Formatted: {event_type_str} by {actor_name} on {target_name_str} (simplified for overwrite example)"
+
+        actor_name = "Someone" # Default
+        if actor_id and actor_type:
+            actor_name = get_name_from_cache(str(actor_type), actor_id, str(actor_type).capitalize())
+
+        # Simplified entity extraction - real version needs to be more robust
+        entities = _safe_get(log_entry_details_json, ["action", "entities"], [])
+        target_name_str = "something / somewhere"
+        if entities and isinstance(entities, list) and len(entities) > 0:
+            # Attempt to get a name or value from the first entity as a simple representation
+            first_entity = entities[0]
+            if isinstance(first_entity, dict):
+                target_name_str = first_entity.get("name", first_entity.get("value", target_name_str))
 
 
-    logger.warning(f"Unhandled event_type '{event_type_str}' in _format_log_entry_with_names_cache for guild {guild_id}. Returning fallback.")
+        # Default texts for terms, to be overridden by get_term if rules exist
+        verb_defaults = {"en": action_intent, "ru": action_intent}
+        preposition_defaults = {"en": "on", "ru": "на"} # Generic preposition
+
+        verb = await get_term(f"terms.actions.{action_intent}.verb", verb_defaults)
+        # Some actions might not have a direct object/preposition
+        formatted_str = f"{actor_name} {verb}"
+        if action_intent not in ["look"]: # Example: "look" might not need "on something"
+            preposition = await get_term(f"terms.actions.{action_intent}.preposition", preposition_defaults)
+            formatted_str += f" {preposition} '{target_name_str}'"
+
+        result_desc = _safe_get(log_entry_details_json, ["result", "description"])
+        if result_desc:
+            formatted_str += f". Result: {result_desc}"
+        else:
+            formatted_str += "."
+        return formatted_str
+
+    # Add ELIF blocks for all other EventTypes here, comparing with .value.upper()
+    # For example:
+    # elif event_type_str == EventType.MOVEMENT.value.upper():
+    #     # ... formatting logic for MOVEMENT ...
+    #     return "..."
+    # elif event_type_str == EventType.ITEM_ACQUIRED.value.upper():
+    #     # ... formatting logic for ITEM_ACQUIRED ...
+    #     return "..."
+    # ... and so on for all other event types defined in the EventType enum ...
+
+
+    # If no specific formatter matches, the fallback is used.
+    # The original log_entry_details_json.get('event_type') is used for a more user-friendly raw value if available
+    raw_event_type_for_log = log_entry_details_json.get('event_type', 'UNKNOWN_EVENT')
+    logger.warning(f"Unhandled event_type '{event_type_str}' (raw: '{raw_event_type_for_log}') in _format_log_entry_with_names_cache for guild {guild_id}. Returning fallback.")
     return fallback_message
 
 
 def _collect_entity_refs_from_log_entry(log_entry_details: Dict[str, Any]) -> Set[Tuple[str, int]]:
     """Helper to extract (type, id) tuples from a single log entry for batch name fetching."""
     refs: Set[Tuple[str, int]] = set()
-    event_type_str = str(log_entry_details.get("event_type", "")).upper()
+    # Ensure event_type_str is derived correctly for comparison with EventType enum values
+    raw_event_type = log_entry_details.get("event_type")
+    event_type_str_val = str(raw_event_type) if raw_event_type else ""
 
-    # [ FULL BODY of _collect_entity_refs_from_log_entry ]
-    # For brevity, I will just put a placeholder comment.
-    if event_type_str == "PLAYER_MOVE": # Example
+
+    # Player Action (e.g., examine, interact)
+    if event_type_str_val == EventType.PLAYER_ACTION.value:
+        actor_id = _safe_get(log_entry_details, ["actor", "id"])
+        actor_type = _safe_get(log_entry_details, ["actor", "type"])
+        if actor_id and actor_type: refs.add((str(actor_type).lower(), actor_id))
+        # Entities involved in the action itself (e.g., target of examine)
+        # This part needs to be more robust based on actual entity structure in action logs
+        action_entities = _safe_get(log_entry_details, ["action", "entities"], [])
+        for entity_data in action_entities:
+            # Assuming entity_data might have 'id' and 'type' if it's a direct reference
+            # Or it might have 'static_id' and an implicit type based on context
+            # This is highly dependent on how NLU and action logging populates 'entities'
+            # For now, this is a placeholder for more specific entity ref extraction from action.entities
+            pass # Needs specific logic per action intent if entities are complex
+
+    # Movement
+    elif event_type_str_val == EventType.MOVEMENT.value:
         player_id = log_entry_details.get("player_id")
         if player_id: refs.add(("player", player_id))
+        old_loc_id = log_entry_details.get("old_location_id")
+        if old_loc_id: refs.add(("location", old_loc_id))
+        new_loc_id = log_entry_details.get("new_location_id")
+        if new_loc_id: refs.add(("location", new_loc_id))
+
+    # Item Acquired/Lost/Used/Dropped
+    elif event_type_str_val in [EventType.ITEM_ACQUIRED.value, EventType.ITEM_LOST.value, EventType.ITEM_USED.value, EventType.ITEM_DROPPED.value]:
+        player_id = log_entry_details.get("player_id")
+        if player_id: refs.add(("player", player_id))
+        item_id = log_entry_details.get("item_id") # This should be Item.id (PK)
+        if item_id: refs.add(("item", item_id))
+        # For ITEM_USED, there might be a target
+        if event_type_str_val == EventType.ITEM_USED.value:
+            target_entity = _safe_get(log_entry_details, ["target"])
+            if target_entity and isinstance(target_entity, dict):
+                target_id = target_entity.get("id")
+                target_type = target_entity.get("type")
+                if target_id and target_type: refs.add((str(target_type).lower(), target_id))
+
+    # Combat Action
+    elif event_type_str_val == EventType.COMBAT_ACTION.value:
+        actor_id = _safe_get(log_entry_details, ["actor", "id"])
+        actor_type = _safe_get(log_entry_details, ["actor", "type"])
+        if actor_id and actor_type: refs.add((str(actor_type).lower(), actor_id))
+        target_id = _safe_get(log_entry_details, ["target", "id"])
+        target_type = _safe_get(log_entry_details, ["target", "type"])
+        if target_id and target_type: refs.add((str(target_type).lower(), target_id))
+        # ability_id might be in details_json if an ability was used for the action
+        ability_id = _safe_get(log_entry_details, ["ability_id"]) # Assuming direct key
+        if ability_id: refs.add(("ability", ability_id))
+
+
+    # Ability Used
+    elif event_type_str_val == EventType.ABILITY_USED.value:
+        actor_id = _safe_get(log_entry_details, ["actor_entity", "id"])
+        actor_type = _safe_get(log_entry_details, ["actor_entity", "type"])
+        if actor_id and actor_type: refs.add((str(actor_type).lower(), actor_id))
+        ability_id = _safe_get(log_entry_details, ["ability", "id"])
+        if ability_id: refs.add(("ability", ability_id))
+        targets = _safe_get(log_entry_details, ["targets"], [])
+        for target_data in targets:
+            target_id = _safe_get(target_data, ["entity", "id"])
+            target_type = _safe_get(target_data, ["entity", "type"])
+            if target_id and target_type: refs.add((str(target_type).lower(), target_id))
+
+    # Status Applied/Removed
+    elif event_type_str_val in [EventType.STATUS_APPLIED.value, EventType.STATUS_REMOVED.value]:
+        target_id = _safe_get(log_entry_details, ["target_entity", "id"])
+        target_type = _safe_get(log_entry_details, ["target_entity", "type"])
+        if target_id and target_type: refs.add((str(target_type).lower(), target_id))
+        status_id = _safe_get(log_entry_details, ["status_effect", "id"]) # This is StatusEffect.id
+        if status_id: refs.add(("status_effect", status_id))
+        source_entity = _safe_get(log_entry_details, ["source_entity"])
+        if source_entity and isinstance(source_entity, dict):
+            source_id = source_entity.get("id")
+            source_type = source_entity.get("type")
+            if source_id and source_type: refs.add((str(source_type).lower(), source_id))
+
+
+    # Level Up / XP Gained
+    elif event_type_str_val in [EventType.LEVEL_UP.value, EventType.XP_GAINED.value]:
+        player_id = log_entry_details.get("player_id")
+        if player_id: refs.add(("player", player_id))
+
+    # Relationship Change
+    elif event_type_str_val == EventType.RELATIONSHIP_CHANGE.value:
+        e1_id = _safe_get(log_entry_details, ["entity1", "id"])
+        e1_type = _safe_get(log_entry_details, ["entity1", "type"])
+        if e1_id and e1_type: refs.add((str(e1_type).lower(), e1_id))
+        e2_id = _safe_get(log_entry_details, ["entity2", "id"])
+        e2_type = _safe_get(log_entry_details, ["entity2", "type"])
+        if e2_id and e2_type: refs.add((str(e2_type).lower(), e2_id))
+        faction_id = log_entry_details.get("faction_id") # If change is with a faction
+        if faction_id: refs.add(("faction", faction_id))
+
+
+    # Combat Start/End
+    elif event_type_str_val in [EventType.COMBAT_START.value, EventType.COMBAT_END.value]:
+        location_id = log_entry_details.get("location_id")
+        if location_id: refs.add(("location", location_id))
+        participant_ids = log_entry_details.get("participant_ids", [])
+        for p_info in participant_ids:
+            if isinstance(p_info, dict) and "id" in p_info and "type" in p_info:
+                refs.add((str(p_info["type"]).lower(), p_info["id"]))
+        survivors = log_entry_details.get("survivors", []) # For COMBAT_END
+        for s_info in survivors:
+            if isinstance(s_info, dict) and "id" in s_info and "type" in s_info:
+                refs.add((str(s_info["type"]).lower(), s_info["id"]))
+
+    # Quest Events
+    elif event_type_str_val in [EventType.QUEST_ACCEPTED.value, EventType.QUEST_STEP_COMPLETED.value, EventType.QUEST_COMPLETED.value, EventType.QUEST_FAILED.value]:
+        player_id = log_entry_details.get("player_id")
+        if player_id: refs.add(("player", player_id))
+        quest_id = log_entry_details.get("quest_id") # This is GeneratedQuest.id (PK)
+        if quest_id: refs.add(("quest", quest_id))
+        # Giver entity for QUEST_ACCEPTED
+        if event_type_str_val == EventType.QUEST_ACCEPTED.value:
+            giver_id = _safe_get(log_entry_details, ["giver_entity", "id"])
+            giver_type = _safe_get(log_entry_details, ["giver_entity", "type"])
+            if giver_id and giver_type: refs.add((str(giver_type).lower(), giver_id))
+
+    # Dialogue Events
+    elif event_type_str_val in [EventType.DIALOGUE_START.value, EventType.DIALOGUE_END.value]:
+        p_id = _safe_get(log_entry_details, ["player_entity", "id"])
+        p_type = _safe_get(log_entry_details, ["player_entity", "type"])
+        if p_id and p_type: refs.add((str(p_type).lower(), p_id))
+        n_id = _safe_get(log_entry_details, ["npc_entity", "id"])
+        n_type = _safe_get(log_entry_details, ["npc_entity", "type"])
+        if n_id and n_type: refs.add((str(n_type).lower(), n_id))
+
+    elif event_type_str_val == EventType.DIALOGUE_LINE.value:
+        speaker_id = _safe_get(log_entry_details, ["speaker_entity", "id"])
+        speaker_type = _safe_get(log_entry_details, ["speaker_entity", "type"])
+        if speaker_id and speaker_type: refs.add((str(speaker_type).lower(), speaker_id))
+        # Listener might also be relevant if present
+        listener_id = _safe_get(log_entry_details, ["listener_entity", "id"])
+        listener_type = _safe_get(log_entry_details, ["listener_entity", "type"])
+        if listener_id and listener_type: refs.add((str(listener_type).lower(), listener_id))
+
+    # NPC Action
+    elif event_type_str_val == EventType.NPC_ACTION.value:
+        actor_id = _safe_get(log_entry_details, ["actor", "id"])
+        actor_type = _safe_get(log_entry_details, ["actor", "type"])
+        if actor_id and actor_type: refs.add((str(actor_type).lower(), actor_id))
+        # Target of NPC action, if any
+        # This depends on how NPC actions are logged; assuming similar structure to player actions
+        action_entities = _safe_get(log_entry_details, ["action", "entities"], [])
+        for entity_data in action_entities:
+            # Similar placeholder logic as in PLAYER_ACTION
+            pass
+
+    # Faction Change
+    elif event_type_str_val == EventType.FACTION_CHANGE.value:
+        entity_id = _safe_get(log_entry_details, ["entity", "id"])
+        entity_type = _safe_get(log_entry_details, ["entity", "type"])
+        if entity_id and entity_type: refs.add((str(entity_type).lower(), entity_id))
+        faction_id = log_entry_details.get("faction_id")
+        if faction_id: refs.add(("faction", faction_id))
+
+    # Generic events that might have IDs in their details
+    elif event_type_str_val in [EventType.SYSTEM_EVENT.value, EventType.WORLD_STATE_CHANGE.value, EventType.MASTER_COMMAND.value, EventType.ERROR_EVENT.value, EventType.TRADE_INITIATED.value, EventType.GE_TRIGGERED_DIALOGUE_PLACEHOLDER.value]:
+        # Try to find common ID keys if they exist
+        if "player_id" in log_entry_details: refs.add(("player", log_entry_details["player_id"]))
+        if "npc_id" in log_entry_details: refs.add(("npc", log_entry_details["npc_id"])) # Ambiguous: generated or global? Assume generated for now or need type.
+        if "global_npc_id" in log_entry_details: refs.add(("global_npc", log_entry_details["global_npc_id"]))
+        if "generated_npc_id" in log_entry_details: refs.add(("generated_npc", log_entry_details["generated_npc_id"]))
+        if "location_id" in log_entry_details: refs.add(("location", log_entry_details["location_id"]))
+        if "item_id" in log_entry_details: refs.add(("item", log_entry_details["item_id"]))
+        if "quest_id" in log_entry_details: refs.add(("quest", log_entry_details["quest_id"]))
+        if "faction_id" in log_entry_details: refs.add(("faction", log_entry_details["faction_id"]))
+        if "party_id" in log_entry_details: refs.add(("party", log_entry_details["party_id"]))
+
+        # For GE_TRIGGERED_DIALOGUE_PLACEHOLDER specifically
+        if event_type_str_val == EventType.GE_TRIGGERED_DIALOGUE_PLACEHOLDER.value:
+            ge_static_id = log_entry_details.get("ge_static_id") # This is a static_id, not PK
+            ge_type = log_entry_details.get("ge_type") # e.g., "GlobalNpc", "MobileGroup"
+            # We can't easily add these to refs without their PKs.
+            # For name resolution, we'd need to fetch them by static_id if we want their names.
+            # Names_cache is based on PKs.
+            target_entity_id = log_entry_details.get("target_entity_id")
+            target_entity_type = log_entry_details.get("target_entity_type")
+            if target_entity_id and target_entity_type: refs.add((str(target_entity_type).lower(), target_entity_id))
+
+
+    if not refs and event_type_str_val not in [EventType.AI_GENERATION_TRIGGERED.value, EventType.TURN_START.value, EventType.TURN_END.value]: # Events that might not have refs
+        logger.debug(f"No entity references collected for event type '{event_type_str_val}' with details: {log_entry_details}")
 
     return refs
 
