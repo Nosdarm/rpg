@@ -161,6 +161,12 @@ class TestExtractPrimaryTargetSignature(unittest.TestCase):
         self.assertIsNone(_extract_primary_target_signature(action)) # 'manner' is not a target type
 
 
+# ... другие импорты ...
+from src.core.conflict_simulation_system import (
+    DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG,
+    DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG
+)
+
 class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
@@ -168,8 +174,27 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
 
         self.mock_player_crud_get = patch('src.core.crud.player_crud.get', new_callable=AsyncMock).start()
         self.mock_npc_crud_get = patch('src.core.crud.npc_crud.get', new_callable=AsyncMock).start()
-        # self.mock_pending_conflict_crud_create = patch('src.core.crud.pending_conflict_crud.create', new_callable=AsyncMock).start()
 
+        # Мокируем get_rule, используемый внутри conflict_simulation_system
+        self.mock_get_rule = patch('src.core.conflict_simulation_system.get_rule', new_callable=AsyncMock).start()
+
+        # Настройка поведения по умолчанию для mock_get_rule
+        # Он будет возвращать дефолтные правила, если не указано иное в конкретном тесте
+        async def get_rule_side_effect(session, guild_id, key, default_value=None):
+            # Использование default_value из вызова get_rule, если он предоставлен, иначе наши DEFAULT_..._CFG
+            effective_default = default_value
+            if key == "conflict_simulation:rules_same_intent_same_target":
+                if effective_default is None: effective_default = DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG
+                return effective_default
+            if key == "conflict_simulation:rules_conflicting_intent_pairs":
+                if effective_default is None: effective_default = DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG
+                return effective_default
+            if key == "conflict_simulation:enable_use_self_vs_take_check":
+                if effective_default is None: effective_default = {"enabled": True}
+                return effective_default
+            return default_value # Общий случай, вернет None если default_value не был передан в get_rule
+
+        self.mock_get_rule.side_effect = get_rule_side_effect
 
         self.addCleanup(patch.stopall)
 

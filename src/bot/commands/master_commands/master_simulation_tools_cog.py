@@ -613,31 +613,54 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                     )
                     for i, conflict in enumerate(simulated_conflicts):
                         conflict_details_list = []
+                        target_sig_display = ""
+                        if conflict.resolution_details_json and conflict.resolution_details_json.get("target_signature"):
+                            target_sig_loc = await get_localized_master_message(session, guild_id, "simulate_conflict:target_signature_label", "Target Signature", str(interaction.locale))
+                            target_sig_display = f"\n*{target_sig_loc}: `{conflict.resolution_details_json['target_signature']}`*"
+
+                        involved_actions_label = await get_localized_master_message(session, guild_id, "simulate_conflict:involved_actions_label", "Involved actions:", str(interaction.locale))
+
                         for entity_action in conflict.involved_entities_json:
                             actor_type = entity_action.get('entity_type', 'Unknown type')
                             actor_id = entity_action.get('entity_id', 'N/A')
-                            intent = entity_action.get('action_intent', 'Unknown intent')
-                            text = entity_action.get('action_text', '')
-                            conflict_details_list.append(
-                                await get_localized_master_message(
-                                    session, guild_id, "simulate_conflict:conflict_entity_action_detail",
-                                    "- {actor_type} ID {actor_id}: Intent `{intent}`, Text: \"{text}\"",
-                                    str(interaction.locale),
-                                    actor_type=actor_type.capitalize(), actor_id=actor_id, intent=intent, text=text[:50] + ('...' if len(text) > 50 else '')
-                                )
+                            intent_val = entity_action.get('action_intent', 'Unknown intent') # Renamed to avoid conflict
+                            text_val = entity_action.get('action_text', '') # Renamed to avoid conflict
+
+                            entities_str_parts = []
+                            action_entities = entity_action.get("action_entities", [])
+                            if isinstance(action_entities, list) and action_entities:
+                                for act_ent in action_entities[:2]: # Show first 2 entities
+                                    ent_type = act_ent.get('type', 'ent_type')
+                                    ent_val_str = str(act_ent.get('value', 'ent_val'))[:20] # Limit entity value length
+                                    entities_str_parts.append(f"`{ent_type}`: `{ent_val_str}`")
+                            entities_display = f" (Entities: {'; '.join(entities_str_parts)})" if entities_str_parts else ""
+
+                            detail_line = await get_localized_master_message(
+                                session, guild_id, "simulate_conflict:conflict_entity_action_detail_ext", # Potentially new key
+                                "- {actor_type_loc} ID {actor_id_loc}: Intent `{intent_loc}`{entities_display_loc}, Text: \"{text_loc}\"",
+                                str(interaction.locale),
+                                actor_type_loc=actor_type.capitalize(),
+                                actor_id_loc=actor_id,
+                                intent_loc=intent_val,
+                                entities_display_loc=entities_display,
+                                text_loc=text_val[:30] + ('...' if len(text_val) > 30 else '')
                             )
+                            conflict_details_list.append(detail_line)
 
-                        conflict_value = "\n".join(conflict_details_list)
-                        if len(conflict_value) > 1020:
-                             conflict_value = conflict_value[:1020] + "..."
+                        conflict_value_str = f"{involved_actions_label}\n" + "\n".join(conflict_details_list)
+                        conflict_value_str += target_sig_display # Add target signature info
 
+                        if len(conflict_value_str) > 1020:
+                             conflict_value_str = conflict_value_str[:1020] + "..."
+
+                        field_name_str = await get_localized_master_message(
+                            session, guild_id, "simulate_conflict:field_conflict_num", # Re-use existing key for field name
+                            "Conflict #{num} (Type: {conflict_type})", str(interaction.locale),
+                            num=i + 1, conflict_type=conflict.conflict_type
+                        )
                         embed.add_field(
-                            name=await get_localized_master_message(
-                                session, guild_id, "simulate_conflict:field_conflict_num",
-                                "Conflict #{num} (Type: {conflict_type})", str(interaction.locale),
-                                num=i + 1, conflict_type=conflict.conflict_type
-                            ),
-                            value=conflict_value or await get_localized_master_message(session, guild_id, "simulate_conflict:value_no_details", "No details.", str(interaction.locale)),
+                            name=field_name_str,
+                            value=conflict_value_str or await get_localized_master_message(session, guild_id, "simulate_conflict:value_no_details", "No details.", str(interaction.locale)),
                             inline=False
                         )
 
