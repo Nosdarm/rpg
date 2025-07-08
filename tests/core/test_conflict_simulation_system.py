@@ -50,8 +50,9 @@ class TestExtractPrimaryTargetSignature(unittest.TestCase):
         action = create_parsed_action("interact magic scroll", "interact", [ActionEntity(type="item_static_id", value="scroll_of_fire")])
         # Based on current logic: 'interact' does not directly look for item_static_id in its primary block.
         # It will fall through to the generic_target fallback if only one entity.
+        # Based on current logic for "interact", it prioritizes obj_static, obj_name.
+        # If only item_static_id is present, it falls to generic_target.
         self.assertEqual(_extract_primary_target_signature(action), "generic_target:item_static_id:scroll_of_fire")
-
 
     def test_interact_location_object_static_id(self):
         action = create_parsed_action("pull lever", "interact", [ActionEntity(type="target_object_static_id", value="lever_main_gate")])
@@ -60,6 +61,35 @@ class TestExtractPrimaryTargetSignature(unittest.TestCase):
     def test_interact_location_object_name(self):
         action = create_parsed_action("pull the rusty lever", "interact", [ActionEntity(type="target_object_name", value="Rusty Lever")])
         self.assertEqual(_extract_primary_target_signature(action), "obj_name:rusty lever")
+
+    def test_examine_item_id_priority(self):
+        action = create_parsed_action("examine potion", "examine", [
+            ActionEntity(type="item_name", value="Healing Potion"),
+            ActionEntity(type="target_item_id", value="item_inst_123")
+        ])
+        self.assertEqual(_extract_primary_target_signature(action), "item_instance:item_inst_123")
+
+    def test_examine_object_name(self):
+        action = create_parsed_action("examine statue", "examine", [ActionEntity(type="target_object_name", value="Old Statue")])
+        self.assertEqual(_extract_primary_target_signature(action), "obj_name:old statue")
+
+    def test_examine_npc_static_id(self):
+        # Assuming NLU might provide npc_static_id for examine, though target_npc_id is more common for direct interaction
+        # Let's add a hypothetical entity type for this test if needed, or use target_npc_id
+        action = create_parsed_action("examine guard", "examine", [ActionEntity(type="target_npc_id", value="guard_001")])
+        self.assertEqual(_extract_primary_target_signature(action), "npc:guard_001")
+
+    def test_go_to_sublocation_static_id(self):
+        action = create_parsed_action("go to the kitchen", "go_to", [ActionEntity(type="target_sublocation_static_id", value="kitchen_01")])
+        self.assertEqual(_extract_primary_target_signature(action), "subloc_static:kitchen_01")
+
+    def test_go_to_sublocation_name(self):
+        action = create_parsed_action("go to the armory", "go_to", [ActionEntity(type="target_sublocation_name", value="The Armory")])
+        self.assertEqual(_extract_primary_target_signature(action), "subloc_name:the armory")
+
+    def test_go_to_point_name(self):
+        action = create_parsed_action("go to the fireplace", "go_to", [ActionEntity(type="target_point_name", value="Fireplace")])
+        self.assertEqual(_extract_primary_target_signature(action), "point_name:fireplace")
 
     def test_take_item_instance_id(self):
         action = create_parsed_action("take sword", "take", [ActionEntity(type="target_item_id", value="777")])
@@ -219,9 +249,10 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
         result = await simulate_conflict_detection(self.mock_session, 1, actions_data)
         self.assertEqual(len(result), 1)
         conflict = result[0]
-        self.assertTrue(conflict.conflict_type.startswith("sim_item_contention_on_item_instance_101"))
+        # This is caught by Rule 3 (_check_use_self_vs_take_conflicts)
+        self.assertTrue(conflict.conflict_type.startswith("sim_item_use_self_vs_take_item_instance_101"))
         self.assertEqual(len(conflict.involved_entities_json), 2)
-        self.assertEqual(conflict.resolution_details_json, {"target_signature": "item_instance:101", "intents": sorted(["take", "use"])})
+        self.assertEqual(conflict.resolution_details_json, {"item_signature": "item_instance:101"})
 
 
     async def test_conflict_use_on_self_vs_take_same_item_static_id(self):
@@ -290,13 +321,15 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result), 1)
         conflict = result[0]
         self.assertEqual(conflict.status, ConflictStatus.SIMULATED_INTERNAL_CONFLICT)
-        # Based on CONFLICTING_INTENT_PAIRS_ON_SAME_TARGET for (take, use)
-        self.assertTrue(conflict.conflict_type.startswith("sim_item_contention_on_item_static_artifact_xyz"))
-        self.assertEqual(len(conflict.involved_entities_json), 2) # Only P1 and P2 conflict
+        # This should be caught by Rule 3 (use_on_self vs take)
+        self.assertTrue(conflict.conflict_type.startswith("sim_item_use_self_vs_take_item_static_artifact_xyz"))
+        self.assertEqual(len(conflict.involved_entities_json), 2) # P1 (take) and P2 (use on self)
         involved_ids = {e["entity_id"] for e in conflict.involved_entities_json}
-        self.assertIn(1, involved_ids)
-        self.assertIn(2, involved_ids)
-        self.assertNotIn(3, involved_ids)
+        self.assertIn(1, involved_ids) # P1
+        self.assertIn(2, involved_ids) # P2
+        self.assertNotIn(3, involved_ids) # P3 (examine) should not be part of this specific conflict
+        # Check details from Rule 3
+        self.assertEqual(conflict.resolution_details_json, {"item_signature": "item_static:artifact_xyz"})
 
 
     async def test_no_target_signature_actions_no_conflict(self):
@@ -326,6 +359,162 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
         self.assertIn(1, ids_in_conflict)
         self.assertIn(3, ids_in_conflict)
         self.assertNotIn(2, ids_in_conflict)
+
+
+class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.guild_id = 1
+        self.player1_sim_actor = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=1, name="P1", guild_id=self.guild_id), parsed_action=create_parsed_action("",""))
+        self.player2_sim_actor = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=2, name="P2", guild_id=self.guild_id), parsed_action=create_parsed_action("",""))
+        self.player3_sim_actor = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=3, name="P3", guild_id=self.guild_id), parsed_action=create_parsed_action("",""))
+
+        # Import the functions to be tested (they are not async, so direct import is fine)
+        from src.core.conflict_simulation_system import (
+            _apply_same_intent_conflict_rules,
+            _apply_conflicting_intent_pairs_rules,
+            _check_use_self_vs_take_conflicts,
+            _extract_primary_target_signature as _epfs # Alias for easier use
+        )
+        self._apply_same_intent_conflict_rules = _apply_same_intent_conflict_rules
+        self._apply_conflicting_intent_pairs_rules = _apply_conflicting_intent_pairs_rules
+        self._check_use_self_vs_take_conflicts = _check_use_self_vs_take_conflicts
+        self._extract_primary_target_signature = _epfs
+
+
+    def test_apply_same_intent_two_takes_on_item(self):
+        action_p1 = create_parsed_action("take potion", "take", [ActionEntity(type="item_static_id", value="potion1")])
+        action_p2 = create_parsed_action("grab potion", "take", [ActionEntity(type="item_static_id", value="potion1")])
+        actions_on_target = [
+            (self.player1_sim_actor, action_p1),
+            (self.player2_sim_actor, action_p2)
+        ]
+        target_sig = "item_static:potion1"
+
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].conflict_type, "sim_item_take_contention_on_item_static_potion1") # Updated expected type
+        # Check that resolution details now only contain target_signature for this specific type
+        self.assertEqual(conflicts[0].resolution_details_json, {"target_signature": target_sig})
+
+    def test_apply_same_intent_three_attacks_on_npc(self):
+        action_p1 = create_parsed_action("hit orc", "attack", [ActionEntity(type="target_npc_id", value="orc1")])
+        action_p2 = create_parsed_action("strike orc", "attack", [ActionEntity(type="target_npc_id", value="orc1")])
+        action_p3 = create_parsed_action("attack orc", "attack", [ActionEntity(type="target_npc_id", value="orc1")])
+        actions_on_target = [
+            (self.player1_sim_actor, action_p1),
+            (self.player2_sim_actor, action_p2),
+            (self.player3_sim_actor, action_p3)
+        ]
+        target_sig = "npc:orc1"
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        self.assertEqual(len(conflicts), 1) # Should still be one conflict involving all 3
+        self.assertEqual(conflicts[0].conflict_type, "sim_multi_attack_on_npc_orc1") # Updated expected type
+        self.assertEqual(len(conflicts[0].involved_entities_json), 3)
+        # Check that resolution details now only contain target_signature for this specific type
+        self.assertEqual(conflicts[0].resolution_details_json, {"target_signature": target_sig})
+
+    def test_apply_same_intent_no_conflict_different_targets(self):
+        # This function is called with actions already grouped by target, so this exact scenario isn't its direct responsibility.
+        # However, if it were called with mixed targets, it should only find conflicts for matching target_sig.
+        # We test its behavior given its inputs.
+        action_p1 = create_parsed_action("take potion A", "take", [ActionEntity(type="item_static_id", value="potionA")])
+        actions_on_target = [(self.player1_sim_actor, action_p1)] # Only one action for this target_sig
+        target_sig = "item_static:potionA"
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        self.assertEqual(len(conflicts), 0)
+
+    def test_apply_same_intent_no_conflict_non_exclusive_intent(self):
+        action_p1 = create_parsed_action("look at potion", "examine", [ActionEntity(type="item_static_id", value="potion1")])
+        action_p2 = create_parsed_action("examine potion", "examine", [ActionEntity(type="item_static_id", value="potion1")])
+        actions_on_target = [
+            (self.player1_sim_actor, action_p1),
+            (self.player2_sim_actor, action_p2)
+        ]
+        target_sig = "item_static:potion1"
+        conflicts = self._apply_same_intent_conflict_rules(actions_on_target, target_sig, self.guild_id)
+        self.assertEqual(len(conflicts), 0) # Examine is not in CONFLICT_RULES_SAME_INTENT_SAME_TARGET
+
+    def test_apply_conflicting_intent_pairs_take_vs_use(self):
+        action_p1_take = create_parsed_action("take potion", "take", [ActionEntity(type="item_static_id", value="potion1")])
+        action_p2_use = create_parsed_action("use potion", "use", [ActionEntity(type="item_static_id", value="potion1")])
+        actions_on_target = [
+            (self.player1_sim_actor, action_p1_take),
+            (self.player2_sim_actor, action_p2_use)
+        ]
+        target_sig = "item_static:potion1"
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].conflict_type, "sim_item_contention_on_item_static_potion1") # No suffix
+        expected_details = {"target_signature": target_sig, "intents": sorted(["take", "use"])}
+        self.assertEqual(conflicts[0].resolution_details_json, expected_details)
+
+    def test_apply_conflicting_intent_pairs_attack_vs_talk(self):
+        action_p1_attack = create_parsed_action("attack guard", "attack", [ActionEntity(type="target_npc_name", value="Guard")])
+        action_p2_talk = create_parsed_action("talk to guard", "talk", [ActionEntity(type="target_npc_name", value="Guard")])
+        actions_on_target = [
+            (self.player1_sim_actor, action_p1_attack),
+            (self.player2_sim_actor, action_p2_talk)
+        ]
+        target_sig = "npc_name:guard"
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].conflict_type, "sim_disrupted_interaction_npc_on_npc_name_guard") # Updated: no suffix
+        expected_details = {"target_signature": target_sig, "intents": sorted(["attack", "talk"])}
+        self.assertEqual(conflicts[0].resolution_details_json, expected_details)
+
+    def test_apply_conflicting_intent_pairs_no_conflict_unrelated_pair(self):
+        action_p1_move = create_parsed_action("go north", "move", [ActionEntity(type="direction", value="north")])
+        action_p2_look = create_parsed_action("look", "look", [])
+        # These actions wouldn't typically be on the same target_sig, but testing the rule logic
+        actions_on_target = [ # Assuming a hypothetical common target_sig for test purposes
+            (self.player1_sim_actor, action_p1_move),
+            (self.player2_sim_actor, action_p2_look)
+        ]
+        target_sig = "hypothetical_common_target"
+        conflicts = self._apply_conflicting_intent_pairs_rules(actions_on_target, target_sig, self.guild_id, [])
+        self.assertEqual(len(conflicts), 0)
+
+    def test_check_use_self_vs_take_conflict(self):
+        # P1 uses potion (item_static_id: potionX) on self
+        # P2 takes potion (item_static_id: potionX)
+        action_p1_use_self = create_parsed_action("use my potion", "use", [ActionEntity(type="item_static_id", value="potionX")])
+        actor1 = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=1, name="P1", guild_id=self.guild_id), parsed_action=action_p1_use_self)
+
+        action_p2_take = create_parsed_action("take the potion", "take", [ActionEntity(type="item_static_id", value="potionX")])
+        actor2 = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=2, name="P2", guild_id=self.guild_id), parsed_action=action_p2_take)
+
+        simulated_actors = [actor1, actor2]
+        conflicts = self._check_use_self_vs_take_conflicts(simulated_actors, self.guild_id, self._extract_primary_target_signature)
+        self.assertEqual(len(conflicts), 1)
+        # Rule 3 now produces sim_item_use_self_vs_take...
+        self.assertEqual(conflicts[0].conflict_type, "sim_item_use_self_vs_take_item_static_potionx")
+        # Rule 3 resolution_details is now just {"item_signature": item_sig}
+        expected_details = {"item_signature": "item_static:potionX".lower()} # Ensure value matches potential lowercasing in conflict type
+
+        actual_details_for_comp = {
+            k: (v.lower() if isinstance(v, str) else v)
+            for k,v in conflicts[0].resolution_details_json.items()
+        }
+        self.assertEqual(actual_details_for_comp, expected_details)
+
+    def test_check_use_self_vs_take_no_conflict_different_items(self):
+        action_p1_use_self = create_parsed_action("use potion A", "use", [ActionEntity(type="item_static_id", value="potionA")])
+        actor1 = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=1, name="P1", guild_id=self.guild_id), parsed_action=action_p1_use_self)
+
+        action_p2_take = create_parsed_action("take potion B", "take", [ActionEntity(type="item_static_id", value="potionB")])
+        actor2 = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=2, name="P2", guild_id=self.guild_id), parsed_action=action_p2_take)
+
+        simulated_actors = [actor1, actor2]
+        conflicts = self._check_use_self_vs_take_conflicts(simulated_actors, self.guild_id, self._extract_primary_target_signature)
+        self.assertEqual(len(conflicts), 0)
+
+    def test_check_use_self_vs_take_no_conflict_only_one_action(self):
+        action_p1_use_self = create_parsed_action("use potion A", "use", [ActionEntity(type="item_static_id", value="potionA")])
+        actor1 = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=1, name="P1", guild_id=self.guild_id), parsed_action=action_p1_use_self)
+
+        simulated_actors = [actor1]
+        conflicts = self._check_use_self_vs_take_conflicts(simulated_actors, self.guild_id, self._extract_primary_target_signature)
+        self.assertEqual(len(conflicts), 0)
 
 if __name__ == '__main__':
     unittest.main()
