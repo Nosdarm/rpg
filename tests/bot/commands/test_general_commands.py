@@ -30,7 +30,12 @@ class MockUser:
         self.id = id
         self.name = name
         self.display_name = display_name or name
-        self.locale = discord.Locale(locale_str) if locale_str else None # discord.Locale
+        if locale_str:
+            mock_locale = MagicMock(spec=discord.Locale)
+            mock_locale.__str__ = MagicMock(return_value=locale_str)
+            self.locale = mock_locale
+        else:
+            self.locale = None
 
 # Removed local MockInteraction class, using self._create_mock_interaction with AsyncMock(spec=discord.Interaction) instead.
 
@@ -89,7 +94,15 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         interaction.followup = AsyncMock() # Removed spec=discord.Webhook
         interaction.followup.send = AsyncMock()
 
-        interaction.locale = user.locale if user.locale else discord.Locale("en-US") # Changed to string init
+        if user.locale:
+            interaction.locale = user.locale
+        else:
+            # Default to en-US mock if user.locale is None
+            mock_locale_default = MagicMock(spec=discord.Locale)
+            # Assuming str(interaction.locale) should yield "en-US" or "en"
+            # For consistency with other mocks, let's make it yield "en" if SUT expects simple codes
+            mock_locale_default.__str__ = MagicMock(return_value="en") # Or "en-US" if that's more accurate for default
+            interaction.locale = mock_locale_default
         return interaction
 
     def tearDown(self):

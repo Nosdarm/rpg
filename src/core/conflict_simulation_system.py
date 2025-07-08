@@ -24,13 +24,25 @@ class PydanticConflictForSim(BaseModel):
 
 class SimulatedActionActor:
     def __init__(self, guild_id: int, parsed_action: ParsedAction, player: Optional[Player] = None, npc: Optional[GeneratedNpc] = None):
-        self.id = player.id if player else npc.id # type: ignore
-        self.entity_type = RelationshipEntityType.PLAYER if player else RelationshipEntityType.GENERATED_NPC
+        if player:
+            self.id: int = player.id
+            self.entity_type = RelationshipEntityType.PLAYER
+            self.name: str = player.name # Player model has .name, not .name_i18n
+        elif npc:
+            self.id: int = npc.id
+            self.entity_type = RelationshipEntityType.GENERATED_NPC
+            self.name: str = npc.name_i18n.get("en", f"NPC {npc.id}") # Default to 'en' or NPC ID
+        else:
+            # This case should ideally not be reached if called correctly from simulate_conflict_detection
+            logger.error("SimulatedActionActor initialized without Player or NPC.")
+            self.id = -1 # Placeholder or raise error
+            self.entity_type = RelationshipEntityType.UNKNOWN # type: ignore[attr-defined]
+            self.name = "Unknown Actor"
+
         self.guild_id = guild_id
         self.collected_actions_json = [parsed_action.model_dump(mode="json")]
         self.player = player
         self.npc = npc
-        self.name = player.name if player else (npc.name_i18n.get("en", "Unknown NPC") if npc else "Unknown")
 
 # --- Helper function to determine the primary target signature of an action (moved to module level) ---
 def _extract_primary_target_signature(action: ParsedAction) -> Optional[str]:
@@ -475,6 +487,10 @@ async def simulate_conflict_detection(
 
             # 2. Now prepare ParsedAction
             parsed_action_instance: Optional[ParsedAction] = None
+            action_intent: str = "unknown_intent"
+            action_raw_text: str = ""
+            action_entities_dicts: list = [] # Default to empty list
+
             try:
                 action_intent = raw_parsed_action_dict.get("intent", "unknown_intent")
                 action_raw_text = raw_parsed_action_dict.get("raw_text", "")
@@ -538,6 +554,12 @@ async def simulate_conflict_detection(
             # print("[DEBUG] Main: Less than 2 simulated actors, returning empty conflicts.") # DEBUG
             return []
 
+        # Fetch conflict rules once
+        rules_same_intent = await _get_rules_same_intent_same_target(session, guild_id)
+        rules_conflicting_pairs = await _get_rules_conflicting_intent_pairs(session, guild_id)
+        use_take_check_enabled = await _is_use_self_vs_take_check_enabled(session, guild_id)
+
+
         actions_by_target_sig: Dict[str, List[Tuple[SimulatedActionActor, ParsedAction]]] = {}
         # print("[DEBUG] Main: Grouping actions by target signature...") # DEBUG
         for sim_actor in simulated_actors:
@@ -568,25 +590,27 @@ async def simulate_conflict_detection(
             if len(actions_on_this_target) < 2:
                 # print(f"[DEBUG] Main: Skipping target_sig '{target_sig}' due to < 2 actions.") # DEBUG
                 continue
-            rule1_conflicts = _apply_same_intent_conflict_rules(actions_on_this_target, target_sig, guild_id)
+            rule1_conflicts = _apply_same_intent_conflict_rules(actions_on_this_target, target_sig, guild_id, rules_same_intent)
             if rule1_conflicts:
                 simulated_pending_conflicts.extend(rule1_conflicts)
-            rule2_conflicts = _apply_conflicting_intent_pairs_rules(actions_on_this_target, target_sig, guild_id, simulated_pending_conflicts)
+            rule2_conflicts = _apply_conflicting_intent_pairs_rules(actions_on_this_target, target_sig, guild_id, simulated_pending_conflicts, rules_conflicting_pairs)
             simulated_pending_conflicts.extend(rule2_conflicts)
 
-        rule3_conflicts = _check_use_self_vs_take_conflicts(simulated_actors, guild_id, _extract_primary_target_signature)
-        for r3_conflict in rule3_conflicts:
-            is_r3_duplicate = False
-            r3_involved_actors_set = frozenset( (e["entity_id"], e["action_intent"]) for e in r3_conflict.involved_entities_json )
-            for existing_c in simulated_pending_conflicts:
-                ex_involved_actors_set = frozenset( (e["entity_id"], e["action_intent"]) for e in existing_c.involved_entities_json )
-                if existing_c.conflict_type == r3_conflict.conflict_type and \
-                   ex_involved_actors_set == r3_involved_actors_set and \
-                   existing_c.resolution_details_json.get("item_signature") == r3_conflict.resolution_details_json.get("item_signature"):
-                    is_r3_duplicate = True
-                    break
-            if not is_r3_duplicate:
-                simulated_pending_conflicts.append(r3_conflict)
+        if use_take_check_enabled:
+            rule3_conflicts = _check_use_self_vs_take_conflicts(simulated_actors, guild_id, _extract_primary_target_signature)
+            for r3_conflict_item in rule3_conflicts: # Iterate with a new variable name
+                is_r3_duplicate = False
+                # Now use r3_conflict_item for checks and appending
+                r3_involved_actors_set = frozenset( (e["entity_id"], e["action_intent"]) for e in r3_conflict_item.involved_entities_json )
+                for existing_c in simulated_pending_conflicts:
+                    ex_involved_actors_set = frozenset( (e["entity_id"], e["action_intent"]) for e in existing_c.involved_entities_json )
+                    if existing_c.conflict_type == r3_conflict_item.conflict_type and \
+                       ex_involved_actors_set == r3_involved_actors_set and \
+                       existing_c.resolution_details_json.get("item_signature") == r3_conflict_item.resolution_details_json.get("item_signature"):
+                        is_r3_duplicate = True
+                        break
+                if not is_r3_duplicate:
+                    simulated_pending_conflicts.append(r3_conflict_item) # Append the item from the current iteration
 
         if simulated_pending_conflicts:
             logger.info(f"Detected {len(simulated_pending_conflicts)} simulated conflict(s) in guild {guild_id} after all checks.")

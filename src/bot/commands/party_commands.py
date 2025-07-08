@@ -14,7 +14,7 @@ from src.core.locations_utils import get_localized_text
 
 logger = logging.getLogger(__name__)
 
-class PartyCog(commands.Cog, name="Party Commands"):
+class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("PartyCog инициализирован.")
@@ -26,7 +26,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
             # TODO: Implement a more detailed help message for party commands
             await ctx.send("Доступные команды для party: `create <название>`, `leave`, `disband`, `join <название_партии_или_ID>` (пока не реализовано), `info` (пока не реализовано).")
 
-    @party_group.command(name="create", help="Создать новую группу. Пример: /party create Искатели приключений")
+    @party_group.command(name="create", help="Создать новую группу. Пример: /party create Искатели приключений") # type: ignore[attr-defined]
     async def party_create(self, ctx: commands.Context, *, party_name: str):
         if not ctx.guild:
             await ctx.send("Эту команду можно использовать только на сервере.")
@@ -70,7 +70,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
                 await ctx.send("Произошла ошибка при создании группы.")
                 # Rollback is handled by get_db_session
 
-    @party_group.command(name="leave", help="Покинуть текущую группу.")
+    @party_group.command(name="leave", help="Покинуть текущую группу.") # type: ignore[attr-defined]
     async def party_leave(self, ctx: commands.Context):
         if not ctx.guild:
             await ctx.send("Эту команду можно использовать только на сервере.")
@@ -119,7 +119,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
                 logger.error(f"Ошибка при выходе из группы для {ctx.author} на сервере {guild_id}: {e}", exc_info=True)
                 await ctx.send("Произошла ошибка при выходе из группы.")
 
-    @party_group.command(name="disband", help="Распустить текущую группу (только для создателя/лидера - пока не реализовано).")
+    @party_group.command(name="disband", help="Распустить текущую группу (только для создателя/лидера - пока не реализовано).") # type: ignore[attr-defined]
     async def party_disband(self, ctx: commands.Context):
         if not ctx.guild:
             await ctx.send("Эту команду можно использовать только на сервере.")
@@ -184,7 +184,7 @@ class PartyCog(commands.Cog, name="Party Commands"):
     # TODO: Implement /party info [party_name_or_id]
     # This would display party name, members, current location, etc.
 
-    @party_group.command(name="join", help="Присоединиться к существующей группе. Пример: /party join ИмяГруппы")
+    @party_group.command(name="join", help="Присоединиться к существующей группе. Пример: /party join ИмяГруппы") # type: ignore[attr-defined]
     async def party_join(self, ctx: commands.Context, *, party_identifier: str):
         if not ctx.guild:
             await ctx.send("Эту команду можно использовать только на сервере.")

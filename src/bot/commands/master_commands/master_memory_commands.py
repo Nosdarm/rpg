@@ -19,7 +19,7 @@ from src.models.player_npc_memory import PlayerNpcMemory # For type hinting
 
 logger = logging.getLogger(__name__)
 
-class MasterMemoryCog(commands.Cog, name="Master Memory Commands"):
+class MasterMemoryCog(commands.Cog, name="Master Memory Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterMemoryCog initialized.")

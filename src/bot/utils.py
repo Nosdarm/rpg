@@ -149,8 +149,19 @@ async def get_master_player_from_interaction(
         logger.warning("get_master_player_from_interaction called without guild context.")
         return None
 
-    if interaction.user.guild_permissions.administrator:
-        return interaction.user
+    # Ensure interaction.user is treated as a Member to access guild_permissions
+    member = interaction.user
+    if not isinstance(member, discord.Member):
+        # If interaction.user is not a Member instance, try to fetch it.
+        # This might happen if the user object isn't fully populated yet.
+        fetched_member = interaction.guild.get_member(interaction.user.id)
+        if not fetched_member:
+            logger.warning(f"Could not fetch Member object for user {interaction.user.id} in guild {interaction.guild.id}.")
+            return None # Cannot determine permissions
+        member = fetched_member
+
+    if member.guild_permissions.administrator:
+        return member # Return the Member object
     else:
         # This part might be redundant if ensure_guild_configured_and_get_session already handles permissions.
         # However, the original import suggested two separate functions.
@@ -180,7 +191,12 @@ async def ensure_guild_configured_and_get_session(
         return None, None
 
     # Check for administrator permissions (basic "master" check)
-    if not interaction.user.guild_permissions.administrator:
+    # Safely access guild_permissions
+    member_for_check = interaction.user
+    if not isinstance(member_for_check, discord.Member):
+        member_for_check = interaction.guild.get_member(interaction.user.id)
+
+    if not member_for_check or not member_for_check.guild_permissions.administrator:
         try:
             # error_msg = await get_localized_text("common:error_admin_only_command", str(interaction.locale), default="You must be an administrator to use this command.")
             error_msg = "You must be an administrator to use this command."

@@ -12,7 +12,7 @@ from src.core.localization_utils import get_localized_message_template
 
 logger = logging.getLogger(__name__)
 
-class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"):
+class MasterRuleConfigCog(commands.Cog, name="Master RuleConfig Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterRuleConfigCog initialized.")

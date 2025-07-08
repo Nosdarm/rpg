@@ -24,12 +24,10 @@ class MockInteraction:
         self.guild_id = guild_id
         self.guild = MockGuild(guild_id) if guild_id else None
         self.user = MockUser(12345) # Mock user
-        if locale_str == "en":
-            self.locale = discord.Locale("en-US")
-        elif locale_str == "ru":
-            self.locale = discord.Locale("ru")
-        else:
-            self.locale = discord.Locale("en-US") # Default
+        # Create a mock for discord.Locale
+        mock_locale = MagicMock(spec=discord.Locale)
+        mock_locale.__str__ = MagicMock(return_value=locale_str) # Ensures str(interaction.locale) returns the string
+        self.locale = mock_locale
         self.response = AsyncMock()
         self.response.defer = AsyncMock()
         self.followup = AsyncMock()
@@ -70,7 +68,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+            await self.cog.simulate_check_command.callback( # type: ignore[call-arg]
                 self.cog, mock_interaction, check_type="perception", actor_id=101,
                 actor_type="player", difficulty_dc=15
             )
@@ -93,7 +91,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+            await self.cog.simulate_check_command.callback( # type: ignore[call-arg]
                 self.cog, mock_interaction, check_type="test", actor_id=1, actor_type="player",
                 json_context="not_a_valid_json"
             )
@@ -113,7 +111,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+            await self.cog.simulate_check_command.callback( # type: ignore[call-arg]
                 self.cog, mock_interaction, check_type="test", actor_id=999, actor_type="player"
             )
         mock_interaction.followup.send.assert_called_once()
@@ -160,7 +158,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
 
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_combat_action_command.callback(
+            await self.cog.simulate_combat_action_command.callback( # type: ignore[call-arg]
                 self.cog, mock_interaction, combat_encounter_id=1, actor_id=101,
                 actor_type="player", action_json_data=action_data_str
             )
@@ -181,10 +179,10 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent_embed.title, "Combat Action Simulation Result")
         outcome_desc_field = next((f for f in sent_embed.fields if f.name == "Outcome"), None)
         self.assertIsNotNone(outcome_desc_field)
-        self.assertIn("Player attacks NPC.", outcome_desc_field.value)
+        self.assertIn("Player attacks NPC.", outcome_desc_field.value) # type: ignore
         damage_field = next((f for f in sent_embed.fields if f.name == "Damage Dealt"), None)
         self.assertIsNotNone(damage_field)
-        self.assertEqual(damage_field.value, "10")
+        self.assertEqual(damage_field.value, "10") # type: ignore
 
 if __name__ == "__main__":
     unittest.main()
