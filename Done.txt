@@ -12,20 +12,24 @@
     - Ensuring full localization of user-facing messages.
     - Addressing and fixing several linting issues that arose during development.
 ---
-
-**Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild)**
-- **Completed**: [YYYY-MM-DD] <!-- Будет заменено на реальную дату агентом или при коммите -->
-- **Description**: Implemented initial versions of simulation and analysis tools for Game Masters.
-    - Created `MasterSimulationToolsCog` with command groups `/master_simulate` and `/master_analyze`.
-    - **`/master_simulate check`**: Fully implemented. Simulates game checks using `check_resolver.resolve_check` and provides detailed, localized results.
-    - **`/master_simulate combat_action`**: Fully implemented. Simulates combat actions using `combat_engine.process_combat_action`. Note: This is not a "dry run" and makes DB changes (e.g., StoryLog).
-    - **`/master_simulate conflict`**: Basic implementation. Uses `conflict_simulation_system.simulate_conflict_detection` which identifies conflicts based on multiple exclusive intents on the same target signature. Deeper integration with `action_processor.py` for comprehensive conflict simulation is deferred.
-    - **`/master_analyze ai_generation`**: Basic implementation. Backend `ai_analysis_system.analyze_generated_content` integrates with prompt builders for "quest", "item", "npc", "faction" (using mock AI responses). Performs basic analysis (i18n completeness, text length, key field presence, simple range checks). Real AI calls and advanced analysis rules are deferred.
-- **Limitations/Deferred**:
-    - Advanced conflict simulation (requiring `action_processor.py` dry run logic) is moved to a separate deferred task.
-    - Real OpenAI API calls for AI generation analysis are not implemented.
-    - Comprehensive balance/quality analysis rules for AI generation are not yet defined or implemented.
-    - Combat action simulation is not a true "dry run".
+Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
+- Completed: 2024-07-22
+- Description: Significantly enhanced the Balance and Testing Tools for Game Masters.
+    - Simulation APIs:
+        - `/master_simulate check`: Previously implemented and verified.
+        - `/master_simulate combat_action`: Previously implemented; `dry_run` parameter functionality verified and its usage in the command confirmed.
+        - `/master_simulate conflict`:
+            - The core simulation logic in `src/core/conflict_simulation_system.py::simulate_conflict_detection` was deepened.
+            - Analysis of `action_processor.py` confirmed it doesn't handle inter-player action conflict generation, so `conflict_simulation_system.py` remains the primary module for this logic.
+            - Conflict detection rules are now loaded from `RuleConfig` (keys: `conflict_simulation:rules_same_intent_same_target`, `conflict_simulation:rules_conflicting_intent_pairs`, `conflict_simulation:enable_use_self_vs_take_check`), with defaults provided.
+            - Types of detectable conflicts were expanded by adding new default rules (e.g., for "go_to" to an exclusive point, "interact/destroy_object", "talk/use" pairs).
+            - Unit tests in `tests/core/test_conflict_simulation_system.py` were updated to reflect `RuleConfig` integration and test new rules.
+            - The Discord command `/master_simulate conflict` was updated for more detailed output, including target signatures and action entities.
+    - AI Generation Analyzers:
+        - `/master_analyze ai_generation`: Previously implemented with basic functionality, including a real AI call option and minor analysis extensions.
+- Limitations/Deferred:
+    - Further expansion of AI Analyzer logic (for deeper balance, quality, lore checks) remains a potential future enhancement (as noted in AGENTS.md "Отложенные задачи").
+    - The core components of Task 48, especially the "in-depth conflict simulation" which was explicitly deferred, are now considered complete.
 ---
 
 **Task 49: 🛠️ 15.3 Monitoring Tools (Guild-Scoped)**

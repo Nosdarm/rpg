@@ -125,13 +125,7 @@ Task Block: Phase 15: Management and Monitoring Tools
 This block presents tasks for implementing tools for the game Master.
 
 {Task 47: 🛠️ 15.1 Master Command System. - Moved to Done.txt}
-
-Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
-Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
-Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.
-AI generation analyzers (18): Check the quality and balance of generated content against rules 13/41.
-Results are output in the Master's language (49).
-Note: Partially completed. Real AI call for analyzer, basic combat dry run, and minor analyzer extensions implemented (2024-07-19). In-depth conflict simulation remains a deferred task.
+{Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild). - Moved to Done.txt}
 
 Task Block: Phase 11: Dynamic Dialogue and NPC Memory
 This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.

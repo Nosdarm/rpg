@@ -128,47 +128,133 @@ def _extract_primary_target_signature(action: ParsedAction) -> Optional[str]:
             return f"generic_target:{entity.type}:{entity.value.lower()}"
     return None
 
-# --- Define Intent Categories and Conflict Rules at Module Level ---
-CONFLICT_RULES_SAME_INTENT_SAME_TARGET: Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]] = {
-    "EXCLUSIVE_ITEM_MANIPULATION": ({"take"}, ("item_instance:", "item_static:", "item_name:")),
-    "EXCLUSIVE_OBJECT_INTERACTION": ({"interact", "use"}, ("obj_static:", "obj_name:")),
-    "COMBAT_ENGAGEMENT_SHARED_TARGET": ({"attack"}, ("npc:", "player:", "npc_name:")),
-    "TRADE_SESSION_EXCLUSIVE": (
-        {"trade_view_inventory", "trade_buy_item", "trade_sell_item"},
-        ("npc:", "npc_name:")
-    ),
+from src.core.rules import get_rule # Убедиться, что импорт есть
+
+# --- Default rule definitions (to be used if not found in RuleConfig) ---
+
+DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG: Dict[str, Dict[str, Any]] = {
+    "EXCLUSIVE_ITEM_MANIPULATION": {
+        "intents": ["take"],
+        "target_prefixes": ["item_instance:", "item_static:", "item_name:"],
+        "description": "Only one actor can 'take' the same item instance/type at a time."
+    },
+    "EXCLUSIVE_OBJECT_INTERACTION": {
+        "intents": ["interact", "use"],
+        "target_prefixes": ["obj_static:", "obj_name:"],
+        "description": "'interact' or 'use' on the same specific object by multiple actors."
+    },
+    "COMBAT_ENGAGEMENT_SHARED_TARGET": {
+        "intents": ["attack"],
+        "target_prefixes": ["npc:", "player:", "npc_name:"],
+        "description": "Multiple actors attacking the same target."
+    },
+    "TRADE_SESSION_EXCLUSIVE": {
+        "intents": ["trade_view_inventory", "trade_buy_item", "trade_sell_item"],
+        "target_prefixes": ["npc:", "npc_name:"],
+        "description": "Trade actions with the same NPC by multiple actors."
+    },
+    "EXCLUSIVE_POINT_OCCUPATION": {
+        "intents": ["go_to"],
+        "target_prefixes": ["subloc_static:", "subloc_name:", "point_name:"],
+        "description": "Multiple actors trying to 'go_to' the same specific exclusive point."
+    },
 }
 
-CONFLICTING_INTENT_PAIRS_ON_SAME_TARGET: Dict[frozenset[str], List[Tuple[str, Tuple[str, ...]]]] = {
-    frozenset({"take", "use"}): [
-        ("item_contention", ("item_instance:", "item_static:", "item_name:"))
-    ],
-    frozenset({"take", "drop"}): [
-        ("item_state_race", ("item_instance:", "item_static:", "item_name:"))
-    ],
-    frozenset({"attack", "talk"}): [
-        ("disrupted_interaction_npc", ("npc:", "npc_name:"))
-    ],
-    frozenset({"attack", "trade_view_inventory"}): [
-        ("disrupted_trade_npc", ("npc:", "npc_name:"))
-    ],
-    frozenset({"attack", "trade_buy_item"}): [
-        ("disrupted_trade_npc", ("npc:", "npc_name:"))
-    ],
-    frozenset({"attack", "trade_sell_item"}): [
-        ("disrupted_trade_npc", ("npc:", "npc_name:"))
-    ],
-}
+DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG: List[Dict[str, Any]] = [
+    {
+        "intent_pair": ["take", "use"],
+        "applies_to": [{"conflict_name_template": "item_contention", "target_prefixes": ["item_instance:", "item_static:", "item_name:"]}],
+        "description": "'take' and 'use' on the same item by different actors."
+    },
+    {
+        "intent_pair": ["take", "drop"],
+        "applies_to": [{"conflict_name_template": "item_state_race", "target_prefixes": ["item_instance:", "item_static:", "item_name:"]}],
+        "description": "'take' and 'drop' on the same item."
+    },
+    {
+        "intent_pair": ["attack", "talk"],
+        "applies_to": [{"conflict_name_template": "disrupted_interaction_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+        "description": "Attacking an NPC while another tries to talk to them."
+    },
+    {
+        "intent_pair": ["attack", "trade_view_inventory"],
+        "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+    },
+    {
+        "intent_pair": ["attack", "trade_buy_item"],
+        "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+    },
+    {
+        "intent_pair": ["attack", "trade_sell_item"],
+        "applies_to": [{"conflict_name_template": "disrupted_trade_npc", "target_prefixes": ["npc:", "npc_name:"]}],
+    },
+    {
+        "intent_pair": ["interact", "destroy_object"],
+        "applies_to": [{"conflict_name_template": "object_state_conflict", "target_prefixes": ["obj_static:", "obj_name:"]}],
+        "description": "Interacting with an object while another tries to destroy it."
+    },
+    {
+        "intent_pair": ["talk", "use"],
+        "applies_to": [{"conflict_name_template": "npc_interaction_interference", "target_prefixes": ["npc:", "npc_name:"]}],
+        "description": "Talking to an NPC while another tries to 'use' an item/skill on them."
+    },
+]
+
+async def _get_rules_same_intent_same_target(session: AsyncSession, guild_id: int) -> Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]]:
+    rules_from_db = await get_rule(session, guild_id, "conflict_simulation:rules_same_intent_same_target", DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG)
+
+    formatted_rules: Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]] = {}
+    if isinstance(rules_from_db, dict):
+        for category, details in rules_from_db.items():
+            if isinstance(details, dict) and "intents" in details:
+                intents_set = set(details.get("intents", []))
+                prefixes_list = details.get("target_prefixes")
+                # Ensure prefixes_tuple is None if prefixes_list is empty or None, otherwise it's a tuple
+                prefixes_tuple = tuple(prefixes_list) if prefixes_list else None
+                formatted_rules[category] = (intents_set, prefixes_tuple)
+    return formatted_rules
+
+async def _get_rules_conflicting_intent_pairs(session: AsyncSession, guild_id: int) -> Dict[frozenset[str], List[Tuple[str, Tuple[str, ...]]]]:
+    rules_list_from_db = await get_rule(session, guild_id, "conflict_simulation:rules_conflicting_intent_pairs", DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG)
+
+    formatted_rules: Dict[frozenset[str], List[Tuple[str, Tuple[str, ...]]]] = {}
+    if isinstance(rules_list_from_db, list):
+        for rule_item in rules_list_from_db:
+            if isinstance(rule_item, dict) and "intent_pair" in rule_item and "applies_to" in rule_item:
+                intent_pair_list = rule_item.get("intent_pair", [])
+                if isinstance(intent_pair_list, list) and len(intent_pair_list) == 2:
+                    key = frozenset(sorted(intent_pair_list)) # Ensure order for frozenset key
+                    applies_to_list_data = rule_item.get("applies_to", [])
+                    if isinstance(applies_to_list_data, list):
+                        processed_applies_to = []
+                        for app_to_item in applies_to_list_data:
+                            if isinstance(app_to_item, dict) and "conflict_name_template" in app_to_item and "target_prefixes" in app_to_item:
+                                prefixes = app_to_item.get("target_prefixes", [])
+                                if isinstance(prefixes, list):
+                                     processed_applies_to.append(
+                                        (app_to_item["conflict_name_template"], tuple(prefixes))
+                                    )
+                        if processed_applies_to:
+                            formatted_rules[key] = processed_applies_to
+    return formatted_rules
+
+async def _is_use_self_vs_take_check_enabled(session: AsyncSession, guild_id: int) -> bool:
+    config = await get_rule(session, guild_id, "conflict_simulation:enable_use_self_vs_take_check", {"enabled": True})
+    if isinstance(config, dict):
+        return config.get("enabled", True)
+    return True
+
 
 def _apply_same_intent_conflict_rules(
     actions_on_this_target: List[Tuple[SimulatedActionActor, ParsedAction]],
     target_sig: str,
-    guild_id: int
+    guild_id: int,
+    rules_to_apply: Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]]
 ) -> List[PydanticConflictForSim]:
     """Applies Rule 1: Multiple actors performing the same 'exclusive category' intent on the same target."""
     conflicts: List[PydanticConflictForSim] = []
-    for category_name, (exclusive_intents, target_prefixes) in CONFLICT_RULES_SAME_INTENT_SAME_TARGET.items():
-        if target_prefixes is not None and not target_sig.startswith(target_prefixes):
+    for category_name, (exclusive_intents, target_prefixes) in rules_to_apply.items():
+        if target_prefixes is not None and not any(target_sig.startswith(p) for p in target_prefixes):
             continue
 
         relevant_actions_for_category = [
@@ -223,7 +309,8 @@ def _apply_conflicting_intent_pairs_rules(
     actions_on_this_target: List[Tuple[SimulatedActionActor, ParsedAction]],
     target_sig: str,
     guild_id: int,
-    existing_conflicts: List[PydanticConflictForSim]
+    existing_conflicts: List[PydanticConflictForSim],
+    rules_to_apply: Dict[frozenset[str], List[Tuple[str, Tuple[str, ...]]]]
 ) -> List[PydanticConflictForSim]:
     """Applies Rule 2: Check for conflicting intent pairs on the same target."""
     new_conflicts: List[PydanticConflictForSim] = []
@@ -235,11 +322,11 @@ def _apply_conflicting_intent_pairs_rules(
             actor1_sim, action1 = actions_on_this_target[i]
             actor2_sim, action2 = actions_on_this_target[j]
 
-            intent_pair = frozenset({action1.intent, action2.intent})
-            if intent_pair in CONFLICTING_INTENT_PAIRS_ON_SAME_TARGET:
-                rules_for_pair = CONFLICTING_INTENT_PAIRS_ON_SAME_TARGET[intent_pair]
+            intent_pair = frozenset(sorted({action1.intent, action2.intent})) # Ensure order for key lookup
+            if intent_pair in rules_to_apply:
+                rules_for_pair = rules_to_apply[intent_pair]
                 for conflict_name_tpl, target_category_pattern_tuple in rules_for_pair:
-                    if target_sig.startswith(target_category_pattern_tuple):
+                    if any(target_sig.startswith(p) for p in target_category_pattern_tuple):
                         involved_entities_json = [
                             {"entity_id": actor1_sim.id, "entity_type": actor1_sim.entity_type.value, "action_intent": action1.intent, "action_text": action1.raw_text, "action_entities": [e.model_dump() for e in action1.entities]},
                             {"entity_id": actor2_sim.id, "entity_type": actor2_sim.entity_type.value, "action_intent": action2.intent, "action_text": action2.raw_text, "action_entities": [e.model_dump() for e in action2.entities]}
@@ -258,9 +345,20 @@ def _apply_conflicting_intent_pairs_rules(
                         )
 
                         is_duplicate = False
-                        current_actors_involved = frozenset(((actor1_sim.id, action1.intent), (actor2_sim.id, action2.intent)))
+                        # Ensure consistent order for frozenset of involved actors for duplication check
+                        current_actors_involved_tuples = sorted(
+                            ( (e["entity_id"], e["action_intent"]) for e in involved_entities_json),
+                            key=lambda x: (x[0], x[1])
+                        )
+                        current_actors_involved = frozenset(current_actors_involved_tuples)
+
                         for existing_conflict in existing_conflicts + new_conflicts:
-                            existing_actors_inv = frozenset((e["entity_id"], e["action_intent"]) for e in existing_conflict.involved_entities_json)
+                            existing_actors_inv_tuples = sorted(
+                                ( (e["entity_id"], e["action_intent"]) for e in existing_conflict.involved_entities_json),
+                                key=lambda x: (x[0], x[1])
+                            )
+                            existing_actors_inv = frozenset(existing_actors_inv_tuples)
+
                             if existing_conflict.conflict_type == current_conflict_type and \
                                existing_actors_inv == current_actors_involved and \
                                existing_conflict.resolution_details_json.get("target_signature") == target_sig:
