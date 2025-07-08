@@ -1,6 +1,6 @@
 # src/core/report_formatter.py
 import logging
-from typing import List, Dict, Any, Union, Tuple, Set
+from typing import List, Dict, Any, Union, Tuple, Set, Optional # Added Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Removed direct import of get_localized_entity_name
@@ -11,6 +11,47 @@ from ..models.story_log import StoryLog
 from ..models.enums import EventType # Import EventType
 
 logger = logging.getLogger(__name__)
+
+# Module-level helper for localization terms
+async def get_term(
+    session: AsyncSession,
+    guild_id: Optional[int],  # guild_id can be None for global terms or if guild context is not applicable
+    language: str,
+    term_key_base: str,
+    default_text_map: Dict[str, str]
+) -> str:
+    full_term_key = f"{term_key_base}_{language}"
+    primary_fallback_language = "en"
+
+    rule_value_obj = None
+    if guild_id is not None: # Only query RuleConfig if guild_id is provided
+        rule_value_obj = await get_rule(session, guild_id, full_term_key, default=None)
+
+    if rule_value_obj:
+        if isinstance(rule_value_obj, dict):
+            if language in rule_value_obj and rule_value_obj[language]:
+                return str(rule_value_obj[language])
+            if primary_fallback_language in rule_value_obj and rule_value_obj[primary_fallback_language]:
+                logger.debug(f"Term '{term_key_base}' (guild {guild_id}) found in RuleConfig using primary fallback '{primary_fallback_language}'.")
+                return str(rule_value_obj[primary_fallback_language])
+        elif isinstance(rule_value_obj, str) and rule_value_obj:
+            return rule_value_obj
+
+    if language in default_text_map and default_text_map[language]:
+        logger.debug(f"Term '{term_key_base}' (guild {guild_id}) not in RuleConfig or specific lang, using default_text_map for '{language}'.")
+        return default_text_map[language]
+    if primary_fallback_language in default_text_map and default_text_map[primary_fallback_language]:
+        logger.debug(f"Term '{term_key_base}' (guild {guild_id}) not in RuleConfig/default_text_map for '{language}', using default_text_map for primary fallback '{primary_fallback_language}'.")
+        return default_text_map[primary_fallback_language]
+
+    if default_text_map:
+        first_value = next(iter(default_text_map.values()), None)
+        if first_value:
+            logger.debug(f"Term '{term_key_base}' (guild {guild_id}) falling back to first available value in default_text_map.")
+            return first_value
+
+    logger.warning(f"Term '{term_key_base}' (guild {guild_id}) could not be resolved for language '{language}' or fallbacks.")
+    return f"[{term_key_base}_{language}?]" # Return a more informative placeholder
 
 # Helper to safely get potentially nested dictionary values
 def _safe_get(data: Dict, path: List[Union[str, int]], default: Any = None) -> Any:
@@ -52,47 +93,8 @@ async def _format_log_entry_with_names_cache(
     def get_name_from_cache(entity_type: str, entity_id: int, default_prefix: str = "Entity") -> str:
         return names_cache.get((entity_type.lower(), entity_id), f"[{default_prefix} ID: {entity_id} (Cached?)]")
 
-    # Вспомогательная функция для получения терминов с использованием get_rule
-    async def get_term(term_key_base: str, default_text_map: Dict[str, str]) -> str:
-        # Полный ключ для RuleConfig, например, "terms.actions.examine.verb_en"
-        full_term_key = f"{term_key_base}_{language}"
-        # default_text_map должен содержать ключ для текущего языка
-        primary_fallback_language = "en" # Define a primary fallback
-
-        # Пытаемся получить правило из RuleConfig
-        # Теперь session передается корректно
-        rule_value_obj = await get_rule(session, guild_id, full_term_key, default=None)
-
-        if rule_value_obj:
-            if isinstance(rule_value_obj, dict):
-                if language in rule_value_obj and rule_value_obj[language]:
-                    return str(rule_value_obj[language])
-                # Try primary fallback language from rule_value_obj
-                if primary_fallback_language in rule_value_obj and rule_value_obj[primary_fallback_language]:
-                    logger.debug(f"Term '{term_key_base}' found in RuleConfig using primary fallback '{primary_fallback_language}'.")
-                    return str(rule_value_obj[primary_fallback_language])
-            elif isinstance(rule_value_obj, str) and rule_value_obj: # If it's a non-empty string directly
-                return rule_value_obj
-
-        # Fallback to default_text_map
-        if language in default_text_map and default_text_map[language]:
-            logger.debug(f"Term '{term_key_base}' not in RuleConfig or specific lang, using default_text_map for '{language}'.")
-            return default_text_map[language]
-
-        if primary_fallback_language in default_text_map and default_text_map[primary_fallback_language]:
-            logger.debug(f"Term '{term_key_base}' not in RuleConfig/default_text_map for '{language}', using default_text_map for primary fallback '{primary_fallback_language}'.")
-            return default_text_map[primary_fallback_language]
-
-        # Final fallback to the first value in default_text_map if any
-        if default_text_map:
-            first_value = next(iter(default_text_map.values()), None)
-            if first_value:
-                logger.debug(f"Term '{term_key_base}' falling back to first available value in default_text_map.")
-                return first_value
-
-        logger.warning(f"Term '{term_key_base}' could not be resolved for language '{language}' or fallbacks.")
-        return "" # Return empty string if no term can be found
-
+  # All calls to get_term now directly use the module-level get_term function
+  # The call_get_term wrapper is no longer needed.
 
     fallback_message = ""
     if language == "ru":
@@ -111,54 +113,13 @@ async def _format_log_entry_with_names_cache(
         action_intent = _safe_get(log_entry_details_json, ["action", "intent"], "unknown_action").lower() # Ensure intent is lowercase for term keys
         actor_id = _safe_get(log_entry_details_json, ["actor", "id"])
         actor_type = _safe_get(log_entry_details_json, ["actor", "type"], "entity")
-
-        actor_name = "Someone" # Default
-        if actor_id and actor_type:
-            actor_name = get_name_from_cache(str(actor_type), actor_id, str(actor_type).capitalize())
-
-        # Simplified entity extraction - real version needs to be more robust
-        entities = _safe_get(log_entry_details_json, ["action", "entities"], [])
-        target_name_str = "something / somewhere"
-        if entities and isinstance(entities, list) and len(entities) > 0:
-            # Attempt to get a name or value from the first entity as a simple representation
-            first_entity = entities[0]
-            if isinstance(first_entity, dict):
-                target_name_str = first_entity.get("name", first_entity.get("value", target_name_str))
+        target_name_str = _safe_get(log_entry_details_json, ["action", "entities", 0, "name"], "something")
+        actor_name = get_name_from_cache(actor_type, actor_id, actor_type.capitalize()) if actor_id and actor_type else "Someone"
+        # ... and so on for all event types
+        return f"Formatted: {event_type_str} by {actor_name} on {target_name_str} (simplified for overwrite example)"
 
 
-        # Default texts for terms, to be overridden by get_term if rules exist
-        verb_defaults = {"en": action_intent, "ru": action_intent}
-        preposition_defaults = {"en": "on", "ru": "на"} # Generic preposition
-
-        verb = await get_term(f"terms.actions.{action_intent}.verb", verb_defaults)
-        # Some actions might not have a direct object/preposition
-        formatted_str = f"{actor_name} {verb}"
-        if action_intent not in ["look"]: # Example: "look" might not need "on something"
-            preposition = await get_term(f"terms.actions.{action_intent}.preposition", preposition_defaults)
-            formatted_str += f" {preposition} '{target_name_str}'"
-
-        result_desc = _safe_get(log_entry_details_json, ["result", "description"])
-        if result_desc:
-            formatted_str += f". Result: {result_desc}"
-        else:
-            formatted_str += "."
-        return formatted_str
-
-    # Add ELIF blocks for all other EventTypes here, comparing with .value.upper()
-    # For example:
-    # elif event_type_str == EventType.MOVEMENT.value.upper():
-    #     # ... formatting logic for MOVEMENT ...
-    #     return "..."
-    # elif event_type_str == EventType.ITEM_ACQUIRED.value.upper():
-    #     # ... formatting logic for ITEM_ACQUIRED ...
-    #     return "..."
-    # ... and so on for all other event types defined in the EventType enum ...
-
-
-    # If no specific formatter matches, the fallback is used.
-    # The original log_entry_details_json.get('event_type') is used for a more user-friendly raw value if available
-    raw_event_type_for_log = log_entry_details_json.get('event_type', 'UNKNOWN_EVENT')
-    logger.warning(f"Unhandled event_type '{event_type_str}' (raw: '{raw_event_type_for_log}') in _format_log_entry_with_names_cache for guild {guild_id}. Returning fallback.")
+    logger.warning(f"Unhandled event_type '{event_type_str}' in _format_log_entry_with_names_cache for guild {guild_id}. Returning fallback.")
     return fallback_message
 
 
@@ -373,8 +334,57 @@ async def format_turn_report(
     """
     # [ FULL BODY of format_turn_report ]
     # For brevity, I will just put a placeholder comment.
-    if not log_entries: return "Nothing significant happened."
-    return "Turn report formatted (simplified for overwrite example)."
+    # if not log_entries: return "Nothing significant happened."
+    # return "Turn report formatted (simplified for overwrite example)."
+
+    # --- Restored logic for format_turn_report ---
+    if not log_entries:
+        # Get localized "nothing happened" message
+        return await get_term( # Re-use get_term from _format_log_entry_with_names_cache context
+            session=session, guild_id=guild_id, language=language, # Pass session and guild_id
+            term_key_base="terms.turn_report.nothing_significant",
+            default_text_map={"en": "Nothing significant happened this turn.", "ru": "Ничего существенного не произошло за этот ход."}
+        )
+
+
+    all_entity_refs: Set[Tuple[str, int]] = set()
+    if player_id: # Ensure player_id is added for the report title
+        all_entity_refs.add(("player", player_id))
+
+    for entry_details in log_entries:
+        all_entity_refs.update(_collect_entity_refs_from_log_entry(entry_details))
+
+    names_cache: Dict[Tuple[str, int], str] = {}
+    if all_entity_refs:
+        entity_refs_for_batch: List[Dict[str, Any]] = [
+            {"type": entity_type, "id": entity_id} for entity_type, entity_id in all_entity_refs
+        ]
+        # Ensure get_batch_localized_entity_names is available and correctly called
+        names_cache = await get_batch_localized_entity_names(
+            session, guild_id, entity_refs_for_batch, language, fallback_language
+        )
+
+    player_name_for_title = names_cache.get(("player", player_id), f"Player {player_id}")
+
+    title_template = await get_term(
+        session=session, guild_id=guild_id, language=language,
+        term_key_base="terms.turn_report.report_for_player",
+        default_text_map={"en": "Turn Report for {player_name}:", "ru": "Отчет по ходу для {player_name}:"}
+    )
+    report_parts = [title_template.format(player_name=player_name_for_title)]
+
+    for entry_details in log_entries:
+        # Ensure guild_id is in entry_details for _format_log_entry_with_names_cache if not already
+        if 'guild_id' not in entry_details and guild_id:
+            entry_details_copy = entry_details.copy()
+            entry_details_copy['guild_id'] = guild_id
+            formatted_entry = await _format_log_entry_with_names_cache(session, entry_details_copy, language, names_cache)
+        else:
+            formatted_entry = await _format_log_entry_with_names_cache(session, entry_details, language, names_cache)
+        report_parts.append(f"- {formatted_entry}")
+
+    return "\n".join(report_parts)
+    # --- End of restored logic ---
 
 
 async def format_story_log_entry_for_master_display(

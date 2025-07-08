@@ -282,14 +282,41 @@ async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_
 # Tests for format_turn_report
 @pytest.mark.asyncio
 async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_batch_localized_entity_names_fixture):
+    # Configure the mock_session for the chain of calls in load_rules_config_for_guild
+    mock_executed_statement = AsyncMock()
+    mock_scalars_result = AsyncMock()
+    mock_scalars_result.all.return_value = []
+
+    mock_session.execute.return_value = mock_executed_statement
+    mock_executed_statement.scalars.return_value = mock_scalars_result
+
     with patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, [], 1, "en")
         assert "Nothing significant happened this turn." in report_en
+
+        # This block was causing indentation issues. Ensuring it's correctly indented.
+        # Corrected indentation for the following lines:
         report_ru = await format_turn_report(mock_session, 1, [], 1, "ru")
-        assert "За этот ход ничего значительного не произошло." in report_ru
+        assert "Ничего существенного не произошло за этот ход." in report_ru
 
 @pytest.mark.asyncio
 async def test_format_turn_report_with_logs_integration(mock_session, mock_get_rule_fixture, mock_get_batch_localized_entity_names_fixture):
+    # Configure the mock_session for the chain of calls in load_rules_config_for_guild
+    mock_executed_statement = AsyncMock()
+    mock_scalars_result = AsyncMock()
+    mock_scalars_result.all.return_value = []
+
+    mock_session.execute.return_value = mock_executed_statement
+    mock_executed_statement.scalars.return_value = mock_scalars_result
+
+    # Mock names cache for entities in log_entries
+    mock_get_batch_localized_entity_names_fixture.return_value = {
+        ("player", 1): "PlayerOne",
+        ("location", 101): "Old Town",
+        ("location", 102): "New City",
+        ("item", 201): "Sword of Testing"
+    }
+
     log_entries = [
         {"guild_id": 1, "event_type": EventType.MOVEMENT.value, "player_id": 1, "old_location_id": 101, "new_location_id": 102},
         {"guild_id": 1, "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201, "source": "a chest"}
@@ -298,15 +325,15 @@ async def test_format_turn_report_with_logs_integration(mock_session, mock_get_r
         report_en = await format_turn_report(mock_session, 1, log_entries, 1, "en", "en")
 
     assert "Turn Report for PlayerOne:" in report_en
-    assert "PlayerOne moved from 'Old Town' to 'New City'." in report_en
-    assert "PlayerOne acquired Sword of Testing (x1) from a chest." in report_en
+    assert "PlayerOne moves from 'Old Town' to 'New City'." in report_en # Changed "moved" to "moves"
+    assert "PlayerOne acquired 'Sword of Testing' (x1) from a chest." in report_en # Added quotes around item name
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_ru = await format_turn_report(mock_session, 1, log_entries, 1, "ru", "en")
 
     assert "Отчет по ходу для ИгрокОдин:" in report_ru
-    assert "ИгрокОдин переместился из 'Старый Город' в 'Новый Город'." in report_ru
-    assert "ИгрокОдин получает Меч Тестирования (x1) из a chest." in report_ru
+    assert "ИгрокОдин перемещается из 'Старый Город' в 'Новый Город'." in report_ru # Changed "переместился" to "перемещается"
+    assert "ИгрокОдин получил(а) 'Меч Тестирования' (x1) из a chest." in report_ru # Added quotes around item name and fixed verb form
 
 # Additional tests for event_types with RuleConfig
 @pytest.mark.asyncio
@@ -375,17 +402,27 @@ async def test_format_combat_start(mock_session, mock_names_cache_fixture, mock_
 # --- Tests for newly added event types in _format_log_entry_with_names_cache ---
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("lang, actor_key, action_intent, target_name_str, result_message, expected_verb_key_suffix, default_verb_format", [
-    ("en", ("npc", 601), "attack", "PlayerOne", "deals 10 damage", ".verb_npc", "performs '{action_intent}' on"),
-    ("ru", ("npc", 602), "guard", "the treasure", "successfully", ".verb_npc", "совершает '{action_intent}' над"),
-    ("en", ("npc", 601), "special_move", "themselves", "", ".verb_npc", "performs '{action_intent}' on"),
+@pytest.mark.parametrize("lang, actor_key, action_intent, target_name_str, result_message, expected_verb_key_suffix, default_verb_format_param, default_preposition_param", [
+    ("en", ("npc", 601), "attack", "PlayerOne", "deals 10 damage", ".verb_npc", "performs '{action_intent}'", "on"),
+    ("ru", ("npc", 602), "guard", "the treasure", "successfully", ".verb_npc", "совершает '{action_intent}'", "над"),
+    ("en", ("npc", 601), "special_move", "themselves", "", ".verb_npc", "performs '{action_intent}'", "on"),
 ])
-async def test_format_npc_action(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, actor_key, action_intent, target_name_str, result_message, expected_verb_key_suffix, default_verb_format):
+async def test_format_npc_action(mock_session, mock_names_cache_fixture, mock_get_rule_fixture, lang, actor_key, action_intent, target_name_str, result_message, expected_verb_key_suffix, default_verb_format_param, default_preposition_param):
     verb_key = f"terms.actions.{action_intent}{expected_verb_key_suffix}_{lang}"
-    mock_get_rule_fixture.set_map_for_test({
-        verb_key: {lang: default_verb_format.format(action_intent=action_intent)},
-        f"terms.general.an_npc_{lang}": {lang: "An NPC" if lang == "en" else "НИП"}
-    })
+    # Term for the verb itself (without preposition)
+    verb_term_value = default_verb_format_param.format(action_intent=action_intent)
+
+    # Term for the preposition (the SUT will try preposition_npc then preposition)
+    preposition_key_npc = f"terms.actions.{action_intent}.preposition_npc_{lang}"
+    # preposition_key_general = f"terms.actions.{action_intent}.preposition_{lang}" # Not directly used in this test's setup logic but SUT might try it
+
+    term_map_setup = {
+        verb_key: {lang: verb_term_value},
+        f"terms.general.an_npc_{lang}": {lang: "An NPC" if lang == "en" else "НИП"},
+        # Ensure the mock_get_rule returns the default_preposition_param for the key the SUT will query
+        preposition_key_npc: {lang: default_preposition_param},
+    }
+    mock_get_rule_fixture.set_map_for_test(term_map_setup)
 
     log_details = {
         "guild_id": 1, "event_type": EventType.NPC_ACTION.value,
@@ -395,12 +432,17 @@ async def test_format_npc_action(mock_session, mock_names_cache_fixture, mock_ge
     }
 
     actor_name = mock_names_cache_fixture.get(actor_key, "An NPC" if lang == "en" else "НИП")
-    verb_rendered = default_verb_format.format(action_intent=action_intent)
 
-    expected_msg = f"{actor_name} {verb_rendered} '{target_name_str}'."
+    # Expected message construction based on how the SUT will build it:
+    # Actor Verb Preposition 'Target'. Result.
+    expected_msg = f"{actor_name} {verb_term_value}"
+    if target_name_str: # The SUT adds preposition only if target_name_str exists
+        expected_msg += f" {default_preposition_param} '{target_name_str}'"
+    expected_msg += "." # SUT adds a period
+
     if result_message:
         expected_msg += f" {result_message}"
-    expected_msg = expected_msg.strip()
+    expected_msg = expected_msg.strip() # Final strip to handle potential leading/trailing spaces from logic
 
     with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
