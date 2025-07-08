@@ -17,7 +17,7 @@ from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
-class MasterNpcCog(commands.Cog, name="Master NPC Commands"):
+class MasterNpcCog(commands.Cog, name="Master NPC Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterNpcCog initialized.")

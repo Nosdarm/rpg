@@ -15,7 +15,7 @@ from src.core.localization_utils import get_localized_message_template
 
 logger = logging.getLogger(__name__)
 
-class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
+class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterPlayerCog initialized.")
@@ -183,9 +183,11 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
 
                 if update_data_for_override:
                     async with session.begin_nested(): # Use nested transaction for the update part
+                        # update_entity (via CRUDBase.update) already refreshes the entity with the session.
                         new_player = await update_entity(session, entity=new_player, data=update_data_for_override)
-                        if new_player: # Should always be true if update_entity succeeds
-                             await session.refresh(new_player)
+                        # The redundant refresh below was causing issues in tests and is not needed.
+                        # if new_player:
+                        #      await session.refresh(new_player)
 
                 await session.commit() # Commit the main transaction (create + optional update)
 
@@ -393,7 +395,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"):
                         # Ensure 'dm_preferences_allow_guilds', if present and None, becomes an empty list
                         # This specific logic should remain if it's a business rule for this field
                         if "dm_preferences_allow_guilds" in parsed_value and parsed_value["dm_preferences_allow_guilds"] is None:
-                            parsed_value["dm_preferences_allow_guilds"] = []
+                            parsed_value["dm_preferences_allow_guilds"] = [] # type: ignore[reportOptionalSubscript]
                     else:
                         error_detail_template = await get_localized_message_template(session, interaction.guild_id, "player_update:error_detail_internal_json_mismatch", lang_code, "Internal error: Attempting to parse JSON for a non-JSON field '{field_name}'.")
                         raise ValueError(error_detail_template.format(field_name=db_field_name))

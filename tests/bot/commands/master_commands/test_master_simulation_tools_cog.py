@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord # type: ignore
+from discord.ext import commands # Added for commands.Bot
 
 from src.bot.commands.master_commands.master_simulation_tools_cog import MasterSimulationToolsCog
 from src.models.enums import RelationshipEntityType
@@ -24,12 +25,10 @@ class MockInteraction:
         self.guild_id = guild_id
         self.guild = MockGuild(guild_id) if guild_id else None
         self.user = MockUser(12345) # Mock user
-        if locale_str == "en":
-            self.locale = discord.Locale("en-US")
-        elif locale_str == "ru":
-            self.locale = discord.Locale("ru")
-        else:
-            self.locale = discord.Locale("en-US") # Default
+        # Create a mock for discord.Locale
+        mock_locale = MagicMock(spec=discord.Locale)
+        mock_locale.__str__ = MagicMock(return_value=locale_str) # Ensures str(interaction.locale) returns the string
+        self.locale = mock_locale
         self.response = AsyncMock()
         self.response.defer = AsyncMock()
         self.followup = AsyncMock()
@@ -38,7 +37,7 @@ class MockInteraction:
 class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.bot_mock = AsyncMock(spec=discord.ext.commands.Bot)
+        self.bot_mock = AsyncMock(spec=commands.Bot) # Use commands.Bot
         self.cog = MasterSimulationToolsCog(self.bot_mock)
         self.mock_db_session = AsyncMock()
 
@@ -60,7 +59,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         mock_check_result = CheckResult(
             guild_id=1, check_type="perception", entity_doing_check_id=101,
             entity_doing_check_type=RelationshipEntityType.PLAYER.value,
-            target_entity_id=None, target_entity_type=None, difficulty_class=15,
+            target_entity_id=None, target_entity_type=None, difficulty_class=15, # type: ignore[reportCallIssue]
             dice_notation="1d20", raw_rolls=[10], roll_used=10, total_modifier=2,
             modifier_details=[ModifierDetail(source="test", value=2, description="Test mod")],
             final_value=12, outcome=CheckOutcome(status="failure", description="Failed perception check."),
@@ -70,7 +69,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+            await self.cog.simulate_check_command.callback( # type: ignore[reportCallIssue, reportArgumentType]
                 self.cog, mock_interaction, check_type="perception", actor_id=101,
                 actor_type="player", difficulty_dc=15
             )
@@ -93,7 +92,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+             await self.cog.simulate_check_command.callback( # type: ignore[reportCallIssue, reportArgumentType]
                 self.cog, mock_interaction, check_type="test", actor_id=1, actor_type="player",
                 json_context="not_a_valid_json"
             )
@@ -113,7 +112,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_check_command.callback(
+             await self.cog.simulate_check_command.callback( # type: ignore[reportCallIssue, reportArgumentType]
                 self.cog, mock_interaction, check_type="test", actor_id=999, actor_type="player"
             )
         mock_interaction.followup.send.assert_called_once()
@@ -160,7 +159,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
 
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            await self.cog.simulate_combat_action_command.callback(
+            await self.cog.simulate_combat_action_command.callback( # type: ignore[call-arg, arg-type]
                 self.cog, mock_interaction, combat_encounter_id=1, actor_id=101,
                 actor_type="player", action_json_data=action_data_str
             )
@@ -181,10 +180,10 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent_embed.title, "Combat Action Simulation Result")
         outcome_desc_field = next((f for f in sent_embed.fields if f.name == "Outcome"), None)
         self.assertIsNotNone(outcome_desc_field)
-        self.assertIn("Player attacks NPC.", outcome_desc_field.value)
+        self.assertIn("Player attacks NPC.", outcome_desc_field.value) # type: ignore
         damage_field = next((f for f in sent_embed.fields if f.name == "Damage Dealt"), None)
         self.assertIsNotNone(damage_field)
-        self.assertEqual(damage_field.value, "10")
+        self.assertEqual(damage_field.value, "10") # type: ignore
 
 if __name__ == "__main__":
     unittest.main()

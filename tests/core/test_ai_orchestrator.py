@@ -128,10 +128,10 @@ async def test_trigger_ai_generation_flow_success(
     assert create_entity_call_args["status"] == ModerationStatus.PENDING_MODERATION
     assert create_entity_call_args["parsed_validated_data_json"] == mock_parsed_ai_data.model_dump()
 
-    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined]
-    mock_update_entity.assert_any_call(mock_session, mock_player, {"current_status": PlayerStatus.AWAITING_MODERATION}) # type: ignore[attr-defined]
+    mock_get_entity_by_id.assert_any_call(mock_session, Player, DEFAULT_PLAYER_ID_PK, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
+    mock_update_entity.assert_any_call(mock_session, mock_player, {"current_status": PlayerStatus.AWAITING_MODERATION}) # type: ignore[attr-defined, misc]
 
-    mock_notify_master.assert_called_once() # type: ignore[attr-defined]
+    mock_notify_master.assert_called_once() # type: ignore[attr-defined, misc]
     assert mock_notify_master.call_args.args[2] == DEFAULT_GUILD_ID # type: ignore[attr-defined]
 
 
@@ -233,7 +233,7 @@ async def test_save_approved_generation_success(
     )
 
     assert success is True
-    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID) # Line 211 area
+    mock_get_entity_by_id.assert_any_call(mock_session, PendingGeneration, PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
 
     assert mock_create_entity.call_count == 1
     create_npc_call_args = mock_create_entity.call_args.args[2]
@@ -310,16 +310,16 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
     success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction") # Line 287
-    mock_crud_relationship_create.assert_called_once() # Line 289
+    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction") # type: ignore[reportCallIssue]
+    mock_crud_relationship_create.assert_called_once()
     # Call is crud_relationship.create(session, obj_in=rel_obj_in)
     # So, rel_obj_in is in kwargs
-    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # Line 289 related
-    assert created_rel_obj_in["entity1_id"] == created_npc_db.id
-    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
-    assert created_rel_obj_in["entity2_id"] == existing_faction_db.id
-    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_FACTION
-    assert created_rel_obj_in["relationship_type"] == "secret_loyalty_to_faction"
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity1_id"] == created_npc_db.id # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity2_id"] == existing_faction_db.id # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_FACTION # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["relationship_type"] == "secret_loyalty_to_faction" # type: ignore # Pyright struggles with mock call_args types
 
 
 @pytest.mark.asyncio
@@ -399,9 +399,9 @@ async def test_save_approved_generation_updates_existing_relationship(
     # Verify that session.add was called with the modified existing_rel object
     # This requires session.add to be a MagicMock that records calls.
     # The current mock_session.add is a MagicMock.
-    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)] # Line 360 related
+    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)] # type: ignore # Pyright struggles with mock call_args types
     found_updated_rel_in_session_add = False
-    for added_obj in add_calls: # Line 360 related
+    for added_obj in add_calls:
         if added_obj.id == existing_rel_db.id: # Check if it's the same relationship object by ID
             assert added_obj.value == 95 # New value
             assert added_obj.relationship_type == "friendship_level" # Type could also be updated
@@ -521,7 +521,7 @@ async def test_save_approved_generation_entity_creation_fails(
 
     assert success is False
     assert mock_update_entity.call_count > 0
-    last_update_call_args = mock_update_entity.call_args_list[-1].args
+    last_update_call_args = mock_update_entity.call_args_list[-1].args # type: ignore
     assert last_update_call_args[1] == mock_pending_gen
     assert last_update_call_args[2]["status"] == ModerationStatus.ERROR_ON_SAVE
     assert "Saving error: DB save error" in last_update_call_args[2]["master_notes"]
@@ -587,7 +587,7 @@ async def test_generate_narrative_success_player_language(
     )
 
     assert narrative == expected_narrative
-    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID)
+    mock_get_player.assert_called_once_with(mock_session, player_id=mock_player.id, guild_id=DEFAULT_GUILD_ID) # type: ignore[attr-defined, misc, reportCallIssue]
     mock_get_rule.assert_not_called() # Guild language rule should not be fetched
 
     # Check prompt construction (simplified check)
@@ -871,15 +871,15 @@ async def test_save_approved_generation_with_npc_relationships(
     assert npc_creation_call_count == 2
 
     # Check relationship was created with correct DB IDs
-    mock_crud_relationship_create.assert_called_once() # Line 832
-    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # Line 833
+    mock_crud_relationship_create.assert_called_once()
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # type: ignore # Pyright struggles with mock call_args types
 
-    assert created_rel_obj_in["entity1_id"] == created_npc1_db.id # Line 834
-    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
-    assert created_rel_obj_in["entity2_id"] == created_npc2_db.id
-    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_NPC
-    assert created_rel_obj_in["relationship_type"] == "secret_rivalry"
-    assert created_rel_obj_in["value"] == -30
+    assert created_rel_obj_in["entity1_id"] == created_npc1_db.id # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity2_id"] == created_npc2_db.id # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_NPC # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["relationship_type"] == "secret_rivalry" # type: ignore # Pyright struggles with mock call_args types
+    assert created_rel_obj_in["value"] == -30 # type: ignore # Pyright struggles with mock call_args types
 
     # Check PendingGeneration status update
     update_pending_gen_call = None

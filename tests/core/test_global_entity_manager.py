@@ -1,3 +1,9 @@
+import os
+import sys
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch, call
@@ -110,8 +116,8 @@ class TestGlobalEntityManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_simulate_no_active_global_entities(self):
         """Test that simulation completes gracefully if no active global entities are found."""
-        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id_active.return_value = []
-        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id_active.return_value = []
+        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id.return_value = []
+        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id.return_value = []
 
         await src.core.global_entity_manager.simulate_global_entities_for_guild(self.mock_session, self.guild_id)
 
@@ -129,13 +135,19 @@ class TestGlobalEntityManager(unittest.IsolatedAsyncioTestCase):
         mock_npc.properties_json = {}
         mock_npc.__class__.__name__ = "GlobalNpc"
 
+        # SUT calls get_multi_by_guild_id, not get_multi_by_guild_id_active
+        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id.return_value = [mock_npc]
+        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id.return_value = []
 
-        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id_active.return_value = [mock_npc]
-        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id_active.return_value = []
-
-        # Assume movement happens and updates location, interactions find no one or no rules apply
-        self.mocked_objects["_simulate_entity_movement"].side_effect = lambda s, g, e: setattr(e, 'moved_this_tick', True)
-        self.mocked_objects["_simulate_entity_interactions"].return_value = None
+        # _simulate_entity_movement is an AsyncMock from patch.object.
+        # If it needs to do something (like setattr), its side_effect can be an async def function.
+        # For just checking calls, no side_effect is needed beyond ensuring it's awaitable (AsyncMock handles this).
+        # self.mocked_objects["_simulate_entity_movement"].side_effect = lambda s, g, e: setattr(e, 'moved_this_tick', True) # This makes it non-awaitable if lambda is not async
+        async def mock_movement_side_effect(session, guild_id, entity):
+            setattr(entity, 'moved_this_tick', True)
+            return None # Simulate it returns None or some info
+        self.mocked_objects["_simulate_entity_movement"].side_effect = mock_movement_side_effect
+        self.mocked_objects["_simulate_entity_interactions"].return_value = None # Ensure it's awaitable and returns None
 
 
         await src.core.global_entity_manager.simulate_global_entities_for_guild(self.mock_session, self.guild_id)
@@ -161,11 +173,11 @@ class TestGlobalEntityManager(unittest.IsolatedAsyncioTestCase):
         mock_player.name = "Hero"
         mock_player.faction_id = "player_faction" # Example
 
-        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id_active.return_value = []
-        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id_active.return_value = [mock_group]
+        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id.return_value = []
+        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id.return_value = [mock_group]
 
         # Simulate movement (or not, if interaction is immediate)
-        self.mocked_objects["_simulate_entity_movement"].return_value = None
+        self.mocked_objects["_simulate_entity_movement"].return_value = None # Ensure it's awaitable if called
 
         # Make _simulate_entity_interactions trigger combat
         async def mock_interactions_that_start_combat(session, guild_id, entity):
@@ -206,8 +218,12 @@ class TestGlobalEntityManager(unittest.IsolatedAsyncioTestCase):
         mock_player.__class__.__name__ = "Player"
 
 
-        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id_active.return_value = [mock_npc]
-        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id_active.return_value = []
+        self.mocked_objects["global_npc_crud"].get_multi_by_guild_id.return_value = [mock_npc]
+        self.mocked_objects["mobile_group_crud"].get_multi_by_guild_id.return_value = []
+
+        # Ensure _simulate_entity_movement is awaitable and returns None for this test path
+        self.mocked_objects["_simulate_entity_movement"].return_value = None
+
 
         async def mock_interactions_that_start_dialogue(session, guild_id, entity):
             if entity == mock_npc:

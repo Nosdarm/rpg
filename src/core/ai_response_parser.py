@@ -30,6 +30,7 @@ class ParsedNpcData(BaseGeneratedEntity):
     static_id: Optional[str] = None # Remains optional for base NPC
     name_i18n: Dict[str, str]
     description_i18n: Dict[str, str]
+    level: Optional[int] = None # Added level field
     stats: Optional[Dict[str, Any]] = None
     # Add other NPC specific fields as expected from AI
 

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Группа команд для Мастера, связанная с картой
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True) # Только администраторы по умолчанию
-class MapMasterCog(commands.GroupCog, name="master_map", description="Master commands for map management."):
+class MapMasterCog(commands.GroupCog, name="master_map", description="Master commands for map management."): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         super().__init__()

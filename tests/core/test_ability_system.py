@@ -224,7 +224,7 @@ async def test_apply_status_new_status(mock_session_no_existing_status: AsyncSes
         assert success is True
         mock_session_no_existing_status.add.assert_called_once() # type: ignore
         added_obj = mock_session_no_existing_status.add.call_args[0][0] # type: ignore
-        assert isinstance(added_obj, ActiveStatusEffect) # type: ignore
+        assert isinstance(added_obj, ActiveStatusEffect) # type: ignore[reportGeneralTypeIssues]
         mock_log_event.assert_called_once() # type: ignore
 
 @pytest.mark.asyncio
