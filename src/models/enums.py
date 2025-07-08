@@ -61,6 +61,7 @@ class EventType(enum.Enum):
     QUEST_COMPLETED = "quest_completed"
     QUEST_FAILED = "quest_failed"
     ITEM_ACQUIRED = "item_acquired"
+    ITEM_LOST = "item_lost"             # Added missing event type
     ITEM_USED = "item_used"
     ITEM_DROPPED = "item_dropped"
     TRADE_INITIATED = "trade_initiated" # General event when trade process starts
@@ -108,6 +109,8 @@ class EventType(enum.Enum):
     GLOBAL_ENTITY_ACTION = "global_entity_action" # General action by GE, details in json
     GE_TRIGGERED_DIALOGUE_PLACEHOLDER = "ge_triggered_dialogue_placeholder" # Placeholder for GE initiating dialogue
 
+    TURN_START = "turn_start"               # Added missing event type
+    TURN_END = "turn_end"                   # Added missing event type
 
     # TODO: Add more event types as needed for other modules
     # e.g., QUEST_ACCEPTED, QUEST_STEP_COMPLETED, QUEST_COMPLETED, COMBAT_STARTED, COMBAT_ENDED, ITEM_CRAFTED, etc.
@@ -122,6 +125,7 @@ class RelationshipEntityType(enum.Enum):
     GENERATED_FACTION = "generated_faction"
     GLOBAL_NPC = "global_npc"        # Added for Task 46
     MOBILE_GROUP = "mobile_group"    # Added for Task 46
+    UNKNOWN = "unknown"              # Added for placeholder/error cases
     # Consider if specific NPC types or other global entities need to be here
 
 class QuestStatus(enum.Enum):

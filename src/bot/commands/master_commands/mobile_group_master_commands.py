@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Dict, Any, Optional, List
+from typing import Optional, Dict, Any, Union, List # Added Union, List
 
 import discord
 from discord import app_commands
@@ -17,7 +17,7 @@ from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
-class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
+class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterMobileGroupCog initialized.")
@@ -29,7 +29,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         guild_only=True
     )
 
-    async def _format_json_field_display(self, interaction: discord.Interaction, data: Optional[Dict[Any, Any]], lang_code: str) -> str:
+    async def _format_json_field_display(self, interaction: discord.Interaction, data: Optional[Union[Dict[Any, Any], List[Any]]], lang_code: str) -> str:
         # Simplified helper for display, not using default_na_key/error_key from view directly to avoid session issues
         # Fallback to basic strings if localization fails or not in session context of this helper
         na_str = "Not available"
@@ -87,25 +87,25 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             embed.add_field(name=await get_label("leader_npc", "Leader GNPC"), value=leader_display, inline=True)
 
 
-            name_i18n_str = await self._format_json_display(interaction, group.name_i18n, lang_code)
+            name_i18n_str = await self._format_json_field_display(interaction, group.name_i18n, lang_code)
             embed.add_field(name=await get_label("name_i18n", "Name (i18n)"), value=f"```json\n{name_i18n_str[:1000]}\n```", inline=False)
 
-            desc_i18n_str = await self._format_json_display(interaction, group.description_i18n, lang_code)
+            desc_i18n_str = await self._format_json_field_display(interaction, group.description_i18n, lang_code)
             embed.add_field(name=await get_label("description_i18n", "Description (i18n)"), value=f"```json\n{desc_i18n_str[:1000]}\n```", inline=False)
 
-            behavior_type_i18n_str = await self._format_json_display(interaction, group.behavior_type_i18n, lang_code)
+            behavior_type_i18n_str = await self._format_json_field_display(interaction, group.behavior_type_i18n, lang_code)
             embed.add_field(name=await get_label("behavior_type_i18n", "Behavior Type (i18n)"), value=f"```json\n{behavior_type_i18n_str[:1000]}\n```", inline=False)
 
-            route_str = await self._format_json_display(interaction, group.route_json, lang_code)
+            route_str = await self._format_json_field_display(interaction, group.route_json, lang_code)
             embed.add_field(name=await get_label("route_json", "Route JSON"), value=f"```json\n{route_str[:1000]}\n```", inline=False)
 
-            members_def_str = await self._format_json_display(interaction, {"members": group.members_definition_json}, lang_code) # Wrap list for display
+            members_def_str = await self._format_json_field_display(interaction, {"members": group.members_definition_json}, lang_code) # Wrap list for display
             embed.add_field(name=await get_label("members_definition_json", "Members Definition JSON"), value=f"```json\n{members_def_str[:1000]}\n```", inline=False)
 
-            properties_str = await self._format_json_display(interaction, group.properties_json, lang_code)
+            properties_str = await self._format_json_field_display(interaction, group.properties_json, lang_code)
             embed.add_field(name=await get_label("properties_json", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```", inline=False)
 
-            ai_meta_str = await self._format_json_display(interaction, group.ai_metadata_json, lang_code)
+            ai_meta_str = await self._format_json_field_display(interaction, group.ai_metadata_json, lang_code)
             embed.add_field(name=await get_label("ai_metadata_json", "AI Metadata JSON"), value=f"```json\n{ai_meta_str[:1000]}\n```", inline=False)
 
 
@@ -139,7 +139,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
         async with get_db_session() as session:
             offset = (page - 1) * limit
             groups = await mobile_group_crud.get_multi(session, guild_id=interaction.guild_id, skip=offset, limit=limit)
-            total_mobile_groups = await mobile_group_crud.get_count_by_guild(session, guild_id=interaction.guild_id)
+            total_mobile_groups = await mobile_group_crud.count(session, guild_id=interaction.guild_id) # Changed to .count
 
             if not groups:
                 no_groups_msg = await get_localized_message_template(session, interaction.guild_id, "mobile_group_list:no_groups_found_page", lang_code, "No Mobile Groups found for this guild (Page {page}).")
@@ -208,7 +208,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
             parsed_props = await parse_json_parameter(interaction, properties_json, "properties_json", session)
             if parsed_props is None and properties_json is not None: return
 
-            if await mobile_group_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=static_id):
+            if await mobile_group_crud.get_by_attribute(session, attribute="static_id", value=static_id, guild_id=interaction.guild_id):
                 error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_static_id_exists",lang_code,"Mobile Group with static_id '{id}' already exists.")
                 await interaction.followup.send(error_msg.format(id=static_id), ephemeral=True); return
             if current_location_id and not await location_crud.get(session, id=current_location_id, guild_id=interaction.guild_id):
@@ -227,7 +227,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_member_def_invalid_format",lang_code,"Each member definition must be a dict with a 'global_npc_static_id' (string).")
                         await interaction.followup.send(error_msg, ephemeral=True); return
                     gnpc_sid = member_entry["global_npc_static_id"]
-                    if not await global_npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=gnpc_sid):
+                    if not await global_npc_crud.get_by_attribute(session, attribute="static_id", value=gnpc_sid, guild_id=interaction.guild_id):
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_create:error_member_gnpc_not_found",lang_code,"Member Global NPC with static_id '{sid}' not found.")
                         await interaction.followup.send(error_msg.format(sid=gnpc_sid), ephemeral=True); return
                     if "role_i18n" in member_entry and (not isinstance(member_entry["role_i18n"], dict) or not all(isinstance(k, str) and isinstance(v, str) for k,v in member_entry["role_i18n"].items())):
@@ -312,7 +312,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                 if db_field_name == "static_id":
                     parsed_value = new_value
                     if not parsed_value: raise ValueError("static_id cannot be empty.")
-                    if parsed_value != group_to_update.static_id and await mobile_group_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value):
+                    if parsed_value != group_to_update.static_id and await mobile_group_crud.get_by_attribute(session, attribute="static_id", value=parsed_value, guild_id=interaction.guild_id):
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_static_id_exists",lang_code,"Static ID '{id}' already in use.")
                         await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
                 elif db_field_name in ["name_i18n", "description_i18n", "behavior_type_i18n", "route_json", "properties_json"]:
@@ -330,7 +330,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                             error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_member_def_invalid_format",lang_code,"Each member definition must be a dict with a 'global_npc_static_id' (string).")
                             await interaction.followup.send(error_msg, ephemeral=True); return
                         gnpc_sid = member_entry["global_npc_static_id"]
-                        if not await global_npc_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=gnpc_sid):
+                        if not await global_npc_crud.get_by_attribute(session, attribute="static_id", value=gnpc_sid, guild_id=interaction.guild_id):
                             error_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:error_member_gnpc_not_found",lang_code,"Member Global NPC with static_id '{sid}' not found.")
                             await interaction.followup.send(error_msg.format(sid=gnpc_sid), ephemeral=True); return
                     parsed_value = temp_parsed_list
@@ -370,7 +370,7 @@ class MasterMobileGroupCog(commands.Cog, name="Master Mobile Group Commands"):
                  await interaction.followup.send(error_msg, ephemeral=True); return
 
             success_msg = await get_localized_message_template(session,interaction.guild_id,"mg_update:success",lang_code,"Mobile Group ID {id} updated. Field '{f}' set to '{v}'.")
-            new_val_display_str = await self._format_json_display(interaction, parsed_value, lang_code) if isinstance(parsed_value, (dict, list)) else (await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") if parsed_value is None else str(parsed_value))
+            new_val_display_str = await self._format_json_field_display(interaction, parsed_value, lang_code) if isinstance(parsed_value, (dict, list)) else (await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None") if parsed_value is None else str(parsed_value))
             await interaction.followup.send(success_msg.format(id=updated_group.id, f=field_to_update, v=new_val_display_str), ephemeral=True)
 
     @mobile_group_master_cmds.command(name="delete", description="Delete a Mobile Group.")

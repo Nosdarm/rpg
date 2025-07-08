@@ -10,7 +10,7 @@ from src.core.localization_utils import get_localized_master_message # Removed g
 
 logger = logging.getLogger(__name__)
 
-class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
+class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterSimulationToolsCog initialized.")
@@ -371,7 +371,10 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                     embed.add_field(name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_check_result", "Check Result", str(interaction.locale)), value=cr_text, inline=False)
 
                 if updated_combat_encounter and updated_combat_encounter.participants_json:
-                    participants_str = json.dumps(updated_combat_encounter.participants_json.get("entities", []), indent=2, ensure_ascii=False)
+                    # Assure Pyright that participants_json is not None here
+                    from typing import cast
+                    participants_dict = cast(Dict[str, Any], updated_combat_encounter.participants_json)
+                    participants_str = json.dumps(participants_dict.get("entities", []), indent=2, ensure_ascii=False) # type: ignore[reportOptionalMemberAccess]
                     if len(participants_str) > 1018: participants_str = participants_str[:1018] + "..."
                     embed.add_field(
                         name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_participants_state", "Participants State (Post-Action)", str(interaction.locale)),
@@ -553,7 +556,7 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
 
     @master_simulate_cmds.command(name="conflict", description="Simulate conflict detection for a set of actions.")
     @app_commands.describe(
-        actions_json="JSON string representing a list of actions to check for conflicts. Each action: {\"actor_id\": int, \"actor_type\": \"player\"|\"generated_npc\", \"parsed_action\": {\"intent_name\": str, \"entities\": {}, \"text\": str}}"
+        actions_json="JSON string for a list of actions. Each item: {\"actor_id\": int, \"actor_type\": \"player\"|\"generated_npc\", \"parsed_action\": {\"raw_text\": str, \"intent\": str, \"entities\": [{\"type\": str, \"value\": str, \"confidence\": float|None, \"source\": str|None}], \"guild_id\": int|None, \"player_id\": int|None}}"
     )
     async def simulate_conflict_command(
         self,
@@ -629,25 +632,33 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"):
                             entities_str_parts = []
                             action_entities = entity_action.get("action_entities", [])
                             if isinstance(action_entities, list) and action_entities:
-                                for act_ent in action_entities[:2]: # Show first 2 entities
-                                    ent_type = act_ent.get('type', 'ent_type')
-                                    ent_val_str = str(act_ent.get('value', 'ent_val'))[:20] # Limit entity value length
-                                    entities_str_parts.append(f"`{ent_type}`: `{ent_val_str}`")
-                            entities_display = f" (Entities: {'; '.join(entities_str_parts)})" if entities_str_parts else ""
+                                for act_ent in action_entities: # Show all entities for clarity
+                                    ent_type = act_ent.get('type', 'unknown_entity_type')
+                                    ent_val_str = str(act_ent.get('value', 'unknown_entity_value'))
+                                    # Try to get localized entity type name
+                                    loc_ent_type_default = ent_type.replace("_", " ").capitalize()
+                                    loc_ent_type = await get_localized_master_message(session, guild_id, f"entity_type:{ent_type}", loc_ent_type_default, str(interaction.locale))
+                                    entities_str_parts.append(f"  - {loc_ent_type}: `{ent_val_str}`")
+
+                            entities_block = ""
+                            if entities_str_parts:
+                                entities_label = await get_localized_master_message(session, guild_id, "simulate_conflict:action_entities_label", "Entities in action:", str(interaction.locale))
+                                entities_block = f"\n    {entities_label}\n" + "\n".join(entities_str_parts)
+
 
                             detail_line = await get_localized_master_message(
-                                session, guild_id, "simulate_conflict:conflict_entity_action_detail_ext", # Potentially new key
-                                "- {actor_type_loc} ID {actor_id_loc}: Intent `{intent_loc}`{entities_display_loc}, Text: \"{text_loc}\"",
+                                session, guild_id, "simulate_conflict:conflict_entity_action_detail_ext_v2", # New key for more structured output
+                                "- {actor_type_loc} ID `{actor_id_loc}`: Intent `{intent_loc}` (Text: \"{text_loc}\"){entities_block_loc}",
                                 str(interaction.locale),
                                 actor_type_loc=actor_type.capitalize(),
                                 actor_id_loc=actor_id,
                                 intent_loc=intent_val,
-                                entities_display_loc=entities_display,
-                                text_loc=text_val[:30] + ('...' if len(text_val) > 30 else '')
+                                text_loc=text_val[:40] + ('...' if len(text_val) > 40 else ''), # Slightly longer text preview
+                                entities_block_loc=entities_block
                             )
                             conflict_details_list.append(detail_line)
 
-                        conflict_value_str = f"{involved_actions_label}\n" + "\n".join(conflict_details_list)
+                        conflict_value_str = f"**{involved_actions_label}**\n" + "\n".join(conflict_details_list)
                         conflict_value_str += target_sig_display # Add target signature info
 
                         if len(conflict_value_str) > 1020:

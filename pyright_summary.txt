@@ -1,46 +1,57 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 25 issue(s):
-  Line 121  [ERROR] Argument missing for parameter "player_name"
-  Line 121  [ERROR] Arguments missing for parameters "discord_user", "player_name"
-  Line 124  [ERROR] No parameter named "player_id"
-  Line 125  [ERROR] No parameter named "discord_id"
-  Line 126  [ERROR] No parameter named "name"
-  Line 132  [ERROR] No parameter named "max_hp"
-  Line 133  [ERROR] No parameter named "current_status_str"
-  Line 135  [ERROR] No parameter named "selected_language"
-  Line 139  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 199  [ERROR] Argument missing for parameter "player_name"
-  Line 199  [ERROR] Arguments missing for parameters "discord_user", "player_name"
-  Line 202  [ERROR] No parameter named "discord_id"
-  Line 202  [ERROR] No parameter named "name"
-  Line 202  [ERROR] No parameter named "player_id"
-  Line 205  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 255  [ERROR] Argument missing for parameter "player_name"
-  Line 255  [ERROR] Arguments missing for parameters "discord_user", "player_name"
-  Line 258  [ERROR] No parameter named "player_id"
-  Line 259  [ERROR] No parameter named "discord_id"
-  Line 260  [ERROR] No parameter named "name"
-  Line 293  [ERROR] Argument missing for parameter "player_name"
-  Line 293  [ERROR] Arguments missing for parameters "discord_user", "player_name"
-  Line 296  [ERROR] No parameter named "player_id"
-  Line 297  [ERROR] No parameter named "discord_id"
-  Line 298  [ERROR] No parameter named "name"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 10 issue(s):
+  Line 39   [ERROR] "ext" is not a known attribute of module "discord"
+  Line 61   [ERROR] No parameter named "difficulty_class"
+  Line 72   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 72   [ERROR] Parameter "check_type" is already assigned
+  Line 95   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 95   [ERROR] Parameter "check_type" is already assigned
+  Line 115  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 115  [ERROR] Parameter "check_type" is already assigned
+  Line 162  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 162  [ERROR] Parameter "combat_encounter_id" is already assigned
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 10 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
   Line 288  [ERROR] Argument missing for parameter "entity_type"
   Line 290  [ERROR] Argument missing for parameter "entity_type"
   Line 359  [ERROR] Argument missing for parameter "entity_type"
   Line 361  [ERROR] Argument missing for parameter "entity_type"
-  Line 402  [ERROR] Cannot access attribute "call_args_list" for class "MethodType"
-┬а┬аAttribute "call_args_list" is unknown
   Line 505  [ERROR] Argument missing for parameter "entity_type"
   Line 833  [ERROR] Argument missing for parameter "entity_type"
   Line 834  [ERROR] Argument missing for parameter "entity_type"
   Line 835  [ERROR] Argument missing for parameter "entity_type"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 9 issue(s):
+  Line 152  [ERROR] Parameter "discord_user" is already assigned
+  Line 165  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 212  [ERROR] Operator "in" not supported for types "str" and "str | None"
+┬а┬аOperator "in" not supported for types "str" and "None"
+  Line 213  [ERROR] Operator "in" not supported for types "str" and "str | None"
+┬а┬аOperator "in" not supported for types "str" and "None"
+  Line 248  [ERROR] Parameter "discord_user" is already assigned
+  Line 253  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 357  [ERROR] Parameter "discord_user" is already assigned
+  Line 378  [ERROR] Operator "in" not supported for types "Literal['AttrPlayer']" and "str | None"
+┬а┬аOperator "in" not supported for types "Literal['AttrPlayer']" and "None"
+  Line 410  [ERROR] Parameter "discord_user" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_analysis_system.py] — 5 issue(s):
+  Line 107  [ERROR] No parameter named "errors"
+  Line 202  [ERROR] Argument of type "List[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[str] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 204  [ERROR] Object of type "None" is not subscriptable
+  Line 205  [ERROR] Object of type "None" is not subscriptable
+  Line 206  [ERROR] Object of type "None" is not subscriptable
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
   Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
@@ -56,36 +67,35 @@
 ┬а┬аAttribute "assert_called_once_with" is unknown
   Line 209  [ERROR] Parameter "pending_conflict_id" is already assigned
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\quest_master_commands.py] — 2 issue(s):
-  Line 770  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
-┬а┬аAttribute "get_by_quest_and_order" is unknown
-  Line 970  [ERROR] Cannot access attribute "get_by_quest_and_order" for class "CRUDQuestStep"
-┬а┬аAttribute "get_by_quest_and_order" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_simulation_tools_cog.py] — 2 issue(s):
+  Line 350  [ERROR] "get" is not a known attribute of "None"
+  Line 350  [ERROR] "get" is not a known attribute of "None"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\story_log_master_commands.py] — 2 issue(s):
-  Line 46   [ERROR] Cannot access attribute "get_by_id" for class "CRUDBase[StoryLog]"
-┬а┬аAttribute "get_by_id" is unknown
-  Line 132  [ERROR] Cannot access attribute "turn_number" for class "type[StoryLog]"
-┬а┬аAttribute "turn_number" is unknown
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_crafting_recipe_commands.py] — 1 issue(s):
-  Line 65   [ERROR] Cannot access attribute "brown" for class "Color"
-┬а┬аAttribute "brown" is unknown
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\monitoring_master_commands.py] — 1 issue(s):
+  Line 738  [ERROR] "get" is not a known attribute of "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 1 issue(s):
-  Line 529  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
+  Line 541  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
 ┬а┬а"None" is not assignable to "list[int]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\conflict_simulation_system.py] — 1 issue(s):
+  Line 521  [ERROR] Argument of type "int | None" cannot be assigned to parameter "player_id" of type "int" in function "__init__"
+┬а┬аType "int | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
   Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
 ┬а┬аType "str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_monitoring_master_commands.py] — 1 issue(s):
+  Line 43   [ERROR] "AsyncSession" is not defined
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
   Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 1 issue(s):
-  Line 711  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+  Line 715  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
 ┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"

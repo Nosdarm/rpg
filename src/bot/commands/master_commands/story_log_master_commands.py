@@ -16,7 +16,7 @@ from src.models.enums import EventType as EventTypeEnum # For validation
 
 logger = logging.getLogger(__name__)
 
-class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"):
+class MasterStoryLogCog(commands.Cog, name="Master Story Log Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.story_log_crud_instance = CRUDBase(StoryLog) # Initialize CRUD for StoryLog

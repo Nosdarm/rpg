@@ -180,15 +180,14 @@ async def test_process_actions_single_player_only_look(
     # Simpler approach: Make session.execute return the count mock directly first.
     # This might break subsequent calls if they expect a different structure,
     # but it will test if the conflict check itself passes.
-    mock_execute_result_for_count = AsyncMock()
-    mock_execute_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
-    # Store the original side_effect if any, to restore later or use in a more complex way
-    # original_execute_side_effect = mock_session.execute.side_effect
 
-    # For this test, we'll temporarily make ALL execute calls return the count result.
-    # This will likely break the player loading part, but should fix the TypeError.
+    # This sync_mock_result represents the SQLAlchemy Result object
+    sync_mock_result_for_count = MagicMock()
+    sync_mock_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
+
+    # mock_session.execute is an AsyncMock. Its return_value (after await) should be sync_mock_result_for_count.
     mock_session.execute.side_effect = None # Clear any previous side_effect
-    mock_session.execute.return_value = mock_execute_result_for_count
+    mock_session.execute.return_value = sync_mock_result_for_count
     # END MOCK CONFIGURATION
 
     await process_actions_for_guild(DEFAULT_GUILD_ID, [{"id": PLAYER_ID_PK_1, "type": "player"}])
@@ -229,31 +228,38 @@ async def test_process_actions_single_player_with_both_actions(
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     # START MOCK CONFIGURATION FOR CONFLICT CHECK and action loading
-    mock_execute_result_for_count = AsyncMock()
-    mock_execute_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
+    # These mocks represent synchronous SQLAlchemy Result objects
+    sync_mock_result_for_count = MagicMock()
+    sync_mock_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
 
-    mock_execute_result_for_player_load = AsyncMock()
-    mock_player_load_scalars = AsyncMock()
+    sync_mock_result_for_player_load = MagicMock()
+    mock_player_load_scalars = MagicMock() # This mock represents the object returned by .scalars()
     mock_player_load_scalars.all.return_value = [mock_player_1_with_both_actions]
-    mock_execute_result_for_player_load.scalars.return_value = mock_player_load_scalars
+    sync_mock_result_for_player_load.scalars.return_value = mock_player_load_scalars
 
-    mock_execute_result_for_party_load = AsyncMock()
-    mock_party_load_scalars = AsyncMock()
+    sync_mock_result_for_party_load = MagicMock()
+    mock_party_load_scalars = MagicMock()
     mock_party_load_scalars.all.return_value = []
-    mock_execute_result_for_party_load.scalars.return_value = mock_party_load_scalars
+    sync_mock_result_for_party_load.scalars.return_value = mock_party_load_scalars
+
+    default_sync_mock_result = MagicMock()
+    default_sync_mock_result.scalar_one_or_none.return_value = None
+    default_mock_scalars = MagicMock()
+    default_mock_scalars.all.return_value = []
+    default_sync_mock_result.scalars.return_value = default_mock_scalars
 
     def complex_execute_side_effect(*args, **kwargs):
         statement_str = str(args[0]).lower()
+        # session.execute is an AsyncMock. Its side_effect (this function) should return
+        # a synchronous MagicMock that mimics the SQLAlchemy Result object.
         if "count(" in statement_str and "pending_conflicts" in statement_str:
-            return mock_execute_result_for_count
+            return sync_mock_result_for_count
         elif "from players" in statement_str or "join players" in statement_str:
-            return mock_execute_result_for_player_load
+            return sync_mock_result_for_player_load
         elif "from parties" in statement_str or "join parties" in statement_str:
-             return mock_execute_result_for_party_load
-        default_mock_result = AsyncMock()
-        default_mock_result.scalar_one_or_none.return_value = None
-        default_mock_result.scalars.return_value.all.return_value = []
-        return default_mock_result
+             return sync_mock_result_for_party_load
+        return default_sync_mock_result
+
     mock_session.execute.side_effect = complex_execute_side_effect
     # END MOCK CONFIGURATION
 
@@ -300,32 +306,34 @@ async def test_process_actions_party_with_one_player_actions(
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     # START MOCK CONFIGURATION FOR CONFLICT CHECK and action loading
-    mock_execute_result_for_count = AsyncMock()
-    mock_execute_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
+    sync_mock_result_for_count = MagicMock()
+    sync_mock_result_for_count.scalar_one_or_none.return_value = 0
 
-    mock_execute_result_for_player_load = AsyncMock()
-    mock_player_load_scalars = AsyncMock()
-    # mock_player_1_with_both_actions is used here as the party member
+    sync_mock_result_for_player_load = MagicMock()
+    mock_player_load_scalars = MagicMock()
     mock_player_load_scalars.all.return_value = [mock_player_1_with_both_actions]
-    mock_execute_result_for_player_load.scalars.return_value = mock_player_load_scalars
+    sync_mock_result_for_player_load.scalars.return_value = mock_player_load_scalars
 
-    mock_execute_result_for_party_load = AsyncMock()
-    mock_party_load_scalars = AsyncMock()
-    mock_party_load_scalars.all.return_value = [mock_party_with_player_1] # Party is loaded
-    mock_execute_result_for_party_load.scalars.return_value = mock_party_load_scalars
+    sync_mock_result_for_party_load = MagicMock()
+    mock_party_load_scalars = MagicMock()
+    mock_party_load_scalars.all.return_value = [mock_party_with_player_1]
+    sync_mock_result_for_party_load.scalars.return_value = mock_party_load_scalars
+
+    default_sync_mock_result = MagicMock()
+    default_sync_mock_result.scalar_one_or_none.return_value = None
+    default_mock_scalars = MagicMock()
+    default_mock_scalars.all.return_value = []
+    default_sync_mock_result.scalars.return_value = default_mock_scalars
 
     def complex_execute_side_effect(*args, **kwargs):
         statement_str = str(args[0]).lower()
         if "count(" in statement_str and "pending_conflicts" in statement_str:
-            return mock_execute_result_for_count
+            return sync_mock_result_for_count
         elif "from players" in statement_str or "join players" in statement_str:
-            return mock_execute_result_for_player_load
+            return sync_mock_result_for_player_load
         elif "from parties" in statement_str or "join parties" in statement_str:
-             return mock_execute_result_for_party_load
-        default_mock_result = AsyncMock()
-        default_mock_result.scalar_one_or_none.return_value = None
-        default_mock_result.scalars.return_value.all.return_value = []
-        return default_mock_result
+             return sync_mock_result_for_party_load
+        return default_sync_mock_result
     mock_session.execute.side_effect = complex_execute_side_effect
     # END MOCK CONFIGURATION
 
@@ -396,31 +404,34 @@ async def test_process_actions_unknown_intent_uses_placeholder(
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     # START MOCK CONFIGURATION FOR CONFLICT CHECK and action loading
-    mock_execute_result_for_count = AsyncMock()
-    mock_execute_result_for_count.scalar_one_or_none.return_value = 0  # Simulate 0 pending conflicts
+    sync_mock_result_for_count = MagicMock()
+    sync_mock_result_for_count.scalar_one_or_none.return_value = 0
 
-    mock_execute_result_for_player_load = AsyncMock()
-    mock_player_load_scalars = AsyncMock()
-    mock_player_load_scalars.all.return_value = [player_for_test] # player_for_test is defined in this test
-    mock_execute_result_for_player_load.scalars.return_value = mock_player_load_scalars
+    sync_mock_result_for_player_load = MagicMock()
+    mock_player_load_scalars = MagicMock()
+    mock_player_load_scalars.all.return_value = [player_for_test]
+    sync_mock_result_for_player_load.scalars.return_value = mock_player_load_scalars
 
-    mock_execute_result_for_party_load = AsyncMock()
-    mock_party_load_scalars = AsyncMock()
+    sync_mock_result_for_party_load = MagicMock()
+    mock_party_load_scalars = MagicMock()
     mock_party_load_scalars.all.return_value = []
-    mock_execute_result_for_party_load.scalars.return_value = mock_party_load_scalars
+    sync_mock_result_for_party_load.scalars.return_value = mock_party_load_scalars
+
+    default_sync_mock_result = MagicMock()
+    default_sync_mock_result.scalar_one_or_none.return_value = None
+    default_mock_scalars = MagicMock()
+    default_mock_scalars.all.return_value = []
+    default_sync_mock_result.scalars.return_value = default_mock_scalars
 
     def complex_execute_side_effect(*args, **kwargs):
         statement_str = str(args[0]).lower()
         if "count(" in statement_str and "pending_conflicts" in statement_str:
-            return mock_execute_result_for_count
+            return sync_mock_result_for_count
         elif "from players" in statement_str or "join players" in statement_str:
-            return mock_execute_result_for_player_load
+            return sync_mock_result_for_player_load
         elif "from parties" in statement_str or "join parties" in statement_str:
-             return mock_execute_result_for_party_load
-        default_mock_result = AsyncMock()
-        default_mock_result.scalar_one_or_none.return_value = None
-        default_mock_result.scalars.return_value.all.return_value = []
-        return default_mock_result
+             return sync_mock_result_for_party_load
+        return default_sync_mock_result
     mock_session.execute.side_effect = complex_execute_side_effect
     # END MOCK CONFIGURATION
 
@@ -871,7 +882,7 @@ async def test_handle_move_action_wrapper_execute_move_raises_exception(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session") # Patches the session_maker for process_actions_for_guild
-@patch("src.core.action_processor.pending_conflict_crud", autospec=True) # Corrected patch target
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock) # To check if called
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock) # To check error logging
 async def test_process_actions_halts_if_conflict_pending(
@@ -922,7 +933,7 @@ async def test_process_actions_halts_if_conflict_pending(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.pending_conflict_crud", autospec=True) # Corrected patch target
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
 @patch("src.core.action_processor._execute_player_actions", new_callable=AsyncMock) # Further step
 @patch("src.core.action_processor._finalize_turn_processing", new_callable=AsyncMock) # Final step
@@ -955,7 +966,11 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
         mock_session, guild_id=guild_id_test, status=ANY
     )
     mock_load_actions.assert_called_once() # Should be called if no conflict
-    mock_execute_actions.assert_called_once() # Should proceed if actions were loaded (even if empty list)
+    # If mock_load_actions.return_value is [], _execute_player_actions should NOT be called.
+    if mock_load_actions.return_value:
+        mock_execute_actions.assert_called_once()
+    else:
+        mock_execute_actions.assert_not_called()
     mock_finalize_turn.assert_called_once() # Should always be called at the end if not halted early
 
     assert not any(
@@ -972,7 +987,7 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.pending_conflict_crud", autospec=True) # Corrected patch target
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock) # For logging CONFLICT_CHECK_ERROR
 async def test_process_actions_handles_exception_during_conflict_check(

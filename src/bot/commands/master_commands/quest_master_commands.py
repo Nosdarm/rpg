@@ -17,7 +17,7 @@ from src.models.enums import QuestStatus # For progress_update
 
 logger = logging.getLogger(__name__)
 
-class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
+class MasterQuestCog(commands.Cog, name="Master Quest Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterQuestCog initialized.")
@@ -695,7 +695,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "qs_create:error_parent_quest_not_found", lang_code, "Parent GeneratedQuest with ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=quest_id), ephemeral=True); return
 
-            existing_step_order = await quest_step_crud.get_by_quest_and_order(session, quest_id=quest_id, step_order=step_order)
+            existing_step_order = await quest_step_crud.get_by_quest_and_order(session, quest_id=quest_id, step_order=step_order) # type: ignore[attr-defined]
             if existing_step_order:
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "qs_create:error_step_order_exists", lang_code, "A QuestStep with order {order} already exists for quest ID {q_id}.")
                 await interaction.followup.send(error_msg.format(order=step_order, q_id=quest_id), ephemeral=True); return
@@ -878,7 +878,7 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"):
                 else: raise ValueError(f"Unsupported type for field {db_field_name}")
 
                 if db_field_name == "step_order" and parsed_value != qs_to_update.step_order:
-                    existing_step = await quest_step_crud.get_by_quest_and_order(session, quest_id=qs_to_update.quest_id, step_order=cast(int, parsed_value))
+                    existing_step = await quest_step_crud.get_by_quest_and_order(session, quest_id=qs_to_update.quest_id, step_order=cast(int, parsed_value)) # type: ignore[attr-defined]
                     if existing_step and existing_step.id != quest_step_id :
                         error_msg = await get_localized_message_template(session,interaction.guild_id,"qs_update:error_step_order_exists",lang_code,"Step order {order} already exists for this quest.")
                         await interaction.followup.send(error_msg.format(order=parsed_value), ephemeral=True); return

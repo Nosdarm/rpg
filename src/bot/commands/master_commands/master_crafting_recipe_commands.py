@@ -18,7 +18,7 @@ from src.bot.utils import parse_json_parameter # Import the utility
 
 logger = logging.getLogger(__name__)
 
-class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Commands"):
+class MasterCraftingRecipeCog(commands.Cog, name="Master Crafting Recipe Commands"): # type: ignore[call-arg]
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         logger.info("MasterCraftingRecipeCog initialized.")
