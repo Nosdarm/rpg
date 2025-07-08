@@ -395,7 +395,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: igno
                         # Ensure 'dm_preferences_allow_guilds', if present and None, becomes an empty list
                         # This specific logic should remain if it's a business rule for this field
                         if "dm_preferences_allow_guilds" in parsed_value and parsed_value["dm_preferences_allow_guilds"] is None:
-                            parsed_value["dm_preferences_allow_guilds"] = []
+                            parsed_value["dm_preferences_allow_guilds"] = [] # type: ignore[reportOptionalSubscript]
                     else:
                         error_detail_template = await get_localized_message_template(session, interaction.guild_id, "player_update:error_detail_internal_json_mismatch", lang_code, "Internal error: Attempting to parse JSON for a non-JSON field '{field_name}'.")
                         raise ValueError(error_detail_template.format(field_name=db_field_name))

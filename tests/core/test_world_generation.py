@@ -543,8 +543,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(log_args['event_type'], EventType.WORLD_EVENT_FACTIONS_GENERATED.value)
         # Assuming faction_ids is List[int], the assertIn should be fine.
         # If Pyright complains about log_args['details_json']['faction_ids'] being str|None:
-        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids']) # type: ignore
-        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids']) # type: ignore
+        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids']) # type: ignore[arg-type]
+        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids']) # type: ignore[arg-type]
         self.session_commit_mock.assert_called_once()
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)

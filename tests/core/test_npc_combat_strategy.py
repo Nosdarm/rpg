@@ -711,7 +711,7 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
     for p_data in participants_list_for_setup: # mock_combat_encounter.participants_json:
         # Pyright errors on these lines seem to be misinterpretations.
         # p_data is a dict, so .get() is fine.
-        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value: # type: ignore[union-attr] # p_data is Dict
+        if p_data.get("id") == mock_actor_npc_defeated_data.id and p_data.get("type") == EntityType.NPC.value: # type: ignore[union-attr, reportAttributeAccessIssue] # p_data is Dict
             p_data["current_hp"] = 0
             defeated_actor_combat_data = p_data
             break
@@ -721,8 +721,11 @@ async def test_get_npc_combat_action_actor_defeated(mock_session, mock_actor_npc
     with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc_defeated_data)):
         with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
             with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])) as mock_get_relationships:
-                action_result = await get_npc_combat_action( # type: ignore
-                    mock_session, mock_actor_npc_defeated_data.guild_id, mock_actor_npc_defeated_data.id, mock_combat_encounter.id
+                action_result = await get_npc_combat_action( # type: ignore[reportAttributeAccessIssue, reportIndexIssue]
+                    mock_session,
+                    mock_actor_npc_defeated_data.guild_id,
+                    mock_actor_npc_defeated_data.id,
+                    mock_combat_encounter.id
                 )
                 assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
 

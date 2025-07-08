@@ -374,11 +374,11 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                     # Assure Pyright that participants_json is not None here
                     from typing import cast
                     participants_dict = cast(Dict[str, Any], updated_combat_encounter.participants_json)
-                    participants_str = json.dumps(participants_dict.get("entities", []), indent=2, ensure_ascii=False)
+                    participants_str = json.dumps(participants_dict.get("entities", []), indent=2, ensure_ascii=False) # type: ignore[reportOptionalMemberAccess]
                     if len(participants_str) > 1018: participants_str = participants_str[:1018] + "..."
                     embed.add_field(
                         name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_participants_state", "Participants State (Post-Action)", str(interaction.locale)),
-                        value=f"```json\n{participants_str}\n```", # This is where L350 was likely pointing
+                        value=f"```json\n{participants_str}\n```",
                         inline=False
                     )
                 else:

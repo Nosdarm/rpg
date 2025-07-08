@@ -103,8 +103,8 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
 
         self.mock_parse_and_validate.return_value = ParsedAiData(
             raw_ai_output="mock raw output for test", # Added required field
-            generated_entities=entities_for_payload,
-            errors=[]
+            generated_entities=entities_for_payload
+            # errors=[] # Removed, ParsedAiData does not have an 'errors' field
         )
 
         return await analyze_generated_content(
@@ -199,11 +199,11 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("AI Response Validation Error: Mocked Pydantic Error From Test" in issue for issue in report.issues_found))
 
         self.assertIsNotNone(report.validation_errors)
-        self.assertEqual(len(report.validation_errors), 1)
+        self.assertEqual(len(report.validation_errors), 1) # type: ignore[arg-type]
         # The SUT stores details as JSON strings in the report
-        self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0])
-        self.assertIn("'loc': ('name_i18n',)", report.validation_errors[0])
-        self.assertIn("'msg': 'field required'", report.validation_errors[0])
+        self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0]) # type: ignore[index]
+        self.assertIn("'loc': ('name_i18n',)", report.validation_errors[0]) # type: ignore[index]
+        self.assertIn("'msg': 'field required'", report.validation_errors[0]) # type: ignore[index]
 
 
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):
