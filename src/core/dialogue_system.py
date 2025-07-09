@@ -78,7 +78,7 @@ async def generate_npc_dialogue(
         processed_response = llm_response_str.strip()
         # Убираем кавычки, если LLM их добавил по краям всей строки
         if processed_response.startswith('"') and processed_response.endswith('"'):
-            processed_response = processed_response[1:-1].strip()
+            processed_response = processed_response[1:-1].strip() # Возвращен .strip()
 
         # Опционально: Убрать префиксы типа "NPC:" или "As NPC_NAME, I say:", если они иногда появляются.
         # Это очень базовый способ, можно улучшить регулярными выражениями или более умной логикой.
