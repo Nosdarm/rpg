@@ -140,10 +140,6 @@ This block presents tasks related to dynamic NPC dialogues using LLM and storing
 Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
 
-Task 55: 🖥️ UI.1 UI Technology Stack Selection and Basic Structure. (None)
-* Description: Select a framework/library for developing the client UI application (e.g., React, Vue for web; Electron, PyQt for desktop). Define the basic architecture of the UI application (components, routing, state management).
-* Result: Technology stack selected, basic UI project framework created.
-
 Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?)
 * Description: Create the main structure of the UI application (navigation, page layouts). Implement a UI user authentication system (e.g., via Discord OAuth2 to link to the Master's Discord account). Implement selection of the guild the Master is working with in the current UI session. The UI must store the Guild ID and automatically pass it in all subsequent requests to the backend API.
 * Result: A working UI login and guild selection system, ready for page development.
