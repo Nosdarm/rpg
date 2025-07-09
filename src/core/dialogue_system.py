@@ -273,7 +273,7 @@ async def handle_dialogue_input(
         "npc_id": npc_id,
         # "npc_name": npc_name, # prepare_dialogue_generation_prompt сам загрузит NPC и его имя
         "player_input_text": message_text,
-        "dialogue_history": dialogue_session_data["dialogue_history"],
+        "dialogue_history": list(dialogue_session_data["dialogue_history"]), # <--- Создаем копию списка
         "selected_language": player.selected_language,
         "location_id": player.current_location_id, # Добавляем location_id, если он есть у игрока
         "party_id": player.current_party_id # Добавляем party_id, если он есть у игрока
@@ -284,7 +284,8 @@ async def handle_dialogue_input(
 
     npc_response_text = await generate_npc_dialogue(session, guild_id, context_for_llm)
 
-    dialogue_session_data["dialogue_history"].append({"speaker": "npc", "line": npc_response_text})
+    # Добавляем ответ NPC в оригинальный список истории в сессии
+    active_dialogues[dialogue_key]["dialogue_history"].append({"speaker": "npc", "line": npc_response_text})
     # Ограничение длины истории диалога, если нужно (например, последние N реплик)
     max_history_len = 10 # Например, хранить последние 10 обменов (20 реплик)
     if len(dialogue_session_data["dialogue_history"]) > max_history_len * 2:

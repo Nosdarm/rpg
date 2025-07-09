@@ -487,6 +487,226 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
 
         mock_get_npc.assert_called_once_with(mock_session, id=npc_id_test, guild_id=guild_id)
 
+    # --- Начало тестов для Шага 3 текущего плана (влияние отношений на тон) ---
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_rule') # Not async, direct patch
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    # Minimal mocks for other context functions
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_dialogue_prompt_with_positive_relationship_tone_hint(
+        self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules_for_guild, mock_get_rule_config, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 10
+        player_id_test = 1
+        player_name_test = "Friendly Player"
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test)
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test, name=player_name_test)
+
+        # Simulate positive relationship
+        mock_relationship = Relationship(value=80, relationship_type="friendship")
+        mock_get_player_npc_rel.return_value = mock_relationship
+
+        # Mock RuleConfig for relationship_influence:dialogue:availability_and_tone
+        relationship_dialogue_rule = {
+            "tone_modifiers": [
+                {"relationship_above": 50, "tone_hint": "very_friendly"},
+                {"relationship_above": 0, "tone_hint": "neutral"},
+                {"relationship_default": True, "tone_hint": "cautious_default"}
+            ]
+        }
+        # get_rule is synchronous, its mock should be synchronous too
+        def get_rule_side_effect(session, guild_id_arg, key, default=None):
+            if key == "relationship_influence:dialogue:availability_and_tone":
+                return relationship_dialogue_rule
+            return default
+        mock_get_rule_config.side_effect = get_rule_side_effect
+
+        mock_get_all_rules_for_guild.return_value = {"guild_main_language": "en"} # Basic rules
+
+        test_context = {"npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "Hello my friend!"}
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **very_friendly**.", prompt)
+        mock_get_rule_config.assert_any_call(mock_session, guild_id, "relationship_influence:dialogue:availability_and_tone", default=None)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_dialogue_prompt_with_negative_relationship_tone_hint(
+        self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules_for_guild, mock_get_rule_config, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 11
+        player_id_test = 2
+        player_name_test = "Known Troublemaker"
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test)
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test, name=player_name_test)
+
+        mock_relationship = Relationship(value=-60, relationship_type="animosity")
+        mock_get_player_npc_rel.return_value = mock_relationship
+
+        relationship_dialogue_rule = {
+            "tone_modifiers": [
+                {"relationship_above": 50, "tone_hint": "very_friendly"},
+                {"relationship_above": -20, "tone_hint": "neutral_wary"},
+                {"relationship_above": -80, "tone_hint": "hostile"}, # This should be chosen
+                {"relationship_default": True, "tone_hint": "default_neutral"}
+            ]
+        }
+        def get_rule_side_effect(session, guild_id_arg, key, default=None):
+            if key == "relationship_influence:dialogue:availability_and_tone":
+                return relationship_dialogue_rule
+            return default
+        mock_get_rule_config.side_effect = get_rule_side_effect
+        mock_get_all_rules_for_guild.return_value = {"guild_main_language": "en"}
+
+        test_context = {"npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "What are you looking at?"}
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **hostile**.", prompt)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_dialogue_prompt_with_neutral_relationship_default_tone_hint(
+        self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules_for_guild, mock_get_rule_config, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        player_name_test = "Neutral Player"
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc()
+        mock_get_player.return_value = self._create_mock_player(name=player_name_test)
+        mock_relationship = Relationship(value=5, relationship_type="neutral") # Does not meet >50 or >-20 (if hostile was -80)
+        mock_get_player_npc_rel.return_value = mock_relationship
+
+        relationship_dialogue_rule = {
+            "tone_modifiers": [
+                {"relationship_above": 50, "tone_hint": "very_friendly"},
+                {"relationship_above": 20, "tone_hint": "friendly_nod"}, # Value 5 is not > 20
+                {"relationship_default": True, "tone_hint": "standard_neutral_greeting"}
+            ]
+        }
+        def get_rule_side_effect(session, guild_id_arg, key, default=None):
+            if key == "relationship_influence:dialogue:availability_and_tone": return relationship_dialogue_rule
+            return default
+        mock_get_rule_config.side_effect = get_rule_side_effect
+        mock_get_all_rules_for_guild.return_value = {"guild_main_language": "en"}
+
+        test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "Hello."}
+        prompt = await prepare_dialogue_generation_prompt(mock_session, 1, test_context)
+        self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **standard_neutral_greeting**.", prompt)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    # Mocks for other context functions
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_dialogue_prompt_no_relationship_influence_rule(
+        self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules_for_guild, mock_get_rule_config, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        player_name_test = "Player With No Rules"
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc()
+        mock_get_player.return_value = self._create_mock_player(name=player_name_test)
+        mock_get_player_npc_rel.return_value = Relationship(value=10) # Some relationship exists
+
+        # Simulate rule not found for relationship_influence, but other rules might exist
+        def get_rule_side_effect(session, guild_id_arg, key, default=None):
+            if key == "relationship_influence:dialogue:availability_and_tone":
+                return None # Rule not found for relationship influence
+            elif key == "dialogue_rules:npc_general_guidelines:default":
+                return {"guidelines_i18n": {"en": "Default guideline"}}
+            # Ensure that a default is returned for other get_rule calls if they occur
+            # For example, the code also tries to get specific NPC guidelines:
+            # dialogue_rules:npc_general_guidelines:npc_static_1 (using the default static_id from _create_mock_npc)
+            # and dialogue_rules:npc_tone_modifiers:npc_static_1
+            # dialogue_rules:npc_tone_modifiers:default
+            # If these are not mocked to return something, they might default to None or an empty dict.
+            # The original test passed because the assertion was only on the absence of the relationship tone hint
+            # and the presence of the general guideline.
+            # Let's ensure get_all_rules_for_guild returns these keys if they are expected to be processed by the SUT
+            return default
+
+        mock_get_rule_config.side_effect = get_rule_side_effect
+
+        # Ensure get_all_rules_for_guild returns the keys that prepare_dialogue_generation_prompt will try to get via all_rules.get()
+        # This includes the general guideline and tone modifier rules.
+        mock_get_all_rules_for_guild.return_value = {
+            "guild_main_language": "en",
+            "dialogue_rules:npc_general_guidelines:default": {"guidelines_i18n": {"en": "Default guideline"}},
+            "dialogue_rules:npc_tone_modifiers:default": [{"condition_description_i18n": {"en": "player is neutral"}, "tone_hint_i18n": {"en": "standard"}}],
+            # Add other rule keys that might be accessed by all_rules.get() if necessary
+        }
+
+
+        test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "Test."}
+        prompt = await prepare_dialogue_generation_prompt(mock_session, 1, test_context)
+
+        self.assertNotIn("Your current emotional tone towards", prompt) # Specific tone hint from relationship_influence rule should be absent
+        self.assertIn("General Guideline: Default guideline", prompt) # Check that other rule types are still processed
+
+    # --- Конец тестов для Шага 3 ---
+
+
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     async def test_prepare_dialogue_prompt_npc_not_found(self, mock_generated_npc_get, mock_get_guild_language_direct):
