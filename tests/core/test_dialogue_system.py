@@ -1,136 +1,282 @@
 import asyncio
 import unittest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock, call # Added call
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Предполагается, что AsyncSession будет мокирована или предоставлена через фикстуру в conftest.py
-# Для простоты здесь мы будем использовать AsyncMock для сессии в каждом тесте.
+from src.core.dialogue_system import (
+    start_dialogue,
+    handle_dialogue_input,
+    end_dialogue,
+    active_dialogues,
+    generate_npc_dialogue # To mock its behavior
+)
+from src.models import Player, GeneratedNpc
+from src.models.enums import PlayerStatus, EventType
+from src.core.crud.crud_player import CRUDPlayer
+from src.core.crud.crud_npc import CRUDNpc
+# Импортируем CRUD напрямую, так как player_crud и npc_crud - это экземпляры
+# from src.core.crud import player_crud, npc_crud # This might cause issues if CRUDBase is complex to init for mocks
 
-from src.core.dialogue_system import generate_npc_dialogue
+# Mocking CRUD instances directly if they are simple objects
+# If they are complex, we might need to mock their methods on the imported instances.
+# For now, let's try to mock the classes if that's cleaner.
 
 class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', new_callable=AsyncMock)
-    async def test_generate_npc_dialogue_success(self, mock_prepare_prompt):
-        """Тестирует успешную генерацию диалога."""
-        mock_session = AsyncMock(spec=AsyncSession)
-        guild_id = 1
-        test_context = {
-            "npc_id": 10,
-            "player_id": 1,
-            "player_input_text": "Hello there!",
-            "dialogue_history": [],
-            "location_id": 100
+    def setUp(self):
+        # Очищаем active_dialogues перед каждым тестом
+        active_dialogues.clear()
+        self.mock_session = AsyncMock(spec=AsyncSession)
+        self.guild_id = 1
+        self.player_id = 10
+        self.npc_id = 20
+        self.other_npc_id = 21
+
+        self.player = Player(
+            id=self.player_id,
+            guild_id=self.guild_id,
+            name="TestPlayer",
+            discord_id=12345,
+            current_status=PlayerStatus.EXPLORING,
+            selected_language="en",
+            current_location_id=100,
+            current_party_id=None # Explicitly None for clarity in tests
+        )
+        self.npc = GeneratedNpc(
+            id=self.npc_id,
+            guild_id=self.guild_id,
+            name_i18n={"en": "TestNPC", "ru": "ТестНИП"},
+            static_id="test_npc_01"
+        )
+        self.other_npc = GeneratedNpc(
+            id=self.other_npc_id,
+            guild_id=self.guild_id,
+            name_i18n={"en": "OtherNPC", "ru": "ДругойНИП"},
+            static_id="other_npc_01"
+        )
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    async def test_start_dialogue_success(self, mock_log_event, mock_npc_crud, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        mock_npc_crud.get_by_id_and_guild.return_value = self.npc
+
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(msg_key, "dialogue_started_success")
+        self.assertEqual(context["npc_name"], "TestNPC")
+        self.assertEqual(self.player.current_status, PlayerStatus.DIALOGUE)
+        self.assertIn((self.guild_id, self.player_id), active_dialogues)
+        self.assertEqual(active_dialogues[(self.guild_id, self.player_id)]["npc_id"], self.npc_id)
+        self.assertEqual(active_dialogues[(self.guild_id, self.player_id)]["npc_name"], "TestNPC")
+        mock_log_event.assert_called_once_with(
+            session=self.mock_session,
+            guild_id=self.guild_id,
+            event_type=EventType.DIALOGUE_START.name,
+            details_json={
+                "player_id": self.player_id,
+                "npc_id": self.npc_id,
+                "npc_name": "TestNPC"
+            },
+            player_id=self.player_id,
+            location_id=self.player.current_location_id,
+            entity_ids_json={"players": [self.player_id], "npcs": [self.npc_id]}
+        )
+        self.mock_session.add.assert_called_with(self.player)
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    async def test_start_dialogue_player_not_found(self, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = None
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_player_not_found")
+        self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    async def test_start_dialogue_npc_not_found(self, mock_npc_crud, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        mock_npc_crud.get_by_id_and_guild.return_value = None
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_npc_not_found")
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    async def test_start_dialogue_player_in_combat(self, mock_npc_crud, mock_player_crud):
+        self.player.current_status = PlayerStatus.COMBAT
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        mock_npc_crud.get_by_id_and_guild.return_value = self.npc
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_player_in_combat")
+        self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    async def test_start_dialogue_already_with_same_npc(self, mock_npc_crud, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        mock_npc_crud.get_by_id_and_guild.return_value = self.npc
+        active_dialogues[(self.guild_id, self.player_id)] = {"npc_id": self.npc_id, "npc_name": "TestNPC", "dialogue_history": []}
+
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+        self.assertTrue(success)
+        self.assertEqual(msg_key, "dialogue_already_started_with_npc")
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    async def test_start_dialogue_already_with_other_npc(self, mock_npc_crud, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        # self.npc is the new target, self.other_npc is the one player is currently talking to
+        mock_npc_crud.get_by_id_and_guild.return_value = self.npc # For the new attempt
+        active_dialogues[(self.guild_id, self.player_id)] = {"npc_id": self.other_npc_id, "npc_name": "OtherNPC", "dialogue_history": []}
+
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id # Attempt to talk to self.npc
+        )
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_player_busy_other_npc")
+        self.assertEqual(context["npc_name"], "OtherNPC")
+
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.generate_npc_dialogue', new_callable=AsyncMock) # Patched here
+    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    async def test_handle_dialogue_input_success(self, mock_log_event, mock_generate_dialogue, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        active_dialogues[(self.guild_id, self.player_id)] = {
+            "npc_id": self.npc_id,
+            "npc_name": "TestNPC",
+            "dialogue_history": []
+        }
+        mock_generate_dialogue.return_value = "NPC Response" # generate_npc_dialogue is now correctly mocked
+        player_message = "Hello NPC"
+
+        success, response, context = await handle_dialogue_input(
+            self.mock_session, self.guild_id, self.player_id, player_message
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(response, "NPC Response")
+        self.assertEqual(context["npc_name"], "TestNPC")
+
+        history = active_dialogues[(self.guild_id, self.player_id)]["dialogue_history"]
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[0], {"speaker": "player", "line": player_message})
+        self.assertEqual(history[1], {"speaker": "npc", "line": "NPC Response"})
+
+        expected_context_for_llm = {
+            "guild_id": self.guild_id,
+            "player_id": self.player_id,
+            "player_name": self.player.name,
+            "npc_id": self.npc_id,
+            "player_input_text": player_message,
+            "dialogue_history": [{"speaker": "player", "line": player_message}], # History before NPC response
+            "selected_language": self.player.selected_language,
+            "location_id": self.player.current_location_id,
+            "party_id": self.player.current_party_id
+        }
+        mock_generate_dialogue.assert_called_once_with(
+            self.mock_session, self.guild_id, expected_context_for_llm
+        )
+
+        self.assertEqual(mock_log_event.call_count, 2)
+        log_calls = mock_log_event.call_args_list
+
+        player_log_call = call(
+            session=self.mock_session, guild_id=self.guild_id, event_type=EventType.DIALOGUE_LINE.name,
+            details_json={'player_id': self.player_id, 'npc_id': self.npc_id, 'speaker': 'player', 'line': player_message, 'npc_name': 'TestNPC', 'player_name': 'TestPlayer'},
+            player_id=self.player_id, location_id=self.player.current_location_id, entity_ids_json={'players': [self.player_id], 'npcs': [self.npc_id]}
+        )
+        npc_log_call = call(
+            session=self.mock_session, guild_id=self.guild_id, event_type=EventType.DIALOGUE_LINE.name,
+            details_json={'player_id': self.player_id, 'npc_id': self.npc_id, 'speaker': 'npc', 'line': 'NPC Response', 'npc_name': 'TestNPC', 'player_name': 'TestPlayer'},
+            player_id=self.player_id, location_id=self.player.current_location_id, entity_ids_json={'players': [self.player_id], 'npcs': [self.npc_id]}
+        )
+        self.assertIn(player_log_call, log_calls)
+        self.assertIn(npc_log_call, log_calls)
+
+
+    async def test_handle_dialogue_input_not_in_dialogue(self):
+        success, response, context = await handle_dialogue_input(
+            self.mock_session, self.guild_id, self.player_id, "Hi"
+        )
+        self.assertFalse(success)
+        self.assertEqual(response, "dialogue_error_not_in_dialogue")
+
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    async def test_end_dialogue_success(self, mock_log_event, mock_player_crud):
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
+        self.player.current_status = PlayerStatus.DIALOGUE
+        active_dialogues[(self.guild_id, self.player_id)] = {
+            "npc_id": self.npc_id,
+            "npc_name": "TestNPC",
+            "dialogue_history": [{"speaker": "player", "line": "Hello"}, {"speaker": "npc", "line": "Hi"}]
         }
 
-        mock_prepare_prompt.return_value = "This is a test prompt for the LLM."
-
-        # generate_npc_dialogue использует random.choice для мока ответа LLM.
-        # Мы можем либо мокировать random.choice, либо просто проверить, что ответ - одна из ожидаемых строк.
-        # Для простоты, проверим, что ответ не пустой и является строкой.
-        # Более точный тест потребовал бы мокирования random.choice.
-
-        with patch('random.choice', return_value="A mock NPC response.") as mock_random_choice:
-            response = await generate_npc_dialogue(mock_session, guild_id, test_context)
-
-        mock_prepare_prompt.assert_called_once_with(
-            session=mock_session,
-            guild_id=guild_id,
-            context=test_context
+        success, msg_key, context = await end_dialogue(
+            self.mock_session, self.guild_id, self.player_id
         )
-        mock_random_choice.assert_called_once() # Убедимся, что наш мок random.choice был вызван
-        self.assertIsInstance(response, str)
-        self.assertEqual(response, "A mock NPC response.")
 
-    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', new_callable=AsyncMock)
-    async def test_generate_npc_dialogue_prompt_preparation_error(self, mock_prepare_prompt):
-        """Тестирует случай, когда подготовка промпта возвращает ошибку."""
-        mock_session = AsyncMock(spec=AsyncSession)
-        guild_id = 1
-        test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "Hi"}
+        self.assertTrue(success)
+        self.assertEqual(msg_key, "dialogue_ended_success")
+        self.assertEqual(context["npc_name"], "TestNPC")
+        self.assertEqual(self.player.current_status, PlayerStatus.EXPLORING)
+        self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
 
-        error_message_from_prompt = "Error: Critical information missing for prompt."
-        mock_prepare_prompt.return_value = error_message_from_prompt
+        mock_log_event.assert_called_once_with(
+            session=self.mock_session,
+            guild_id=self.guild_id,
+            event_type=EventType.DIALOGUE_END.name,
+            details_json={
+                "player_id": self.player_id,
+                "npc_id": self.npc_id,
+                "npc_name": "TestNPC",
+                "player_name": self.player.name,
+                "dialogue_history_length": 2
+            },
+            player_id=self.player_id,
+            location_id=self.player.current_location_id,
+            entity_ids_json={"players": [self.player_id], "npcs": [self.npc_id]}
+        )
+        self.mock_session.add.assert_called_with(self.player)
 
-        response = await generate_npc_dialogue(mock_session, guild_id, test_context)
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    async def test_end_dialogue_not_in_dialogue_status_not_dialogue(self, mock_player_crud):
+        self.player.current_status = PlayerStatus.EXPLORING
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
 
-        self.assertTrue(response.startswith("I seem to be at a loss for words..."))
-        self.assertIn(error_message_from_prompt.replace("Error: ", ""), response)
+        success, msg_key, context = await end_dialogue(
+            self.mock_session, self.guild_id, self.player_id
+        )
+        self.assertTrue(success)
+        self.assertEqual(msg_key, "dialogue_not_active_already_ended")
 
-    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', new_callable=AsyncMock)
-    @patch('random.choice') # Мокируем random.choice на уровне модуля
-    async def test_generate_npc_dialogue_response_cleaning(self, mock_random_choice, mock_prepare_prompt):
-        """Тестирует базовую очистку ответа LLM (удаление кавычек)."""
-        mock_session = AsyncMock(spec=AsyncSession)
-        guild_id = 1
-        test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "Tell me a secret."}
+    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    async def test_end_dialogue_not_in_dialogue_status_is_dialogue(self, mock_player_crud):
+        self.player.current_status = PlayerStatus.DIALOGUE
+        mock_player_crud.get_by_id_and_guild.return_value = self.player
 
-        mock_prepare_prompt.return_value = "A valid prompt."
-
-        # Случай 1: Ответ с кавычками
-        mock_random_choice.return_value = '"This is a secret response."'
-        response1 = await generate_npc_dialogue(mock_session, guild_id, test_context)
-        self.assertEqual(response1, "This is a secret response.")
-
-        # Случай 2: Ответ без кавычек
-        mock_random_choice.return_value = "Another response without quotes."
-        response2 = await generate_npc_dialogue(mock_session, guild_id, test_context)
-        self.assertEqual(response2, "Another response without quotes.")
-
-        # Случай 3: Ответ с пробелами и кавычками
-        mock_random_choice.return_value = '  "  Spaced out secret.  "  '
-        response3 = await generate_npc_dialogue(mock_session, guild_id, test_context)
-        self.assertEqual(response3, "Spaced out secret.") # Ожидаем, что внутренние пробелы также будут удалены
-
-    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', side_effect=Exception("Unexpected error during prompt generation"))
-    async def test_generate_npc_dialogue_unexpected_exception(self, mock_prepare_prompt_exception):
-        """Тестирует обработку неожиданного исключения во время работы функции."""
-        mock_session = AsyncMock(spec=AsyncSession)
-        guild_id = 1
-        test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "What if something breaks?"}
-
-        response = await generate_npc_dialogue(mock_session, guild_id, test_context)
-
-        self.assertEqual(response, "I'm sorry, I'm having a little trouble formulating a response right now. Perhaps we can talk about something else?")
-        mock_prepare_prompt_exception.assert_called_once()
-
-    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', new_callable=AsyncMock)
-    @patch('random.choice')
-    async def test_generate_npc_dialogue_with_special_player_input(self, mock_random_choice, mock_prepare_prompt):
-        """Тестирует передачу специального/длинного ввода игрока."""
-        mock_session = AsyncMock(spec=AsyncSession)
-        guild_id = 1
-
-        long_input = "This is a very long player input, " + ("spamming words for length " * 10) + "to check if it's handled."
-        special_char_input = "Hello? Is this thing on? \"Quotes\" and 'apostrophes' with !@#$%^&*()_+{}|:\"<>?`~[]\\;',./"
-
-        contexts_to_test = [
-            {"npc_id": 1, "player_id": 1, "player_input_text": long_input, "player_name": "Loquacious"},
-            {"npc_id": 2, "player_id": 2, "player_input_text": special_char_input, "player_name": "Symbolic"}
-        ]
-
-        for i, test_context in enumerate(contexts_to_test):
-            with self.subTest(input_type=f"context_{i}"):
-                mock_prepare_prompt.reset_mock()
-                mock_random_choice.reset_mock()
-
-                mock_prepare_prompt.return_value = f"Prompt for input: {test_context['player_input_text']}"
-
-                # Мок ответа LLM должен использовать player_input_text, как это делает реальная мок-логика в SUT
-                expected_mock_llm_response = f"NPC ponders about \"{test_context['player_input_text']}\"."
-                mock_random_choice.return_value = expected_mock_llm_response
-
-                response = await generate_npc_dialogue(mock_session, guild_id, test_context)
-
-                mock_prepare_prompt.assert_called_once_with(
-                    session=mock_session,
-                    guild_id=guild_id,
-                    context=test_context
-                )
-                # Проверяем, что player_input_text в моке ответа LLM соответствует тому, что было в test_context
-                self.assertIn(test_context['player_input_text'], mock_random_choice.call_args[0][0][0]) # Проверяем первый элемент списка, переданного в random.choice
-                self.assertEqual(response, expected_mock_llm_response)
+        success, msg_key, context = await end_dialogue(
+            self.mock_session, self.guild_id, self.player_id
+        )
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_not_in_dialogue_to_end")
+        self.assertEqual(self.player.current_status, PlayerStatus.DIALOGUE)
 
 
 if __name__ == '__main__':
