@@ -95,6 +95,43 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response, "I'm sorry, I'm having a little trouble formulating a response right now. Perhaps we can talk about something else?")
         mock_prepare_prompt_exception.assert_called_once()
 
+    @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', new_callable=AsyncMock)
+    @patch('random.choice')
+    async def test_generate_npc_dialogue_with_special_player_input(self, mock_random_choice, mock_prepare_prompt):
+        """Тестирует передачу специального/длинного ввода игрока."""
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+
+        long_input = "This is a very long player input, " + ("spamming words for length " * 10) + "to check if it's handled."
+        special_char_input = "Hello? Is this thing on? \"Quotes\" and 'apostrophes' with !@#$%^&*()_+{}|:\"<>?`~[]\\;',./"
+
+        contexts_to_test = [
+            {"npc_id": 1, "player_id": 1, "player_input_text": long_input, "player_name": "Loquacious"},
+            {"npc_id": 2, "player_id": 2, "player_input_text": special_char_input, "player_name": "Symbolic"}
+        ]
+
+        for i, test_context in enumerate(contexts_to_test):
+            with self.subTest(input_type=f"context_{i}"):
+                mock_prepare_prompt.reset_mock()
+                mock_random_choice.reset_mock()
+
+                mock_prepare_prompt.return_value = f"Prompt for input: {test_context['player_input_text']}"
+
+                # Мок ответа LLM должен использовать player_input_text, как это делает реальная мок-логика в SUT
+                expected_mock_llm_response = f"NPC ponders about \"{test_context['player_input_text']}\"."
+                mock_random_choice.return_value = expected_mock_llm_response
+
+                response = await generate_npc_dialogue(mock_session, guild_id, test_context)
+
+                mock_prepare_prompt.assert_called_once_with(
+                    session=mock_session,
+                    guild_id=guild_id,
+                    context=test_context
+                )
+                # Проверяем, что player_input_text в моке ответа LLM соответствует тому, что было в test_context
+                self.assertIn(test_context['player_input_text'], mock_random_choice.call_args[0][0][0]) # Проверяем первый элемент списка, переданного в random.choice
+                self.assertEqual(response, expected_mock_llm_response)
+
 
 if __name__ == '__main__':
     unittest.main()
