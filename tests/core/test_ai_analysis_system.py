@@ -88,7 +88,13 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(patch.stopall)
 
         mock_gc_instance = GuildConfig(id=self.guild_id, main_language="en")
-        mock_gc_instance.supported_languages_json = ["en", "ru"]
+        # For test purposes, we are dynamically adding this attribute.
+        # Pyright will complain if not handled with setattr or cast.
+        # setattr(mock_gc_instance, 'supported_languages_json', ["en", "ru"])
+        # Or, if GuildConfig is a Pydantic model and this is a real field, ensure it's in the model definition.
+        # For now, assuming it's a dynamic test attribute and we'll handle type checking issues if they persist.
+        # Let's assume it's a dynamic attribute for the mock. We can tell pyright to ignore if needed for a specific line.
+        mock_gc_instance.supported_languages_json = ["en", "ru"] # type: ignore[attr-defined]
         self.mock_guild_config_get_for_class.return_value = mock_gc_instance
 
         self.mock_prepare_quest_prompt.return_value = "Prompt for Quest"
@@ -105,16 +111,48 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def _run_analysis(self, entity_type: str, mock_test_data_entity: Optional[BaseGeneratedEntity], context_json: Optional[str] = None):
         if mock_test_data_entity:
             try:
-                actual_parser_model_instance = parse_obj_as(GeneratedEntity, mock_test_data_entity.model_dump(mode='json'))
+                # parse_obj_as needs a concrete type, not the Union GeneratedEntity directly as the first argument.
+                # We need to determine the correct type from mock_test_data_entity.
+                # This is a simplification; a more robust solution might involve a mapping or isinstance checks.
+                # For this test, we know the type of mock_test_data_entity.
+                entity_model_type = type(mock_test_data_entity) # This is the mock type, e.g. MockParsedItem
+                actual_entity_type_str = getattr(mock_test_data_entity, 'entity_type', None)
+
+                if actual_entity_type_str:
+                    from src.core.ai_response_parser import (
+                        ParsedNpcData, ParsedItemData, ParsedQuestData, ParsedFactionData,
+                        ParsedLocationData, ParsedRelationshipData, ParsedNpcTraderData, BaseGeneratedEntity
+                    )
+                    from typing import Type # For Type[BaseGeneratedEntity]
+
+                    model_map: Dict[str, Type[BaseGeneratedEntity]] = {
+                        "npc": ParsedNpcData,
+                        "item": ParsedItemData,
+                        "quest": ParsedQuestData,
+                        "faction": ParsedFactionData,
+                        "location": ParsedLocationData,
+                        "relationship": ParsedRelationshipData,
+                        "npc_trader": ParsedNpcTraderData,
+                    }
+                    pydantic_model_for_parsing = model_map.get(actual_entity_type_str)
+
+                    if not pydantic_model_for_parsing:
+                        raise AssertionError(f"Test setup error: No Pydantic model in test's model_map for entity_type '{actual_entity_type_str}'")
+
+                    # Ensure the mock data is dumped before parsing into the target Pydantic model
+                    actual_parser_model_instance = parse_obj_as(pydantic_model_for_parsing, mock_test_data_entity.model_dump(mode='json'))
+                else:
+                    raise AssertionError(f"Cannot determine entity_type for mock entity: {type(mock_test_data_entity)}")
+
                 entities_for_parsed_ai_data = [actual_parser_model_instance]
             except PydanticNativeValidationError as e:
                 raise AssertionError(
                     f"Failed to convert mock entity {type(mock_test_data_entity)} "
-                    f"to actual parser model via parse_obj_as(GeneratedEntity, ...): {e}"
+                    f"to actual parser model: {e}"
                 )
             self.mock_parse_and_validate.return_value = ParsedAiData(
                 raw_ai_output="mock raw output for this single entity test",
-                generated_entities=entities_for_parsed_ai_data
+                generated_entities=entities_for_parsed_ai_data # type: ignore
             )
         return await analyze_generated_content(
             session=self.mock_session, guild_id=self.guild_id, entity_type=entity_type,
@@ -158,7 +196,26 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def test_key_field_missing_for_item(self):
         item_dict_missing_required_fields = {"entity_type": "item", "static_id": "item1", "name_i18n": {"en": "Item With Missing Fields"}}
         with self.assertRaises(ValidationError) as context:
-            ParsedAiData(raw_ai_output="mock raw output", generated_entities=[item_dict_missing_required_fields])
+            # The generated_entities expects List[GeneratedEntity], not List[dict]
+            # We need to wrap this dict in a way that parse_and_validate_ai_response would, or test parse_and_validate_ai_response itself.
+            # For this specific test, we are testing Pydantic validation at the ParsedAiData level.
+            # So, we need to simulate that the dict *would have been* parsed into a model instance.
+            # This test might be more about the behavior of `parse_obj_as(ParsedItemData, ...)`
+            # Let's assume the intention is to check if Pydantic validation catches this for ParsedItemData
+            # when used within ParsedAiData. The error is that item_dict_missing_required_fields is a dict.
+            # ParsedAiData expects a list of model instances.
+            # This test is slightly misdirected if it's trying to test ParsedItemData validation *through* ParsedAiData with raw dicts.
+            # However, Pydantic v2 can do implicit parsing here if the type hint is List[ParsedItemData] etc.
+            # Given GeneratedEntity is a Union, this becomes complex.
+            # The error `Argument of type "list[dict[str, Unknown]]" cannot be assigned...` indicates this is the issue.
+            # To fix the type error for Pyright, we can cast, but the runtime error from Pydantic will still occur if not actual models.
+            # For the purpose of this test, if it's about testing Pydantic's behavior with dicts,
+            # the test should be structured to call `parse_obj_as(ParsedItemData, item_dict_missing_required_fields)` directly.
+            # If it's about `ParsedAiData` specifically, then `item_dict_missing_required_fields` needs to be a model instance.
+            # Let's assume the test *intends* to pass a dict and expects Pydantic to validate.
+            # We can use `Any` to bypass Pyright here if the runtime behavior is what's being tested.
+            from typing import Any as TypingAny
+            ParsedAiData(raw_ai_output="mock raw output", generated_entities=[item_dict_missing_required_fields]) # type: ignore
         errors = context.exception.errors()
         self.assertTrue(any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'item_type' in err['loc'] for err in errors))
         self.assertTrue(any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'description_i18n' in err['loc'] for err in errors))
@@ -206,9 +263,16 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):
         mock_item = MockParsedItem(static_id="item_to_find")
         mock_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="trader_to_ignore").model_dump(mode='json')
-        actual_item = parse_obj_as(GeneratedEntity, mock_item.model_dump(mode='json'))
-        actual_trader = parse_obj_as(GeneratedEntity, mock_trader_dict)
-        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_trader])
+        # Determine the correct Pydantic model types for parsing
+        from src.core.ai_response_parser import MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL, ParsedItemData, ParsedNpcTraderData
+        actual_item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("item")
+        actual_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc_trader")
+        if not actual_item_model_type or not actual_trader_model_type:
+            raise AssertionError("Could not find Pydantic models for item or npc_trader in mapping.")
+
+        actual_item = parse_obj_as(actual_item_model_type, mock_item.model_dump(mode='json')) # type: ignore
+        actual_trader = parse_obj_as(actual_trader_model_type, mock_trader_dict) # type: ignore
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_trader]) # type: ignore
         result = await self._run_analysis("item", None)
         self.assertEqual(len(result.analysis_reports), 1)
         self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "item_to_find")
@@ -217,10 +281,19 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         mock_npc = MockParsedNPC(static_id="npc_to_find")
         mock_item_in_loc = MockParsedItem(static_id="item_to_ignore")
         mock_npc_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="npc_trader_to_find").model_dump(mode='json')
-        actual_item = parse_obj_as(GeneratedEntity, mock_item_in_loc.model_dump(mode='json'))
-        actual_npc = parse_obj_as(GeneratedEntity, mock_npc.model_dump(mode='json'))
-        actual_npc_trader = parse_obj_as(GeneratedEntity, mock_npc_trader_dict)
-        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_npc, actual_npc_trader])
+
+        from src.core.ai_response_parser import MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL
+        item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("item")
+        npc_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc")
+        npc_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc_trader")
+        if not item_model_type or not npc_model_type or not npc_trader_model_type:
+            raise AssertionError("Could not find Pydantic models for item, npc or npc_trader in mapping.")
+
+        actual_item = parse_obj_as(item_model_type, mock_item_in_loc.model_dump(mode='json')) # type: ignore
+        actual_npc = parse_obj_as(npc_model_type, mock_npc.model_dump(mode='json')) # type: ignore
+        actual_npc_trader = parse_obj_as(npc_trader_model_type, mock_npc_trader_dict) # type: ignore
+
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_npc, actual_npc_trader]) # type: ignore
         result = await self._run_analysis("npc", None)
         self.assertEqual(len(result.analysis_reports), 1)
         self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "npc_to_find")
@@ -252,11 +325,12 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
         async def async_guild_config_mock_main(*args, **kwargs):
             gc = GuildConfig(id=self.guild_id, main_language="en")
-            gc.supported_languages_json = ["en", "ru"]
-            gc.game_rules_json = {}
-            gc.ai_generation_configs_json = {}
-            gc.command_configs_json = {}
-            gc.properties_json = {}
+            # Dynamically setting attributes for a mock. Use type: ignore for Pyright.
+            setattr(gc, 'supported_languages_json', ["en", "ru"])
+            setattr(gc, 'game_rules_json', {})
+            setattr(gc, 'ai_generation_configs_json', {})
+            setattr(gc, 'command_configs_json', {})
+            setattr(gc, 'properties_json', {})
             return gc
         self.mock_guild_config_get_main.side_effect = async_guild_config_mock_main
 
@@ -284,8 +358,11 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_analyze_generated_content_calls_item_specific_analyzers(self):
         mock_item_data = MockParsedItem(static_id="test_item1")
+        from src.core.ai_response_parser import ParsedItemData # Import the actual Pydantic model
+        # Convert MockParsedItem to ParsedItemData
+        parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_item_data.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_item_instance]
         )
         await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
         self.mock_analyze_item_balance.assert_called_once()
@@ -296,8 +373,11 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_analyze_generated_content_calls_npc_specific_analyzers(self):
         mock_npc_data = MockParsedNPC(static_id="test_npc1")
+        from src.core.ai_response_parser import ParsedNpcData # Import the actual Pydantic model
+        # Convert MockParsedNPC to ParsedNpcData
+        parsed_npc_instance = parse_obj_as(ParsedNpcData, mock_npc_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_npc_data.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_npc_instance]
         )
         await analyze_generated_content(self.mock_session, self.guild_id, "npc", target_count=1)
         self.mock_analyze_npc_balance.assert_called_once()
@@ -309,13 +389,15 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         original_side_effect = self.mock_guild_config_get_main.side_effect
         async def specific_guild_config_side_effect(*args, **kwargs):
             gc = GuildConfig(id=self.guild_id, main_language="en")
-            gc.supported_languages_json = ["en", "de"]
+            setattr(gc, 'supported_languages_json', ["en", "de"]) # Use setattr for dynamic attributes in mocks
             return gc
         self.mock_guild_config_get_main.side_effect = specific_guild_config_side_effect
 
-        item_missing_de = MockParsedItem(name_i18n={"en": "Test Item"})
+        item_missing_de_mock = MockParsedItem(name_i18n={"en": "Test Item"})
+        from src.core.ai_response_parser import ParsedItemData
+        parsed_item_instance = parse_obj_as(ParsedItemData, item_missing_de_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item_missing_de.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_item_instance]
         )
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
 
@@ -327,10 +409,13 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         self.mock_guild_config_get_main.side_effect = original_side_effect
 
     async def test_uniqueness_check_duplicate_static_id(self):
-        item1 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
-        item2 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
+        item1_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
+        item2_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
+        from src.core.ai_response_parser import ParsedItemData
+        parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
+        parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item1.model_dump(mode='json'), item2.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2]
         )
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
         self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
@@ -339,10 +424,13 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.analysis_reports[1].quality_score_details["batch_static_id_uniqueness"], 0.1)
 
     async def test_uniqueness_check_duplicate_name_i18n(self):
-        item1 = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
-        item2 = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
+        item1_mock = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
+        item2_mock = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
+        from src.core.ai_response_parser import ParsedItemData
+        parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
+        parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item1.model_dump(mode='json'), item2.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2]
         )
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
         self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
@@ -353,9 +441,11 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.analysis_reports[1].quality_score_details.get("batch_name_uniqueness_ru"), 1.0)
 
     async def test_score_aggregation(self):
-        mock_item_data = MockParsedItem()
+        mock_item_data_mock = MockParsedItem()
+        from src.core.ai_response_parser import ParsedItemData
+        parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_item_data.model_dump(mode='json')]
+            raw_ai_output="...", generated_entities=[parsed_item_instance]
         )
         async def mock_item_balance_side_effect(data, report, session, guild_id):
             report.balance_score_details["value_vs_prop"] = 0.8
@@ -372,8 +462,8 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
         report = result.analysis_reports[0]
 
-        self.assertAlmostEqual(report.balance_score, (0.8 + 0.9) / 2)
-        self.assertAlmostEqual(report.lore_score_details.get("overall_lore_avg"), (0.9 + 0.7) / 2)
+        self.assertAlmostEqual(report.balance_score if report.balance_score is not None else -1.0, (0.8 + 0.9) / 2)
+        self.assertAlmostEqual(report.lore_score_details.get("overall_lore_avg", -1.0), (0.9 + 0.7) / 2)
 
         expected_quality_avg = (
             0.95 +
@@ -385,7 +475,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
             1.0 +
             1.0
         ) / 8
-        self.assertAlmostEqual(report.quality_score_details.get("overall_quality_avg"), expected_quality_avg, places=5)
+        self.assertAlmostEqual(report.quality_score_details.get("overall_quality_avg", -1.0), expected_quality_avg, places=5)
 
 
 if __name__ == '__main__':

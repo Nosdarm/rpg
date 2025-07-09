@@ -77,8 +77,10 @@ async def _format_log_entry_with_names_cache(
         logger.warning(f"_format_log_entry_with_names_cache: 'event_type' missing for guild {guild_id}.")
         return f"Error: Missing event type in log entry (guild {guild_id})."
 
-    def get_name_from_cache(entity_type: str, entity_id: int, default_prefix: str = "Entity") -> str:
-        return names_cache.get((entity_type.lower(), entity_id), f"[{default_prefix} ID: {entity_id} (Cached?)]")
+    def get_name_from_cache(entity_type: str, entity_id: Optional[int], default_prefix: str = "Entity") -> str:
+        if entity_id is None:
+            return f"[{default_prefix} ID: None (Invalid)]"
+        return names_cache.get((entity_type.lower(), entity_id), f"[{default_prefix} ID: {entity_id} (Not in Cache?)]")
 
     fallback_message = ""
     if language == "ru":
@@ -87,8 +89,8 @@ async def _format_log_entry_with_names_cache(
         fallback_message = f"Event of type '{event_type_str}' occurred. Details: {str(log_entry_details_json)[:150]}..."
 
     if event_type_str == EventType.PLAYER_ACTION.value.upper():
-        actor_id = _safe_get(log_entry_details_json, ["actor", "id"])
-        actor_type = _safe_get(log_entry_details_json, ["actor", "type"], "player")
+        actor_id: Optional[int] = _safe_get(log_entry_details_json, ["actor", "id"])
+        actor_type: str = _safe_get(log_entry_details_json, ["actor", "type"], "player")
         actor_name = get_name_from_cache(actor_type, actor_id, "Player")
         action_data = _safe_get(log_entry_details_json, ["action"], {})
         action_intent = str(action_data.get("intent", "unknown")).lower()

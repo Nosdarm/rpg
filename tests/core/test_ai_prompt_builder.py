@@ -31,10 +31,10 @@ async def mock_get_guild_config(session, id, guild_id=None):
 
 async def mock_get_location(session, id, guild_id=None): # Still used by test_prepare_ai_prompt_location_not_found
     if id == 1 and guild_id == 1:
-        mock_loc = Location(id=1, guild_id=1, name_i18n={"en":"Test Loc", "ru":"Тест Лок"}, descriptions_i18n={}, type=LocationType.CITY, coordinates_json="{}", generated_details_json="{}", ai_metadata_json="{}", neighbor_locations_json="[]")
+        mock_loc = Location(id=1, guild_id=1, name_i18n={"en":"Test Loc", "ru":"Тест Лок"}, descriptions_i18n={}, type=LocationType.CITY.value, coordinates_json="{}", generated_details_json="{}", ai_metadata_json="{}", neighbor_locations_json="[]")
         return mock_loc
     if id == 100 and guild_id == 1:
-        mock_loc = Location(id=100, guild_id=1, name_i18n={"en":"Test Tavern", "ru":"Тестовая Таверна"}, descriptions_i18n={"en":"A cozy place", "ru":"Уютное место"}, type=LocationType.BUILDING, neighbor_locations_json="[]")
+        mock_loc = Location(id=100, guild_id=1, name_i18n={"en":"Test Tavern", "ru":"Тестовая Таверна"}, descriptions_i18n={"en":"A cozy place", "ru":"Уютное место"}, type=LocationType.BUILDING.value, neighbor_locations_json="[]")
         return mock_loc
     return None
 
@@ -190,7 +190,27 @@ class TestAIQuestPromptBuilder(unittest.IsolatedAsyncioTestCase):
         guild_id = 1
         player_id_test = 1
         location_id_test = 1
-        mock_get_guild_lang.return_value = "en"
+        mock_get_guild_lang.return_value = "en" # This mock might be redundant if _get_guild_main_language calls guild_config_crud.get
+
+        # If GuildConfig is fetched inside prepare_quest_generation_prompt (it is, via _get_guild_main_language),
+        # we need to mock that call instead of just _get_guild_main_language if we want to control its attributes.
+        # For this test, the attribute error is from outside this SUT, so the original test setup was likely for a different SUT.
+        # However, if the test structure was:
+        # mock_gc = GuildConfig(...)
+        # mock_gc.supported_languages_json = ... (ERROR HERE)
+        # mock_some_crud.get.return_value = mock_gc
+        # await prepare_quest_generation_prompt(...)
+        # Then the fix applies.
+        # The current error is not from within prepare_quest_generation_prompt but in the test setup itself.
+        # The pyright_summary line 133 is for test_ai_prompt_builder.py, not ai_analysis_system.py.
+        # It refers to a line like `gc_instance.supported_languages_json = ...`
+
+        # Let's assume the test structure *was* something like this for a different test or was simplified:
+        # This test, as written, doesn't have a GuildConfig instance being modified directly.
+        # The error must be in a different test or the summary is for a slightly different version.
+        # For now, I will NO-OP this specific change as the current test code doesn't show this assignment at line 133.
+        # If this error persists for this file, the exact context of line 133 needs to be re-verified from pyright.
+
         mock_get_all_rules.return_value = {
             "ai:quest_generation:target_count": 1,
             "ai:quest_generation:themes_i18n": {"en": ["lost artifact", "local investigation"]},

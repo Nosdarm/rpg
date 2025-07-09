@@ -371,10 +371,10 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                     embed.add_field(name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_check_result", "Check Result", str(interaction.locale)), value=cr_text, inline=False)
 
                 if updated_combat_encounter and updated_combat_encounter.participants_json:
-                    # Assure Pyright that participants_json is not None here
-                    from typing import cast
-                    participants_dict = cast(Dict[str, Any], updated_combat_encounter.participants_json)
-                    participants_str = json.dumps(participants_dict.get("entities", []), indent=2, ensure_ascii=False) # type: ignore[reportOptionalMemberAccess]
+                    # updated_combat_encounter.participants_json is now known to be Dict[str, Any]
+                    # due to the `if` condition.
+                    participants_json_val = updated_combat_encounter.participants_json
+                    participants_str = json.dumps(participants_json_val.get("entities", []), indent=2, ensure_ascii=False)
                     if len(participants_str) > 1018: participants_str = participants_str[:1018] + "..."
                     embed.add_field(
                         name=await get_localized_master_message(session, guild_id, "simulate_combat_action:field_participants_state", "Participants State (Post-Action)", str(interaction.locale)),

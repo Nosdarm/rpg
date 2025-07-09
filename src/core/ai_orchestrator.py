@@ -12,7 +12,7 @@ from .database import transactional
 # Corrected import path for generic CRUD functions
 from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
 from .ai_prompt_builder import prepare_ai_prompt
-from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedRelationshipData
+from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedRelationshipData, ParsedNpcTraderData # Ensure ParsedNpcTraderData is here
 from discord.ext import commands # For bot instance type hint
 from ..bot.utils import notify_master # Import the new utility
 
@@ -20,12 +20,26 @@ from ..bot.utils import notify_master # Import the new utility
 from .crud.crud_faction import crud_faction
 from .crud.crud_npc import npc_crud as actual_npc_crud
 from .crud.crud_relationship import crud_relationship
+from ..models import Base # For MAPPING_ENTITY_TYPE_TO_SQLALCHEMY_MODEL
+from typing import Type # For MAPPING_ENTITY_TYPE_TO_SQLALCHEMY_MODEL
 
 # Placeholder for game events
 # from .game_events import on_enter_location
 
 
 logger = logging.getLogger(__name__)
+
+# Mapping from entity type string to SQLAlchemy model
+MAPPING_ENTITY_TYPE_TO_SQLALCHEMY_MODEL: Dict[str, Type[Base]] = {
+    "npc": GeneratedNpc,
+    "item": Item,
+    "quest": GeneratedQuest,
+    "location": Location, # type: ignore[name-defined] # Assuming Location is correctly imported but Pyright struggles
+    "faction": GeneratedFaction, # type: ignore[name-defined] # Assuming GeneratedFaction is correctly imported
+    "relationship": RelationshipModel,
+    "npc_trader": GeneratedNpc,
+}
+
 
 async def _mock_openai_api_call(prompt: str) -> str:
     """
@@ -359,22 +373,48 @@ async def save_approved_generation(
 
         # Pass 1: Create NPCs (and Factions, if they were part of this flow) to get their DB IDs for relationships
         for entity_data in ai_data_model.generated_entities:
-            if isinstance(entity_data, ParsedNpcData):
+            db_model_for_entity = MAPPING_ENTITY_TYPE_TO_SQLALCHEMY_MODEL.get(entity_data.entity_type.lower())
+            if not db_model_for_entity:
+                logger.warning(f"No SQLAlchemy model mapping found for entity type: {entity_data.entity_type}. Skipping entity in Pass 1.")
+                continue
+
+            if isinstance(entity_data, ParsedNpcData): # Handles NPC and potentially NPC_Trader if ParsedNpcTraderData inherits ParsedNpcData
                 npc_data_for_db = {
                     "guild_id": guild_id,
                     "name_i18n": entity_data.name_i18n,
                     "description_i18n": entity_data.description_i18n,
                     "properties_json": {"stats": entity_data.stats} if entity_data.stats else {},
                     "static_id": entity_data.static_id,
+                    # Default npc_type_i18n, can be overridden by trader specific logic
+                    "npc_type_i18n": {"en": "NPC", "ru": "НПС"}
                 }
-                new_npc_db = await create_entity(session, GeneratedNpc, npc_data_for_db)
-                if new_npc_db:
+
+                if isinstance(entity_data, ParsedNpcTraderData):
+                    if entity_data.role_i18n: # This is valid for ParsedNpcTraderData
+                        npc_data_for_db["npc_type_i18n"] = entity_data.role_i18n
+
+                    current_props = npc_data_for_db.get("properties_json", {})
+                    if not isinstance(current_props, dict): current_props = {} # Ensure it's a dict
+
+                    if entity_data.inventory_template_key: # Valid for ParsedNpcTraderData
+                        current_props["inventory_template_key"] = entity_data.inventory_template_key
+                    # If generated_inventory_items needs to be stored in properties_json for the NPC model:
+                    # if entity_data.generated_inventory_items:
+                    #    current_props["generated_inventory_items_meta"] = [item.model_dump() for item in entity_data.generated_inventory_items]
+                    npc_data_for_db["properties_json"] = current_props
+
+                new_npc_db_any = await create_entity(session, db_model_for_entity, npc_data_for_db)
+
+                # Cast to GeneratedNpc to access id and static_id safely
+                if new_npc_db_any and isinstance(new_npc_db_any, GeneratedNpc):
+                    new_npc_db: GeneratedNpc = new_npc_db_any
                     saved_entity_ids["npc"].append(new_npc_db.id)
                     if new_npc_db.static_id:
                         static_id_to_db_id_map[new_npc_db.static_id] = {"db_id": new_npc_db.id, "type": RelationshipEntityType.GENERATED_NPC}
-                    logger.info(f"Saved NPC (Pass 1): {entity_data.name_i18n.get('en', 'Unknown NPC')} with ID {new_npc_db.id}, StaticID: {new_npc_db.static_id}")
+                    logger.info(f"Saved {entity_data.entity_type} (Pass 1): {entity_data.name_i18n.get('en', 'Unknown NPC')} with ID {new_npc_db.id}, StaticID: {new_npc_db.static_id}")
                 else:
-                    logger.error(f"Failed to save NPC with static_id {entity_data.static_id}")
+                    logger.error(f"Failed to save {entity_data.entity_type} with static_id {entity_data.static_id} or it was of unexpected type.")
+
             # elif isinstance(entity_data, ParsedFactionData): # Example if factions were created here
             #     # ... save faction and add to static_id_to_db_id_map ...
             #     pass
@@ -383,37 +423,57 @@ async def save_approved_generation(
 
         # Pass 2: Create other primary entities (Quests, Items) and then Relationships
         for entity_data in ai_data_model.generated_entities:
-            entity_type_val = entity_data.entity_type
-            new_db_entity = None
+            entity_type_lower = entity_data.entity_type.lower()
+            db_model_for_entity = MAPPING_ENTITY_TYPE_TO_SQLALCHEMY_MODEL.get(entity_type_lower)
 
-            if isinstance(entity_data, (ParsedNpcData)): # Already handled
+            if not db_model_for_entity:
+                logger.warning(f"No SQLAlchemy model mapping for entity type: {entity_data.entity_type}. Skipping entity in Pass 2.")
                 continue
 
-            if entity_type_val == "quest" and isinstance(entity_data, ParsedQuestData):
-                quest_data_for_db = {
-                    "guild_id": guild_id,
-                    "title_i18n": entity_data.title_i18n,
-                    "description_i18n": entity_data.summary_i18n, # Uses summary_i18n for the main quest description
-                    "rewards_json": entity_data.rewards_json,
-                    "ai_metadata_json": {"raw_steps": [step.model_dump(mode='json') for step in entity_data.steps]}
-                }
-                new_db_entity = await create_entity(session, GeneratedQuest, quest_data_for_db)
-                if new_db_entity: saved_entity_ids["quest"].append(new_db_entity.id)
-                logger.info(f"Saved Quest (Pass 2): {entity_data.title_i18n.get('en', 'Unknown Quest')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
+            new_db_entity_any: Optional[Base] = None # Use Base type from create_entity
 
-            elif entity_type_val == "item" and isinstance(entity_data, ParsedItemData):
-                item_data_for_db = {
-                    "guild_id": guild_id,
+            if isinstance(entity_data, (ParsedNpcData)): # Already handled in Pass 1
+                continue
+
+            data_to_create: Dict[str, Any] = {"guild_id": guild_id} # Common field
+
+            if entity_type_lower == "quest" and isinstance(entity_data, ParsedQuestData):
+                data_to_create.update({
+                    "title_i18n": entity_data.title_i18n,
+                    "description_i18n": entity_data.summary_i18n,
+                    "rewards_json": entity_data.rewards_json,
+                    "ai_metadata_json": {"raw_steps": [step.model_dump(mode='json') for step in entity_data.steps]},
+                    "static_id": entity_data.static_id,
+                    "min_level": entity_data.min_level,
+                })
+                new_db_entity_any = await create_entity(session, db_model_for_entity, data_to_create)
+                if new_db_entity_any and isinstance(new_db_entity_any, GeneratedQuest):
+                    current_quest_db: GeneratedQuest = new_db_entity_any # Safe cast after check
+                    saved_entity_ids["quest"].append(current_quest_db.id)
+                    logger.info(f"Saved Quest (Pass 2): {entity_data.title_i18n.get('en', 'Unknown Quest')} with ID {current_quest_db.id}")
+                elif not new_db_entity_any:
+                    logger.error(f"Failed to create Quest DB entry for static_id: {entity_data.static_id}")
+
+
+            elif entity_type_lower == "item" and isinstance(entity_data, ParsedItemData):
+                data_to_create.update({
                     "name_i18n": entity_data.name_i18n,
                     "description_i18n": entity_data.description_i18n,
                     "item_type_i18n": {"en": entity_data.item_type, "ru": entity_data.item_type},
                     "properties_json": entity_data.properties_json,
-                }
-                new_db_entity = await create_entity(session, Item, item_data_for_db)
-                if new_db_entity: saved_entity_ids["item"].append(new_db_entity.id)
-                logger.info(f"Saved Item (Pass 2): {entity_data.name_i18n.get('en', 'Unknown Item')} with ID {new_db_entity.id if new_db_entity else 'Error'}")
+                    "static_id": entity_data.static_id,
+                    "base_value": entity_data.base_value,
+                })
+                new_db_entity_any = await create_entity(session, db_model_for_entity, data_to_create)
+                if new_db_entity_any and isinstance(new_db_entity_any, Item):
+                    current_item_db: Item = new_db_entity_any # Safe cast
+                    saved_entity_ids["item"].append(current_item_db.id)
+                    logger.info(f"Saved Item (Pass 2): {entity_data.name_i18n.get('en', 'Unknown Item')} with ID {current_item_db.id}")
+                elif not new_db_entity_any:
+                     logger.error(f"Failed to create Item DB entry for static_id: {entity_data.static_id}")
 
-            elif entity_type_val == "relationship" and isinstance(entity_data, ParsedRelationshipData):
+            elif entity_type_lower == "relationship" and isinstance(entity_data, ParsedRelationshipData):
+                    # Relationship logic remains largely the same, just uses db_model_for_entity if needed for create_entity
                     e1_info = static_id_to_db_id_map.get(entity_data.entity1_static_id)
                     e2_info = static_id_to_db_id_map.get(entity_data.entity2_static_id)
 
@@ -460,9 +520,6 @@ async def save_approved_generation(
                             "relationship_type": entity_data.relationship_type,
                             "value": entity_data.value
                         }
-                        # Check for existing relationship (crud_relationship might need an update to handle this better or a create_or_update)
-                        # For now, simple create, assuming no duplicates or DB handles it.
-                        # Or, use the logic from generate_factions_and_relationships for get_then_update_or_create
                         existing_rel = await crud_relationship.get_relationship_between_entities(
                             session, guild_id=guild_id,
                             entity1_id=final_e1_id, entity1_type=final_e1_type,
@@ -473,14 +530,13 @@ async def save_approved_generation(
                              existing_rel.value = entity_data.value
                              existing_rel.relationship_type = entity_data.relationship_type
                              session.add(existing_rel)
-                             # Optionally add to a saved_entity_ids["relationship"] list
                         else:
                              await crud_relationship.create(session, obj_in=rel_obj_in)
                              logger.info(f"Saved Relationship: {entity_data.relationship_type} between {final_e1_type.value}:{final_e1_id} and {final_e2_type.value}:{final_e2_id}, value {entity_data.value}")
                     else:
                         logger.warning(f"Could not resolve one or both entities for relationship: {entity_data.entity1_static_id} ({entity_data.entity1_type}) <-> {entity_data.entity2_static_id} ({entity_data.entity2_type}). Skipping.")
             else: # This else corresponds to the if/elif chain for quest, item, relationship
-                logger.warning(f"Unsupported entity_type '{entity_type_val}' encountered during saving of PendingGeneration ID {pending_generation_id}")
+                logger.warning(f"Unsupported entity_type '{entity_type_lower}' encountered during saving of PendingGeneration ID {pending_generation_id}") # Fixed typo entity_type_val -> entity_type_lower
 
         master_notes_message = (
             f"Successfully saved entities: "

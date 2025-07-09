@@ -292,14 +292,16 @@ async def _is_use_self_vs_take_check_enabled(session: AsyncSession, guild_id: in
 
 def _apply_same_intent_conflict_rules(
     actions_on_this_target: List[Tuple[SimulatedActionActor, ParsedAction]],
-    target_sig: str,
+    target_sig: Optional[str], # Changed to Optional[str]
     guild_id: int,
     rules_to_apply: Dict[str, Tuple[set[str], Optional[Tuple[str, ...]]]]
 ) -> List[PydanticConflictForSim]:
     """Applies Rule 1: Multiple actors performing the same 'exclusive category' intent on the same target."""
+    if not target_sig: # Guard against None
+        return []
     conflicts: List[PydanticConflictForSim] = []
     for category_name, (exclusive_intents, target_prefixes) in rules_to_apply.items():
-        if target_prefixes is not None and not any(target_sig.startswith(p) for p in target_prefixes):
+        if target_prefixes is not None and not any(target_sig.startswith(p) for p in target_prefixes): # target_sig is now confirmed str
             continue
 
         relevant_actions_for_category = [

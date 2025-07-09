@@ -121,7 +121,14 @@ async def _get_party_context(session: AsyncSession, party_id: Optional[int], gui
 
 async def _get_nearby_entities_context(session: AsyncSession, guild_id: int, location_id: Optional[int], lang: str, player_id: Optional[int] = None, party_id: Optional[int] = None) -> Dict[str, List[Dict[str, Any]]]:
     if location_id is None: return {"npcs": []}
-    npcs_in_location = await generated_npc_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute_name="current_location_id", value=location_id)
+    # Corrected call: use `attribute` and provide `is_like`
+    npcs_in_location = await generated_npc_crud.get_multi_by_attribute(
+        session,
+        guild_id=guild_id,
+        attribute="current_location_id", # Changed from attribute_name
+        value=location_id,
+        is_like=False # Explicitly add is_like
+    )
     npcs_context = []
     for npc in npcs_in_location:
         if player_id and hasattr(npc, 'player_id_if_controlled') and npc.player_id_if_controlled == player_id : continue
@@ -175,8 +182,9 @@ async def _get_game_rules_terms(session: AsyncSession, guild_id: int, lang: str)
     }
 
 async def _get_abilities_skills_terms(session: AsyncSession, guild_id: int, lang: str) -> Dict[str, List[Dict[str, Any]]]:
-    abilities = await ability_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute_name="id", value=None, is_like=False)
-    skills = await skill_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute_name="id", value=None, is_like=False)
+    # Ensure calls use `attribute` and `is_like` correctly.
+    abilities = await ability_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None, is_like=False)
+    skills = await skill_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None, is_like=False)
     return {
         "abilities": [{"static_id": ab.static_id, "name": get_localized_text(ab.name_i18n if isinstance(ab.name_i18n, dict) else {}, lang), "description": get_localized_text(ab.description_i18n if isinstance(ab.description_i18n, dict) else {}, lang)} for ab in abilities],
         "skills": [{"static_id": sk.static_id, "name": get_localized_text(sk.name_i18n if isinstance(sk.name_i18n, dict) else {}, lang), "description": get_localized_text(sk.description_i18n if isinstance(sk.description_i18n, dict) else {}, lang)} for sk in skills]
@@ -291,18 +299,26 @@ async def prepare_ai_prompt(session: AsyncSession, guild_id: int, location_id: O
 
         party_context_str = ""
 
-        nearby_npcs_str_list = []
+        nearby_npcs_str_list: List[str] = [] # Explicitly type as List[str]
         if location_id is not None:
             nearby_ctx = await _get_nearby_entities_context(session, guild_id, location_id, guild_main_lang, player_id, party_id)
             if nearby_ctx.get("npcs"):
-                for npc_data in nearby_ctx["npcs"][:3]: nearby_npcs_str_list.append(f"{npc_data.get('name')} (Lvl {npc_data.get('level')})")
-        nearby_npcs_str = f"Nearby NPCs: {', '.join(nearby_npcs_str_list) or 'None notable'}"
+                for npc_data in nearby_ctx["npcs"][:3]:
+                    name_str = str(npc_data.get('name', 'Unknown NPC'))
+                    level_str = str(npc_data.get('level', '?'))
+                    nearby_npcs_str_list.append(f"{name_str} (Lvl {level_str})")
+        nearby_npcs_str = f"Nearby NPCs: {', '.join(nearby_npcs_str_list) if nearby_npcs_str_list else 'None notable'}"
 
-        active_quests_str_list = []
+
+        active_quests_str_list: List[str] = [] # Explicitly type as List[str]
         if player_id:
             quests_ctx = await _get_quests_context(session, guild_id, guild_main_lang, player_id, party_id)
-            for q_data in quests_ctx[:2]: active_quests_str_list.append(f"'{q_data.get('quest_name')}' (Step: {q_data.get('current_step_name')})")
-        active_quests_str = f"Active Quests: {', '.join(active_quests_str_list) or 'None'}"
+            for q_data in quests_ctx[:2]:
+                quest_name_str = str(q_data.get('quest_name', 'Unnamed Quest'))
+                step_name_str = str(q_data.get('current_step_name', 'Unknown Step'))
+                active_quests_str_list.append(f"'{quest_name_str}' (Step: {step_name_str})")
+        active_quests_str = f"Active Quests: {', '.join(active_quests_str_list) if active_quests_str_list else 'None'}"
+
 
         ws_ctx = await _get_world_state_context(session, guild_id, guild_main_lang)
         world_state_str = f"World State: {ws_ctx.get('global_plot_status', 'Stable')}"
@@ -319,7 +335,7 @@ async def prepare_ai_prompt(session: AsyncSession, guild_id: int, location_id: O
             f"Generate enriching content (NPCs, Quests, Items, Events, Relationships) for '{loc_ctx.get('name', 'this location')}'.",
             "Output: Single JSON with keys 'generated_npcs', 'generated_quests', etc., listing entities per schema.",
             "Ensure all text is i18n (_i18n objects with primary lang and 'en'). Use unique static_ids.",
-            "\n### Entity Schemas:", "```json", json.dumps(get_entity_schema_terms(), indent=1), "```" # Corrected call
+            "\n### Entity Schemas:", "```json", json.dumps(get_entity_schema_terms(), indent=1), "```"
         ]
         final_prompt = "\n".join(filter(None, prompt_parts))
         logger.info(f"Generated AI prompt (L:{len(final_prompt)}) for guild {guild_id}, loc {location_id}: {final_prompt[:300]}...")
@@ -336,11 +352,17 @@ async def prepare_faction_relationship_generation_prompt(session: AsyncSession, 
         world_desc_i18n = all_rules.get("world_description_i18n", {"en": "A generic fantasy world."})
         faction_rules = {"target_faction_count": all_rules.get("faction_generation:target_count", 3), "faction_themes": get_localized_text(all_rules.get("faction_generation:themes_i18n",{}), guild_main_lang) or DEFAULT_QUEST_THEMES.get(guild_main_lang,[]), "allow_player_faction_interaction": all_rules.get("faction_generation:allow_player_interaction", True), "world_description": get_localized_text(world_desc_i18n, guild_main_lang)}
         relationship_rules = {"initial_relationship_complexity": all_rules.get("relationship_generation:complexity", "moderate"), "default_relationship_types": all_rules.get("relationship_generation:default_types", ["faction_standing"])}
-        entity_schemas = get_entity_schema_terms() # Corrected call
+        entity_schemas = get_entity_schema_terms()
+        faction_themes_list = faction_rules['faction_themes']
+        if not isinstance(faction_themes_list, list):
+            faction_themes_list = [str(faction_themes_list)]
+        # Ensure all elements in faction_themes_list are strings for join
+        faction_themes_str_list = [str(theme) for theme in faction_themes_list if theme is not None]
+
         prompt_parts = [
             f"## AI Faction & Relationship Generation (Guild: {guild_id}, Lang: {guild_main_lang})",
             f"World: {faction_rules['world_description']}",
-            f"Task: Generate {faction_rules['target_faction_count']} factions with themes like '{', '.join(faction_rules['faction_themes'] if isinstance(faction_rules['faction_themes'], list) else [str(faction_rules['faction_themes'])])}'.",
+            f"Task: Generate {faction_rules['target_faction_count']} factions with themes like '{', '.join(faction_themes_str_list)}'.",
             f"Then, generate relationships between them (complexity: {relationship_rules['initial_relationship_complexity']}).",
             "If player interaction is allowed, may suggest relations to 'player_default' (type: player).",
             "Output: JSON with 'generated_factions' and 'generated_relationships' lists, per schemas.",
@@ -370,7 +392,7 @@ async def prepare_quest_generation_prompt(session: AsyncSession, guild_id: int, 
         if location_id_context:
             loc_ctx = await _get_location_context(session, location_id_context, guild_id, guild_main_lang)
             if loc_ctx: location_context_str = f"Location: {loc_ctx.get('name')} ({loc_ctx.get('type')})"
-        entity_schemas = get_entity_schema_terms() # Corrected call
+        entity_schemas = get_entity_schema_terms()
         prompt_parts = [
             f"## AI Quest Generation (Guild: {guild_id}, Lang: {guild_main_lang})",
             f"Context: {quest_gen_rules['world_description']}. {player_context_str}. {location_context_str}",
@@ -399,7 +421,7 @@ async def prepare_economic_entity_generation_prompt(session: AsyncSession, guild
         quality_instr = get_localized_text(quality_instr_i18n, guild_main_lang)
         item_dist_str = json.dumps(all_rules.get("ai:economic_generation:item_type_distribution", {}).get("types", []))
         trader_dist_str = json.dumps(all_rules.get("ai:economic_generation:trader_role_distribution", {}).get("roles", []))
-        entity_schemas = get_entity_schema_terms() # Corrected call
+        entity_schemas = get_entity_schema_terms()
         prompt_parts = [
             f"## AI Economic Entity Generation (Guild: {guild_id}, Lang: {guild_main_lang})",
             f"Context: {world_desc}. {quality_instr}",
@@ -419,6 +441,9 @@ async def prepare_economic_entity_generation_prompt(session: AsyncSession, guild
 
 async def _get_hidden_relationships_context_for_dialogue(session: AsyncSession, guild_id: int, lang: str, npc_id: int, player_id: Optional[int] = None) -> List[Dict[str, Any]]:
     hidden_relationships_context = []
+    if npc_id is None: # Added check for None npc_id
+        logger.warning("_get_hidden_relationships_context_for_dialogue called with npc_id=None")
+        return []
     npc_all_relationships = await crud_relationship.get_relationships_for_entity(session=session, guild_id=guild_id, entity_id=npc_id, entity_type=RelationshipEntityType.GENERATED_NPC)
     if not npc_all_relationships: return []
     hidden_prefixes = ("secret_", "internal_", "personal_debt", "hidden_fear", "betrayal_")
@@ -448,17 +473,27 @@ async def _get_npc_memory_context_stub(session: AsyncSession, guild_id: int, npc
 
 async def prepare_dialogue_generation_prompt(session: AsyncSession, guild_id: int, context: Dict[str, Any]) -> str:
     try:
-        npc_id = context.get("npc_id")
-        player_id = context.get("player_id")
+        npc_id_any = context.get("npc_id")
+        player_id_any = context.get("player_id")
         player_input_text = context.get("player_input_text")
-        party_id = context.get("party_id")
-        dialogue_history = context.get("dialogue_history", [])
-        location_id = context.get("location_id")
-        if not all([isinstance(npc_id, int), isinstance(player_id, int), isinstance(player_input_text, str)]):
-            missing_params = [p for p, v in [("npc_id", npc_id), ("player_id", player_id), ("player_input_text", player_input_text)] if not isinstance(v, (int if "id" in p else str))]
-            err_msg = f"Missing or invalid required parameters in context for dialogue prompt: {missing_params}"
-            logger.error(err_msg)
-            return f"Error: {err_msg}"
+        party_id = context.get("party_id") # Optional
+        dialogue_history = context.get("dialogue_history", []) # Optional
+        location_id = context.get("location_id") # Optional
+
+        # Validate required parameters and their types
+        if not isinstance(npc_id_any, int):
+            logger.error(f"Invalid or missing npc_id in context: {npc_id_any}")
+            return "Error: Missing or invalid NPC ID for dialogue."
+        if not isinstance(player_id_any, int):
+            logger.error(f"Invalid or missing player_id in context: {player_id_any}")
+            return "Error: Missing or invalid Player ID for dialogue."
+        if not isinstance(player_input_text, str):
+            logger.error(f"Invalid or missing player_input_text in context: {player_input_text}")
+            return "Error: Missing or invalid player input text for dialogue."
+
+        npc_id: int = npc_id_any
+        player_id: int = player_id_any
+
         guild_main_lang = await _get_guild_main_language(session, guild_id)
         all_rules = await get_all_rules_for_guild(session, guild_id)
         prompt_parts = [f"## NPC Dialogue Generation Request", f"Target Guild ID: {guild_id}", f"Language for NPC's response: {guild_main_lang} (Also be aware of English for game terms if they appear in context).", "\n### Characters Involved:"]

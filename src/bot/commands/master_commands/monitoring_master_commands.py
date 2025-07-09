@@ -247,7 +247,7 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                 return
             embed = discord.Embed(title=await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_get.embed_title", "WorldState Entry: {key}", str(interaction.locale), key=key), color=discord.Color.purple()) # type: ignore
             embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_get.field_value", "Value", str(interaction.locale)), value=f"```json\n{discord.utils.escape_markdown(str(rule_entry.value_json))[:1000]}\n```", inline=False) # type: ignore
-            embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_get.field_description", "Description", str(interaction.locale)), value=await get_localized_master_message(session, interaction.guild_id, "master_generic.na", "N/A", str(interaction.locale)), inline=False) # type: ignore
+            embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_get.field_description", "Description", str(interaction.locale)), value=rule_entry.description or na_text, inline=False) # type: ignore
             await interaction.followup.send(embed=embed, ephemeral=True)
         except Exception as e:
             logger.exception(f"Error in /master_monitor worldstate_get for guild {interaction.guild_id}: {e}")
@@ -274,7 +274,13 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
             embed = discord.Embed(title=await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_list.embed_title", "WorldState Entries (Prefix: {prefix})", str(interaction.locale), prefix=effective_prefix), color=discord.Color.dark_purple()) # type: ignore
             description_parts = []
             for entry in rule_entries:
-                entry_line = await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_list.entry_format", default_template="{key_display}: {value_preview}", locale=str(interaction.locale), key_display=entry.key, value_preview=str(entry.value_json)[:100] + "..." if entry.value_json and len(str(entry.value_json)) > 100 else str(entry.value_json)) # type: ignore
+                value_preview_str = "None"
+                if entry.value_json is not None: # Check if value_json is not None
+                    value_preview_str = str(entry.value_json)
+                    if len(value_preview_str) > 100:
+                        value_preview_str = value_preview_str[:100] + "..."
+
+                entry_line = await get_localized_master_message(session, interaction.guild_id, "master_monitor.worldstate_list.entry_format", default_template="{key_display}: {value_preview}", locale=str(interaction.locale), key_display=entry.key, value_preview=value_preview_str) # type: ignore
                 description_parts.append(entry_line)
             embed.description = "\n".join(description_parts)
             total_pages = (total_entries + limit - 1) // limit
