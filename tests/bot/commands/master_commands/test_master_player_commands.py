@@ -44,6 +44,7 @@ def mock_interaction_fixture(guild_id_fixture, master_user_id_fixture, command_l
     interaction.locale = command_locale_fixture
     interaction.response = AsyncMock(spec=discord.InteractionResponse)
     interaction.followup = AsyncMock(spec=discord.Webhook)
+    interaction.followup.send = AsyncMock() # Ensure 'send' itself is an AsyncMock with assertion methods
     return interaction
 
 @pytest.fixture
@@ -98,7 +99,7 @@ async def test_master_player_create_success(
     mock_get_localized_template_cmd.side_effect = side_effect_cmd_loc
 
     cog = PlayerMasterCommandsCog(mock_bot_fixture)
-    mock_discord_user = AsyncMock(spec=discord.User, id=123456789, locale=MagicMock(value="en"))
+    mock_discord_user_arg = AsyncMock(spec=discord.User, id=123456789, locale=MagicMock(value="en")) # Renamed to avoid clash
     mock_player_crud_instance.get_by_discord_id.return_value = None
     mock_player_crud_instance.create_with_defaults.return_value = created_player_fixture
 
@@ -113,8 +114,12 @@ async def test_master_player_create_success(
 
     with patch('src.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func:
         mock_update_entity_func.side_effect = mock_update_entity_side_effect_success
+        # Corrected: First arg to Command.callback is the interaction.
+        # `self` (the cog instance) is implicitly bound when accessing `cog.player_create.callback`.
         await cog.player_create.callback(
-            cog, mock_interaction_fixture, discord_user=mock_discord_user, player_name="Newbie",
+            mock_interaction_fixture, # interaction
+            discord_user=mock_discord_user_arg, # discord_user parameter
+            player_name="Newbie",
             level=1, xp=0, unspent_xp=0, gold=10, current_hp=100, language="en",
             attributes_json_str=None
         )
@@ -159,8 +164,8 @@ async def test_master_player_create_handles_guild_none(
     guild_only_error_default = "This command must be used in a server."
     mock_get_localized_template_cmd.return_value = guild_only_error_default
 
-    mock_dummy_user = AsyncMock(spec=discord.User, id=123)
-    await cog.player_create.callback( cog, mock_interaction_fixture, discord_user=mock_dummy_user, player_name="Test")
+    mock_dummy_user_arg = AsyncMock(spec=discord.User, id=123) # Renamed
+    await cog.player_create.callback( cog, mock_interaction_fixture, discord_user=mock_dummy_user_arg, player_name="Test")
 
     mock_interaction_fixture.response.defer.assert_called_once_with(ephemeral=True)
     mock_get_localized_template_cmd.assert_called_once_with(
@@ -216,7 +221,7 @@ async def test_master_player_create_with_attributes_json(
     )
     mock_player_crud_instance.create_with_defaults.return_value = player_after_create
 
-    mock_discord_user_attr = AsyncMock(spec=discord.User, id=12345, locale=MagicMock(value=command_locale_fixture))
+    mock_discord_user_attr_arg = AsyncMock(spec=discord.User, id=12345, locale=MagicMock(value=command_locale_fixture)) # Renamed
     mock_player_crud_instance.get_by_discord_id.return_value = None
 
     async def mock_update_entity_side_effect(session, entity, data):
@@ -229,7 +234,9 @@ async def test_master_player_create_with_attributes_json(
     with patch('src.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func_attr:
         mock_update_entity_func_attr.side_effect = mock_update_entity_side_effect
         await cog.player_create.callback(
-            cog, mock_interaction_fixture, discord_user=mock_discord_user_attr,
+            cog, # self
+            mock_interaction_fixture, # interaction
+            discord_user=mock_discord_user_attr_arg, # discord_user parameter
             player_name="AttrPlayer", attributes_json_str=attributes_str
         )
 
@@ -298,10 +305,12 @@ async def test_master_player_create_bad_attributes_json(
 
     mock_parse_json_parameter.side_effect = mock_parse_json_side_effect
 
-    mock_discord_user_bad_json = AsyncMock(spec=discord.User, id=12345)
+    mock_discord_user_bad_json_arg = AsyncMock(spec=discord.User, id=12345) # Renamed
 
     await cog.player_create.callback(
-        cog, mock_interaction_fixture, discord_user=mock_discord_user_bad_json,
+        cog, # self
+        mock_interaction_fixture, # interaction
+        discord_user=mock_discord_user_bad_json_arg, # discord_user parameter
         player_name="BadJsonPlayer", attributes_json_str=attributes_str
     )
 

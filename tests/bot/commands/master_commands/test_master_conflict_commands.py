@@ -44,6 +44,7 @@ def mock_interaction_fixture(guild_id_fixture, master_user_id_fixture, command_l
     interaction.locale = command_locale_fixture
     interaction.response = AsyncMock(spec=discord.InteractionResponse)
     interaction.followup = AsyncMock(spec=discord.Webhook)
+    interaction.followup.send = AsyncMock() # Ensure 'send' itself is an AsyncMock
     return interaction
 
 @pytest.fixture
@@ -116,8 +117,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     }.get(key, df)
 
 
-    await cog.conflict_resolve.callback( # type: ignore[reportCallIssue]
-        cog,
+    await cog.conflict_resolve.callback(
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
         outcome_status=ConflictStatus.RESOLVED_BY_MASTER_DISMISS.name, # Use enum name
@@ -203,8 +203,7 @@ async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
         "common:value_na": "N/A"
     }.get(key, df)
 
-    await cog.conflict_resolve.callback( # type: ignore[reportCallIssue]
-        cog,
+    await cog.conflict_resolve.callback(
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
         outcome_status=ConflictStatus.RESOLVED_BY_MASTER_DISMISS.name,

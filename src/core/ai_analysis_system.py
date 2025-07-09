@@ -105,7 +105,7 @@ async def _m_analyze_npc_balance(npc_data: Dict[str, Any], report: EntityAnalysi
         else: report.balance_score_details["hp_vs_level"] = 0.4
         avg_attack_per_level_rule = await get_rule(session, guild_id, "analysis:npc:balance:avg_attack_per_level", {"value": 2})
         attack_stat = stats.get("attack_bonus")
-        if attack_stat is not None and isinstance(attack_stat, (int, float)):
+        if level is not None and isinstance(level, int) and attack_stat is not None and isinstance(attack_stat, (int, float)): # Added level check for expected_attack
             expected_attack = avg_attack_per_level_rule.get("value",2) * level
             if abs(attack_stat - expected_attack) > (expected_attack * 0.5):
                 report.issues_found.append(f"NPC attack stat ({attack_stat}) seems unbalanced for level {level}. Expected around {expected_attack:.0f}.")
@@ -157,7 +157,7 @@ async def _m_analyze_quest_balance(quest_data: Dict[str, Any], report: EntityAna
         else: report.balance_score_details["steps_complexity"] = 0.8
     elif num_steps == 0: report.balance_score_details["steps_complexity"] = 0.1
 
-async def _m_analyze_text_content_lore(text_content: Union[str, Dict[str, str]], field_name: str, report: EntityAnalysisReport, session: AsyncSession, guild_id: int, entity_type_for_rules: str ):
+async def _m_analyze_text_content_lore(text_content: Optional[Union[str, Dict[str, str]]], field_name: str, report: EntityAnalysisReport, session: AsyncSession, guild_id: int, entity_type_for_rules: str ):
     if not text_content: return
     texts_to_check: List[tuple[str, str]] = []
     if isinstance(text_content, dict):
@@ -315,16 +315,25 @@ async def analyze_generated_content(
                 from src.core.crud import guild_crud as guild_config_crud
                 guild_config = await guild_config_crud.get(session, id=guild_id)
                 default_supported_langs = ["en", "ru"]
-                if guild_config and guild_config.supported_languages_json:
-                    if isinstance(guild_config.supported_languages_json, list) and all(isinstance(lang, str) for lang in guild_config.supported_languages_json):
-                        required_langs = guild_config.supported_languages_json
-                        if not required_langs: required_langs = default_supported_langs
-                    else:
-                        logger.warning(f"GuildConfig.supported_languages_json for guild {guild_id} is malformed: {guild_config.supported_languages_json}. Falling back to defaults.")
-                        required_langs = default_supported_langs
-                else:
+                required_langs = default_supported_langs # Default
+
+                if guild_config:
+                    supported_languages_val = getattr(guild_config, "supported_languages_json", None)
+                    if supported_languages_val is not None:
+                        if isinstance(supported_languages_val, list) and all(isinstance(lang, str) for lang in supported_languages_val):
+                            if supported_languages_val: # Ensure not empty list
+                                required_langs = supported_languages_val
+                            # If empty list, default_supported_langs remains
+                        else:
+                            logger.warning(f"GuildConfig.supported_languages_json for guild {guild_id} is malformed: {supported_languages_val}. Falling back to defaults.")
+                            # required_langs remains default_supported_langs
+                    else: # supported_languages_json attribute doesn't exist or is None
+                        required_langs_rule = await get_rule(session, guild_id, "analysis:common:i18n_completeness", {"required_languages": default_supported_langs})
+                        required_langs = required_langs_rule.get("required_languages", default_supported_langs)
+                else: # guild_config is None
                     required_langs_rule = await get_rule(session, guild_id, "analysis:common:i18n_completeness", {"required_languages": default_supported_langs})
                     required_langs = required_langs_rule.get("required_languages", default_supported_langs)
+
                 i18n_fields_to_check = ["name_i18n", "title_i18n", "description_i18n", "summary_i18n", "ideology_i18n", "role_i18n", "descriptions_i18n"]
                 for field_name_i18n in i18n_fields_to_check:
                     if field_name_i18n in data:
