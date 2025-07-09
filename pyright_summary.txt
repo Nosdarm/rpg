@@ -1,19 +1,207 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 10 issue(s):
-  Line 39   [ERROR] "ext" is not a known attribute of module "discord"
-  Line 61   [ERROR] No parameter named "difficulty_class"
-  Line 72   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
-  Line 72   [ERROR] Parameter "check_type" is already assigned
-  Line 95   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
-  Line 95   [ERROR] Parameter "check_type" is already assigned
-  Line 115  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
-  Line 115  [ERROR] Parameter "check_type" is already assigned
-  Line 162  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
-  Line 162  [ERROR] Parameter "combat_encounter_id" is already assigned
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_analysis_system.py] — 26 issue(s):
+  Line 91   [ERROR] Cannot assign to attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 108  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 161  [ERROR] Argument of type "list[dict[str, Unknown]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Unknown]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Unknown]" is not assignable to "ParsedRelationshipData"
+  Line 209  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 210  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 220  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 221  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 222  [ERROR] Argument of type "GeneratedEntity" cannot be assigned to parameter "type_" of type "type[T@parse_obj_as]" in function "parse_obj_as"
+┬а┬аType "UnionType" is not assignable to type "type[T@parse_obj_as]"
+  Line 255  [ERROR] Cannot assign to attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 256  [ERROR] Cannot assign to attribute "game_rules_json" for class "GuildConfig"
+┬а┬аAttribute "game_rules_json" is unknown
+  Line 257  [ERROR] Cannot assign to attribute "ai_generation_configs_json" for class "GuildConfig"
+┬а┬аAttribute "ai_generation_configs_json" is unknown
+  Line 258  [ERROR] Cannot assign to attribute "command_configs_json" for class "GuildConfig"
+┬а┬аAttribute "command_configs_json" is unknown
+  Line 259  [ERROR] Cannot assign to attribute "properties_json" for class "GuildConfig"
+┬а┬аAttribute "properties_json" is unknown
+  Line 288  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 300  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 312  [ERROR] Cannot assign to attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 318  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 333  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 345  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 358  [ERROR] Argument of type "list[dict[str, Any]]" cannot be assigned to parameter "generated_entities" of type "List[GeneratedEntity]" in function "__init__"
+┬а┬аType "dict[str, Any]" is not assignable to type "GeneratedEntity"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedNpcTraderData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedQuestData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedItemData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedLocationData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedFactionData"
+┬а┬а┬а┬а"dict[str, Any]" is not assignable to "ParsedRelationshipData"
+  Line 375  [ERROR] Argument of type "float" cannot be assigned to parameter "second" of type "SupportsRSub[_T@assertAlmostEqual, SupportsAbs[SupportsRound[object]]]" in function "assertAlmostEqual"
+┬а┬а"float" is incompatible with protocol "SupportsRSub[float | None, SupportsAbs[SupportsRound[object]]]"
+┬а┬а┬а┬а"__rsub__" is an incompatible type
+┬а┬а┬а┬а┬а┬аType "(value: float, /) -> float" is not assignable to type "(x: _T_contra@SupportsRSub, /) -> _T_co@SupportsRSub"
+┬а┬а┬а┬а┬а┬а┬а┬аParameter 1: type "_T_contra@SupportsRSub" is incompatible with type "float"
+┬а┬а┬а┬а┬а┬а┬а┬а┬а┬аType "float | None" is not assignable to type "float"
+  Line 375  [ERROR] No overloads for "assertAlmostEqual" match the provided arguments
+  Line 376  [ERROR] Argument of type "float" cannot be assigned to parameter "second" of type "SupportsRSub[_T@assertAlmostEqual, SupportsAbs[SupportsRound[object]]]" in function "assertAlmostEqual"
+┬а┬а"float" is incompatible with protocol "SupportsRSub[float | None, SupportsAbs[SupportsRound[object]]]"
+┬а┬а┬а┬а"__rsub__" is an incompatible type
+┬а┬а┬а┬а┬а┬аType "(value: float, /) -> float" is not assignable to type "(x: _T_contra@SupportsRSub, /) -> _T_co@SupportsRSub"
+┬а┬а┬а┬а┬а┬а┬а┬аParameter 1: type "_T_contra@SupportsRSub" is incompatible with type "float"
+┬а┬а┬а┬а┬а┬а┬а┬а┬а┬аType "float | None" is not assignable to type "float"
+  Line 376  [ERROR] No overloads for "assertAlmostEqual" match the provided arguments
+  Line 388  [ERROR] Argument of type "float" cannot be assigned to parameter "second" of type "SupportsRSub[_T@assertAlmostEqual, SupportsAbs[SupportsRound[object]]]" in function "assertAlmostEqual"
+┬а┬а"float" is incompatible with protocol "SupportsRSub[float | None, SupportsAbs[SupportsRound[object]]]"
+┬а┬а┬а┬а"__rsub__" is an incompatible type
+┬а┬а┬а┬а┬а┬аType "(value: float, /) -> float" is not assignable to type "(x: _T_contra@SupportsRSub, /) -> _T_co@SupportsRSub"
+┬а┬а┬а┬а┬а┬а┬а┬аParameter 1: type "_T_contra@SupportsRSub" is incompatible with type "float"
+┬а┬а┬а┬а┬а┬а┬а┬а┬а┬аType "float | None" is not assignable to type "float"
+  Line 388  [ERROR] No overloads for "assertAlmostEqual" match the provided arguments
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_prompt_builder.py] — 14 issue(s):
+  Line 124  [ERROR] Argument missing for parameter "attribute"
+  Line 124  [ERROR] No parameter named "attribute_name"
+  Line 178  [ERROR] Argument missing for parameter "attribute"
+  Line 178  [ERROR] No parameter named "attribute_name"
+  Line 178  [ERROR] No parameter named "is_like"
+  Line 179  [ERROR] Argument missing for parameter "attribute"
+  Line 179  [ERROR] No parameter named "attribute_name"
+  Line 179  [ERROR] No parameter named "is_like"
+  Line 506  [ERROR] Argument of type "list[Any | None]" cannot be assigned to parameter "iterable" of type "Iterable[str]" in function "join"
+┬а┬а"list[Any | None]" is not assignable to "Iterable[str]"
+┬а┬а┬а┬аType parameter "_T_co@Iterable" is covariant, but "Any | None" is not a subtype of "str"
+┬а┬а┬а┬а┬а┬аType "Any | None" is not assignable to type "str"
+┬а┬а┬а┬а┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 506  [ERROR] No overloads for "join" match the provided arguments
+  Line 512  [ERROR] Expected 1 positional argument
+  Line 515  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "npc_id" of type "int" in function "_get_hidden_relationships_context_for_dialogue"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 521  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "npc_id" of type "int" in function "_get_npc_memory_context_stub"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 521  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "player_id" of type "int" in function "_get_npc_memory_context_stub"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\report_formatter.py] — 14 issue(s):
+  Line 225  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 226  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 245  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 246  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 322  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 323  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 331  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 332  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 347  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 348  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 356  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 357  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 394  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+  Line 403  [ERROR] Argument of type "Any | None" cannot be assigned to parameter "entity_id" of type "int" in function "get_name_from_cache"
+┬а┬аType "Any | None" is not assignable to type "int"
+┬а┬а┬а┬а"None" is not assignable to "int"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 12 issue(s):
+  Line 117  [ERROR] Parameter "discord_user" is already assigned
+  Line 128  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 131  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 132  [ERROR] Cannot access attribute "call_args" for class "MethodType"
+┬а┬аAttribute "call_args" is unknown
+  Line 163  [ERROR] Parameter "discord_user" is already assigned
+  Line 165  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 169  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
+  Line 232  [ERROR] Parameter "discord_user" is already assigned
+  Line 252  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 253  [ERROR] Cannot access attribute "call_args" for class "MethodType"
+┬а┬аAttribute "call_args" is unknown
+  Line 304  [ERROR] Parameter "discord_user" is already assigned
+  Line 323  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
+┬а┬аAttribute "assert_called_once_with" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 10 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
@@ -27,31 +215,50 @@
   Line 834  [ERROR] Argument missing for parameter "entity_type"
   Line 835  [ERROR] Argument missing for parameter "entity_type"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_player_commands.py] — 9 issue(s):
-  Line 152  [ERROR] Parameter "discord_user" is already assigned
-  Line 165  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 212  [ERROR] Operator "in" not supported for types "str" and "str | None"
-┬а┬аOperator "in" not supported for types "str" and "None"
-  Line 213  [ERROR] Operator "in" not supported for types "str" and "str | None"
-┬а┬аOperator "in" not supported for types "str" and "None"
-  Line 248  [ERROR] Parameter "discord_user" is already assigned
-  Line 253  [ERROR] Cannot access attribute "assert_called_once_with" for class "MethodType"
-┬а┬аAttribute "assert_called_once_with" is unknown
-  Line 357  [ERROR] Parameter "discord_user" is already assigned
-  Line 378  [ERROR] Operator "in" not supported for types "Literal['AttrPlayer']" and "str | None"
-┬а┬аOperator "in" not supported for types "Literal['AttrPlayer']" and "None"
-  Line 410  [ERROR] Parameter "discord_user" is already assigned
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 8 issue(s):
+  Line 73   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 73   [ERROR] Parameter "check_type" is already assigned
+  Line 96   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 96   [ERROR] Parameter "check_type" is already assigned
+  Line 116  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 116  [ERROR] Parameter "check_type" is already assigned
+  Line 163  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 163  [ERROR] Parameter "combat_encounter_id" is already assigned
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_analysis_system.py] — 5 issue(s):
-  Line 107  [ERROR] No parameter named "errors"
-  Line 202  [ERROR] Argument of type "List[str] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
-┬а┬аType "List[str] | None" is not assignable to type "Sized"
-┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
-┬а┬а┬а┬а┬а┬а"__len__" is not present
-  Line 204  [ERROR] Object of type "None" is not subscriptable
-  Line 205  [ERROR] Object of type "None" is not subscriptable
-  Line 206  [ERROR] Object of type "None" is not subscriptable
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_analysis_system.py] — 7 issue(s):
+  Line 318  [ERROR] Cannot access attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 319  [ERROR] Cannot access attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 319  [ERROR] Cannot access attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 320  [ERROR] Cannot access attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 323  [ERROR] Cannot access attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+  Line 433  [ERROR] Argument of type "Unknown | None" cannot be assigned to parameter "text_content" of type "str | Dict[str, str]" in function "_m_analyze_text_content_lore"
+┬а┬аType "Unknown | None" is not assignable to type "str | Dict[str, str]"
+┬а┬а┬а┬аType "None" is not assignable to type "str | Dict[str, str]"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "str"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Dict[str, str]"
+  Line 434  [ERROR] Argument of type "Unknown | None" cannot be assigned to parameter "text_content" of type "str | Dict[str, str]" in function "_m_analyze_text_content_lore"
+┬а┬аType "Unknown | None" is not assignable to type "str | Dict[str, str]"
+┬а┬а┬а┬аType "None" is not assignable to type "str | Dict[str, str]"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "str"
+┬а┬а┬а┬а┬а┬а"None" is not assignable to "Dict[str, str]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_monitoring_master_commands.py] — 7 issue(s):
+  Line 122  [ERROR] Parameter "player_id" is already assigned
+  Line 196  [ERROR] Parameter "log_id" is already assigned
+  Line 219  [ERROR] Parameter "log_id" is already assigned
+  Line 234  [ERROR] Parameter "page" is already assigned
+  Line 253  [ERROR] Parameter "page" is already assigned
+  Line 264  [ERROR] Parameter "key" is already assigned
+  Line 286  [ERROR] Parameter "page" is already assigned
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 4 issue(s):
   Line 626  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
@@ -67,29 +274,44 @@
 ┬а┬аAttribute "assert_called_once_with" is unknown
   Line 209  [ERROR] Parameter "pending_conflict_id" is already assigned
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_conflict_simulation_system.py] — 3 issue(s):
+  Line 651  [ERROR] Argument of type "str | None" cannot be assigned to parameter "target_sig" of type "str" in function "_apply_same_intent_conflict_rules"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 678  [ERROR] Argument of type "str | None" cannot be assigned to parameter "target_sig" of type "str" in function "_apply_same_intent_conflict_rules"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 683  [ERROR] Argument of type "str | None" cannot be assigned to parameter "target_sig" of type "str" in function "_apply_same_intent_conflict_rules"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_simulation_tools_cog.py] — 2 issue(s):
   Line 350  [ERROR] "get" is not a known attribute of "None"
   Line 350  [ERROR] "get" is not a known attribute of "None"
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_prompt_builder.py] — 2 issue(s):
+  Line 37   [ERROR] Cannot access attribute "BUILDING" for class "type[LocationType]"
+┬а┬аAttribute "BUILDING" is unknown
+  Line 133  [ERROR] Cannot assign to attribute "supported_languages_json" for class "GuildConfig"
+┬а┬аAttribute "supported_languages_json" is unknown
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\monitoring_master_commands.py] — 1 issue(s):
-  Line 738  [ERROR] "get" is not a known attribute of "None"
+  Line 742  [ERROR] "get" is not a known attribute of "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 1 issue(s):
   Line 541  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
 ┬а┬а"None" is not assignable to "list[int]"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\conflict_simulation_system.py] — 1 issue(s):
-  Line 521  [ERROR] Argument of type "int | None" cannot be assigned to parameter "player_id" of type "int" in function "__init__"
-┬а┬аType "int | None" is not assignable to type "int"
-┬а┬а┬а┬а"None" is not assignable to "int"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\party_commands.py] — 1 issue(s):
+  Line 245  [ERROR] Argument of type "Location" cannot be assigned to parameter "i18n_dict" of type "Dict[str, str] | None" in function "get_localized_text"
+┬а┬аType "Location" is not assignable to type "Dict[str, str] | None"
+┬а┬а┬а┬а"Location" is not assignable to "Dict[str, str]"
+┬а┬а┬а┬а"Location" is not assignable to "None"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
   Line 811  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
 ┬а┬аType "str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_monitoring_master_commands.py] — 1 issue(s):
-  Line 43   [ERROR] "AsyncSession" is not defined
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
   Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
