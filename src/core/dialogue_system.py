@@ -204,7 +204,9 @@ async def handle_dialogue_input(
     session: AsyncSession,
     guild_id: int,
     player_id: int,
-    message_text: str
+    message_text: str,
+    parsed_intent: Optional[str] = None,
+    parsed_entities: Optional[List[Dict[str, Any]]] = None
 ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
     Handles player's input during a dialogue session and gets NPC's response.
@@ -214,6 +216,8 @@ async def handle_dialogue_input(
         guild_id: The ID of the guild.
         player_id: The ID of the player providing input.
         message_text: The player's dialogue line.
+        parsed_intent: Optional recognized intent from NLU.
+        parsed_entities: Optional recognized entities from NLU.
 
     Returns:
         A tuple (success: bool, response_or_error_key: str, context_data: Optional[Dict[str, Any]]).
@@ -276,7 +280,9 @@ async def handle_dialogue_input(
         "dialogue_history": list(dialogue_session_data["dialogue_history"]), # <--- Создаем копию списка
         "selected_language": player.selected_language,
         "location_id": player.current_location_id, # Добавляем location_id, если он есть у игрока
-        "party_id": player.current_party_id # Добавляем party_id, если он есть у игрока
+        "party_id": player.current_party_id, # Добавляем party_id, если он есть у игрока
+        "parsed_intent": parsed_intent, # Добавляем распознанный интент
+        "parsed_entities": parsed_entities # Добавляем распознанные сущности
     }
 
     logger.debug(f"Context for LLM in handle_dialogue_input for player {player_id}, npc {npc_id}: {context_for_llm}")

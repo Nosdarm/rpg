@@ -135,9 +135,7 @@ This block presents tasks related to dynamic NPC dialogues using LLM and storing
 
 {Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild). - Moved to Done.txt}
 
-Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped).
-Description: Processing player input in dialogue mode. This is part of module 13 (NLU) logic.
-If player status is 'dialogue', NLU (13) does not save the action to collected_actions_json, but passes it directly to the Dialogue Management Module (46) via the handle_dialogue_input API (46). NLU (13) still recognizes Intents/Entities and passes them to 46.
+{Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped). - Moved to Done.txt}
 
 Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.

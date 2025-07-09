@@ -7,6 +7,9 @@ import logging
 import datetime
 from unittest.mock import AsyncMock, patch, MagicMock, call, ANY
 
+import discord # For discord.Message in process_player_message_for_nlu
+from discord.ext import commands # For commands.Bot in process_player_message_for_nlu
+
 # Add the project root to sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if PROJECT_ROOT not in sys.path:
@@ -1027,3 +1030,187 @@ async def test_process_actions_handles_exception_during_conflict_check(
     assert log_call_kwargs.get('event_type') == "CONFLICT_CHECK_ERROR"
     assert log_call_kwargs.get('details_json', {}).get('error') == str(test_exception)
     assert log_call_kwargs.get('details_json', {}).get('phase') == "pre_conflict_check"
+
+
+# --- Tests for process_player_message_for_nlu ---
+
+from src.core.action_processor import process_player_message_for_nlu
+from src.models.enums import PlayerStatus # Already imported but good for clarity
+from src.models.actions import ParsedAction, ActionEntity # Already imported
+
+@pytest.fixture
+def mock_bot_message():
+    mock_message = MagicMock()
+    mock_message.guild.id = DEFAULT_GUILD_ID
+    mock_message.author.id = PLAYER_DISCORD_ID_1
+    mock_message.content = "Hello NPC"
+    mock_message.channel.send = AsyncMock()
+    return mock_message
+
+@pytest.fixture
+def mock_player_dialogue_status():
+    player = Player(
+        id=PLAYER_ID_PK_1,
+        discord_id=PLAYER_DISCORD_ID_1,
+        guild_id=DEFAULT_GUILD_ID,
+        name="DialoguePlayer",
+        current_status=PlayerStatus.DIALOGUE,
+        collected_actions_json="[]"
+    )
+    return player
+
+@pytest.fixture
+def mock_player_exploring_status():
+    player = Player(
+        id=PLAYER_ID_PK_1,
+        discord_id=PLAYER_DISCORD_ID_1,
+        guild_id=DEFAULT_GUILD_ID,
+        name="ExploringPlayer",
+        current_status=PlayerStatus.EXPLORING,
+        collected_actions_json="[]"
+    )
+    return player
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+async def test_process_player_message_for_nlu_player_in_dialogue(
+    mock_handle_dialogue_input: AsyncMock,
+    mock_parse_nlu: AsyncMock,
+    mock_get_player_by_discord_id: AsyncMock,
+    mock_bot_message: MagicMock,
+    mock_player_dialogue_status: Player,
+    mock_session: AsyncMock # Re-use existing session mock
+):
+    mock_get_player_by_discord_id.return_value = mock_player_dialogue_status
+
+    # NLU returns a specific action
+    nlu_result_action = ParsedAction(
+        raw_text=mock_bot_message.content, intent="talk_to_npc", guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_DISCORD_ID_1, timestamp=datetime.datetime.now(datetime.timezone.utc),
+        entities=[ActionEntity(type="npc_name", value="NPC")]
+    )
+    mock_parse_nlu.return_value = nlu_result_action
+
+    # Dialogue system returns success
+    mock_handle_dialogue_input.return_value = (True, "NPC says hello back", {"npc_name": "Friendly NPC"})
+
+    await process_player_message_for_nlu(MagicMock(spec=commands.Bot), mock_bot_message, session=mock_session)
+
+    mock_parse_nlu.assert_called_once_with(
+        raw_text=mock_bot_message.content,
+        guild_id=DEFAULT_GUILD_ID,
+        player_id=mock_player_dialogue_status.id # Use DB id
+    )
+    mock_handle_dialogue_input.assert_called_once_with(
+        session=mock_session,
+        guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_ID_PK_1,
+        message_text=mock_bot_message.content,
+        parsed_intent=nlu_result_action.intent,
+        parsed_entities=nlu_result_action.entities
+    )
+    mock_bot_message.channel.send.assert_called_once_with("**Friendly NPC**: NPC says hello back")
+    assert mock_player_dialogue_status.collected_actions_json == "[]" # Actions not queued
+    mock_session.add.assert_not_called() # Player status not changed by this path directly
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+async def test_process_player_message_for_nlu_player_not_in_dialogue_queues_action(
+    mock_handle_dialogue_input: AsyncMock,
+    mock_parse_nlu: AsyncMock,
+    mock_get_player_by_discord_id: AsyncMock,
+    mock_bot_message: MagicMock,
+    mock_player_exploring_status: Player,
+    mock_session: AsyncMock
+):
+    mock_get_player_by_discord_id.return_value = mock_player_exploring_status
+
+    nlu_result_action = ParsedAction(
+        raw_text=mock_bot_message.content, intent="look_around", guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_DISCORD_ID_1, timestamp=datetime.datetime.now(datetime.timezone.utc),
+        entities=[]
+    )
+    mock_parse_nlu.return_value = nlu_result_action
+
+    await process_player_message_for_nlu(MagicMock(spec=commands.Bot), mock_bot_message, session=mock_session)
+
+    mock_parse_nlu.assert_called_once_with(
+        raw_text=mock_bot_message.content,
+        guild_id=DEFAULT_GUILD_ID,
+        player_id=mock_player_exploring_status.id # Use DB id
+    )
+    mock_handle_dialogue_input.assert_not_called()
+
+    # Check that action was queued
+    # The mock_player_exploring_status.collected_actions_json is initially "[]"
+    # After adding one action, it should be a list containing one action dict
+    expected_queued_actions = [nlu_result_action.model_dump(mode='json')]
+    # The actual value in player.collected_actions_json might be a list or a JSON string
+    # depending on how SQLAlchemy handles it. The code sets it to a list.
+    assert mock_player_exploring_status.collected_actions_json == expected_queued_actions
+    mock_session.add.assert_called_once_with(mock_player_exploring_status)
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+async def test_process_player_message_for_nlu_player_in_dialogue_nlu_unknown_intent(
+    mock_handle_dialogue_input: AsyncMock,
+    mock_parse_nlu: AsyncMock,
+    mock_get_player_by_discord_id: AsyncMock,
+    mock_bot_message: MagicMock,
+    mock_player_dialogue_status: Player,
+    mock_session: AsyncMock
+):
+    mock_get_player_by_discord_id.return_value = mock_player_dialogue_status
+
+    nlu_unknown_action = ParsedAction(
+        raw_text=mock_bot_message.content, intent="unknown_intent", guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_DISCORD_ID_1, timestamp=datetime.datetime.now(datetime.timezone.utc),
+        entities=[]
+    )
+    mock_parse_nlu.return_value = nlu_unknown_action
+    mock_handle_dialogue_input.return_value = (True, "NPC seems confused", {"npc_name": "Confused NPC"})
+
+    await process_player_message_for_nlu(MagicMock(spec=commands.Bot), mock_bot_message, session=mock_session)
+
+    mock_parse_nlu.assert_called_once()
+    mock_handle_dialogue_input.assert_called_once_with(
+        session=mock_session,
+        guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_ID_PK_1,
+        message_text=mock_bot_message.content,
+        parsed_intent="unknown_intent", # Intent is unknown
+        parsed_entities=[] # Entities are empty
+    )
+    mock_bot_message.channel.send.assert_called_once_with("**Confused NPC**: NPC seems confused")
+    assert mock_player_dialogue_status.collected_actions_json == "[]"
+
+@pytest.mark.asyncio
+@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+async def test_process_player_message_for_nlu_player_not_in_dialogue_unknown_intent_not_queued(
+    mock_parse_nlu: AsyncMock,
+    mock_get_player_by_discord_id: AsyncMock,
+    mock_bot_message: MagicMock,
+    mock_player_exploring_status: Player,
+    mock_session: AsyncMock
+):
+    mock_get_player_by_discord_id.return_value = mock_player_exploring_status
+
+    nlu_unknown_action = ParsedAction(
+        raw_text=mock_bot_message.content, intent="unknown_intent", guild_id=DEFAULT_GUILD_ID,
+        player_id=PLAYER_DISCORD_ID_1, timestamp=datetime.datetime.now(datetime.timezone.utc),
+        entities=[]
+    )
+    mock_parse_nlu.return_value = nlu_unknown_action
+
+    await process_player_message_for_nlu(MagicMock(spec=commands.Bot), mock_bot_message, session=mock_session)
+
+    mock_parse_nlu.assert_called_once()
+    assert mock_player_exploring_status.collected_actions_json == "[]" # Unknown intent not queued
+    mock_session.add.assert_not_called() # Player not modified if action not queued
