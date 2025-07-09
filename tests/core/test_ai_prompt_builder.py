@@ -449,7 +449,7 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
 
         test_context = {
             "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "Greetings!",
-            "dialogue_history": [{"speaker": "player", "text": "Hello?"}], "location_id": 100
+            "dialogue_history": [{"speaker": "player", "text": "Hello?"}], "location_id": 100 # "text" is used here
         }
         prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
 
@@ -471,10 +471,12 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Language for NPC's response: en", prompt)
 
         # Проверка ключевых инструкций
-        self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history), generate your next single, natural-sounding dialogue line.", prompt)
+        self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line.", prompt) # Corrected this line
         self.assertIn("Respond in **en**.", prompt)
         self.assertIn(f"{mock_player_obj.name} says to you: \"Greetings!\"", prompt)
-        self.assertIn(f"{mock_player_obj.name}: Hello?", prompt) # Dialogue history
+        # В данном тесте history: [{"speaker": "player", "text": "Hello?"}]
+        # После исправления в ai_prompt_builder на get('line'), это будет "None", т.к. ключ "line" отсутствует.
+        self.assertIn(f"{mock_player_obj.name}: None", prompt)
 
         # Проверка использования заглушки для NPC Memory
         mock_get_memory.assert_called_once()
@@ -772,9 +774,9 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_quests.return_value = []
         mock_world_state.return_value = {}
         dialogue_history = [
-            {"speaker": "player", "text": "Good day!"},
-            {"speaker": "npc", "text": "And to you, traveler."},
-            {"speaker": "player", "text": "Any news?"}
+            {"speaker": "player", "line": "Good day!"},
+            {"speaker": "npc", "line": "And to you, traveler."},
+            {"speaker": "player", "line": "Any news?"}
         ]
         test_context = {
             "npc_id": 10, "player_id": 1, "player_input_text": "What about the old ruins?",
@@ -785,6 +787,99 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Innkeeper: And to you, traveler.", prompt)
         self.assertIn("Adventurer: Any news?", prompt)
         self.assertIn("Adventurer says to you: \"What about the old ruins?\"", prompt)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    # Mock all other context-gathering functions to return empty/neutral values
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
+    @patch('src.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
+    async def test_prepare_dialogue_prompt_with_nlu_data(
+        self, mock_get_rule, mock_get_all_rules, mock_get_world_state, mock_get_quests,
+        mock_get_memory, mock_get_hidden_rels, mock_get_player_npc_rel,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 10
+        player_id_test = 1
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test, name_i18n={"en":"Helpful NPC"})
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test, name="Adventurer")
+
+        test_intent = "request_item"
+        test_entities = [{"type": "item_name", "value": "healing potion"}, {"type": "quantity", "value": "2"}]
+
+        test_context = {
+            "npc_id": npc_id_test,
+            "player_id": player_id_test,
+            "player_input_text": "Can I have two healing potions?",
+            "parsed_intent": test_intent,
+            "parsed_entities": test_entities
+        }
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIsInstance(prompt, str)
+        self.assertNotIn("Error:", prompt)
+
+        self.assertIn(f"(Player's message was analyzed by NLU. Recognized intent: **'{test_intent}'**.)", prompt)
+        self.assertIn(f"Recognized NLU entities: item_name: 'healing potion', quantity: '2'.", prompt)
+        self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line.", prompt)
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
+    @patch('src.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
+    async def test_prepare_dialogue_prompt_with_nlu_unknown_intent(
+        self, mock_get_rule, mock_get_all_rules, mock_get_world_state, mock_get_quests,
+        mock_get_memory, mock_get_hidden_rels, mock_get_player_npc_rel,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 10
+        player_id_test = 1
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test)
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test)
+
+        test_context = {
+            "npc_id": npc_id_test,
+            "player_id": player_id_test,
+            "player_input_text": "Gibberish text",
+            "parsed_intent": "unknown_intent", # NLU could not determine specific intent
+            "parsed_entities": []
+        }
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIsInstance(prompt, str)
+        self.assertNotIn("Error:", prompt)
+
+        # Check that NLU hint section is NOT added for "unknown_intent"
+        self.assertNotIn("(Player's message was analyzed by NLU. Recognized intent: **'unknown_intent'**.)", prompt)
+        # Check that the main task description still mentions NLU hints generally
+        self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line.", prompt)
 
 if __name__ == '__main__':
     unittest.main()

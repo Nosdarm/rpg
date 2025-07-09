@@ -566,12 +566,33 @@ async def prepare_dialogue_generation_prompt(session: AsyncSession, guild_id: in
         prompt_parts.append("\n### Dialogue So Far:")
         if not dialogue_history: prompt_parts.append("  (This is the beginning of the conversation).")
         else:
-            for line in dialogue_history[-5:]:
+            for line in dialogue_history[-5:]: # dialogue_history is expected to be List[Dict[str,str]] with "speaker" and "line"
                 speaker_name = player_name if line.get("speaker") == "player" else npc_name
-                prompt_parts.append(f"  {speaker_name}: {line.get('text')}")
+                prompt_parts.append(f"  {speaker_name}: {line.get('line')}") # Ensured 'line' is used
         prompt_parts.append(f"\n{player_name} says to you: \"{player_input_text}\"")
+
+        # Add NLU recognized intent and entities if available
+        parsed_intent = context.get("parsed_intent")
+        parsed_entities = context.get("parsed_entities")
+
+        if parsed_intent and parsed_intent != "unknown_intent":
+            nlu_info_parts = [f"(Player's message was analyzed by NLU. Recognized intent: **'{parsed_intent}'**.)"] # Added closing parenthesis
+            if parsed_entities and isinstance(parsed_entities, list) and len(parsed_entities) > 0:
+                entities_str_list = []
+                for entity in parsed_entities:
+                    entity_type = entity.get('type', 'unknown_type')
+                    entity_value = entity.get('value', 'unknown_value')
+                    entities_str_list.append(f"{entity_type}: '{entity_value}'")
+                if entities_str_list:
+                    nlu_info_parts.append(f" Recognized NLU entities: {', '.join(entities_str_list)}.") # Added space at the beginning
+            # Removed the "No specific NLU entities recognized.)" part to avoid double closing parenthesis if entities exist
+            # and to make the output cleaner if no entities.
+            # The initial part already closes with a parenthesis.
+            prompt_parts.append("\n" + "".join(nlu_info_parts))
+
+
         prompt_parts.append("\n### Your Task:")
-        prompt_parts.append(f"You are {npc_name}. Based on ALL context (personality, relationship, situation, memory, quests, dialogue history), generate your next single, natural-sounding dialogue line. Be concise. Respond in **{guild_main_lang}**.")
+        prompt_parts.append(f"You are {npc_name}. Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line. Be concise. Respond in **{guild_main_lang}**.")
         prompt_parts.append("Do NOT add prefixes like 'NPC:' or out-of-character remarks.")
         dialogue_rules_parts = []
         npc_static_id = npc.static_id or "default"

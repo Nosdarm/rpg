@@ -998,46 +998,46 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
             logger.warning(f"Player not found for Discord ID {message.author.id} in guild {message.guild.id} during NLU processing. Message: '{message.content}'")
             return
 
-        # Если игрок в состоянии диалога, передаем его ввод напрямую в систему диалогов
+        from .nlu_service import parse_player_input # Ensure this path is correct
+
+        # Сначала всегда парсим ввод через NLU
+        parsed_action_for_dialogue_or_queue: Optional[ParsedAction] = await parse_player_input(
+            raw_text=message.content,
+            guild_id=message.guild.id,
+            player_id=player.id # Используем ID игрока из БД
+        )
+
+        # Если игрок в состоянии диалога, передаем его ввод (и результат NLU) напрямую в систему диалогов
         if player.current_status == PlayerStatus.DIALOGUE:
             from src.core.dialogue_system import handle_dialogue_input # Local import
-            logger.info(f"Player {player.id} is in DIALOGUE. Routing message '{message.content}' to handle_dialogue_input.")
+            logger.info(f"Player {player.id} is in DIALOGUE. Routing message '{message.content}' (NLU: {parsed_action_for_dialogue_or_queue.intent if parsed_action_for_dialogue_or_queue else 'None'}) to handle_dialogue_input.")
+
+            parsed_intent_val = parsed_action_for_dialogue_or_queue.intent if parsed_action_for_dialogue_or_queue else None
+            parsed_entities_val = parsed_action_for_dialogue_or_queue.entities if parsed_action_for_dialogue_or_queue else None
 
             success, response_or_key, context_data = await handle_dialogue_input(
                 session=session,
                 guild_id=player.guild_id,
                 player_id=player.id,
-                message_text=message.content
+                message_text=message.content, # Передаем оригинальный текст
+                parsed_intent=parsed_intent_val,
+                parsed_entities=parsed_entities_val
             )
             # Отправка ответа NPC игроку
-            # Это потребует доступа к 'bot' или другой механизм отправки сообщений.
-            # В `process_player_message_for_nlu` есть `bot` и `message`.
             if success:
-                # response_or_key здесь это прямой ответ NPC
                 feedback_message = response_or_key
                 if context_data and context_data.get("npc_name"):
                     feedback_message = f"**{context_data.get('npc_name')}**: {feedback_message}"
                 await message.channel.send(feedback_message)
             else:
-                # response_or_key здесь это ключ ошибки
-                # TODO: Локализовать ключ ошибки и отправить игроку
-                # Пока просто отправляем ключ
                 error_feedback = f"System: Error - {response_or_key}"
                 if context_data:
                     error_feedback += f" (Details: {context_data})"
                 await message.channel.send(error_feedback)
             return # Завершаем обработку, так как это было сообщение для диалога
 
-        # Если игрок не в диалоге, продолжаем обычную обработку NLU
-        from .nlu_service import parse_player_input # Ensure this path is correct
-
-        parsed_action: Optional[ParsedAction] = await parse_player_input(
-            raw_text=message.content,
-            guild_id=message.guild.id,
-            player_id=player.id # Используем ID игрока из БД
-        )
-
-        if parsed_action and parsed_action.intent != "unknown_intent":
+        # Если игрок не в диалоге, продолжаем обычную обработку NLU (используем уже полученный parsed_action_for_dialogue_or_queue)
+        if parsed_action_for_dialogue_or_queue and parsed_action_for_dialogue_or_queue.intent != "unknown_intent":
             # 'player' уже загружен
             current_actions = []
             if player.collected_actions_json:
@@ -1059,22 +1059,22 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
             # Ensure all items in current_actions are dicts, filter out non-dicts if any corruption occurred
             current_actions = [action_item for action_item in current_actions if isinstance(action_item, dict)]
 
-            current_actions.append(parsed_action.model_dump(mode='json'))
+            current_actions.append(parsed_action_for_dialogue_or_queue.model_dump(mode='json'))
             player.collected_actions_json = current_actions # SQLAlchemy's JSONB type handles Python dict/list directly
 
             session.add(player)
             # No explicit commit here, @transactional handles it on success
-            logger.info(f"Queued action '{parsed_action.intent}' for player {player.id} (Discord: {message.author.id}) in guild {message.guild.id}. Total queued: {len(current_actions)}")
+            logger.info(f"Queued action '{parsed_action_for_dialogue_or_queue.intent}' for player {player.id} (Discord: {message.author.id}) in guild {message.guild.id}. Total queued: {len(current_actions)}")
 
             # Optionally, send a confirmation to the player (e.g., "Action understood: ...")
             # This might be too verbose for every message.
-            # await message.channel.send(f"Action received: {parsed_action.intent}", delete_after=5)
+            # await message.channel.send(f"Action received: {parsed_action_for_dialogue_or_queue.intent}", delete_after=5)
 
-        elif parsed_action and parsed_action.intent == "unknown_intent":
+        elif parsed_action_for_dialogue_or_queue and parsed_action_for_dialogue_or_queue.intent == "unknown_intent":
             logger.info(f"NLU processed message from {message.author.id} as 'unknown_intent'. Not queued. Original: '{message.content}'")
             # Optionally, provide feedback for unknown intent
             # await message.channel.send("I didn't understand that.", delete_after=5)
-        else: # parsed_action is None
+        else: # parsed_action_for_dialogue_or_queue is None (should not happen if parse_player_input always returns ParsedAction)
             logger.info(f"NLU did not return an action for message from {message.author.id}. Original: '{message.content}'")
 
     except Exception as e:

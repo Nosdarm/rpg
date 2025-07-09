@@ -155,28 +155,32 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
     @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
     @patch('src.core.dialogue_system.generate_npc_dialogue', new_callable=AsyncMock) # Patched here
     @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
-    async def test_handle_dialogue_input_success(self, mock_log_event, mock_generate_dialogue, mock_player_crud):
+    async def test_handle_dialogue_input_success_with_nlu_data(self, mock_log_event, mock_generate_dialogue, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         active_dialogues[(self.guild_id, self.player_id)] = {
             "npc_id": self.npc_id,
             "npc_name": "TestNPC",
             "dialogue_history": []
         }
-        mock_generate_dialogue.return_value = "NPC Response" # generate_npc_dialogue is now correctly mocked
-        player_message = "Hello NPC"
+        mock_generate_dialogue.return_value = "NPC Response based on NLU"
+        player_message = "Tell me about the artifact"
+        test_intent = "query_artifact"
+        test_entities = [{"type": "item_name", "value": "artifact"}]
 
         success, response, context = await handle_dialogue_input(
-            self.mock_session, self.guild_id, self.player_id, player_message
+            self.mock_session, self.guild_id, self.player_id, player_message,
+            parsed_intent=test_intent,
+            parsed_entities=test_entities
         )
 
         self.assertTrue(success)
-        self.assertEqual(response, "NPC Response")
+        self.assertEqual(response, "NPC Response based on NLU")
         self.assertEqual(context["npc_name"], "TestNPC")
 
         history = active_dialogues[(self.guild_id, self.player_id)]["dialogue_history"]
         self.assertEqual(len(history), 2)
         self.assertEqual(history[0], {"speaker": "player", "line": player_message})
-        self.assertEqual(history[1], {"speaker": "npc", "line": "NPC Response"})
+        self.assertEqual(history[1], {"speaker": "npc", "line": "NPC Response based on NLU"})
 
         expected_context_for_llm = {
             "guild_id": self.guild_id,
@@ -187,7 +191,9 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
             "dialogue_history": [{"speaker": "player", "line": player_message}], # History before NPC response
             "selected_language": self.player.selected_language,
             "location_id": self.player.current_location_id,
-            "party_id": self.player.current_party_id
+            "party_id": self.player.current_party_id,
+            "parsed_intent": test_intent, # Check for NLU data
+            "parsed_entities": test_entities # Check for NLU data
         }
         mock_generate_dialogue.assert_called_once_with(
             self.mock_session, self.guild_id, expected_context_for_llm
@@ -203,14 +209,14 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         )
         npc_log_call = call(
             session=self.mock_session, guild_id=self.guild_id, event_type=EventType.DIALOGUE_LINE.name,
-            details_json={'player_id': self.player_id, 'npc_id': self.npc_id, 'speaker': 'npc', 'line': 'NPC Response', 'npc_name': 'TestNPC', 'player_name': 'TestPlayer'},
+            details_json={'player_id': self.player_id, 'npc_id': self.npc_id, 'speaker': 'npc', 'line': "NPC Response based on NLU", 'npc_name': 'TestNPC', 'player_name': 'TestPlayer'},
             player_id=self.player_id, location_id=self.player.current_location_id, entity_ids_json={'players': [self.player_id], 'npcs': [self.npc_id]}
         )
         self.assertIn(player_log_call, log_calls)
         self.assertIn(npc_log_call, log_calls)
 
-
     async def test_handle_dialogue_input_not_in_dialogue(self):
+        # Test without NLU data as it's not relevant if not in dialogue
         success, response, context = await handle_dialogue_input(
             self.mock_session, self.guild_id, self.player_id, "Hi"
         )

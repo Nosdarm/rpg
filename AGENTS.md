@@ -41,9 +41,29 @@
 
 ---
 ## Текущий план
-*(Этот раздел очищен после завершения Task 52)*
+*(Этот раздел будет очищен после завершения Task 53)*
 ---
 ## Лог действий
+
+## Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped)
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Processing player input in dialogue mode. If player status is 'dialogue', NLU (13) does not save the action to collected_actions_json, but passes it directly to the Dialogue Management Module (46) via the handle_dialogue_input API (46). NLU (13) still recognizes Intents/Entities and passes them to 46.
+- **Выполненные действия**:
+    - **Анализ**: Проанализированы `src/core/action_processor.py` и `src/core/dialogue_system.py`. Выявлено, что базовая логика маршрутизации сообщений в диалоговую систему при `PlayerStatus.DIALOGUE` уже существует в `process_player_message_for_nlu`. Однако, NLU-парсер не вызывался для этих сообщений.
+    - **Шаг 1: Модификация `src/core/action_processor.py` (функция `process_player_message_for_nlu`):**
+        - Функция обновлена так, что `nlu_service.parse_player_input` теперь вызывается всегда, независимо от статуса игрока.
+        - Если `player.current_status == PlayerStatus.DIALOGUE`, то результат парсинга (`ParsedAction.intent` и `ParsedAction.entities`) передается в `dialogue_system.handle_dialogue_input` вместе с оригинальным текстом сообщения.
+    - **Шаг 2: Модификация `src/core/dialogue_system.py` (функция `handle_dialogue_input`):**
+        - Сигнатура `handle_dialogue_input` обновлена для приема необязательных параметров `parsed_intent: Optional[str]` и `parsed_entities: Optional[List[Dict[str, Any]]]`.
+        - Эти параметры добавлены в `context_for_llm`, который передается в `generate_npc_dialogue`.
+    - **Шаг 3: Модификация `src/core/ai_prompt_builder.py` (функция `prepare_dialogue_generation_prompt`):**
+        - Функция `prepare_dialogue_generation_prompt` обновлена для проверки наличия `parsed_intent` и `parsed_entities` в контексте.
+        - Если интент не "unknown_intent", эта информация (интент и сущности) включается в промпт для LLM, чтобы предоставить дополнительный контекст для генерации ответа NPC. Пример добавленной строки в промпт: `(Player's message was analyzed by NLU. Recognized intent: '**'{intent}'**. Recognized NLU entities: {entities_str}.)`.
+    - **Шаг 4: Обновление Unit-тестов:**
+        - В `tests/core/test_action_processor.py` добавлены новые тесты (`test_process_player_message_for_nlu_player_in_dialogue`, `test_process_player_message_for_nlu_player_in_dialogue_nlu_unknown_intent`) для проверки вызова NLU и передачи данных в `handle_dialogue_input` в режиме диалога. Существующий тест `test_process_player_message_for_nlu_player_not_in_dialogue_queues_action` проверен на совместимость.
+        - В `tests/core/test_dialogue_system.py` обновлен тест `test_handle_dialogue_input_success` (переименован в `test_handle_dialogue_input_success_with_nlu_data`) для проверки приема и передачи NLU-данных в контекст для `generate_npc_dialogue`.
+        - В `tests/core/test_ai_prompt_builder.py` добавлены новые тесты (`test_prepare_dialogue_prompt_with_nlu_data`, `test_prepare_dialogue_prompt_with_nlu_unknown_intent`) для проверки корректного включения NLU-данных (или их отсутствия при unknown_intent) в генерируемый промпт.
+- **Статус**: Задача выполнена.
 
 ## Доработка Task 37: Интеграция влияния отношений с диалоговой системой (реализация `tone_hint`)
 - **Дата**: [Текущая дата]
