@@ -123,9 +123,10 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
                         ParsedNpcData, ParsedItemData, ParsedQuestData, ParsedFactionData,
                         ParsedLocationData, ParsedRelationshipData, ParsedNpcTraderData, BaseGeneratedEntity
                     )
-                    from typing import Type # For Type[BaseGeneratedEntity]
+    from typing import Type as TypingType # For Type[BaseGeneratedEntity]
 
-                    model_map: Dict[str, Type[BaseGeneratedEntity]] = {
+    # Define the mapping locally for the test, as it's not exported by ai_response_parser
+    MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST: Dict[str, TypingType[BaseGeneratedEntity]] = {
                         "npc": ParsedNpcData,
                         "item": ParsedItemData,
                         "quest": ParsedQuestData,
@@ -134,10 +135,11 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
                         "relationship": ParsedRelationshipData,
                         "npc_trader": ParsedNpcTraderData,
                     }
-                    pydantic_model_for_parsing = model_map.get(actual_entity_type_str)
+                    # Use the locally defined mapping
+                    pydantic_model_for_parsing = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get(actual_entity_type_str)
 
                     if not pydantic_model_for_parsing:
-                        raise AssertionError(f"Test setup error: No Pydantic model in test's model_map for entity_type '{actual_entity_type_str}'")
+                        raise AssertionError(f"Test setup error: No Pydantic model in test's MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST for entity_type '{actual_entity_type_str}'")
 
                     # Ensure the mock data is dumped before parsing into the target Pydantic model
                     actual_parser_model_instance = parse_obj_as(pydantic_model_for_parsing, mock_test_data_entity.model_dump(mode='json'))
@@ -263,16 +265,16 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):
         mock_item = MockParsedItem(static_id="item_to_find")
         mock_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="trader_to_ignore").model_dump(mode='json')
-        # Determine the correct Pydantic model types for parsing
-        from src.core.ai_response_parser import MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL, ParsedItemData, ParsedNpcTraderData
-        actual_item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("item")
-        actual_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc_trader")
+        # Determine the correct Pydantic model types for parsing using the local mapping
+        # from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData # Already imported at class/module level
+        actual_item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get("item")
+        actual_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get("npc_trader")
         if not actual_item_model_type or not actual_trader_model_type:
-            raise AssertionError("Could not find Pydantic models for item or npc_trader in mapping.")
+            raise AssertionError("Could not find Pydantic models for item or npc_trader in local test mapping.")
 
-        actual_item = parse_obj_as(actual_item_model_type, mock_item.model_dump(mode='json')) # type: ignore
-        actual_trader = parse_obj_as(actual_trader_model_type, mock_trader_dict) # type: ignore
-        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_trader]) # type: ignore
+        actual_item = parse_obj_as(actual_item_model_type, mock_item.model_dump(mode='json'))
+        actual_trader = parse_obj_as(actual_trader_model_type, mock_trader_dict)
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_trader])
         result = await self._run_analysis("item", None)
         self.assertEqual(len(result.analysis_reports), 1)
         self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "item_to_find")
@@ -282,18 +284,18 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         mock_item_in_loc = MockParsedItem(static_id="item_to_ignore")
         mock_npc_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="npc_trader_to_find").model_dump(mode='json')
 
-        from src.core.ai_response_parser import MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL
-        item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("item")
-        npc_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc")
-        npc_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL.get("npc_trader")
+        # Use the locally defined mapping
+        item_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get("item")
+        npc_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get("npc")
+        npc_trader_model_type = MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get("npc_trader")
         if not item_model_type or not npc_model_type or not npc_trader_model_type:
-            raise AssertionError("Could not find Pydantic models for item, npc or npc_trader in mapping.")
+            raise AssertionError("Could not find Pydantic models for item, npc or npc_trader in local test mapping.")
 
-        actual_item = parse_obj_as(item_model_type, mock_item_in_loc.model_dump(mode='json')) # type: ignore
-        actual_npc = parse_obj_as(npc_model_type, mock_npc.model_dump(mode='json')) # type: ignore
-        actual_npc_trader = parse_obj_as(npc_trader_model_type, mock_npc_trader_dict) # type: ignore
+        actual_item = parse_obj_as(item_model_type, mock_item_in_loc.model_dump(mode='json'))
+        actual_npc = parse_obj_as(npc_model_type, mock_npc.model_dump(mode='json'))
+        actual_npc_trader = parse_obj_as(npc_trader_model_type, mock_npc_trader_dict)
 
-        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_npc, actual_npc_trader]) # type: ignore
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_npc, actual_npc_trader])
         result = await self._run_analysis("npc", None)
         self.assertEqual(len(result.analysis_reports), 1)
         self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "npc_to_find")

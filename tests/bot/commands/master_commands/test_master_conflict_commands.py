@@ -118,6 +118,7 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
 
 
     await cog.conflict_resolve.callback(
+        cog,
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
         outcome_status=ConflictStatus.RESOLVED_BY_MASTER_DISMISS.name, # Use enum name
@@ -204,6 +205,7 @@ async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
     }.get(key, df)
 
     await cog.conflict_resolve.callback(
+        cog,
         mock_interaction_fixture,
         pending_conflict_id=pending_conflict_id_fixture,
         outcome_status=ConflictStatus.RESOLVED_BY_MASTER_DISMISS.name,

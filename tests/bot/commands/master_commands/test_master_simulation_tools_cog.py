@@ -182,7 +182,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
                 1,          # combat_encounter_id
                 101,        # actor_id
                 "player",   # actor_type
-                action_json_data # action_json_data
+                action_data_str # action_json_data was a typo, should be action_data_str
                 # dry_run is optional and defaults to False
             )
 
