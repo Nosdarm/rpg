@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime
+from typing import AsyncGenerator # Added AsyncGenerator
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +30,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 @pytest.fixture(scope="function")
-async def db_session() -> AsyncSession:
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # Ensure tables are created and PRAGMA is set on a connection from the engine
     async with engine.connect() as connection:
         await connection.run_sync(Base.metadata.drop_all) # Drop first to ensure clean state
