@@ -130,11 +130,7 @@ This block presents tasks for implementing tools for the game Master.
 Task Block: Phase 11: Dynamic Dialogue and NPC Memory
 This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.
 
-Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules).
-Description: Prepare the prompt for the LLM to generate NPC dialogue lines.
-API generate_npc_dialogue(guild_id: int, context: dict) -> str. REQUIRES guild_id. Called from 46 (Dialogue Module).
-Prompt context: WorldState (36), Global Entities (40), NPC profile (data 1.2/14, current relationships 30/31/32, memory 52), Player/Party profile (1.2/5), Quest context (39) if related, dialogue rules (checks, influence) from RuleConfig 13/0.3. Player input text (from 46).
-LLM Request: Generate a line IN THE PLAYER'S LANGUAGE (0.1/0.2), relevant to the context, character, relationship. Use i18n names of entities (from DB 4/7/14/39) FOR THIS GUILD.
+{Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules). - Moved to Done.txt}
 
 Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped).
 Description: Implement logic for managing the state of a dialogue session for a player/party.
