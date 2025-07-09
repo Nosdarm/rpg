@@ -592,9 +592,43 @@ async def prepare_dialogue_generation_prompt(session: AsyncSession, guild_id: in
                     tone_hint_i18n = rule.get('tone_hint_i18n',{})
                     hint = get_localized_text(tone_hint_i18n, guild_main_lang)
                     if cond and hint: dialogue_rules_parts.append(f"    - If {cond}: lean towards '{hint}'.")
+        # --- Начало интеграции влияния отношений на тон (Шаг 2 текущего плана) ---
+        relationship_dialogue_rule_key = "relationship_influence:dialogue:availability_and_tone"
+        relationship_dialogue_config = await get_rule(session, guild_id, relationship_dialogue_rule_key, default=None)
+
+        derived_tone_hint = None
+        if relationship_dialogue_config and isinstance(relationship_dialogue_config, dict) and "tone_modifiers" in relationship_dialogue_config:
+            tone_modifiers = relationship_dialogue_config["tone_modifiers"]
+            if isinstance(tone_modifiers, list) and player_npc_rel:
+                current_relationship_value = player_npc_rel.value
+                default_tone_hint_from_rule = None
+
+                for modifier in sorted(tone_modifiers, key=lambda x: x.get("relationship_above", -float('inf')), reverse=True):
+                    if modifier.get("relationship_default", False):
+                        default_tone_hint_from_rule = modifier.get("tone_hint")
+                        # Не выходим сразу, вдруг есть более специфичное правило, которое подойдет
+
+                    if "relationship_above" in modifier and current_relationship_value > modifier["relationship_above"]:
+                        derived_tone_hint = modifier.get("tone_hint")
+                        break # Используем первое совпавшее правило (отсортированы по убыванию порога)
+
+                if derived_tone_hint is None and default_tone_hint_from_rule is not None:
+                    derived_tone_hint = default_tone_hint_from_rule
+
+            if derived_tone_hint:
+                 logger.info(f"Derived tone_hint '{derived_tone_hint}' from rule '{relationship_dialogue_rule_key}' for NPC {npc_id} and Player {player_id} (Relationship: {player_npc_rel.value if player_npc_rel else 'N/A'})")
+
+
+        # --- Конец интеграции влияния отношений на тон ---
+
         if dialogue_rules_parts:
             prompt_parts.append("\n### Specific Dialogue Guidelines (from Game Rules for you):")
             prompt_parts.extend(dialogue_rules_parts)
+
+        # Добавляем derived_tone_hint в промпт, если он был определен
+        if derived_tone_hint:
+            prompt_parts.append(f"  - Your current emotional tone towards {player_name} should reflect: **{derived_tone_hint}**.")
+
         final_prompt = "\n".join(prompt_parts)
         logger.info(f"Generated AI dialogue prompt (L:{len(final_prompt)}) for NPC {npc_id}, Player {player_id}, Guild {guild_id}. Start: {final_prompt[:350]}...")
         return final_prompt
