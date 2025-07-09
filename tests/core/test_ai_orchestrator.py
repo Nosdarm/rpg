@@ -256,13 +256,13 @@ async def test_save_approved_generation_success(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock) # Keep this if resolving existing NPCs
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True)
+@patch("src.core.ai_orchestrator.create_entity", autospec=True)
+@patch("src.core.ai_orchestrator.update_entity", autospec=True)
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True) # Keep this if resolving existing NPCs
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True)
 @patch("src.core.database.transactional")
 async def test_save_approved_generation_npc_rel_to_existing_faction(
     mock_transactional_deco: MagicMock,
@@ -323,14 +323,14 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock) # For create
-@patch("src.core.ai_orchestrator.crud_relationship.update", new_callable=AsyncMock) # For update
+@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True)
+@patch("src.core.ai_orchestrator.create_entity", autospec=True)
+@patch("src.core.ai_orchestrator.update_entity", autospec=True)
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True) # For create
+@patch("src.core.ai_orchestrator.crud_relationship.update", autospec=True) # For update
 @patch("src.core.database.transactional")
 async def test_save_approved_generation_updates_existing_relationship(
     mock_transactional_deco: MagicMock,
@@ -801,13 +801,13 @@ async def test_generate_narrative_llm_call_error(
 # --- Tests for save_approved_generation with Relationships (Task 38) ---
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock) # For PendingGeneration, Player
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock) # For GeneratedNpc etc.
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock) # For PendingGeneration, Player
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.crud_relationship.create", new_callable=AsyncMock)
+@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True) # For PendingGeneration, Player
+@patch("src.core.ai_orchestrator.create_entity", autospec=True) # For GeneratedNpc etc.
+@patch("src.core.ai_orchestrator.update_entity", autospec=True) # For PendingGeneration, Player
+@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
+@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True)
 @patch("src.core.database.transactional")
 async def test_save_approved_generation_with_npc_relationships(
     mock_transactional_deco: MagicMock,

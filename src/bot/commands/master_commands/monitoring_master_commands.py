@@ -677,10 +677,15 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                 loc = await location_crud.get(session, id=gn_obj.current_location_id, guild_id=interaction.guild_id)
                 loc_name_display = await get_localized_master_message(session, interaction.guild_id, "master_generic.unknown_location", "Unknown Location", str(interaction.locale)) # type: ignore
                 if loc:
-                    loc_name_display = get_localized_text(loc.name_i18n, str(interaction.locale))
-                    if not loc_name_display and loc.name_i18n: # If preferred lang failed, try English from name_i18n
-                        loc_name_display = loc.name_i18n.get("en") # type: ignore[reportOptionalMemberAccess]
-                    if not loc_name_display: # If still no name, use ID
+                    loc_name_display_primary = get_localized_text(loc.name_i18n, str(interaction.locale))
+                    if loc_name_display_primary:
+                        loc_name_display = loc_name_display_primary
+                    elif isinstance(loc.name_i18n, dict): # Check name_i18n is a dict before .get()
+                        loc_name_display = loc.name_i18n.get("en")
+                    else: # Fallback if name_i18n is not a dict (should not happen with model default)
+                        loc_name_display = None
+
+                    if not loc_name_display: # If still no name
                         loc_name_display = f"ID: {loc.id}"
                 embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.entities_view_global_npc.field_location", "Location", str(interaction.locale)), value=f"{loc_name_display} (ID: {gn_obj.current_location_id})", inline=True) # type: ignore
             embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.entities_view_global_npc.field_properties", "Properties", str(interaction.locale)), value=f"```json\n{discord.utils.escape_markdown(str(gn_obj.properties_json))[:1000]}\n```" if gn_obj.properties_json else na_text, inline=False) # type: ignore

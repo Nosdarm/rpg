@@ -34,7 +34,7 @@ async def mock_get_location(session, id, guild_id=None): # Still used by test_pr
         mock_loc = Location(id=1, guild_id=1, name_i18n={"en":"Test Loc", "ru":"Тест Лок"}, descriptions_i18n={}, type=LocationType.CITY.value, coordinates_json="{}", generated_details_json="{}", ai_metadata_json="{}", neighbor_locations_json="[]")
         return mock_loc
     if id == 100 and guild_id == 1:
-        mock_loc = Location(id=100, guild_id=1, name_i18n={"en":"Test Tavern", "ru":"Тестовая Таверна"}, descriptions_i18n={"en":"A cozy place", "ru":"Уютное место"}, type=LocationType.BUILDING.value, neighbor_locations_json="[]")
+        mock_loc = Location(id=100, guild_id=1, name_i18n={"en":"Test Tavern", "ru":"Тестовая Таверна"}, descriptions_i18n={"en":"A cozy place", "ru":"Уютное место"}, type=LocationType.TAVERN.value, neighbor_locations_json="[]") # Changed BUILDING to TAVERN
         return mock_loc
     return None
 

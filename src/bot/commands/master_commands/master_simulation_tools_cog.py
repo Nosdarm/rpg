@@ -643,9 +643,11 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                     for i, conflict in enumerate(simulated_conflicts):
                         conflict_details_list = []
                         target_sig_display = ""
-                        if conflict.resolution_details_json and conflict.resolution_details_json.get("target_signature"):
-                            target_sig_loc = await get_localized_master_message(session, guild_id, "simulate_conflict:target_signature_label", "Target Signature", str(interaction.locale))
-                            target_sig_display = f"\n*{target_sig_loc}: `{conflict.resolution_details_json['target_signature']}`*"
+                        if conflict.resolution_details_json: # Ensure it's not None
+                            target_signature_value = conflict.resolution_details_json.get("target_signature")
+                            if target_signature_value: # Ensure the key exists and its value is truthy
+                                target_sig_loc = await get_localized_master_message(session, guild_id, "simulate_conflict:target_signature_label", "Target Signature", str(interaction.locale))
+                                target_sig_display = f"\n*{target_sig_loc}: `{target_signature_value}`*"
 
                         involved_actions_label = await get_localized_master_message(session, guild_id, "simulate_conflict:involved_actions_label", "Involved actions:", str(interaction.locale))
 

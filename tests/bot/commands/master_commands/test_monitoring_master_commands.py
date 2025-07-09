@@ -119,7 +119,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         # Example: self.mock_core_get_rule.side_effect = lambda s, gid, key, default: {"en": "Custom Title Template {player_name}"} if key == "master_monitor.entities_view_player.embed_title" else None
 
 
-        await self.cog.entities_view_player.callback(interaction, player_id=player_id_to_view)
+        await self.cog.entities_view_player.callback(self.cog, interaction, player_id=player_id_to_view)
 
         # No assertion for a non-existent get_localized_player_name call
 
@@ -193,7 +193,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_log_entry.get_narrative = MagicMock(return_value="Default Narrative From get_narrative")
         mock_story_log_get.return_value = mock_log_entry
 
-        await self.cog.log_view.callback(interaction, log_id=log_id_to_view)
+        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view)
 
         sent_embed = interaction.followup.send.call_args[1]['embed']
         self.assertEqual(f"Story Log Entry Details - ID: {log_id_to_view}", sent_embed.title)
@@ -216,7 +216,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         interaction = create_mock_interaction(guild_id=1, user_id=100)
         log_id_to_view = 404
         mock_story_log_get.return_value = None
-        await self.cog.log_view.callback(interaction, log_id=log_id_to_view)
+        await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view)
         interaction.followup.send.assert_called_once_with(f"Log entry with ID {log_id_to_view} not found.", ephemeral=True)
 
     @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.count_by_guild_with_filters", new_callable=AsyncMock)
@@ -231,7 +231,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
             MagicMock(spec=StoryLog, id=2, event_type=EventType.PLAYER_ACTION, timestamp=ts, details_json={"player_id":100, "action":"Moved"}, narrative_i18n=None, get_narrative=MagicMock(return_value=None))
         ]
         mock_get_multi.return_value = mock_log_entries
-        await self.cog.log_list.callback(interaction, page=page, limit=limit, event_type_filter=None)
+        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None)
         sent_embed = interaction.followup.send.call_args[1]['embed']
         self.assertEqual("Story Log Entries", sent_embed.title)
         details1_preview = str({"msg":"Entry 1"})[:100]
@@ -250,7 +250,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         page, limit = 1, 5
         mock_count.return_value = 0
         mock_get_multi.return_value = []
-        await self.cog.log_list.callback(interaction, page=page, limit=limit, event_type_filter=None)
+        await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None)
         interaction.followup.send.assert_called_once_with(f"No log entries found on page {page}.", ephemeral=True)
 
     @patch("src.bot.commands.master_commands.monitoring_master_commands.rule_config_crud.get_by_key", new_callable=AsyncMock)
@@ -261,7 +261,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_rule_entry.key = key_to_get; mock_rule_entry.value_json = {"value": True}
         mock_rule_entry.description = "A test flag"; mock_rule_entry.updated_at = discord.utils.utcnow()
         mock_rule_get_by_key.return_value = mock_rule_entry
-        await self.cog.worldstate_get.callback(interaction, key=key_to_get)
+        await self.cog.worldstate_get.callback(self.cog, interaction, key=key_to_get)
         sent_embed = interaction.followup.send.call_args[1]['embed']
         self.assertEqual(f"WorldState Entry: {key_to_get}", sent_embed.title) # Uses default template
         # Command currently adds 2 fields: Value and Description.
@@ -283,7 +283,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         mock_count_loc.return_value = total_entries
         mock_loc_entry = MagicMock(spec=Location, id=1, static_id="loc1", name_i18n={"en":"Test Location"}, type=LocationType.TOWN, name="FallbackLocationName")
         mock_get_multi_loc.return_value = [mock_loc_entry]
-        await self.cog.map_list_locations.callback(interaction, page=page, limit=limit)
+        await self.cog.map_list_locations.callback(self.cog, interaction, page=page, limit=limit)
         sent_embed = interaction.followup.send.call_args[1]['embed']
         self.assertEqual("Locations", sent_embed.title)
         loc_static_id_display = mock_loc_entry.static_id or "N/A"
