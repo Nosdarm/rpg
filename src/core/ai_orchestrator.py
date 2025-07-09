@@ -4,7 +4,10 @@ from typing import Union, Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Assuming models and enums will be imported correctly
-from ..models import PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship as RelationshipModel # Renamed to avoid conflict
+from ..models import (
+    PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item,
+    Relationship as RelationshipModel, Location, GeneratedFaction # Added Location and GeneratedFaction
+)
 from ..models.enums import ModerationStatus, PlayerStatus, RelationshipEntityType
 import os # Moved to top
 import openai # Moved to top
