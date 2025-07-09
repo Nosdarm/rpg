@@ -496,8 +496,34 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                     if report.suggestions:
                         sugg_str = "\n".join([f"- {sugg}" for sugg in report.suggestions])
                         report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_suggestions', 'Suggestions', str(interaction.locale))}:**\n{sugg_str}")
-                    if report.balance_score is not None:
-                        report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_balance_score', 'Balance Score', str(interaction.locale))}:** {report.balance_score:.2f}")
+
+                    # Display detailed scores
+                    score_categories = {
+                        "balance": (report.balance_score_details, "analyze_ai:sub_balance_score_details", "Balance Details"),
+                        "lore": (report.lore_score_details, "analyze_ai:sub_lore_score_details", "Lore Details"),
+                        "quality": (report.quality_score_details, "analyze_ai:sub_quality_score_details", "Quality Details")
+                    }
+
+                    for score_key, (details_dict, loc_key, default_text) in score_categories.items():
+                        if details_dict:
+                            formatted_scores = []
+                            overall_avg_score = details_dict.get(f"overall_{score_key}_avg") # Check for pre-calculated average
+                            if overall_avg_score is None and score_key == "balance": # if balance doesn't have overall, use the main balance_score
+                                overall_avg_score = report.balance_score
+
+                            if overall_avg_score is not None:
+                                formatted_scores.append(f"  *Overall Avg: {overall_avg_score:.2f}*")
+
+                            for detail_name, detail_score in details_dict.items():
+                                if detail_name != f"overall_{score_key}_avg": # Don't repeat overall if present
+                                    formatted_scores.append(f"  - {detail_name.replace('_', ' ').capitalize()}: {detail_score:.2f}")
+
+                            if formatted_scores:
+                                category_title = await get_localized_master_message(session, guild_id, loc_key, default_text, str(interaction.locale))
+                                report_value_parts.append(f"**{category_title}:**\n" + "\n".join(formatted_scores))
+                        elif score_key == "balance" and report.balance_score is not None: # Fallback for main balance_score if details are empty
+                             report_value_parts.append(f"**{await get_localized_master_message(session, guild_id, 'analyze_ai:sub_balance_score', 'Balance Score', str(interaction.locale))}:** {report.balance_score:.2f}")
+
 
                     # Parsed data preview
                     if report.parsed_entity_data:

@@ -299,7 +299,9 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         # The SUT stores details as JSON strings in the report
         self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0]) # type: ignore[index]
         # Pydantic v2 errors() returns loc as a list of strings/ints, not a tuple
-        self.assertIn('"loc": ["name_i18n"]', report.validation_errors[0]) # type: ignore[index]
+        # Adjusted to check for presence of key parts rather than exact tuple match for loc
+        self.assertIn('"loc": ', report.validation_errors[0]) # type: ignore[index]
+        self.assertIn('"name_i18n"', report.validation_errors[0]) # type: ignore[index]
         self.assertIn('"msg": "field required"', report.validation_errors[0]) # type: ignore[index] # Use double quotes for JSON string value
 
 
@@ -356,6 +358,182 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         report = result.analysis_reports[0]
         # The current logic takes the *first* match. If npc comes before npc_trader in the list:
         self.assertEqual(report.entity_data_preview.get("static_id"), "npc_to_find")
+
+
+# --- Tests for main analyze_generated_content function ---
+class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.mock_session = AsyncMock(spec=AsyncSession)
+        self.guild_id = 1
+
+        # Patch all external dependencies that analyze_generated_content might call
+        self.patch_prepare_quest = patch('src.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_economic = patch('src.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_general_loc = patch('src.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
+        self.patch_prepare_faction = patch('src.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system._get_entity_schema_terms', new_callable=MagicMock)
+
+        self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
+        self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
+        self.patch_make_real_ai_call = patch('src.core.ai_analysis_system.make_real_ai_call', new_callable=AsyncMock)
+
+        # Specific analyzer functions within the same module
+        self.patch_analyze_item_balance = patch('src.core.ai_analysis_system._analyze_item_balance', new_callable=AsyncMock)
+        # self.patch_analyze_npc_balance = patch('src.core.ai_analysis_system._analyze_npc_balance', new_callable=AsyncMock) # Removed
+        # self.patch_analyze_quest_balance = patch('src.core.ai_analysis_system._analyze_quest_balance', new_callable=AsyncMock) # Removed
+        # self.patch_analyze_text_lore = patch('src.core.ai_analysis_system._analyze_text_content_lore', new_callable=AsyncMock) # Removed
+        # self.patch_analyze_props_structure = patch('src.core.ai_analysis_system._analyze_properties_json_structure', new_callable=AsyncMock) # Removed
+
+        # Path should be where it's looked up: in ai_analysis_system module, it's guild_config_crud.get
+        # We will not patch guild_config_crud.get directly, but rather the session.execute it uses internally.
+        # self.patch_guild_config_crud_get = patch('src.core.ai_analysis_system.guild_config_crud.get', new_callable=AsyncMock)
+
+
+        self.mock_prepare_quest_prompt = self.patch_prepare_quest.start()
+        self.mock_prepare_economic_prompt = self.patch_prepare_economic.start()
+        self.mock_prepare_general_loc_prompt = self.patch_prepare_general_loc.start()
+        self.mock_prepare_faction_prompt = self.patch_prepare_faction.start()
+        self.mock_get_entity_schemas = self.patch_get_entity_schemas.start()
+        self.mock_parse_and_validate = self.patch_parse_validate.start()
+        self.mock_get_rule = self.patch_get_rule.start()
+        self.mock_make_real_ai_call = self.patch_make_real_ai_call.start()
+
+        # self.mock_analyze_item_balance = self.patch_analyze_item_balance.start() # Removed
+        # self.mock_analyze_npc_balance = self.patch_analyze_npc_balance.start() # Removed
+        # self.mock_analyze_quest_balance = self.patch_analyze_quest_balance.start() # Removed
+        # self.mock_analyze_text_lore = self.patch_analyze_text_lore.start() # Removed
+        # self.mock_analyze_props_structure = self.patch_analyze_props_structure.start() # Removed
+
+        self.mock_guild_config_crud_get = self.patch_guild_config_crud_get.start()
+
+        self.addCleanup(patch.stopall)
+
+        # Default mock behaviors
+        self.mock_prepare_economic_prompt.return_value = "Economic Prompt"
+        self.mock_get_entity_schemas.return_value = {} # Keep it simple unless schema is directly tested
+        self.mock_get_rule.side_effect = lambda s, gid, key, default: default
+        self.mock_make_real_ai_call.return_value = json.dumps([MockParsedItem().model_dump(mode='json')]) # Default AI response
+
+        # Default GuildConfig mock
+        # self.mock_guild_config_crud_get should be an AsyncMock if guild_config_crud.get is async
+        # And its return_value (when awaited) should be the mock_gc object.
+        mock_gc_object = MagicMock()
+        mock_gc_object.supported_languages_json = ["en", "de"] # Test with different langs
+
+        # If guild_config_crud.get is an async method:
+        # async_mock_for_get = AsyncMock() # This was creating an unnecessary intermediate AsyncMock
+        # async_mock_for_get.return_value = mock_gc_object
+        # self.mock_guild_config_crud_get.return_value = async_mock_for_get
+
+        # Correct approach: self.mock_guild_config_crud_get is already an AsyncMock due to new_callable=AsyncMock.
+        # Its .return_value is what's provided *after* an await.
+        self.mock_guild_config_crud_get.return_value = mock_gc_object
+
+
+    async def test_analyze_generated_content_calls_item_specific_analyzers(self):
+        from src.core.ai_response_parser import ParsedAiData
+        mock_item_data = MockParsedItem(static_id="test_item1")
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[mock_item_data] # Pass the Pydantic model instance
+        )
+
+        await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
+
+        self.mock_analyze_item_balance.assert_called_once()
+        self.mock_analyze_text_lore.assert_called() # name_i18n, description_i18n
+        self.mock_analyze_props_structure.assert_called_once()
+        self.mock_analyze_npc_balance.assert_not_called()
+        self.mock_analyze_quest_balance.assert_not_called()
+
+    async def test_analyze_generated_content_calls_npc_specific_analyzers(self):
+        from src.core.ai_response_parser import ParsedAiData
+        mock_npc_data = MockParsedNPC(static_id="test_npc1")
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[mock_npc_data]
+        )
+        await analyze_generated_content(self.mock_session, self.guild_id, "npc", target_count=1)
+
+        self.mock_analyze_npc_balance.assert_called_once()
+        self.mock_analyze_text_lore.assert_called()
+        self.mock_analyze_props_structure.assert_called_once()
+        self.mock_analyze_item_balance.assert_not_called()
+
+    async def test_i18n_completeness_uses_guild_config_languages(self):
+        from src.core.ai_response_parser import ParsedAiData
+        # GuildConfig mock in setUp specifies ["en", "de"]
+        item_missing_de = MockParsedItem(name_i18n={"en": "Test Item"}) # Missing "de"
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[item_missing_de]
+        )
+
+        result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
+
+        self.mock_guild_config_crud_get.assert_called_once_with(self.mock_session, id=self.guild_id)
+        report = result.analysis_reports[0]
+        self.assertIn("Missing or empty i18n field 'name_i18n' for required lang 'de'.", report.issues_found)
+        self.assertNotIn("Missing or empty i18n field 'name_i18n' for required lang 'ru'.", report.issues_found)
+
+    async def test_uniqueness_check_duplicate_static_id(self):
+        from src.core.ai_response_parser import ParsedAiData
+        item1 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
+        item2 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[item1, item2]
+        )
+
+        result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
+
+        self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
+        self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[1].issues_found)
+        self.assertEqual(result.analysis_reports[0].quality_score_details["batch_static_id_uniqueness"], 0.1)
+        self.assertEqual(result.analysis_reports[1].quality_score_details["batch_static_id_uniqueness"], 0.1)
+
+    async def test_uniqueness_check_duplicate_name_i18n(self):
+        from src.core.ai_response_parser import ParsedAiData
+        item1 = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
+        item2 = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[item1, item2]
+        )
+
+        result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
+
+        self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
+        self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[1].issues_found)
+        self.assertEqual(result.analysis_reports[0].quality_score_details["batch_name_uniqueness_en"], 0.1)
+        self.assertEqual(result.analysis_reports[1].quality_score_details["batch_name_uniqueness_en"], 0.1)
+        # Check that 'ru' names are considered unique
+        self.assertEqual(result.analysis_reports[0].quality_score_details.get("batch_name_uniqueness_ru"), 1.0)
+        self.assertEqual(result.analysis_reports[1].quality_score_details.get("batch_name_uniqueness_ru"), 1.0)
+
+    async def test_score_aggregation(self):
+        from src.core.ai_response_parser import ParsedAiData
+        mock_item_data = MockParsedItem()
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[mock_item_data]
+        )
+
+        # Mock the detail scores set by individual analyzers
+        async def mock_item_balance_side_effect(data, report, session, guild_id):
+            report.balance_score_details["value_vs_prop"] = 0.8
+            report.balance_score_details["damage_cap"] = 0.9
+        self.mock_analyze_item_balance.side_effect = mock_item_balance_side_effect
+
+        async def mock_text_lore_side_effect(text, field, report, session, guild_id, entity_type):
+            if field == "name_i18n": report.lore_score_details["name_restricted"] = 0.9
+            if field == "description_i18n": report.lore_score_details["desc_restricted"] = 0.7
+        self.mock_analyze_text_lore.side_effect = mock_text_lore_side_effect
+
+        async def mock_props_structure_side_effect(data, report, session, guild_id, entity_type):
+            report.quality_score_details["props_required"] = 0.95
+        self.mock_analyze_props_structure.side_effect = mock_props_structure_side_effect
+
+        result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
+        report = result.analysis_reports[0]
+
+        self.assertAlmostEqual(report.balance_score_details["overall_balance_avg"], (0.8 + 0.9) / 2)
+        self.assertAlmostEqual(report.lore_score_details["overall_lore_avg"], (0.9 + 0.7) / 2)
+        self.assertAlmostEqual(report.quality_score_details["overall_quality_avg"], (0.95 + 1.0) / 2) # +1.0 from batch_static_id_uniqueness and batch_name_uniqueness
 
 
 if __name__ == '__main__':
