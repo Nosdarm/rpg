@@ -25,7 +25,7 @@ logger.info(
     "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
     "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction, "
     "crud_relationship, generated_quest_crud, quest_step_crud, player_quest_progress_crud, questline_crud, pending_conflict_crud, "
-    "crud_crafting_recipe, skill_crud, crud_player_npc_memory, story_log_crud." # Added story_log_crud
+    "crud_crafting_recipe, skill_crud, crud_player_npc_memory, crud_party_npc_memory, story_log_crud." # Added story_log_crud and crud_party_npc_memory
 )
 
 __all__ = [
@@ -54,11 +54,13 @@ __all__ = [
     "crud_crafting_recipe", # Added for CraftingRecipe
     "skill_crud", # Added for Skill
     "crud_player_npc_memory", # Added for PlayerNpcMemory
+    "crud_party_npc_memory", # Added for PartyNpcMemory
     "story_log_crud", # Added StoryLog CRUD
 ]
 from .crud_crafting_recipe import crud_crafting_recipe # Added for CraftingRecipe
 from .crud_skill import skill_crud # Added for Skill
 from .crud_player_npc_memory import crud_player_npc_memory # Added for PlayerNpcMemory
+from .crud_party_npc_memory import crud_party_npc_memory # Added for PartyNpcMemory
 from .crud_relationship import crud_relationship
 from .crud_pending_conflict import pending_conflict_crud # Added for PendingConflict
 from .crud_quest import ( # Added
