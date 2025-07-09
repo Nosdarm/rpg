@@ -271,9 +271,9 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("Value", sent_embed.fields[0].name) # Default template
         self.assertEqual(f"```json\n{str(mock_rule_entry.value_json)}\n```", sent_embed.fields[0].value)
         self.assertEqual("Description", sent_embed.fields[1].name) # Default template
-        # The command uses get_localized_master_message with "master_generic.na" which defaults to "N/A"
-        # because mock_core_get_rule returns None by default in asyncSetUp.
-        self.assertEqual("N/A", sent_embed.fields[1].value)
+        # The command uses rule_entry.description if available, otherwise na_text.
+        # In this test, rule_entry.description is "A test flag".
+        self.assertEqual(mock_rule_entry.description, sent_embed.fields[1].value)
 
     @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.count", new_callable=AsyncMock)
     @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.get_multi", new_callable=AsyncMock)
