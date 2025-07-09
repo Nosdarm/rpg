@@ -41,9 +41,50 @@
 
 ---
 ## Текущий план
-*(Этот раздел очищен после завершения Task 50)*
+*(Этот раздел очищен после завершения Task 51)*
 ---
 ## Лог действий
+
+## Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped)
+- **Определение задачи**: Implement logic for managing the state of a dialogue session for a player/party. API `start_dialogue`, `handle_dialogue_input`, `end_dialogue`.
+- **План**:
+    1.  **Анализ задачи и зависимостей**: Изучены Task 51, `action_processor.py`, `dialogue_system.py`, модели Player, Party, NPC, Enums (PlayerStatus, EventType), CRUDs, `game_events.py`.
+        *   `PlayerStatus.DIALOGUE` существует. `PartyTurnStatus` для диалога пока не используется.
+        *   "Временная запись о диалоге" будет храниться в словаре `active_dialogues` в `dialogue_system.py`.
+        *   `EventType.DIALOGUE_START, DIALOGUE_LINE, DIALOGUE_END` будут использованы.
+    2.  **Проектирование и реализация API `start_dialogue`**:
+        *   Функция `start_dialogue(session, guild_id, player_id, target_npc_id)` добавлена в `src/core/dialogue_system.py`.
+        *   Реализована загрузка игрока, NPC.
+        *   Реализована проверка на существующий диалог, статус боя игрока.
+        *   Устанавливается `player.current_status = PlayerStatus.DIALOGUE`.
+        *   Создается запись в `active_dialogues: Dict[Tuple[int, int], Dict[str, Any]]` вида `(guild_id, player_id) -> {"npc_id", "npc_name", "dialogue_history"}`.
+        *   Логируется событие `EventType.DIALOGUE_START`.
+        *   Функция экспортирована из `src/core/__init__.py`.
+    3.  **Проектирование и реализация API `handle_dialogue_input`**:
+        *   Функция `handle_dialogue_input(session, guild_id, player_id, message_text)` добавлена в `src/core/dialogue_system.py`.
+        *   Проверяется наличие активного диалога для игрока.
+        *   Загружается игрок. Реплика игрока добавляется в `dialogue_history`.
+        *   Формируется контекст и вызывается `generate_npc_dialogue` (из Task 50).
+        *   Ответ NPC добавляется в `dialogue_history`.
+        *   Логируются `EventType.DIALOGUE_LINE` для игрока и NPC.
+        *   Функция экспортирована из `src/core/__init__.py`.
+    4.  **Проектирование и реализация API `end_dialogue`**:
+        *   Функция `end_dialogue(session, guild_id, player_id)` добавлена в `src/core/dialogue_system.py`.
+        *   Проверяется наличие активного диалога.
+        *   Снимается статус `PlayerStatus.DIALOGUE` (устанавливается `PlayerStatus.EXPLORING`).
+        *   Удаляется запись из `active_dialogues`.
+        *   Логируется `EventType.DIALOGUE_END`.
+        *   Функция экспортирована из `src/core/__init__.py`.
+    5.  **Интеграция с Action Processing Module (Task 21/6.11)**:
+        *   В `src/core/action_processor.py` в `ACTION_DISPATCHER` для интента "talk" (и нового "start_dialogue") добавлен обработчик `_handle_talk_to_npc_action_wrapper`, вызывающий `start_dialogue`.
+        *   Добавлен обработчик `_handle_end_dialogue_action_wrapper` для интента "end_dialogue".
+        *   Функция `process_player_message_for_nlu` модифицирована: если `player.current_status == PlayerStatus.DIALOGUE`, ввод игрока передается в `handle_dialogue_input`, а ответ NPC отправляется напрямую игроку. Иначе - стандартная обработка NLU.
+    6.  **Обновление моделей и Enums**: Анализ показал, что существующих Enums достаточно. Новая модель для временной записи диалога не создавалась (используется словарь в памяти).
+    7.  **Написание Unit-тестов**:
+        *   Создан файл `tests/core/test_dialogue_system.py`.
+        *   Написаны тесты для `start_dialogue`, `handle_dialogue_input`, `end_dialogue`, покрывающие основные сценарии (успех, ошибки, проверки статусов, логирование, обновление `active_dialogues`).
+    8.  **Обновление `AGENTS.md`**: Этот лог.
+- **Статус**: Задача Task 51 выполнена.
 
 ## Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules) - Сессия 2024-07-26 (Начало новой сессии)
 - **Определение задачи**: Prepare the prompt for the LLM to generate NPC dialogue lines. API `generate_npc_dialogue(guild_id: int, context: dict) -> str`.

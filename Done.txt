@@ -64,3 +64,7 @@ Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
     - The `/master_monitor statistics get` command was not implemented due to lack of specific requirements for statistical metrics; this can be a future enhancement.
     - Created basic unit tests in `tests/bot/commands/master_commands/test_monitoring_master_commands.py`.
 ---
+**Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped)**
+- **Completed**: [Current Date, to be filled by agent]
+- **Description**: Implemented APIs `start_dialogue`, `handle_dialogue_input`, `end_dialogue` in `src/core/dialogue_system.py` to manage dialogue sessions. This includes setting/removing player status (`PlayerStatus.DIALOGUE`), maintaining a temporary in-memory record of active dialogues (`active_dialogues` dictionary storing NPC info and session history), and logging dialogue events (`DIALOGUE_START`, `DIALOGUE_LINE`, `DIALOGUE_END`). Integrated with `Action Processing Module` (`src/core/action_processor.py`): added handlers in `ACTION_DISPATCHER` for "talk"/"start_dialogue" and "end_dialogue" intents; modified `process_player_message_for_nlu` to route player messages directly to `handle_dialogue_input` if the player is in a dialogue state, bypassing NLU and sending NPC responses directly to the player. Basic unit tests for the dialogue APIs were created in `tests/core/test_dialogue_system.py`.
+---

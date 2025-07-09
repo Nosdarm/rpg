@@ -495,14 +495,76 @@ async def _handle_attack_action_wrapper(
             return {"status": "error", "message": f"Failed to start combat: {e}"}
 
 
+async def _handle_talk_to_npc_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling TALK_TO_NPC action: {action.entities}")
+    from src.core.dialogue_system import start_dialogue # Local import
+
+    target_npc_id = None
+    if action.entities:
+        for entity in action.entities:
+            if entity.type == "target_npc_id" or entity.type.lower() == "npc": # NLU might provide npc_id or generic npc name
+                try:
+                    target_npc_id = int(entity.value) # Assume value is ID for now
+                    break
+                except ValueError:
+                    # TODO: Implement NPC name to ID lookup if NLU provides name
+                    logger.warning(f"Could not parse target_npc_id '{entity.value}' as int. Name lookup needed.")
+                    return {"status": "error", "message_key": "dialogue_error_npc_name_lookup_not_implemented", "feedback_params": {"npc_name": entity.value}}
+            elif entity.type == "npc_name_i18n": # More specific from NLU
+                # TODO: Implement NPC name to ID lookup
+                logger.warning(f"Target NPC by name '{entity.value}' requires name lookup.")
+                return {"status": "error", "message_key": "dialogue_error_npc_name_lookup_not_implemented", "feedback_params": {"npc_name": entity.value}}
+
+
+    if target_npc_id is None:
+        return {"status": "error", "message_key": "dialogue_error_npc_target_missing"}
+
+    success, message_key, context_data = await start_dialogue(
+        session=session,
+        guild_id=guild_id,
+        player_id=player_id,
+        target_npc_id=target_npc_id
+    )
+
+    return {
+        "status": "success" if success else "error",
+        "message_key": message_key,
+        "feedback_params": context_data or {},
+        "is_dialogue_action": True, # Hint for feedback system
+        "dialogue_initiator_message": context_data.get("player_name") if success else None
+    }
+
+async def _handle_end_dialogue_action_wrapper(
+    session: AsyncSession, guild_id: int, player_id: int, action: ParsedAction
+) -> dict:
+    logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling END_DIALOGUE action.")
+    from src.core.dialogue_system import end_dialogue # Local import
+
+    success, message_key, context_data = await end_dialogue(
+        session=session,
+        guild_id=guild_id,
+        player_id=player_id
+    )
+    return {
+        "status": "success" if success else "error",
+        "message_key": message_key,
+        "feedback_params": context_data or {},
+        "is_dialogue_action": True
+    }
+
+
 # Action dispatch table
 ACTION_DISPATCHER: dict[str, Callable[[AsyncSession, int, int, ParsedAction], Coroutine[Any, Any, dict]]] = {
     "move": _handle_move_action_wrapper, # This is for inter-location movement
     "look": _handle_placeholder_action, # General look, might be different from examining specific object
-    "attack": _handle_attack_action_wrapper, # Placeholder for combat
+    "attack": _handle_attack_action_wrapper,
     "take": _handle_placeholder_action,  # Placeholder for inventory
     "use": _handle_placeholder_action,   # Placeholder for inventory/item use
-    "talk": _handle_placeholder_action, # Placeholder for dialogue
+    "talk": _handle_talk_to_npc_action_wrapper, # Replaced placeholder
+    "start_dialogue": _handle_talk_to_npc_action_wrapper, # Alias for talk
+    "end_dialogue": _handle_end_dialogue_action_wrapper, # New handler for ending dialogue
     "examine": _handle_intra_location_action_wrapper, # examine specific object/feature in location
     "interact": _handle_intra_location_action_wrapper, # interact with specific object/feature
     "go_to": _handle_intra_location_action_wrapper, # move to sublocation / named point within current location
@@ -926,56 +988,88 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
         return
 
     try:
-        # Ensure nlu_service is imported correctly
+        player = await player_crud.get_by_discord_id(
+            session=session,
+            guild_id=message.guild.id,
+            discord_id=message.author.id
+        )
+
+        if not player:
+            logger.warning(f"Player not found for Discord ID {message.author.id} in guild {message.guild.id} during NLU processing. Message: '{message.content}'")
+            return
+
+        # Если игрок в состоянии диалога, передаем его ввод напрямую в систему диалогов
+        if player.current_status == PlayerStatus.DIALOGUE:
+            from src.core.dialogue_system import handle_dialogue_input # Local import
+            logger.info(f"Player {player.id} is in DIALOGUE. Routing message '{message.content}' to handle_dialogue_input.")
+
+            success, response_or_key, context_data = await handle_dialogue_input(
+                session=session,
+                guild_id=player.guild_id,
+                player_id=player.id,
+                message_text=message.content
+            )
+            # Отправка ответа NPC игроку
+            # Это потребует доступа к 'bot' или другой механизм отправки сообщений.
+            # В `process_player_message_for_nlu` есть `bot` и `message`.
+            if success:
+                # response_or_key здесь это прямой ответ NPC
+                feedback_message = response_or_key
+                if context_data and context_data.get("npc_name"):
+                    feedback_message = f"**{context_data.get('npc_name')}**: {feedback_message}"
+                await message.channel.send(feedback_message)
+            else:
+                # response_or_key здесь это ключ ошибки
+                # TODO: Локализовать ключ ошибки и отправить игроку
+                # Пока просто отправляем ключ
+                error_feedback = f"System: Error - {response_or_key}"
+                if context_data:
+                    error_feedback += f" (Details: {context_data})"
+                await message.channel.send(error_feedback)
+            return # Завершаем обработку, так как это было сообщение для диалога
+
+        # Если игрок не в диалоге, продолжаем обычную обработку NLU
         from .nlu_service import parse_player_input # Ensure this path is correct
 
         parsed_action: Optional[ParsedAction] = await parse_player_input(
             raw_text=message.content,
             guild_id=message.guild.id,
-            player_id=message.author.id
+            player_id=player.id # Используем ID игрока из БД
         )
 
         if parsed_action and parsed_action.intent != "unknown_intent":
-            player = await player_crud.get_by_discord_id(
-                session=session,
-                guild_id=message.guild.id,
-                discord_id=message.author.id
-            )
+            # 'player' уже загружен
+            current_actions = []
+            if player.collected_actions_json:
+                if isinstance(player.collected_actions_json, str):
+                    try:
+                        current_actions = json.loads(player.collected_actions_json)
+                        if not isinstance(current_actions, list): # Ensure it's a list
+                            logger.warning(f"Player {player.id} collected_actions_json was a string but not a JSON list. Resetting. Data: {player.collected_actions_json}")
+                            current_actions = []
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to decode collected_actions_json for player {player.id}. Content: {player.collected_actions_json}", exc_info=True)
+                        current_actions = [] # Reset if malformed
+                elif isinstance(player.collected_actions_json, list):
+                    current_actions = player.collected_actions_json
+                else: # Should not happen if model types are correct
+                    logger.warning(f"Player {player.id} collected_actions_json is of unexpected type: {type(player.collected_actions_json)}. Resetting.")
+                    current_actions = []
 
-            if player:
-                current_actions = []
-                if player.collected_actions_json:
-                    if isinstance(player.collected_actions_json, str):
-                        try:
-                            current_actions = json.loads(player.collected_actions_json)
-                            if not isinstance(current_actions, list): # Ensure it's a list
-                                logger.warning(f"Player {player.id} collected_actions_json was a string but not a JSON list. Resetting. Data: {player.collected_actions_json}")
-                                current_actions = []
-                        except json.JSONDecodeError:
-                            logger.error(f"Failed to decode collected_actions_json for player {player.id}. Content: {player.collected_actions_json}", exc_info=True)
-                            current_actions = [] # Reset if malformed
-                    elif isinstance(player.collected_actions_json, list):
-                        current_actions = player.collected_actions_json
-                    else: # Should not happen if model types are correct
-                        logger.warning(f"Player {player.id} collected_actions_json is of unexpected type: {type(player.collected_actions_json)}. Resetting.")
-                        current_actions = []
+            # Ensure all items in current_actions are dicts, filter out non-dicts if any corruption occurred
+            current_actions = [action_item for action_item in current_actions if isinstance(action_item, dict)]
 
-                # Ensure all items in current_actions are dicts, filter out non-dicts if any corruption occurred
-                current_actions = [action_item for action_item in current_actions if isinstance(action_item, dict)]
+            current_actions.append(parsed_action.model_dump(mode='json'))
+            player.collected_actions_json = current_actions # SQLAlchemy's JSONB type handles Python dict/list directly
 
-                current_actions.append(parsed_action.model_dump(mode='json'))
-                player.collected_actions_json = current_actions # SQLAlchemy's JSONB type handles Python dict/list directly
+            session.add(player)
+            # No explicit commit here, @transactional handles it on success
+            logger.info(f"Queued action '{parsed_action.intent}' for player {player.id} (Discord: {message.author.id}) in guild {message.guild.id}. Total queued: {len(current_actions)}")
 
-                session.add(player)
-                # No explicit commit here, @transactional handles it on success
-                logger.info(f"Queued action '{parsed_action.intent}' for player {player.id} (Discord: {message.author.id}) in guild {message.guild.id}. Total queued: {len(current_actions)}")
+            # Optionally, send a confirmation to the player (e.g., "Action understood: ...")
+            # This might be too verbose for every message.
+            # await message.channel.send(f"Action received: {parsed_action.intent}", delete_after=5)
 
-                # Optionally, send a confirmation to the player (e.g., "Action understood: ...")
-                # This might be too verbose for every message.
-                # await message.channel.send(f"Action received: {parsed_action.intent}", delete_after=5)
-
-            else:
-                logger.warning(f"Player not found for Discord ID {message.author.id} in guild {message.guild.id}. Cannot queue NLU action.")
         elif parsed_action and parsed_action.intent == "unknown_intent":
             logger.info(f"NLU processed message from {message.author.id} as 'unknown_intent'. Not queued. Original: '{message.content}'")
             # Optionally, provide feedback for unknown intent

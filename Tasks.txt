@@ -131,12 +131,7 @@ Task Block: Phase 11: Dynamic Dialogue and NPC Memory
 This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.
 
 {Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules). - Moved to Done.txt}
-
-Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped).
-Description: Implement logic for managing the state of a dialogue session for a player/party.
-API start_dialogue(guild_id: int, player_id: int, target_npc_id: int). Called from 21 (Action Processing Module) or a command. Sets player(s) status to 'dialogue' (0.2/1.1). Creates a temporary dialogue record.
-API handle_dialogue_input(guild_id: int, player_id: int, message_text: str) -> dict. Called FROM 21 (Action Processing Module) upon receiving text from a player in 'dialogue' status. Processes the text as a line, calls 50 to generate the NPC response.
-API end_dialogue(guild_id: int, player_id: int). Removes 'dialogue' status.
+{Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped). - Moved to Done.txt}
 
 Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild).
 Description: Storing NPC interaction history with players/parties. (Renamed from 11.4, moved from 47).
