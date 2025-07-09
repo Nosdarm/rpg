@@ -10,8 +10,8 @@ from .ai_orchestrator import _mock_openai_api_call # Используем сущ
 from .database import transactional # Для управления сессиями, если потребуется
 from typing import Tuple, List # Добавлено для active_dialogues
 
-from ...models import Player, GeneratedNpc # Добавлено для start_dialogue
-from ...models.enums import PlayerStatus, EventType # Добавлено для start_dialogue
+from ..models import Player, GeneratedNpc # Добавлено для start_dialogue
+from ..models.enums import PlayerStatus, EventType # Добавлено для start_dialogue
 from .crud.crud_player import player_crud # Добавлено для start_dialogue
 from .crud.crud_npc import npc_crud # Добавлено для start_dialogue
 from .game_events import log_event # Добавлено для start_dialogue
