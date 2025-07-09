@@ -119,6 +119,7 @@ async def _m_analyze_quest_balance(quest_data: Dict[str, Any], report: EntityAna
     steps = quest_data.get("steps", [])
     if not isinstance(rewards, dict): rewards = {}
     if not isinstance(steps, list): steps = []
+
     if min_level is not None and isinstance(min_level, int):
         xp_reward = rewards.get("xp")
         if xp_reward is not None and isinstance(xp_reward, int):
@@ -133,29 +134,73 @@ async def _m_analyze_quest_balance(quest_data: Dict[str, Any], report: EntityAna
                 report.balance_score_details["xp_vs_level"] = 0.3
             else: report.balance_score_details["xp_vs_level"] = 0.8
         else: report.balance_score_details["xp_vs_level"] = 0.4
-        item_rewards = rewards.get("item_static_ids", [])
-        if isinstance(item_rewards, list):
-            num_item_rewards = len(item_rewards)
-            expected_items_per_level_rule = await get_rule(session, guild_id, "analysis:quest:balance:items_per_level_range", {"max_low_level": 1, "max_mid_level": 2})
-            expected_max_items = expected_items_per_level_rule.get("max_mid_level", 2)
-            if min_level <= 5: expected_max_items = expected_items_per_level_rule.get("max_low_level", 1)
-            if num_item_rewards > expected_max_items:
-                report.issues_found.append(f"Quest offers {num_item_rewards} item rewards, which might be too many for min_level {min_level} (expected max {expected_max_items}).")
-                report.balance_score_details["item_rewards_vs_level"] = 0.3
-            elif num_item_rewards > 0 : report.balance_score_details["item_rewards_vs_level"] = 0.7
-            else: report.balance_score_details["item_rewards_vs_level"] = 0.5
+
+        item_rewards_list = rewards.get("item_static_ids", [])
+        num_item_rewards = len(item_rewards_list) if isinstance(item_rewards_list, list) else 0
+
+        items_per_level_config_key = "analysis:quest:balance:items_per_level_range"
+        default_items_rule_config = {
+            "max_items_by_level": [
+                {"level_lte": 5, "max": 1}, {"level_lte": 15, "max": 2}, {"level_lte": 100, "max": 3}
+            ], "default_max": 1
+        }
+        items_rule = await get_rule(session, guild_id, items_per_level_config_key, default_items_rule_config)
+
+        current_default_max_for_rule = items_rule.get("default_max")
+        if current_default_max_for_rule is None:
+            current_default_max_for_rule = default_items_rule_config.get("default_max", 1)
+        final_expected_max_items = current_default_max_for_rule
+
+        max_items_by_level_list = items_rule.get("max_items_by_level")
+
+        if isinstance(max_items_by_level_list, list) and max_items_by_level_list:
+            sorted_thresholds = sorted(
+                [item for item in max_items_by_level_list if isinstance(item, dict) and "level_lte" in item and "max" in item],
+                key=lambda x: x["level_lte"]
+            )
+            if sorted_thresholds:
+                found_matching_threshold = False
+                for threshold_info in sorted_thresholds:
+                    if min_level <= threshold_info["level_lte"]:
+                        final_expected_max_items = threshold_info["max"]
+                        found_matching_threshold = True
+                        break
+                if not found_matching_threshold:
+                    final_expected_max_items = sorted_thresholds[-1]["max"]
+            else:
+                logger.warning(f"RuleConfig for {items_per_level_config_key} 'max_items_by_level' list had entries, but all were malformed. Using determined default_max: {final_expected_max_items}")
+        elif max_items_by_level_list is None:
+             logger.warning(f"RuleConfig for {items_per_level_config_key} is missing 'max_items_by_level' key. Using determined default_max: {final_expected_max_items}")
+        elif not isinstance(max_items_by_level_list, list):
+             logger.warning(f"RuleConfig for {items_per_level_config_key} 'max_items_by_level' is not a list. Using determined default_max: {final_expected_max_items}")
+
+        if num_item_rewards > final_expected_max_items:
+            report.issues_found.append(f"Quest offers {num_item_rewards} item rewards, which might be too many for min_level {min_level} (expected max {final_expected_max_items} based on configured ranges).")
+            report.balance_score_details["item_rewards_vs_level"] = 0.3
+        elif num_item_rewards > 0:
+            report.balance_score_details["item_rewards_vs_level"] = 0.7
+        else: # num_item_rewards == 0
+            report.balance_score_details["item_rewards_vs_level"] = 0.5
+
     num_steps = len(steps)
     if min_level is not None and isinstance(min_level, int):
         max_steps_per_level_rule = await get_rule(session, guild_id, "analysis:quest:balance:max_steps_per_level", {"base": 2, "per_level_add": 0.5})
         expected_max_steps = max_steps_per_level_rule.get("base",2) + int(min_level * max_steps_per_level_rule.get("per_level_add", 0.5))
         if num_steps == 0:
-            report.issues_found.append(f"Quest has no steps defined.")
+            if not any("Quest has no steps defined" in issue for issue in report.issues_found) and \
+               not any("Quest 'steps' field is missing, not a list, or empty" in issue for issue in report.issues_found):
+                 report.issues_found.append(f"Quest has no steps defined.")
             report.balance_score_details["steps_complexity"] = 0.1
         elif num_steps > expected_max_steps:
             report.issues_found.append(f"Quest has {num_steps} steps, which might be too complex for min_level {min_level} (expected max ~{expected_max_steps}).")
             report.balance_score_details["steps_complexity"] = 0.3
         else: report.balance_score_details["steps_complexity"] = 0.8
-    elif num_steps == 0: report.balance_score_details["steps_complexity"] = 0.1
+    elif num_steps == 0:
+        if not any("Quest has no steps defined" in issue for issue in report.issues_found) and \
+           not any("Quest 'steps' field is missing, not a list, or empty" in issue for issue in report.issues_found):
+             report.issues_found.append(f"Quest has no steps defined (and min_level is missing/invalid).")
+        report.balance_score_details["steps_complexity"] = 0.1
+
 
 async def _m_analyze_text_content_lore(text_content: Optional[Union[str, Dict[str, str]]], field_name: str, report: EntityAnalysisReport, session: AsyncSession, guild_id: int, entity_type_for_rules: str ):
     if not text_content: return
@@ -234,11 +279,11 @@ async def analyze_generated_content(
                 party_id_ctx = active_generation_context.get("party_id")
                 if location_id_ctx: prompt = await prepare_general_location_content_prompt(session, guild_id, location_id=location_id_ctx, player_id=player_id_ctx, party_id=party_id_ctx)
                 else:
-                    npc_schema_desc = get_entity_schema_terms().get("npc_schema", {"description": "Generate an NPC."}) # Corrected call
+                    npc_schema_desc = get_entity_schema_terms().get("npc_schema", {"description": "Generate an NPC."})
                     prompt = f"Generate one NPC. Context: {active_generation_context}. Schema: {json.dumps(npc_schema_desc)}"
             elif entity_type_lower == "faction": prompt = await prepare_faction_relationship_generation_prompt(session, guild_id)
             elif entity_type_lower == "location":
-                location_schema_desc = get_entity_schema_terms().get("location_schema", {"description": "Generate a new game location."}) # Corrected call
+                location_schema_desc = get_entity_schema_terms().get("location_schema", {"description": "Generate a new game location."})
                 prompt = f"Generate a new game location. Context: {active_generation_context}. Schema: {json.dumps(location_schema_desc)}"
             else:
                 error_msg = f"Entity type '{entity_type}' is not supported for AI generation analysis via specific prompt builder."
@@ -258,7 +303,7 @@ async def analyze_generated_content(
                 mock_entity_data = {}
                 if entity_type_lower == "npc": mock_entity_data = {"entity_type": "npc", "static_id": f"mock_npc_{i+1}", "name_i18n": {"en": f"Mock NPC {i+1}", "ru": f"Тестовый NPC {i+1}"}, "description_i18n": {"en": "A brave mock warrior of the realm.", "ru": "Храбрый тестовый воин королевства."}, "level": 5 + i, "properties_json": {"role": "guard", "stats": {"health": 50 + (i*10)}}}
                 elif entity_type_lower == "item": mock_entity_data = {"entity_type": "item", "static_id": f"mock_item_{i+1}", "name_i18n": {"en": f"Mock Item {i+1}", "ru": f"Тестовый Предмет {i+1}"}, "description_i18n": {"en": "A shiny mock trinket, good for testing various conditions and lengths."}, "item_type": "trinket", "base_value": (i+1)*20, "properties_json": {"weight": 10 + i, "rarity": "common" if i % 2 == 0 else "uncommon"}}
-                elif entity_type_lower == "quest": mock_entity_data = {"entity_type": "quest", "static_id": f"mock_quest_{i+1}", "title_i18n": {"en": f"Mock Quest {i+1}", "ru": f"Тестовый Квест {i+1}"}, "summary_i18n": {"en": "Retrieve the mock artifact for great justice.", "ru": "Добудьте макетный артефакт во имя справедливости."}, "steps": [{"step_order":1, "title_i18n": {"en": "S1"}, "description_i18n": {"en": "Desc1"}}, {"step_order":2, "title_i18n": {"en": "S2"}, "description_i18n": {"en":"Desc2"}}], "min_level": 3 + i}
+                elif entity_type_lower == "quest": mock_entity_data = {"entity_type": "quest", "static_id": f"mock_quest_{i+1}", "title_i18n": {"en": f"Mock Quest {i+1}", "ru": f"Тестовый Квест {i+1}"}, "summary_i18n": {"en": "Retrieve the mock artifact for great justice.", "ru": "Добудьте макетный артефакт во имя справедливости."}, "steps": [{"step_order":1, "title_i18n": {"en": "S1"}, "description_i18n": {"en": "Desc1"}}, {"step_order":2, "title_i18n": {"en": "S2"}, "description_i18n": {"en":"Desc2"}}], "min_level": 3 + i, "rewards_json": {"xp": (3+i)*100}}
                 elif entity_type_lower == "faction": mock_entity_data = {"entity_type": "faction", "static_id": f"mock_faction_{i+1}", "name_i18n": {"en": f"Mock Faction {i+1}", "ru": f"Тестовая Фракция {i+1}"}, "description_i18n": {"en": "A test faction with a moderately long description."}, "ideology_i18n": {"en": "Testology"}}
                 elif entity_type_lower == "location": mock_entity_data = {"entity_type": "location", "static_id": f"mock_loc_{i+1}", "name_i18n": {"en": f"Mock Location {i+1}", "ru": f"Тестовая Локация {i+1}"}, "descriptions_i18n": {"en": "A place of mock wonders and tests."}, "type": "settlement"}
                 else: mock_entity_data = {"error": f"unknown mock type for analysis: {entity_type_lower}"}
@@ -315,22 +360,20 @@ async def analyze_generated_content(
                 from src.core.crud import guild_crud as guild_config_crud
                 guild_config = await guild_config_crud.get(session, id=guild_id)
                 default_supported_langs = ["en", "ru"]
-                required_langs = default_supported_langs # Default
+                required_langs = default_supported_langs
 
                 if guild_config:
                     supported_languages_val = getattr(guild_config, "supported_languages_json", None)
                     if supported_languages_val is not None:
                         if isinstance(supported_languages_val, list) and all(isinstance(lang, str) for lang in supported_languages_val):
-                            if supported_languages_val: # Ensure not empty list
+                            if supported_languages_val:
                                 required_langs = supported_languages_val
-                            # If empty list, default_supported_langs remains
                         else:
                             logger.warning(f"GuildConfig.supported_languages_json for guild {guild_id} is malformed: {supported_languages_val}. Falling back to defaults.")
-                            # required_langs remains default_supported_langs
-                    else: # supported_languages_json attribute doesn't exist or is None
+                    else:
                         required_langs_rule = await get_rule(session, guild_id, "analysis:common:i18n_completeness", {"required_languages": default_supported_langs})
                         required_langs = required_langs_rule.get("required_languages", default_supported_langs)
-                else: # guild_config is None
+                else:
                     required_langs_rule = await get_rule(session, guild_id, "analysis:common:i18n_completeness", {"required_languages": default_supported_langs})
                     required_langs = required_langs_rule.get("required_languages", default_supported_langs)
 
@@ -386,13 +429,20 @@ async def analyze_generated_content(
                 elif entity_type_lower == "quest":
                     for kf in ["static_id", "title_i18n", "summary_i18n", "steps"]:
                         if kf not in data or not data[kf]: report.issues_found.append(f"Quest missing key field: '{kf}'.")
-                    if "steps" in data and not isinstance(data["steps"], list) or not data["steps"]: report.issues_found.append("Quest 'steps' field is missing, not a list, or empty.")
+                    if "steps" in data and not isinstance(data["steps"], list) or not data["steps"]:
+                        if not any("Quest 'steps' field is missing, not a list, or empty" in issue for issue in report.issues_found) and \
+                           not any("Quest has no steps defined" in issue for issue in report.issues_found):
+                            report.issues_found.append("Quest 'steps' field is missing, not a list, or empty.")
                     elif "steps" in data:
                         for step_idx, step_data in enumerate(data["steps"]):
-                             if not isinstance(step_data, dict) or not all(k in step_data for k in ["step_order", "title_i18n", "description_i18n"]): report.issues_found.append(f"Quest Step {step_idx+1} is malformed or missing key fields (step_order, title_i18n, description_i18n).")
-                if not report.issues_found and not report.validation_errors: report.suggestions.append("No obvious issues found based on current basic analysis rules.")
+                             if not isinstance(step_data, dict) or not all(k in step_data for k in ["step_order", "title_i18n", "description_i18n"]):
+                                 report.issues_found.append(f"Quest Step {step_idx+1} is malformed or missing key fields (step_order, title_i18n, description_i18n).")
+
+                if not report.issues_found and not report.validation_errors:
+                    report.suggestions.append("No obvious issues found based on current basic analysis rules.")
+
                 placeholder_texts_rule = await get_rule(session, guild_id, "analysis:common:placeholder_texts", {"placeholders": ["todo", "fixme", "[description needed]", "...", "placeholder", "tbd"]})
-                placeholders_to_check = [ph.lower() for ph in placeholder_texts_rule.get("placeholders", [])]
+                placeholders_to_check = [ph.lower() for ph in placeholder_texts_rule.get("placeholders", [])] # Corrected variable name
                 fields_for_placeholder_check = list(set(i18n_fields_to_check + ["text_i18n"]))
                 for field_name in fields_for_placeholder_check:
                     if field_name in data:
@@ -489,7 +539,6 @@ async def analyze_generated_content(
                             report_item.quality_score_details[f"batch_name_uniqueness_{lang}"] = 1.0
     for report_item_final in result.analysis_reports:
         if report_item_final.quality_score_details:
-            # Exclude overall_quality_avg itself from its own calculation if it was pre-set (should not happen with default_factory)
             current_details_for_avg = {k:v for k,v in report_item_final.quality_score_details.items() if k != "overall_quality_avg"}
             q_total = sum(current_details_for_avg.values())
             q_num = len(current_details_for_avg)
