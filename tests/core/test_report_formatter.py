@@ -283,12 +283,16 @@ async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_
 @pytest.mark.asyncio
 async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_batch_localized_entity_names_fixture):
     # Configure the mock_session for the chain of calls in load_rules_config_for_guild
-    mock_executed_statement = AsyncMock()
-    mock_scalars_result = AsyncMock()
-    mock_scalars_result.all.return_value = []
+    # session.execute is an async method, its return_value is what 'await session.execute()' yields.
+    mock_execution_result = MagicMock() # This is the synchronous result object after await
+    mock_session.execute = AsyncMock(return_value=mock_execution_result)
 
-    mock_session.execute.return_value = mock_executed_statement
-    mock_executed_statement.scalars.return_value = mock_scalars_result
+    # result.scalars() is a synchronous method on the result object
+    mock_scalars_object = MagicMock()
+    mock_execution_result.scalars.return_value = mock_scalars_object
+
+    # scalars_object.all() is a synchronous method returning the list
+    mock_scalars_object.all.return_value = [] # e.g., no rules
 
     with patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, [], 1, "en")
