@@ -1,147 +1,143 @@
-# Этот файл делает директорию 'core' пакетом Python.
-
-# Можно импортировать ключевые элементы для удобства доступа
-# from .database import engine, AsyncSessionLocal, get_db_session, init_db
-
-# __all__ = [
-#     "engine",
-#     "AsyncSessionLocal",
-#     "get_db_session",
-#     "init_db",
-#     "crud",
-#     "rules" # Future module
-# ]
-
+# src/core/__init__.py
 import logging
 
-# Import modules to make them available when 'core' is imported,
-# and also to allow for easier cross-module imports within 'core'.
-
-from . import crud_base_definitions
-from . import database
-from . import rules
-from . import locations_utils
-from . import player_utils
-from . import party_utils
-from . import movement_logic
-from . import game_events
-from . import ai_prompt_builder
-from . import ai_response_parser
-# Corrected import from CustomValidationError
-from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedLocationData
-from . import ai_orchestrator
-from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, generate_narrative
-from . import nlu_service # Import the new NLU service module
-from .nlu_service import parse_player_input # Import the main function
-from . import turn_controller # Import the new turn_controller module
-from .turn_controller import trigger_guild_turn_processing, process_guild_turn_if_ready
-from . import action_processor # Import the new action_processor module
-from .action_processor import process_actions_for_guild
-from . import interaction_handlers # Import the new interaction_handlers module
-from .interaction_handlers import handle_intra_location_action
-from .game_events import log_event, on_enter_location # Make specific functions available
-from . import localization_utils # Import new localization utils
-from .localization_utils import get_localized_entity_name, get_localized_text, get_batch_localized_entity_names # Make specific functions available
-from . import report_formatter # Import new report formatter
-# format_log_entry is now internal, only format_turn_report is public
-from .report_formatter import format_turn_report
-from . import ability_system # Import the new ability_system module
-from .ability_system import activate_ability, apply_status, remove_status # Import public functions
-from . import world_generation # Added new module
-from .world_generation import generate_location, generate_factions_and_relationships, generate_quests_for_guild, generate_economic_entities # Updated function name & added new
-from . import map_management # Import the map_management module
-from .map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Import specific functions
-from . import combat_engine # Import the new combat_engine module
-from .combat_engine import process_combat_action # Import the main function
-from . import npc_combat_strategy # Import the new npc_combat_strategy module
-from .npc_combat_strategy import get_npc_combat_action # Import the main function
-from . import combat_cycle_manager # Import the new combat_cycle_manager module
-from .combat_cycle_manager import start_combat, process_combat_turn # Import the main function for Task 29
-from . import experience_system # Import the new experience_system module
-from .experience_system import award_xp, spend_attribute_points # Import functions for Task 31 & 32
-from . import relationship_system # Import the new relationship_system module
-from .relationship_system import update_relationship # Import the main function
-from . import quest_system # Added for Task 41
-from .quest_system import handle_player_event_for_quest # Added for Task 41
-from . import trade_system # Task 44
-from .trade_system import handle_trade_action, TradeActionResult # Task 44
-from ..models.combat_outcomes import CombatActionResult # Import the Pydantic model
-
-
+# Initialize logger for the core module
 logger = logging.getLogger(__name__)
-logger.info("Core package initialized. Loaded: crud_base_definitions, database, rules, locations_utils, player_utils, party_utils, movement_logic, game_events, ai_prompt_builder, ai_response_parser, ai_orchestrator, nlu_service, turn_controller, action_processor, interaction_handlers, localization_utils, report_formatter, ability_system, world_generation, map_management, combat_engine, npc_combat_strategy, combat_cycle_manager, experience_system, relationship_system, quest_system, trade_system.")
+logger.info("Core module initialization started.")
 
-# Define __all__ for explicit public API of the 'core' package, if desired.
-# This controls what 'from core import *' imports.
+# --- Database and Base CRUD ---
+from .database import Base, get_db_session, transactional, SessionLocal, engine
+from .crud_base_definitions import CRUDBase, create_entity, get_entity_by_id, update_entity, delete_entity
+
+# --- Core Utilities & Systems ---
+from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+from .dice_roller import roll_dice
+from .check_resolver import resolve_check, CheckOutcome, CheckResult, ModifierDetail # CheckError is an exception
+from .localization_utils import (
+    get_localized_text, get_localized_entity_name, get_batch_localized_entity_names,
+    get_localized_message_template, get_localized_master_message
+)
+from .locations_utils import get_location_by_static_id # Other location utils might be more specific
+from .player_utils import get_player
+from .party_utils import get_party
+from .game_events import log_event
+from .report_formatter import format_turn_report
+from .command_utils import process_json_input # General utility
+
+# --- AI Systems ---
+from .ai_prompt_builder import (
+    prepare_ai_prompt,
+    prepare_faction_relationship_generation_prompt,
+    prepare_quest_generation_prompt,
+    prepare_economic_entity_generation_prompt,
+    prepare_dialogue_generation_prompt # Added for Task 50
+)
+from .ai_response_parser import parse_and_validate_ai_response, CustomValidationError, ParsedAiData
+from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, _mock_openai_api_call, make_real_ai_call
+from .ai_analysis_system import analyze_generated_content # For Task 48 (Master Tools)
+
+# --- Game Mechanics Systems ---
+from .movement_logic import execute_move_for_player_action
+from .ability_system import activate_ability, apply_status, remove_status
+from .combat_engine import process_combat_action
+from .npc_combat_strategy import get_npc_combat_action
+from .combat_cycle_manager import start_combat, process_combat_turn
+from .experience_system import award_xp, spend_attribute_points
+from .relationship_system import update_relationship
+from .quest_system import handle_player_event_for_quest
+from .trade_system import handle_trade_action # Task 44
+from .global_entity_manager import simulate_global_entities_for_guild # Task 46
+from .dialogue_system import generate_npc_dialogue # Added for Task 50
+
+# --- World Generation ---
+from .world_generation import (
+    generate_location,
+    generate_factions_and_relationships,
+    generate_quests_for_guild, # Task 40
+    generate_economic_entities # Task 43
+)
+
+
+# --- NLU and Action Processing ---
+from .nlu_service import parse_intent
+from .interaction_handlers import handle_intra_location_action
+from .action_processor import process_action, process_actions_for_guild # process_action is high-level
+from .turn_controller import (
+    get_current_turn_info, advance_turn_for_guild,
+    add_player_action_to_queue, get_pending_actions_for_guild,
+    clear_pending_actions_for_guild,
+    trigger_guild_turn_processing # Added for conflict resolution signaling
+)
+from .conflict_simulation_system import simulate_conflict_detection # For Task 48 (Master Tools)
+
+
+# --- Map Management ---
+from .map_management import (
+    add_location_master, connect_locations_master, disconnect_locations_master,
+    generate_map_for_guild, get_map_data_for_guild,
+    get_guild_location_details, update_location_details_master, delete_location_master
+)
+
+
+# Public API of the core module
 __all__ = [
-    "crud_base_definitions", # Renamed from "crud"
-    # Note: The sub-package src.core.crud is still available as src.core.crud
-    "database",
-    "rules",
-    "locations_utils",
-    "player_utils",
-    "party_utils",
-    "movement_logic",
-    "game_events",
-    "ai_prompt_builder",
-    "ai_response_parser",
-    "parse_and_validate_ai_response",
-    "ParsedAiData",
-    "ParsedLocationData", # Added
-    "CustomValidationError", # Corrected export
-    "ai_orchestrator",
-    "trigger_ai_generation_flow",
-    "save_approved_generation",
-    "generate_narrative", # Added new function
-    "nlu_service",
-    "parse_player_input",
-    "turn_controller",
-    "trigger_guild_turn_processing",
-    "process_guild_turn_if_ready", # Though this might be more internal to turn_controller logic
-    "action_processor",
-    "process_actions_for_guild",
-    # "ACTION_DISPATCHER", # Should be internal to action_processor
-    "interaction_handlers",
-    "handle_intra_location_action",
-    "log_event", # Added from game_events
-    "on_enter_location", # Added from game_events
-    "localization_utils",
-    "get_localized_entity_name",
-    "get_localized_text", # Also exported from localization_utils
-    "get_batch_localized_entity_names", # Added
-    "report_formatter",
-    # "format_log_entry", # This is now an internal helper _format_log_entry_with_names_cache
-    "format_turn_report",
-    "ability_system",
-    "activate_ability",
-    "apply_status",
-    "remove_status",
-    "world_generation",
-    "generate_location",
-    "generate_factions_and_relationships", # Added
-    "generate_quests_for_guild", # Task 40
-    "generate_economic_entities", # Added for Task 43
-    "map_management", # Added
-    "add_location_master", # Added
-    "remove_location_master", # Added
-    "connect_locations_master", # Added
-    "disconnect_locations_master", # Added
-    "combat_engine",
-    "process_combat_action",
-    "npc_combat_strategy", # Added
-    "get_npc_combat_action", # Added
-    "combat_cycle_manager", # Added
-    "start_combat", # Added
-    "process_combat_turn", # Added
-    "CombatActionResult", # Export the Pydantic model as well
-    "experience_system", # Added
-    "award_xp", # Added
-    "spend_attribute_points", # Added for Task 32
-    "relationship_system", # Added for Task 36
-    "update_relationship", # Added for Task 36
-    "quest_system", # Added for Task 41
-    "handle_player_event_for_quest", # Added for Task 41
-    "trade_system", # Task 44
-    "handle_trade_action", # Task 44
-    "TradeActionResult", # Task 44
+    # Database & Base CRUD
+    "Base", "get_db_session", "transactional", "SessionLocal", "engine",
+    "CRUDBase", "create_entity", "get_entity_by_id", "update_entity", "delete_entity",
+    # Core Utilities & Systems
+    "get_rule", "update_rule_config", "load_rules_config_for_guild", "get_all_rules_for_guild",
+    "roll_dice",
+    "resolve_check", "CheckOutcome", "CheckResult", "ModifierDetail",
+    "get_localized_text", "get_localized_entity_name", "get_batch_localized_entity_names",
+    "get_localized_message_template", "get_localized_master_message",
+    "get_location_by_static_id",
+    "get_player", "get_party",
+    "log_event", "format_turn_report",
+    "process_json_input",
+    # AI Systems
+    "prepare_ai_prompt", "prepare_faction_relationship_generation_prompt",
+    "prepare_quest_generation_prompt", "prepare_economic_entity_generation_prompt",
+    "prepare_dialogue_generation_prompt",
+    "parse_and_validate_ai_response", "CustomValidationError", "ParsedAiData",
+    "trigger_ai_generation_flow", "save_approved_generation", "_mock_openai_api_call", "make_real_ai_call",
+    "analyze_generated_content",
+    # Game Mechanics Systems
+    "execute_move_for_player_action",
+    "activate_ability", "apply_status", "remove_status",
+    "process_combat_action", "get_npc_combat_action",
+    "start_combat", "process_combat_turn",
+    "award_xp", "spend_attribute_points",
+    "update_relationship",
+    "handle_player_event_for_quest",
+    "handle_trade_action",
+    "simulate_global_entities_for_guild",
+    "generate_npc_dialogue",
+    # World Generation
+    "generate_location", "generate_factions_and_relationships",
+    "generate_quests_for_guild",
+    "generate_economic_entities",
+    # NLU and Action Processing
+    "parse_intent", "handle_intra_location_action",
+    "process_action", "process_actions_for_guild",
+    "get_current_turn_info", "advance_turn_for_guild",
+    "add_player_action_to_queue", "get_pending_actions_for_guild",
+    "clear_pending_actions_for_guild", "trigger_guild_turn_processing",
+    "simulate_conflict_detection",
+    # Map Management
+    "add_location_master", "connect_locations_master", "disconnect_locations_master",
+    "generate_map_for_guild", "get_map_data_for_guild",
+    "get_guild_location_details", "update_location_details_master", "delete_location_master",
+    # Dialogue System (Task 51, 52) - Placeholders for future tasks
+    # "start_dialogue",
+    # "handle_dialogue_input",
+    # "end_dialogue",
+    # "add_to_npc_memory",
+    # "get_npc_memory",
 ]
+
+logger.info("Core module initialized with its public API components, including Dialogue System (generate_npc_dialogue).")
+
+# Example of how a system might be structured if it had its own sub-module directory
+# from .example_system import example_function
+# __all__.append("example_function")
+# logger.info("Example system module loaded.")
