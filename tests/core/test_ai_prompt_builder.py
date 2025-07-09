@@ -266,6 +266,117 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    # Minimal mocks for other context functions
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_prepare_dialogue_prompt_no_relationship(
+        self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
+        mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 10
+        player_id_test = 1
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test, name_i18n={"en":"Mysterious Stranger"})
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test, name="Curious Cat")
+        mock_get_all_rules.return_value = {"guild_main_language": "en"}
+
+        mock_get_player_npc_rel.return_value = None # Simulate no existing relationship
+
+        test_context = {
+            "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "Who are you?",
+        }
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIsInstance(prompt, str)
+        self.assertNotIn("Error:", prompt)
+        self.assertIn("You have no established specific relationship with Curious Cat (assume neutral).", prompt)
+        mock_get_player_npc_rel.assert_called_once_with(mock_session, guild_id, player_id_test, RelationshipEntityType.PLAYER, npc_id_test, RelationshipEntityType.GENERATED_NPC)
+
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock) # for _get_guild_main_language and other rules
+    # Mocks for other context functions that are called but not asserted on directly in this test
+    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={"name": "Somewhere", "description": "A place."})
+    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    async def test_prepare_dialogue_prompt_with_relationship_quest_hidden_context(
+        self, mock_get_world_state, mock_get_memory, mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
+        mock_get_all_rules, mock_get_quests_ctx, mock_get_hidden_rels_ctx, mock_get_player_npc_rel,
+        mock_get_player, mock_get_npc, mock_get_lang
+    ):
+        mock_session = AsyncMock(spec=AsyncSession)
+        guild_id = 1
+        npc_id_test = 10
+        player_id_test = 1
+
+        mock_get_lang.return_value = "en"
+        mock_get_npc.return_value = self._create_mock_npc(npc_id=npc_id_test, name_i18n={"en":"Guard Captain"})
+        mock_get_player.return_value = self._create_mock_player(player_id=player_id_test, name="Rogue")
+        mock_get_all_rules.return_value = {"guild_main_language": "en"} # Minimal rules
+
+        # Test Relationship Context
+        mock_relationship = Relationship(
+            id=1, guild_id=guild_id,
+            entity1_id=player_id_test, entity1_type=RelationshipEntityType.PLAYER,
+            entity2_id=npc_id_test, entity2_type=RelationshipEntityType.GENERATED_NPC,
+            relationship_type="trust", value=75
+        )
+        mock_get_player_npc_rel.return_value = mock_relationship
+
+        # Test Hidden Relationship Context
+        mock_get_hidden_rels_ctx.return_value = [
+            {"prompt_hints": "Secretly admires the Rogue's skills."}
+        ]
+
+        # Test Quest Context
+        mock_get_quests_ctx.return_value = [
+            {"quest_name": "The Stolen Locket", "current_step_name": "Find clues in the market"}
+        ]
+
+        test_context = {
+            "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "About that locket...",
+        }
+        prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
+        self.assertIsInstance(prompt, str)
+        self.assertNotIn("Error:", prompt)
+
+        # Check Relationship Context
+        self.assertIn("Your current relationship with Rogue: Type: trust, Value: 75", prompt)
+        mock_get_player_npc_rel.assert_called_once_with(mock_session, guild_id, player_id_test, RelationshipEntityType.PLAYER, npc_id_test, RelationshipEntityType.GENERATED_NPC)
+
+        # Check Hidden Relationship Context
+        self.assertIn("Some of your relevant hidden feelings or relationships:", prompt)
+        self.assertIn("- Secretly admires the Rogue's skills.", prompt)
+        mock_get_hidden_rels_ctx.assert_called_once()
+
+        # Check Quest Context
+        self.assertIn("Relevant Active Quests for the Player:", prompt)
+        self.assertIn("1. 'The Stolen Locket' (step: 'Find clues in the market')", prompt)
+        mock_get_quests_ctx.assert_called_once()
+
+    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
@@ -296,28 +407,65 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_get_memory.return_value = ["NPC STUB: Player seems okay."]
         mock_get_quests.return_value = []
         mock_get_world_state.return_value = {"global_event_active": "Festival of Stars"}
+
+        mock_npc_obj = self._create_mock_npc(
+            npc_id=npc_id_test,
+            name_i18n={"en": "Old Man Willow", "ru": "Старик Ива"},
+            desc_i18n={"en": "A wise old tree.", "ru": "Мудрое старое дерево."},
+            props={"role_i18n": {"en": "Storyteller", "ru": "Сказитель"},
+                   "personality_i18n": {"en": "Calm and thoughtful", "ru": "Спокойный и вдумчивый"},
+                   "dialogue_style_hint_i18n": {"en": "Speaks in riddles sometimes.", "ru": "Иногда говорит загадками."}}
+        )
+        mock_get_npc.return_value = mock_npc_obj
+
+        mock_player_obj = self._create_mock_player(player_id=player_id_test, name="Hero", level=7)
+        mock_get_player.return_value = mock_player_obj
+
         mock_get_rules.return_value = {
             "guild_main_language": "en",
             "dialogue_rules:npc_general_guidelines:default": {"guidelines_i18n": {"en": "Be polite."}},
             "dialogue_rules:npc_tone_modifiers:default": [{"condition_description_i18n": {"en": "player is friendly"}, "tone_hint_i18n": {"en": "warm"}}]
-            }
+        }
+
         test_context = {
             "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "Greetings!",
             "dialogue_history": [{"speaker": "player", "text": "Hello?"}], "location_id": 100
         }
         prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
+
         self.assertIsInstance(prompt, str)
         self.assertNotIn("Error:", prompt)
-        self.assertIn(f"You are Test NPC {npc_id_test}", prompt)
-        self.assertIn("You are speaking with Test Player", prompt)
-        self.assertIn("Player says to you: \"Greetings!\"", prompt)
-        self.assertIn("Player: Hello?", prompt)
-        self.assertIn("NPC STUB: Player seems okay.", prompt)
+
+        # Проверка основного контекста NPC
+        self.assertIn("You are Old Man Willow.", prompt)
+        self.assertIn("Your Description: A wise old tree.", prompt)
+        self.assertIn("Your Role/Profession: Storyteller", prompt)
+        self.assertIn("Your General Personality Traits: Calm and thoughtful", prompt)
+        self.assertIn("Your Dialogue Style Hint: Speaks in riddles sometimes.", prompt)
+
+        # Проверка основного контекста Игрока
+        self.assertIn("You are speaking with Hero (the Player).", prompt)
+        self.assertIn("Player Level: 7", prompt)
+
+        # Проверка указания языка
+        self.assertIn("Language for NPC's response: en", prompt)
+
+        # Проверка ключевых инструкций
+        self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history), generate your next single, natural-sounding dialogue line.", prompt)
+        self.assertIn("Respond in **en**.", prompt)
+        self.assertIn(f"{mock_player_obj.name} says to you: \"Greetings!\"", prompt)
+        self.assertIn(f"{mock_player_obj.name}: Hello?", prompt) # Dialogue history
+
+        # Проверка использования заглушки для NPC Memory
+        mock_get_memory.assert_called_once()
+        self.assertIn("NPC STUB: Player seems okay.", prompt) # From mock_get_memory.return_value
+
+        # Проверка других деталей из первоначального теста
         self.assertIn("Global Event Active: Festival of Stars", prompt)
         self.assertIn("General Guideline: Be polite.", prompt)
         self.assertIn("If player is friendly: lean towards 'warm'", prompt)
+
         mock_get_npc.assert_called_once_with(mock_session, id=npc_id_test, guild_id=guild_id)
-        mock_get_memory.assert_called_once()
 
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
