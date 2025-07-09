@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock # Added MagicMock
+from typing import AsyncGenerator # Added AsyncGenerator
 
 import pytest # Added pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +33,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 @pytest.fixture(scope="function")
-async def test_db_session() -> AsyncSession:
+async def test_db_session() -> AsyncGenerator[AsyncSession, None]:
     # Ensure tables are created and PRAGMA is set on a connection from the engine
     async with engine.connect() as connection:
         await connection.run_sync(Base.metadata.drop_all) # Drop first for clean state
