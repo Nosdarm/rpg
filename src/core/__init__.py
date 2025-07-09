@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 logger.info("Core module initialization started.")
 
 # --- Database and Base CRUD ---
-from .database import Base, get_db_session, transactional, SessionLocal, engine
+from .database import Base, get_db_session, transactional, AsyncSessionLocal, engine
 from .crud_base_definitions import CRUDBase, create_entity, get_entity_by_id, update_entity, delete_entity
 
 # --- Core Utilities & Systems ---
@@ -22,7 +22,7 @@ from .player_utils import get_player
 from .party_utils import get_party
 from .game_events import log_event
 from .report_formatter import format_turn_report
-from .command_utils import process_json_input # General utility
+# Removed: from .command_utils import process_json_input # General utility
 
 # --- AI Systems ---
 from .ai_prompt_builder import (
@@ -59,13 +59,11 @@ from .world_generation import (
 
 
 # --- NLU and Action Processing ---
-from .nlu_service import parse_intent
+from .nlu_service import parse_player_input
 from .interaction_handlers import handle_intra_location_action
-from .action_processor import process_action, process_actions_for_guild # process_action is high-level
+from .action_processor import process_actions_for_guild # process_action is high-level
 from .turn_controller import (
-    get_current_turn_info, advance_turn_for_guild,
-    add_player_action_to_queue, get_pending_actions_for_guild,
-    clear_pending_actions_for_guild,
+    process_guild_turn_if_ready, # Corrected import
     trigger_guild_turn_processing # Added for conflict resolution signaling
 )
 from .conflict_simulation_system import simulate_conflict_detection # For Task 48 (Master Tools)
@@ -73,16 +71,16 @@ from .conflict_simulation_system import simulate_conflict_detection # For Task 4
 
 # --- Map Management ---
 from .map_management import (
-    add_location_master, connect_locations_master, disconnect_locations_master,
-    generate_map_for_guild, get_map_data_for_guild,
-    get_guild_location_details, update_location_details_master, delete_location_master
+    add_location_master, connect_locations_master, disconnect_locations_master
+    # generate_map_for_guild, get_map_data_for_guild, # These functions do not exist in map_management.py
+    # get_guild_location_details, update_location_details_master, delete_location_master # These functions do not exist in map_management.py
 )
 
 
 # Public API of the core module
 __all__ = [
     # Database & Base CRUD
-    "Base", "get_db_session", "transactional", "SessionLocal", "engine",
+    "Base", "get_db_session", "transactional", "AsyncSessionLocal", "engine",
     "CRUDBase", "create_entity", "get_entity_by_id", "update_entity", "delete_entity",
     # Core Utilities & Systems
     "get_rule", "update_rule_config", "load_rules_config_for_guild", "get_all_rules_for_guild",
@@ -93,7 +91,7 @@ __all__ = [
     "get_location_by_static_id",
     "get_player", "get_party",
     "log_event", "format_turn_report",
-    "process_json_input",
+    # Removed: "process_json_input",
     # AI Systems
     "prepare_ai_prompt", "prepare_faction_relationship_generation_prompt",
     "prepare_quest_generation_prompt", "prepare_economic_entity_generation_prompt",
@@ -117,16 +115,15 @@ __all__ = [
     "generate_quests_for_guild",
     "generate_economic_entities",
     # NLU and Action Processing
-    "parse_intent", "handle_intra_location_action",
-    "process_action", "process_actions_for_guild",
-    "get_current_turn_info", "advance_turn_for_guild",
-    "add_player_action_to_queue", "get_pending_actions_for_guild",
-    "clear_pending_actions_for_guild", "trigger_guild_turn_processing",
+    "parse_player_input", "handle_intra_location_action",
+    "process_actions_for_guild",
+    "process_guild_turn_if_ready", # Corrected export
+    "trigger_guild_turn_processing",
     "simulate_conflict_detection",
     # Map Management
     "add_location_master", "connect_locations_master", "disconnect_locations_master",
-    "generate_map_for_guild", "get_map_data_for_guild",
-    "get_guild_location_details", "update_location_details_master", "delete_location_master",
+    # "generate_map_for_guild", "get_map_data_for_guild", # These functions do not exist in map_management.py
+    # "get_guild_location_details", "update_location_details_master", "delete_location_master", # These functions do not exist in map_management.py
     # Dialogue System (Task 51, 52) - Placeholders for future tasks
     # "start_dialogue",
     # "handle_dialogue_input",

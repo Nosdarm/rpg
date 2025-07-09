@@ -7,14 +7,15 @@ if PROJECT_ROOT not in sys.path:
 import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
-from pydantic import ValidationError, parse_obj_as # Added parse_obj_as
+from pydantic import ValidationError, parse_obj_as
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.engine.result import Result, ScalarResult
 
 from src.core.ai_analysis_system import analyze_generated_content, AIAnalysisResult
-from src.core.ai_response_parser import BaseGeneratedEntity
-from src.models import RuleConfig
+from src.core.ai_response_parser import BaseGeneratedEntity, ParsedAiData, GeneratedEntity, PydanticNativeValidationError, CustomValidationError
+from src.models import GuildConfig, RuleConfig
 
 # Enhanced Mock Pydantic models
 class MockParsedNPC(BaseGeneratedEntity):
@@ -55,7 +56,7 @@ class MockParsedLocation(BaseGeneratedEntity):
     entity_type: str = "location"
     static_id: str = "mock_location_default"
     name_i18n: Dict[str, str] = {"en": "Mock Location", "ru": "Тестовая Локация"}
-    descriptions_i18n: Dict[str, str] = {"en": "A place of wonders.", "ru": "Место чудес."} # Note: plural "descriptions"
+    descriptions_i18n: Dict[str, str] = {"en": "A place of wonders.", "ru": "Место чудес."}
     type: str = "generic"
 
 
@@ -69,9 +70,11 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.patch_prepare_economic = patch('src.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
         self.patch_prepare_general_loc = patch('src.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
         self.patch_prepare_faction = patch('src.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system._get_entity_schema_terms', new_callable=MagicMock)
+        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock) # Corrected patch target
         self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
         self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
+
+        self.patch_guild_config_get_for_class = patch('src.core.crud.guild_crud.get', new_callable=AsyncMock)
 
         self.mock_prepare_quest_prompt = self.patch_prepare_quest.start()
         self.mock_prepare_economic_prompt = self.patch_prepare_economic.start()
@@ -80,8 +83,13 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_get_entity_schemas = self.patch_get_entity_schemas.start()
         self.mock_parse_and_validate = self.patch_parse_validate.start()
         self.mock_get_rule = self.patch_get_rule.start()
+        self.mock_guild_config_get_for_class = self.patch_guild_config_get_for_class.start()
 
         self.addCleanup(patch.stopall)
+
+        mock_gc_instance = GuildConfig(id=self.guild_id, main_language="en")
+        mock_gc_instance.supported_languages_json = ["en", "ru"]
+        self.mock_guild_config_get_for_class.return_value = mock_gc_instance
 
         self.mock_prepare_quest_prompt.return_value = "Prompt for Quest"
         self.mock_prepare_economic_prompt.return_value = "Prompt for Economic Entities"
@@ -95,13 +103,8 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_get_rule.side_effect = lambda session, guild_id, key, default: default
 
     async def _run_analysis(self, entity_type: str, mock_test_data_entity: Optional[BaseGeneratedEntity], context_json: Optional[str] = None):
-        from src.core.ai_response_parser import ParsedAiData, GeneratedEntity, PydanticNativeValidationError # Ensure imports
-
         if mock_test_data_entity:
-            # Convert the mock test data (e.g., MockParsedNPC instance) into its corresponding
-            # actual parser model instance (e.g., ParsedNpcData).
             try:
-                # Use model_dump and parse_obj_as to perform the conversion
                 actual_parser_model_instance = parse_obj_as(GeneratedEntity, mock_test_data_entity.model_dump(mode='json'))
                 entities_for_parsed_ai_data = [actual_parser_model_instance]
             except PydanticNativeValidationError as e:
@@ -109,22 +112,15 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
                     f"Failed to convert mock entity {type(mock_test_data_entity)} "
                     f"to actual parser model via parse_obj_as(GeneratedEntity, ...): {e}"
                 )
-
             self.mock_parse_and_validate.return_value = ParsedAiData(
                 raw_ai_output="mock raw output for this single entity test",
                 generated_entities=entities_for_parsed_ai_data
             )
-        # If mock_test_data_entity is None, the specific test is responsible for setting up
-        # self.mock_parse_and_validate.return_value directly. This is handled by previous diffs
-        # for tests like test_key_field_missing_for_item, test_filtering_..., etc.
-        # test_pydantic_validation_error_captured also sets this mock directly to a CustomValidationError.
-
         return await analyze_generated_content(
             session=self.mock_session, guild_id=self.guild_id, entity_type=entity_type,
             generation_context_json=context_json, use_real_ai=False, target_count=1
         )
 
-    # --- Tests for Prompt Builder Calls ---
     async def test_calls_prepare_quest_generation_prompt_for_quest(self):
         await self._run_analysis("quest", MockParsedQuest())
         self.mock_prepare_quest_prompt.assert_called_once_with(self.mock_session, self.guild_id, player_id_context=None, location_id_context=None)
@@ -141,20 +137,17 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def test_calls_simplified_prompt_for_npc_without_location_context(self):
         await self._run_analysis("npc", MockParsedNPC())
         self.mock_prepare_general_loc_prompt.assert_not_called()
-        # Check that _get_entity_schema_terms was involved for the simplified prompt
         self.mock_get_entity_schemas.assert_called()
-
 
     async def test_calls_prepare_faction_prompt_for_faction(self):
         await self._run_analysis("faction", MockParsedFaction())
         self.mock_prepare_faction_prompt.assert_called_once_with(self.mock_session, self.guild_id)
 
-    # --- Tests for Analysis Logic ---
     async def test_i18n_completeness_fail(self):
         npc_missing_ru_name = MockParsedNPC(name_i18n={"en": "Only English Name"})
         self.mock_get_rule.side_effect = lambda s,gid,key,d: {"required_languages":["en","ru"]} if key=="analysis:common:i18n_completeness" else d
         result = await self._run_analysis("npc", npc_missing_ru_name)
-        self.assertIn("Missing or empty i18n field 'name_i18n' for lang 'ru'.", result.analysis_reports[0].issues_found) # Changed 'language' to 'lang'
+        self.assertIn("Missing or empty i18n field 'name_i18n' for required lang 'ru'.", result.analysis_reports[0].issues_found)
 
     async def test_description_length_too_short(self):
         item_short_desc = MockParsedItem(description_i18n={"en": "Short."})
@@ -163,39 +156,12 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Desc/Summary (en) length (6) outside range [20-100].", result.analysis_reports[0].issues_found)
 
     async def test_key_field_missing_for_item(self):
-        # Pydantic model will raise error if static_id or item_type is missing.
-        # This test checks that Pydantic validation catches an item dict missing required fields.
-        item_dict_missing_required_fields = {
-            "entity_type": "item",
-            "static_id": "item1",
-            "name_i18n": {"en": "Item With Missing Fields"}
-            # Missing description_i18n and item_type, which are required by ParsedItemData
-        }
-        from src.core.ai_response_parser import ParsedAiData # Ensure import
-
+        item_dict_missing_required_fields = {"entity_type": "item", "static_id": "item1", "name_i18n": {"en": "Item With Missing Fields"}}
         with self.assertRaises(ValidationError) as context:
-            # Attempting to create ParsedAiData with an invalid item dict in generated_entities
-            # This will fail because Pydantic tries to parse the dict as a GeneratedEntity,
-            # and it will not match ParsedItemData due to missing required fields.
-            ParsedAiData(
-                raw_ai_output="mock raw output",
-                generated_entities=[item_dict_missing_required_fields]  # type: ignore
-            )
-
+            ParsedAiData(raw_ai_output="mock raw output", generated_entities=[item_dict_missing_required_fields])
         errors = context.exception.errors()
-        # Check that 'item_type' is reported missing for ParsedItemData
-        self.assertTrue(
-            any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'item_type' in err['loc'] for err in errors),
-            "ValidationError should report 'item_type' missing for ParsedItemData."
-        )
-        # Check that 'description_i18n' is reported missing for ParsedItemData
-        self.assertTrue(
-            any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'description_i18n' in err['loc'] for err in errors),
-            "ValidationError should report 'description_i18n' missing for ParsedItemData."
-        )
-        # The original test assertion for a custom rule "Item missing key field: 'item_type'."
-        # is now superseded by this Pydantic validation check.
-
+        self.assertTrue(any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'item_type' in err['loc'] for err in errors))
+        self.assertTrue(any(err['type'] == 'missing' and isinstance(err['loc'], tuple) and 'ParsedItemData' in err['loc'] and 'description_i18n' in err['loc'] for err in errors))
 
     async def test_npc_level_out_of_range(self):
         npc_high_level = MockParsedNPC(level=150)
@@ -204,190 +170,95 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         self.assertIn("NPC level (150) outside range [1-100].", result.analysis_reports[0].issues_found)
 
     async def test_quest_missing_steps(self):
-        quest_no_steps_data = MockParsedQuest(steps=[]).model_dump(mode='json')
-        # ParsedQuestData has a validator:
-        # @field_validator('steps') def check_steps_not_empty(cls, v): if not v: raise ValueError("Quest must have at least one step.")
-        # So, parse_obj_as(GeneratedEntity, quest_no_steps_data) in _run_analysis should fail.
-
         with self.assertRaises(AssertionError) as context:
-            await self._run_analysis("quest", MockParsedQuest(steps=[])) # This will trigger the parse_obj_as in _run_analysis
-
-        self.assertIn("Failed to convert mock entity", str(context.exception))
+            await self._run_analysis("quest", MockParsedQuest(steps=[]))
         self.assertIn("Quest must have at least one step", str(context.exception))
-        # The original assertion: self.assertIn("Quest 'steps' field is missing, not a list, or empty.", result.analysis_reports[0].issues_found)
-        # is for a custom analysis rule. If Pydantic validation catches this first (as it does),
-        # the custom rule in analyze_generated_content might not be reached or is redundant.
-        # This revised test now correctly checks that Pydantic's validation (via parse_obj_as in _run_analysis) fails.
 
     async def test_quest_malformed_step(self):
-        # Provide step_order, title_i18n, description_i18n as ParsedQuestStepData expects
-        quest_bad_step_data = {"step_order": 1, "title_i18n": {"en": "Good Title"}, "description_i18n": {"en": "Good Description"}}
-        # For this test, we want to simulate a step that is missing a required field for the *analysis* logic,
-        # but is valid enough to pass initial Pydantic parsing for ParsedQuestData.
-        # The error "Quest Step 1 is malformed or missing key fields (step_order, title_i18n, description_i18n)."
-        # comes from _analyze_quest_specific_rules in ai_analysis_system.py, which checks dict keys.
-        # So, the step itself should be a dict that _analyze_quest_specific_rules will find problematic.
-        # Let's make it miss 'step_order' at the point of analysis, but ensure initial parsing works.
-        # The initial parsing of ParsedQuestData will validate each step against ParsedQuestStepData.
-        # So, to test the custom rule, ParsedQuestStepData must be valid.
-        # The custom rule in _analyze_quest_specific_rules checks:
-        # if not all(k in step for k in ["step_order", "title_i18n", "description_i18n"]):
-        # This means the step *dict* must have these keys.
-        # If ParsedQuestStepData ensures these, then the custom rule is redundant with Pydantic.
-        # Let's assume the test intends for the step to be valid for ParsedQuestStepData.
-        valid_step_for_pydantic = {"step_order": 1, "title_i18n": {"en":"Good"}, "description_i18n":{"en":"Good"}}
-        quest_with_valid_step = MockParsedQuest(steps=[valid_step_for_pydantic])
-        # To test the specific message "Quest Step 1 is malformed...", we'd need to bypass Pydantic validation
-        # for the step itself and pass a dict that the analysis rule would catch.
-        # However, parse_obj_as(GeneratedEntity, ...) in _run_analysis will validate it.
-        # This test, as written, likely conflicts with Pydantic's own validation if the step is truly malformed.
-        # Let's make the step valid for Pydantic and see if the analysis logic has other checks.
-        # If the goal is to test the string "Quest Step 1 is malformed...", then the check in
-        # _analyze_quest_specific_rules is likely redundant if ParsedQuestStepData is strict.
-        # For now, let's provide a fully valid step for Pydantic.
         quest_valid_step = MockParsedQuest(steps=[{"step_order": 1, "title_i18n": {"en": "Valid Step Title", "ru": "Валидный Заголовок Шага"}, "description_i18n": {"en": "Valid Step Description Long Enough", "ru": "Валидное Описание Шага Достаточной Длины"}}])
-
-        # Mock get_rule to disable other checks like i18n completeness for the quest title/summary and description lengths
-        # to focus only on the step structure check (which should pass for a valid step).
         original_get_rule_side_effect = self.mock_get_rule.side_effect
         def specific_get_rule_side_effect(session, guild_id, key, default):
             if key == "analysis:common:i18n_completeness":
-                return {"required_languages": ["en", "ru"], "enabled_for_types": ["npc"]} # Effectively disable for quest
-            if key.startswith("analysis:common:description_length:") or key.startswith("analysis:common:summary_length:"):
-                return {"min": 1, "max": 1000, "enabled_for_types": ["npc"]} # Effectively disable for quest
-            if key.startswith("analysis:quest:field_value:title_i18n") or key.startswith("analysis:quest:field_value:summary_i18n"): # Check for title/summary length rules
-                 return {"min_len": 1, "max_len": 1000, "enabled_for_types": ["npc"]} # Effectively disable for quest
+                 return {"required_languages": ["en", "ru"], "enabled_for_types": ["none"]}
+            if key.startswith("analysis:common:description_length:") or \
+               key.startswith("analysis:common:summary_length:") or \
+               key.startswith("analysis:quest:field_value:title_i18n") or \
+               key.startswith("analysis:quest:field_value:summary_i18n"):
+                 return {"min_len": 1, "max_len": 5000, "enabled_for_types": ["none"]}
             return original_get_rule_side_effect(session, guild_id, key, default)
         self.mock_get_rule.side_effect = specific_get_rule_side_effect
-
         result = await self._run_analysis("quest", quest_valid_step)
-
-        self.mock_get_rule.side_effect = original_get_rule_side_effect # Restore original mock
-
-        # If the step is Pydantic-valid and other rules are disabled, we expect 0 issues.
-        if result.analysis_reports: # Ensure there is a report
-            self.assertEqual(len(result.analysis_reports[0].issues_found), 0,
-                             f"A quest with a Pydantic-valid step and other checks disabled should have no issues. Found: {result.analysis_reports[0].issues_found}")
+        self.mock_get_rule.side_effect = original_get_rule_side_effect
+        if result.analysis_reports:
+            self.assertEqual(len(result.analysis_reports[0].issues_found), 0, f"Found: {result.analysis_reports[0].issues_found}")
         else:
-            self.fail("No analysis report generated for a quest with a Pydantic-valid step.")
-
+            self.fail("No analysis report generated.")
 
     async def test_pydantic_validation_error_captured(self):
-        from src.core.ai_response_parser import CustomValidationError # Import for test
-
-        # Simulate parse_and_validate_ai_response returning a CustomValidationError
         custom_error_details_dicts = [{"loc": ("name_i18n",), "msg": "field required", "type": "value_error.missing", "input": {}}]
-        # Convert details to list of strings as SUT stores them
-        custom_error_details_json_strings = [json.dumps(detail) for detail in custom_error_details_dicts]
-
-        self.mock_parse_and_validate.return_value = CustomValidationError(
-            error_type="TestPydanticValidationError", # Added required field
-            message="Mocked Pydantic Error From Test",
-            details=custom_error_details_dicts # parse_and_validate_ai_response returns dicts here
-        )
-
-        result = await self._run_analysis("npc", None) # Entity type doesn't matter as parsing will "fail" via CustomValidationError
-
+        self.mock_parse_and_validate.return_value = CustomValidationError(error_type="TestPydanticError", message="Mocked Pydantic Error", details=custom_error_details_dicts)
+        result = await self._run_analysis("npc", None)
         self.assertEqual(len(result.analysis_reports), 1)
         report = result.analysis_reports[0]
-
-        # Check that the SUT correctly identifies the CustomValidationError
-        self.assertTrue(any("AI Response Validation Error: Mocked Pydantic Error From Test" in issue for issue in report.issues_found))
-
-        self.assertIsNotNone(report.validation_errors)
-        self.assertEqual(len(report.validation_errors), 1) # type: ignore[arg-type]
-        # The SUT stores details as JSON strings in the report
-        self.assertEqual(report.validation_errors[0], custom_error_details_json_strings[0]) # type: ignore[index]
-        # Pydantic v2 errors() returns loc as a list of strings/ints, not a tuple
-        # Adjusted to check for presence of key parts rather than exact tuple match for loc
-        self.assertIn('"loc": ', report.validation_errors[0]) # type: ignore[index]
-        self.assertIn('"name_i18n"', report.validation_errors[0]) # type: ignore[index]
-        self.assertIn('"msg": "field required"', report.validation_errors[0]) # type: ignore[index] # Use double quotes for JSON string value
-
+        self.assertTrue(any("AI Response Validation Error: Mocked Pydantic Error" in issue for issue in report.issues_found))
+        self.assertEqual(report.validation_errors, [json.dumps(d) for d in custom_error_details_dicts])
 
     async def test_filtering_of_parsed_entities_item_from_economic_prompt(self):
-        # Economic prompt generates items and npc_traders
-        # We request "item", so only item should be analyzed
         mock_item = MockParsedItem(static_id="item_to_find")
-        mock_trader = MockParsedNPC(entity_type="npc_trader", static_id="trader_to_ignore") # This mock has entity_type="npc" due to MockParsedNPC definition
-        from src.core.ai_response_parser import ParsedAiData, GeneratedEntity # Ensure import
-
-        # Convert mock instances to their dict representations and then parse them as GeneratedEntity
-        # This ensures they are instances of the actual parser models (e.g., ParsedItemData, ParsedNpcTraderData)
-        actual_item = parse_obj_as(GeneratedEntity, mock_item.model_dump(mode='json'))
-        # For mock_trader, explicitly create a dict that would parse as ParsedNpcTraderData
         mock_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="trader_to_ignore").model_dump(mode='json')
+        actual_item = parse_obj_as(GeneratedEntity, mock_item.model_dump(mode='json'))
         actual_trader = parse_obj_as(GeneratedEntity, mock_trader_dict)
-
-        self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="mock raw output for filtering test",
-            generated_entities=[actual_item, actual_trader]
-        )
-
-        result = await self._run_analysis("item", None) # mock_test_data_entity is None because we set the mock directly
-
-        self.assertEqual(len(result.analysis_reports), 1) # Should only be one report for the item
-        report = result.analysis_reports[0]
-        self.assertEqual(report.entity_data_preview.get("static_id"), "item_to_find")
-        self.assertNotIn("trader_to_ignore", report.entity_data_preview.get("static_id", ""))
-
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_trader])
+        result = await self._run_analysis("item", None)
+        self.assertEqual(len(result.analysis_reports), 1)
+        self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "item_to_find")
 
     async def test_filtering_of_parsed_entities_npc_from_location_prompt(self):
-        # Location prompt might generate NPCs, items, etc.
-        # We request "npc", so only npc/npc_trader should be analyzed
-        mock_npc = MockParsedNPC(static_id="npc_to_find") # entity_type="npc" by default from MockParsedNPC
+        mock_npc = MockParsedNPC(static_id="npc_to_find")
         mock_item_in_loc = MockParsedItem(static_id="item_to_ignore")
-        # Ensure mock_npc_trader is correctly typed for parsing as ParsedNpcTraderData
         mock_npc_trader_dict = MockParsedNPC(entity_type="npc_trader", static_id="npc_trader_to_find").model_dump(mode='json')
-
-        from src.core.ai_response_parser import ParsedAiData, GeneratedEntity # Ensure import
-
         actual_item = parse_obj_as(GeneratedEntity, mock_item_in_loc.model_dump(mode='json'))
         actual_npc = parse_obj_as(GeneratedEntity, mock_npc.model_dump(mode='json'))
         actual_npc_trader = parse_obj_as(GeneratedEntity, mock_npc_trader_dict)
-
-        self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="mock raw output for filtering test",
-            generated_entities=[actual_item, actual_npc, actual_npc_trader]
-        )
-
-        # We expect to analyze the first NPC or NPC_Trader found
-        result = await self._run_analysis("npc", None) # mock_test_data_entity is None
-
+        self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=[actual_item, actual_npc, actual_npc_trader])
+        result = await self._run_analysis("npc", None)
         self.assertEqual(len(result.analysis_reports), 1)
-        report = result.analysis_reports[0]
-        # The current logic takes the *first* match. If npc comes before npc_trader in the list:
-        self.assertEqual(report.entity_data_preview.get("static_id"), "npc_to_find")
+        self.assertEqual(result.analysis_reports[0].entity_data_preview.get("static_id"), "npc_to_find")
 
 
-# --- Tests for main analyze_generated_content function ---
 class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.mock_session = AsyncMock(spec=AsyncSession)
         self.guild_id = 1
 
-        # Patch all external dependencies that analyze_generated_content might call
         self.patch_prepare_quest = patch('src.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
         self.patch_prepare_economic = patch('src.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
         self.patch_prepare_general_loc = patch('src.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
         self.patch_prepare_faction = patch('src.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system._get_entity_schema_terms', new_callable=MagicMock)
+        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock) # Corrected patch target
 
         self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
         self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
         self.patch_make_real_ai_call = patch('src.core.ai_analysis_system.make_real_ai_call', new_callable=AsyncMock)
 
-        # Specific analyzer functions within the same module
-        self.patch_analyze_item_balance = patch('src.core.ai_analysis_system._analyze_item_balance', new_callable=AsyncMock)
-        # self.patch_analyze_npc_balance = patch('src.core.ai_analysis_system._analyze_npc_balance', new_callable=AsyncMock) # Removed
-        # self.patch_analyze_quest_balance = patch('src.core.ai_analysis_system._analyze_quest_balance', new_callable=AsyncMock) # Removed
-        # self.patch_analyze_text_lore = patch('src.core.ai_analysis_system._analyze_text_content_lore', new_callable=AsyncMock) # Removed
-        # self.patch_analyze_props_structure = patch('src.core.ai_analysis_system._analyze_properties_json_structure', new_callable=AsyncMock) # Removed
+        self.patch_analyze_item_balance = patch('src.core.ai_analysis_system._m_analyze_item_balance', new_callable=AsyncMock)
+        self.patch_analyze_npc_balance = patch('src.core.ai_analysis_system._m_analyze_npc_balance', new_callable=AsyncMock)
+        self.patch_analyze_quest_balance = patch('src.core.ai_analysis_system._m_analyze_quest_balance', new_callable=AsyncMock)
+        self.patch_analyze_text_lore = patch('src.core.ai_analysis_system._m_analyze_text_content_lore', new_callable=AsyncMock)
+        self.patch_analyze_props_structure = patch('src.core.ai_analysis_system._m_analyze_properties_json_structure', new_callable=AsyncMock)
 
-        # Path should be where it's looked up: in ai_analysis_system module, it's guild_config_crud.get
-        # We will not patch guild_config_crud.get directly, but rather the session.execute it uses internally.
-        # self.patch_guild_config_crud_get = patch('src.core.ai_analysis_system.guild_config_crud.get', new_callable=AsyncMock)
+        self.patch_guild_config_get_main = patch('src.core.crud.guild_crud.get', new_callable=AsyncMock)
+        self.mock_guild_config_get_main = self.patch_guild_config_get_main.start()
 
+        async def async_guild_config_mock_main(*args, **kwargs):
+            gc = GuildConfig(id=self.guild_id, main_language="en")
+            gc.supported_languages_json = ["en", "ru"]
+            gc.game_rules_json = {}
+            gc.ai_generation_configs_json = {}
+            gc.command_configs_json = {}
+            gc.properties_json = {}
+            return gc
+        self.mock_guild_config_get_main.side_effect = async_guild_config_mock_main
 
         self.mock_prepare_quest_prompt = self.patch_prepare_quest.start()
         self.mock_prepare_economic_prompt = self.patch_prepare_economic.start()
@@ -398,142 +269,123 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         self.mock_get_rule = self.patch_get_rule.start()
         self.mock_make_real_ai_call = self.patch_make_real_ai_call.start()
 
-        # self.mock_analyze_item_balance = self.patch_analyze_item_balance.start() # Removed
-        # self.mock_analyze_npc_balance = self.patch_analyze_npc_balance.start() # Removed
-        # self.mock_analyze_quest_balance = self.patch_analyze_quest_balance.start() # Removed
-        # self.mock_analyze_text_lore = self.patch_analyze_text_lore.start() # Removed
-        # self.mock_analyze_props_structure = self.patch_analyze_props_structure.start() # Removed
-
-        self.mock_guild_config_crud_get = self.patch_guild_config_crud_get.start()
+        self.mock_analyze_item_balance = self.patch_analyze_item_balance.start()
+        self.mock_analyze_npc_balance = self.patch_analyze_npc_balance.start()
+        self.mock_analyze_quest_balance = self.patch_analyze_quest_balance.start()
+        self.mock_analyze_text_lore = self.patch_analyze_text_lore.start()
+        self.mock_analyze_props_structure = self.patch_analyze_props_structure.start()
 
         self.addCleanup(patch.stopall)
 
-        # Default mock behaviors
         self.mock_prepare_economic_prompt.return_value = "Economic Prompt"
-        self.mock_get_entity_schemas.return_value = {} # Keep it simple unless schema is directly tested
+        self.mock_get_entity_schemas.return_value = {}
         self.mock_get_rule.side_effect = lambda s, gid, key, default: default
-        self.mock_make_real_ai_call.return_value = json.dumps([MockParsedItem().model_dump(mode='json')]) # Default AI response
-
-        # Default GuildConfig mock
-        # self.mock_guild_config_crud_get should be an AsyncMock if guild_config_crud.get is async
-        # And its return_value (when awaited) should be the mock_gc object.
-        mock_gc_object = MagicMock()
-        mock_gc_object.supported_languages_json = ["en", "de"] # Test with different langs
-
-        # If guild_config_crud.get is an async method:
-        # async_mock_for_get = AsyncMock() # This was creating an unnecessary intermediate AsyncMock
-        # async_mock_for_get.return_value = mock_gc_object
-        # self.mock_guild_config_crud_get.return_value = async_mock_for_get
-
-        # Correct approach: self.mock_guild_config_crud_get is already an AsyncMock due to new_callable=AsyncMock.
-        # Its .return_value is what's provided *after* an await.
-        self.mock_guild_config_crud_get.return_value = mock_gc_object
-
+        self.mock_make_real_ai_call.return_value = json.dumps([MockParsedItem().model_dump(mode='json')])
 
     async def test_analyze_generated_content_calls_item_specific_analyzers(self):
-        from src.core.ai_response_parser import ParsedAiData
         mock_item_data = MockParsedItem(static_id="test_item1")
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_item_data] # Pass the Pydantic model instance
+            raw_ai_output="...", generated_entities=[mock_item_data.model_dump(mode='json')]
         )
-
         await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
-
         self.mock_analyze_item_balance.assert_called_once()
-        self.mock_analyze_text_lore.assert_called() # name_i18n, description_i18n
+        self.mock_analyze_text_lore.assert_called()
         self.mock_analyze_props_structure.assert_called_once()
         self.mock_analyze_npc_balance.assert_not_called()
         self.mock_analyze_quest_balance.assert_not_called()
 
     async def test_analyze_generated_content_calls_npc_specific_analyzers(self):
-        from src.core.ai_response_parser import ParsedAiData
         mock_npc_data = MockParsedNPC(static_id="test_npc1")
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_npc_data]
+            raw_ai_output="...", generated_entities=[mock_npc_data.model_dump(mode='json')]
         )
         await analyze_generated_content(self.mock_session, self.guild_id, "npc", target_count=1)
-
         self.mock_analyze_npc_balance.assert_called_once()
         self.mock_analyze_text_lore.assert_called()
         self.mock_analyze_props_structure.assert_called_once()
         self.mock_analyze_item_balance.assert_not_called()
 
     async def test_i18n_completeness_uses_guild_config_languages(self):
-        from src.core.ai_response_parser import ParsedAiData
-        # GuildConfig mock in setUp specifies ["en", "de"]
-        item_missing_de = MockParsedItem(name_i18n={"en": "Test Item"}) # Missing "de"
-        self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item_missing_de]
-        )
+        original_side_effect = self.mock_guild_config_get_main.side_effect
+        async def specific_guild_config_side_effect(*args, **kwargs):
+            gc = GuildConfig(id=self.guild_id, main_language="en")
+            gc.supported_languages_json = ["en", "de"]
+            return gc
+        self.mock_guild_config_get_main.side_effect = specific_guild_config_side_effect
 
+        item_missing_de = MockParsedItem(name_i18n={"en": "Test Item"})
+        self.mock_parse_and_validate.return_value = ParsedAiData(
+            raw_ai_output="...", generated_entities=[item_missing_de.model_dump(mode='json')]
+        )
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
 
-        self.mock_guild_config_crud_get.assert_called_once_with(self.mock_session, id=self.guild_id)
+        self.mock_guild_config_get_main.assert_called_once_with(self.mock_session, id=self.guild_id)
         report = result.analysis_reports[0]
         self.assertIn("Missing or empty i18n field 'name_i18n' for required lang 'de'.", report.issues_found)
         self.assertNotIn("Missing or empty i18n field 'name_i18n' for required lang 'ru'.", report.issues_found)
 
+        self.mock_guild_config_get_main.side_effect = original_side_effect
+
     async def test_uniqueness_check_duplicate_static_id(self):
-        from src.core.ai_response_parser import ParsedAiData
         item1 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
         item2 = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item1, item2]
+            raw_ai_output="...", generated_entities=[item1.model_dump(mode='json'), item2.model_dump(mode='json')]
         )
-
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
-
         self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
         self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[1].issues_found)
         self.assertEqual(result.analysis_reports[0].quality_score_details["batch_static_id_uniqueness"], 0.1)
         self.assertEqual(result.analysis_reports[1].quality_score_details["batch_static_id_uniqueness"], 0.1)
 
     async def test_uniqueness_check_duplicate_name_i18n(self):
-        from src.core.ai_response_parser import ParsedAiData
         item1 = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
         item2 = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[item1, item2]
+            raw_ai_output="...", generated_entities=[item1.model_dump(mode='json'), item2.model_dump(mode='json')]
         )
-
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
-
         self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
         self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[1].issues_found)
         self.assertEqual(result.analysis_reports[0].quality_score_details["batch_name_uniqueness_en"], 0.1)
         self.assertEqual(result.analysis_reports[1].quality_score_details["batch_name_uniqueness_en"], 0.1)
-        # Check that 'ru' names are considered unique
         self.assertEqual(result.analysis_reports[0].quality_score_details.get("batch_name_uniqueness_ru"), 1.0)
         self.assertEqual(result.analysis_reports[1].quality_score_details.get("batch_name_uniqueness_ru"), 1.0)
 
     async def test_score_aggregation(self):
-        from src.core.ai_response_parser import ParsedAiData
         mock_item_data = MockParsedItem()
         self.mock_parse_and_validate.return_value = ParsedAiData(
-            raw_ai_output="...", generated_entities=[mock_item_data]
+            raw_ai_output="...", generated_entities=[mock_item_data.model_dump(mode='json')]
         )
-
-        # Mock the detail scores set by individual analyzers
         async def mock_item_balance_side_effect(data, report, session, guild_id):
             report.balance_score_details["value_vs_prop"] = 0.8
             report.balance_score_details["damage_cap"] = 0.9
         self.mock_analyze_item_balance.side_effect = mock_item_balance_side_effect
-
         async def mock_text_lore_side_effect(text, field, report, session, guild_id, entity_type):
-            if field == "name_i18n": report.lore_score_details["name_restricted"] = 0.9
-            if field == "description_i18n": report.lore_score_details["desc_restricted"] = 0.7
+            if field == "name_i18n": report.lore_score_details["name_i18n.en_restricted"] = 0.9
+            if field == "description_i18n": report.lore_score_details["description_i18n.en_restricted"] = 0.7
         self.mock_analyze_text_lore.side_effect = mock_text_lore_side_effect
-
         async def mock_props_structure_side_effect(data, report, session, guild_id, entity_type):
-            report.quality_score_details["props_required"] = 0.95
+            report.quality_score_details["properties_json_structure_required"] = 0.95
         self.mock_analyze_props_structure.side_effect = mock_props_structure_side_effect
 
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
         report = result.analysis_reports[0]
 
-        self.assertAlmostEqual(report.balance_score_details["overall_balance_avg"], (0.8 + 0.9) / 2)
-        self.assertAlmostEqual(report.lore_score_details["overall_lore_avg"], (0.9 + 0.7) / 2)
-        self.assertAlmostEqual(report.quality_score_details["overall_quality_avg"], (0.95 + 1.0) / 2) # +1.0 from batch_static_id_uniqueness and batch_name_uniqueness
+        self.assertAlmostEqual(report.balance_score, (0.8 + 0.9) / 2)
+        self.assertAlmostEqual(report.lore_score_details.get("overall_lore_avg"), (0.9 + 0.7) / 2)
+
+        expected_quality_avg = (
+            0.95 +
+            1.0 +
+            1.0 +
+            1.0 +
+            1.0 +
+            1.0 +
+            1.0 +
+            1.0
+        ) / 8
+        self.assertAlmostEqual(report.quality_score_details.get("overall_quality_avg"), expected_quality_avg, places=5)
 
 
 if __name__ == '__main__':

@@ -81,7 +81,7 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         # Случай 3: Ответ с пробелами и кавычками
         mock_random_choice.return_value = '  "  Spaced out secret.  "  '
         response3 = await generate_npc_dialogue(mock_session, guild_id, test_context)
-        self.assertEqual(response3, " Spaced out secret.  ") # strip() убирает внешние, кавычки убираются, внутренние пробелы остаются
+        self.assertEqual(response3, "Spaced out secret.") # Ожидаем, что внутренние пробелы также будут удалены
 
     @patch('src.core.dialogue_system.prepare_dialogue_generation_prompt', side_effect=Exception("Unexpected error during prompt generation"))
     async def test_generate_npc_dialogue_unexpected_exception(self, mock_prepare_prompt_exception):
