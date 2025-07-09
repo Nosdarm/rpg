@@ -73,6 +73,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             # The first argument to command.callback is the Interaction,
             # `self` (the cog instance) is bound by the decorator.
             await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
+                self.cog,
                 cast(discord.Interaction, mock_interaction), # Interaction
                 "perception", # check_type
                 101,          # actor_id
@@ -103,10 +104,10 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
+                self.cog,
                 cast(discord.Interaction, mock_interaction), # Interaction
-                # check_type="test", actor_id=1, actor_type="player", # These are positional in the test
-                "test", 1, "player", # Pass as positional arguments
-                json_context="not_a_valid_json"
+                "test", 1, "player", # Positional: check_type, actor_id, actor_type
+                json_context="not_a_valid_json" # Keyword argument
             )
         mock_interaction.followup.send.assert_called_once()
         args, _ = mock_interaction.followup.send.call_args
@@ -126,6 +127,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
+                self.cog,
                 cast(discord.Interaction, mock_interaction), # Interaction
                 "test", # check_type
                 999,    # actor_id
@@ -178,11 +180,12 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_combat_action_command.callback( # type: ignore[arg-type]
+                self.cog,
                 cast(discord.Interaction, mock_interaction), # Interaction
                 1,          # combat_encounter_id
                 101,        # actor_id
                 "player",   # actor_type
-                action_data_str # action_json_data was a typo, should be action_data_str
+                action_data_str # action_json_data
                 # dry_run is optional and defaults to False
             )
 

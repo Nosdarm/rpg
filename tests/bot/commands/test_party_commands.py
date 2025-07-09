@@ -62,7 +62,11 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         self.patcher_get_localized_text = patch('src.bot.commands.party_commands.get_localized_text')
         self.mock_get_localized_text = self.patcher_get_localized_text.start()
-        self.mock_get_localized_text.side_effect = lambda entity, field, lang, fallback="en": entity.name_i18n.get(lang, entity.name_i18n.get(fallback, "Unknown Location"))
+        # Corrected lambda to match the actual signature and logic of get_localized_text
+        self.mock_get_localized_text.side_effect = lambda i18n_field, language, fallback_language="en": \
+            i18n_field.get(language) if i18n_field and i18n_field.get(language) is not None \
+            else i18n_field.get(fallback_language, "Unknown Location From Mock") if i18n_field \
+            else "Unknown Location From Mock"
 
 
         self.guild = MockGuild(id=789)
