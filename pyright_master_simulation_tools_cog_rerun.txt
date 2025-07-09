@@ -1,4 +1,0 @@
-/app/src/bot/commands/master_commands/master_simulation_tools_cog.py
-  /app/src/bot/commands/master_commands/master_simulation_tools_cog.py:350:65 - error: "get" is not a known attribute of "None" (reportOptionalMemberAccess)
-  /app/src/bot/commands/master_commands/master_simulation_tools_cog.py:350:132 - error: "get" is not a known attribute of "None" (reportOptionalMemberAccess)
-2 errors, 0 warnings, 0 informations
