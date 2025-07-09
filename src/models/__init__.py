@@ -20,6 +20,7 @@ from .inventory_item import InventoryItem # Import InventoryItem model
 from .story_log import StoryLog # Import StoryLog model
 from .relationship import Relationship # Import Relationship model
 from .player_npc_memory import PlayerNpcMemory # Import PlayerNpcMemory model
+from .party_npc_memory import PartyNpcMemory # Import PartyNpcMemory model
 from .ability import Ability # Import Ability model
 from .skill import Skill # Import Skill model
 from .status_effect import StatusEffect, ActiveStatusEffect # Import StatusEffect models
@@ -92,7 +93,7 @@ from .enums import QuestStatus # Ensure QuestStatus is explicitly mentioned if n
 logger.info(
     "Пакет моделей инициализирован. Загружены: Base, GuildConfig, RuleConfig, Location, LocationType, "
     "PlayerStatus, PartyTurnStatus, OwnerEntityType, EventType, RelationshipEntityType, QuestStatus, ConflictStatus, CombatStatus, Player, Party, "
-    "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, Ability, Skill, "
+    "GeneratedNpc, GeneratedFaction, Item, InventoryItem, StoryLog, Relationship, PlayerNpcMemory, PartyNpcMemory, Ability, Skill, " # Added PartyNpcMemory
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, " # MobileGroup removed from here for now
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
     "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail, "

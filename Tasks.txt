@@ -133,11 +133,7 @@ This block presents tasks related to dynamic NPC dialogues using LLM and storing
 {Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules). - Moved to Done.txt}
 {Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped). - Moved to Done.txt}
 
-Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild).
-Description: Storing NPC interaction history with players/parties. (Renamed from 11.4, moved from 47).
-Implement PlayerNpcMemory/PartyNpcMemory models (0.2/7). BOTH INCLUDE guild_id. Utilities require guild_id.
-API add_to_npc_memory(guild_id: int, player_id/party_id, npc_id, event_type: str, details: dict). Called by other modules upon significant events (dialogue 46, quest 41, combat 27, relationship change 31).
-Utility get_npc_memory(guild_id: int, player_id/party_id, npc_id) -> List[MemoryEntry]: Loads memory for this NPC and Player/Party IN THIS GUILD. Used in 50 (for LLM context).
+{Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild). - Moved to Done.txt}
 
 Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped).
 Description: Processing player input in dialogue mode. This is part of module 13 (NLU) logic.

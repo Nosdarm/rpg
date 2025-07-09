@@ -48,6 +48,7 @@ from .quest_system import handle_player_event_for_quest
 from .trade_system import handle_trade_action # Task 44
 from .global_entity_manager import simulate_global_entities_for_guild # Task 46
 from .dialogue_system import generate_npc_dialogue, start_dialogue, handle_dialogue_input, end_dialogue # Added for Task 50, Task 51
+from .npc_memory_system import add_to_npc_memory, get_npc_memory # Task 52
 
 # --- World Generation ---
 from .world_generation import (
@@ -114,6 +115,8 @@ __all__ = [
     "start_dialogue", # Task 51
     "handle_dialogue_input", # Task 51
     "end_dialogue", # Task 51 - добавляем новую функцию
+    "add_to_npc_memory", # Task 52
+    "get_npc_memory", # Task 52
     # World Generation
     "generate_location", "generate_factions_and_relationships",
     "generate_quests_for_guild",
