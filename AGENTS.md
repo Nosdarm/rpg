@@ -99,6 +99,29 @@
 ---
 ## Лог действий
 
+## Task 65: 🖥️ UI.11 UI for Balance Tools
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницы для доступа к инструментам балансировки и тестирования (симуляция проверок, боевых действий, конфликтов; анализ AI генерации). Подготовить TypeScript интерфейсы, стабы UI сервисов, документацию по API и заглушки UI страниц/тестов.
+- **Выполненные действия**:
+    - Шаг 1: Определены TypeScript интерфейсы в `src/ui/src/types/simulation.ts` для:
+        - `UISimulateCheckParams`, `IUICheckResult` (и связанных `IModifierDetail`, `ICheckOutcome`).
+        - `UISimulateCombatActionParams`, `UICombatActionResult`.
+        - `UISimulateConflictParams`, `UIInputConflictAction`, `UIInputParsedAction`, `UIActionEntity`, `UIPydanticConflictForSim`.
+        - `UIAnalyzeAiGenerationParams`, `UIAnalyzableEntityType`, `UIAiAnalysisResult`, `UIEntityAnalysisReport`.
+    - Шаг 2: Созданы стабы (заглушки) API сервисов в UI:
+        - В `src/ui/src/services/balanceToolsService.ts` реализованы моковые функции: `simulateCheck`, `simulateCombatAction`, `simulateConflict`, `analyzeAiGeneration`.
+    - Шаг 3: Добавлена секция "Документация API для UI Task 65: Инструменты Балансировки" в `AGENTS.md`, описывающая релевантные команды `/master_simulate` и `/master_analyze`.
+    - Шаг 4: Созданы файлы-заглушки для UI-компонентов и их тестов в `src/ui/src/pages/BalanceToolsPage/`:
+        - `BalanceToolsPage.tsx` и `BalanceToolsPage.test.tsx`
+        - `SimulateCheckTab.tsx` и `SimulateCheckTab.test.tsx`
+        - `SimulateCombatActionTab.tsx` и `SimulateCombatActionTab.test.tsx`
+        - `SimulateConflictTab.tsx` и `SimulateConflictTab.test.tsx`
+        - `AnalyzeAiGenerationTab.tsx` и `AnalyzeAiGenerationTab.test.tsx`
+    - Шаг 4 (продолжение): Создан файл-заглушка для тестов UI-сервиса:
+        - `src/ui/src/services/balanceToolsService.test.ts`
+    - Шаг 5: Обновлен `AGENTS.md` (этот лог и текущий план).
+- **Статус Task 65**: Подготовка UI-контрактов, стабов, документации API и заглушек UI-компонентов/тестов для инструментов балансировки завершена. Задача готова к передаче UI-разработчикам для полной реализации UI и тестов.
+
 ## Task 64: 🖥️ UI.10 UI for Monitoring and Logging
 - **Дата**: [Текущая дата]
 - **Определение задачи**: Создать UI страницы для мониторинга состояния игры и просмотра логов (WorldState, StoryLog), а также для визуализации карты (Locations). Подготовить TypeScript интерфейсы, стабы UI сервисов и документацию по API.
@@ -1046,6 +1069,78 @@
         *   **Игроки (`Player`) и Генерируемые NPC (`GeneratedNpc`)**: Используйте `playerService.ts` и `npcService.ts` (из Task 57). Соответствующие мастер-команды: `/master_player list`, `/master_npc list`. Модели `Player` и `GeneratedNpc` содержат `current_location_id`.
         *   **Глобальные NPC (`GlobalNpc`) и Мобильные Группы (`MobileGroup`)**: Используйте `globalEntityService.ts` (из Task 63). Соответствующие мастер-команды: `/master_global_npc list`, `/master_mobile_group list`. Модели содержат `current_location_id`.
     *   UI будет агрегировать эти данные для отображения всех сущностей на карте в их текущих локациях.
+
+---
+
+## Документация API для UI Task 65: Инструменты Балансировки
+
+Эта документация описывает мастер-команды Discord, которые UI будет вызывать через API шлюз (концептуально), для использования инструментов балансировки и симуляции.
+
+**Общие замечания:**
+
+*   Все команды требуют `guild_id`.
+*   Параметры передаются как часть объекта `parameters` при вызове через концептуальный `MASTER_COMMAND_ENDPOINT`.
+*   Ответы команд будут содержать локализованные строки на языке Мастера, где это применимо.
+*   Типы данных TypeScript (например, `IUICheckResult`, `UICombatActionResult`, `UIPydanticConflictForSim`, `UIAiAnalysisResult`) определены в `src/ui/src/types/simulation.ts`.
+
+---
+
+**1. Симуляция Проверки (`/master_simulate check`)**
+
+*   **Команда Discord**: `/master_simulate check`
+*   **Описание**: Симулирует игровую проверку (например, навыка, атаки) на основе правил.
+*   **Параметры UI (`UISimulateCheckParams`) -> Команда**:
+    *   `check_type: string` (Тип проверки, например, "perception", "attack_roll", "stealth")
+    *   `actor_id: number` (ID сущности, выполняющей проверку)
+    *   `actor_type: string` (Тип актора: "player", "generated_npc")
+    *   `target_id: Optional[int]` (ID целевой сущности, необязательно)
+    *   `target_type: Optional[str]` (Тип цели: "player", "generated_npc", необязательно)
+    *   `difficulty_dc: Optional[int]` (Класс Сложности (DC) для проверки, необязательно)
+    *   `json_context: Optional[str]` (Дополнительный контекст для проверки в формате JSON-строки, необязательно)
+*   **Ответ**: `IUICheckResult`
+    *   Включает: `guild_id`, `check_type`, детали актора/цели, `difficulty_class`, `dice_notation`, `raw_rolls`, `roll_used`, `total_modifier`, `modifier_details` (список `IModifierDetail`), `final_value`, `outcome` (объект `ICheckOutcome` со статусом и описанием), `rule_config_snapshot`, `check_context_provided`.
+
+---
+
+**2. Симуляция Боевого Действия (`/master_simulate combat_action`)**
+
+*   **Команда Discord**: `/master_simulate combat_action`
+*   **Описание**: Симулирует выполнение одного боевого действия в существующем бою.
+*   **Параметры UI (`UISimulateCombatActionParams`) -> Команда**:
+    *   `combat_encounter_id: int` (ID существующего `CombatEncounter`)
+    *   `actor_id: int` (ID сущности, выполняющей действие)
+    *   `actor_type: str` (Тип актора: "player", "generated_npc")
+    *   `action_json_data: str` (JSON-строка, описывающая действие. Например, `{"action_type": "attack", "target_id": 102, "target_type": "npc"}`)
+    *   `dry_run: bool` (По умолчанию `false`. Если `true`, симуляция выполняется без сохранения изменений в БД, насколько это возможно бэкендом)
+*   **Ответ**: `UICombatActionResult`
+    *   Включает: `success` (bool), `action_type`, детали актора/цели, `damage_dealt`, `healing_done`, `status_effects_applied`, `check_result` (типа `IUICheckResult`), `description_i18n`, `costs_paid`, `additional_details`.
+    *   Команда на бэкенде также может возвращать обновленное состояние участников боя (`participants_json_post_action`) для отображения в UI.
+
+---
+
+**3. Симуляция Обнаружения Конфликтов (`/master_simulate conflict`)**
+
+*   **Команда Discord**: `/master_simulate conflict`
+*   **Описание**: Симулирует обнаружение конфликтов для набора действий.
+*   **Параметры UI (`UISimulateConflictParams`) -> Команда**:
+    *   `actions_json: str` (JSON-строка списка действий. Структура каждого элемента списка: `UIInputConflictAction`, который содержит `actor_id`, `actor_type` и `parsed_action` типа `UIInputParsedAction` (с полями `raw_text`, `intent`, `entities: List<UIActionEntity>`)).
+*   **Ответ**: `List<UIPydanticConflictForSim>`
+    *   Каждый элемент `UIPydanticConflictForSim` описывает обнаруженный конфликт: `guild_id`, `conflict_type`, `status`, `involved_entities_json` (детали вовлеченных акторов и их действий), `resolution_details_json`, `turn_number`.
+
+---
+
+**4. Анализ Генерации AI (`/master_analyze ai_generation`)**
+
+*   **Команда Discord**: `/master_analyze ai_generation`
+*   **Описание**: Анализирует контент, сгенерированный AI, на соответствие правилам и качеству.
+*   **Параметры UI (`UIAnalyzeAiGenerationParams`) -> Команда**:
+    *   `entity_type: str` (Тип контента для анализа: "npc", "item", "quest", "location", "faction")
+    *   `generation_context_json: Optional[str]` (JSON-строка для специфического контекста генерации, необязательно)
+    *   `target_count: int` (Количество сущностей для генерации и анализа, по умолчанию 1, максимум 5 для команды)
+    *   `use_real_ai: bool` (Использовать реальный OpenAI API (`true`) или мок-данные (`false`, по умолчанию))
+*   **Ответ**: `UIAiAnalysisResult`
+    *   Содержит: `requested_entity_type`, `requested_target_count`, `used_real_ai`, `generation_context_provided`, `overall_summary`.
+    *   Основное поле - `analysis_reports: List<UIEntityAnalysisReport>`. Каждый `UIEntityAnalysisReport` включает: `entity_index`, `entity_data_preview`, `raw_ai_response`, `parsed_entity_data`, `issues_found`, `suggestions`, `balance_score`, `validation_errors`, `balance_score_details`, `lore_score_details`, `quality_score_details`.
 
 ---
 ## Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)
