@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.core.database import get_async_session # For FastAPI Depends
+from src.core.database import get_db_session # Corrected import
 from src.models.master_user import MasterUser # For FastAPI Depends
 from src.core.crud import crud_master_user # For FastAPI Depends
 
@@ -84,7 +84,7 @@ async def get_current_token_payload(token: Optional[str] = Depends(oauth2_scheme
     return token_payload
 
 async def get_current_master_user(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_db_session), # Corrected
     token_payload: TokenPayload = Depends(get_current_token_payload)
 ) -> MasterUser:
     """
@@ -115,3 +115,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+# Note: The get_optional_current_master_user function was not present in the provided file content.
+# If it exists elsewhere and uses get_async_session, it should also be updated to get_db_session.

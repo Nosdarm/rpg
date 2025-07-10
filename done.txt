@@ -12,3 +12,13 @@
     - Ensuring full localization of user-facing messages.
     - Addressing and fixing several linting issues that arose during development.
 ---
+
+**Task 60: 🖥️ UI.6 UI for Inventory and Item Management (Backend Preparation)**
+- **Completed**: [Текущая дата]
+- **Description**: Prepared backend APIs and UI contract for inventory and item management UI.
+    - Enhanced `/master_player view` and `/master_npc view` commands to optionally include detailed inventory information.
+    - Improved `/master_item update` command to support updating multiple fields via a single `data_json` parameter.
+    - Created/updated TypeScript definitions in `src/ui/src/types/` for `ItemDefinition`, `ItemPayload`, `InventoryItemData`, `EnrichedInventoryItem`, and ensured `Player` & `GeneratedNpc` types can include enriched inventory.
+    - Created/updated UI service stubs in `src/ui/src/services/` (`itemService.ts`, `inventoryService.ts`, `playerService.ts`, `npcService.ts`) to reflect new API capabilities and provide a clear interface for UI developers.
+    - Documented the relevant API endpoints and data structures for the UI team in `AGENTS.MD`.
+---
