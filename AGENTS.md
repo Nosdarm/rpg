@@ -41,9 +41,68 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет заполняться планом для следующей задачи)*
+1.  ***Анализ задачи и зависимостей***
+    *   Изучить описание Task 63.
+    *   Проверить Task 45 (Global Entity Models) и Task 41 (CRUD API) на предмет готовности моделей (`GlobalNpc`, `MobileGroup`, `GlobalEvent`) и соответствующих мастер-команд.
+    *   Определить, какие мастер-команды (API) из Task 41 (реализованные в Task 47) будут использоваться для CRUD операций над `GlobalNpc` и `MobileGroup`. (Выяснено, что для `GlobalEvent` команд нет).
+    *   Просмотреть существующие UI компоненты и типы в `src/ui/src/` для возможного переиспользования.
+
+2.  ***Определение TypeScript интерфейсов для UI (для GlobalNpc и MobileGroup)***
+    *   В директории `src/ui/src/types/` создать новый файл (например, `globalEntity.ts`).
+    *   Определить интерфейсы для `GlobalNpcData`, `MobileGroupData`. Эти интерфейсы должны отражать поля моделей из Task 45.
+    *   Определить интерфейсы для Payload-объектов при создании/обновлении: `GlobalNpcPayload`, `MobileGroupPayload` и `GlobalNpcUpdatePayload`, `MobileGroupUpdatePayload`.
+    *   Учесть необходимость общего интерфейса `PaginatedResponse<T>` для списков.
+
+3.  ***Создание стабов (заглушек) API сервисов в UI (для GlobalNpc и MobileGroup)***
+    *   В директории `src/ui/src/services/` создать новый файл `globalEntityService.ts`.
+    *   Реализовать в нем функции-заглушки для CRUD операций над `GlobalNpc` и `MobileGroup`.
+        *   `getGlobalNpcs(guildId: string, page?: number, limit?: number): Promise<PaginatedResponse<GlobalNpcData>>`
+        *   `getGlobalNpc(guildId: string, id: number): Promise<GlobalNpcData>`
+        *   `createGlobalNpc(guildId: string, payload: GlobalNpcPayload): Promise<GlobalNpcData>`
+        *   `updateGlobalNpc(guildId: string, id: number, payload: GlobalNpcUpdatePayload): Promise<GlobalNpcData>`
+        *   `deleteGlobalNpc(guildId: string, id: number): Promise<void>`
+        *   Аналогичные функции для `MobileGroup`.
+    *   Эти функции будут использовать моковый `apiClient`.
+
+4.  ***Реализация базовой структуры UI компонентов (заглушки для GlobalNpc и MobileGroup)***
+    *   Создать новую директорию `src/ui/src/pages/GlobalEntitiesPage`.
+    *   В ней создать файлы для страниц списка и деталей:
+        *   `GlobalNpcListPage.tsx` и `GlobalNpcDetailPage.tsx`
+        *   `MobileGroupListPage.tsx` и `MobileGroupDetailPage.tsx`
+    *   В компонентах списка реализовать базовую разметку.
+    *   В компонентах деталей реализовать базовую разметку.
+
+5.  ***Документирование API для UI в `AGENTS.md` (для GlobalNpc и MobileGroup)***
+    *   Создать новую секцию в `AGENTS.md` "Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)".
+    *   Описать мастер-команды Discord (`/master_global_npc ...`, `/master_mobile_group ...`) для CRUD операций.
+    *   Указать ожидаемые параметры и формат данных.
+    *   Привести примеры вызовов из `globalEntityService.ts`.
+
+6.  ***Обновление `AGENTS.md`***
+    *   Записать текущий план в секцию "Текущий план".
+    *   По мере выполнения шагов, обновлять "Лог действий".
+    *   По завершении задачи, очистить "Текущий план", перенести лог, обновить `Tasks.txt` и `Done.txt`.
+
+7.  ***Написание Unit-тестов (для UI части, если применимо на этом этапе)***
+    *   Определить, какие компоненты/сервисы потребуют тестирования.
+
+8.  ***Представление изменений (Commit)***
+    *   После завершения всех шагов и проверки, подготовить коммит.
 ---
 ## Лог действий
+
+## Task 63: 🖥️ UI.9 UI for Global Entity Management
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницы для управления глобальными сущностями (GlobalNpc, MobileGroup). Подготовить бэкенд (API, типы, стабы сервисов). UI для GlobalEvent отложен из-за отсутствия мастер-команд.
+- **Выполненные действия**:
+    - Шаг 1: Проведен анализ задачи и зависимостей. Установлено, что модели `GlobalNpc`, `MobileGroup` и их CRUD API через мастер-команды готовы. Мастер-команды для `GlobalEvent` отсутствуют. План скорректирован.
+    - Шаг 2: Определены TypeScript интерфейсы `GlobalNpcData`, `GlobalNpcPayload`, `GlobalNpcUpdatePayload`, `MobileGroupData`, `MobileGroupPayload`, `MobileGroupUpdatePayload` в новом файле `src/ui/src/types/globalEntity.ts`. Использован существующий `PaginatedResponse`.
+    - Шаг 3: Созданы стабы API сервисов в `src/ui/src/services/globalEntityService.ts` для CRUD операций над `GlobalNpc` и `MobileGroup` с использованием мокового `apiClient`.
+    - Шаг 4: Реализована базовая структура UI компонентов-заглушек в новой директории `src/ui/src/pages/GlobalEntitiesPage/`:
+        - `GlobalNpcListPage.tsx` и `GlobalNpcDetailPage.tsx`
+        - `MobileGroupListPage.tsx` и `MobileGroupDetailPage.tsx`
+    - Шаг 5: Добавлена секция "Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)" в `AGENTS.md`.
+    - Шаг 6: Обновлен `AGENTS.md` (этот лог и текущий план).
 
 ## Task 62: 🖥️ UI.8 UI for Quest Management
 - **Дата**: [Текущая дата]
@@ -856,6 +915,115 @@
     - **Срок**: При следующем ресмотре тестов `action_processor.py`. Приоритет: средний.
 
 ---
+## Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)
+
+Эта документация описывает мастер-команды Discord, которые UI будет вызывать через API шлюз (концептуально), для управления глобальными NPC и мобильными группами.
+
+**Общие замечания:**
+
+*   Все команды требуют `guild_id`.
+*   Для полей JSON (например, `name_i18n_json`, `properties_json`, `members_definition_json`, `route_json`) команды ожидают валидную JSON-строку. UI должен сериализовать объекты JavaScript в JSON.
+*   Ответы команд будут содержать локализованные строки на языке Мастера.
+*   `GUILD_ID_PLACEHOLDER` в примерах вызовов сервисов UI должен быть заменен на реальный ID гильдии.
+*   Конечная точка вызова команд в `apiClient` (например, `/master_command_endpoint`) является концептуальной.
+
+---
+
+**1. Глобальные NPC (GlobalNpc)**
+
+*   **Сущность**: `GlobalNpc`
+*   **Модель**: `src/models/global_npc.py`
+*   **Мастер-команды**: `/master_global_npc ...` (из `src/bot/commands/master_commands/global_npc_master_commands.py`)
+*   **TypeScript**: `src/ui/src/types/globalEntity.ts -> GlobalNpcData, GlobalNpcPayload, GlobalNpcUpdatePayload`
+*   **Сервис UI**: `src/ui/src/services/globalEntityService.ts`
+
+*   **1.1. Получить список GlobalNpc (с пагинацией)**
+    *   **Команда Discord**: `/master_global_npc list`
+    *   **Параметры UI (`getGlobalNpcs`) -> Команда**: `page: Optional[int]`, `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<GlobalNpcData>`
+
+*   **1.2. Получить детали GlobalNpc**
+    *   **Команда Discord**: `/master_global_npc view`
+    *   **Параметры UI (`getGlobalNpc`) -> Команда**: `global_npc_id: int`
+    *   **Ответ**: `GlobalNpcData`
+
+*   **1.3. Создать GlobalNpc**
+    *   **Команда Discord**: `/master_global_npc create`
+    *   **Параметры UI (`GlobalNpcPayload`) -> Команда**:
+        *   `static_id: str`
+        *   `name_i18n_json: str` (JSON строка `Record<string, string>`)
+        *   `description_i18n_json: Optional[str]` (JSON строка)
+        *   `npc_template_id: Optional[int]` (ID из `GeneratedNpc`)
+        *   `current_location_id: Optional[int]`
+        *   `mobile_group_id: Optional[int]`
+        *   `route_json: Optional[str]` (JSON строка, будет частью `properties_json`)
+        *   `properties_json: Optional[str]` (JSON строка `Record<string, any>`)
+        *   `ai_metadata_json: Optional[str]` (JSON строка) - *Примечание: команда `/master_global_npc create` принимает `ai_metadata_json`, но модель `GlobalNpc` не имеет этого поля напрямую, оно, вероятно, должно быть частью `properties_json` или `base_npc.ai_metadata_json` если `base_npc_id` указан. Уточнить при необходимости.* Текущая реализация команды сохраняет `ai_metadata_json` в отдельное поле.
+    *   **Ответ**: `GlobalNpcData` (созданный объект).
+
+*   **1.4. Обновить GlobalNpc**
+    *   **Команда Discord**: `/master_global_npc update`
+    *   **Параметры UI (`updateGlobalNpc` с `GlobalNpcUpdatePayload`) -> Команда**:
+        *   `global_npc_id: int`
+        *   `field_to_update: str` (например, `static_id`, `name_i18n_json`, `current_location_id`, `properties_json`, `route_json` (которое обновит `properties_json.route`))
+        *   `new_value: str` (JSON строка для *_json полей, строка для простых типов, "None" для обнуления)
+    *   **Ответ**: `GlobalNpcData` (обновленный объект).
+        *   *Примечание*: UI сервис может реализовать это через несколько вызовов команды `update` для каждого измененного поля, или API шлюз может агрегировать частичный `GlobalNpcUpdatePayload` в соответствующие вызовы.
+
+*   **1.5. Удалить GlobalNpc**
+    *   **Команда Discord**: `/master_global_npc delete`
+    *   **Параметры UI (`deleteGlobalNpc`) -> Команда**: `global_npc_id: int`
+    *   **Ответ**: Сообщение об успехе/ошибке.
+
+---
+
+**2. Мобильные Группы (MobileGroup)**
+
+*   **Сущность**: `MobileGroup`
+*   **Модель**: `src/models/mobile_group.py`
+*   **Мастер-команды**: `/master_mobile_group ...` (из `src/bot/commands/master_commands/mobile_group_master_commands.py`)
+*   **TypeScript**: `src/ui/src/types/globalEntity.ts -> MobileGroupData, MobileGroupPayload, MobileGroupUpdatePayload`
+*   **Сервис UI**: `src/ui/src/services/globalEntityService.ts`
+
+*   **2.1. Получить список MobileGroup (с пагинацией)**
+    *   **Команда Discord**: `/master_mobile_group list`
+    *   **Параметры UI (`getMobileGroups`) -> Команда**: `page: Optional[int]`, `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<MobileGroupData>`
+
+*   **2.2. Получить детали MobileGroup**
+    *   **Команда Discord**: `/master_mobile_group view`
+    *   **Параметры UI (`getMobileGroup`) -> Команда**: `group_id: int`
+    *   **Ответ**: `MobileGroupData`
+
+*   **2.3. Создать MobileGroup**
+    *   **Команда Discord**: `/master_mobile_group create`
+    *   **Параметры UI (`MobileGroupPayload`) -> Команда**:
+        *   `static_id: str`
+        *   `name_i18n_json: str` (JSON строка `Record<string, string>`)
+        *   `description_i18n_json: Optional[str]` (JSON строка)
+        *   `current_location_id: Optional[int]`
+        *   `leader_global_npc_id: Optional[int]`
+        *   `members_definition_json: Optional[str]` (JSON строка `List<Record<string, any>>`, например `[{"global_npc_static_id": "id1", "role_i18n": {"en":"Guard"}}]`)
+        *   `behavior_type_i18n_json: Optional[str]` (JSON строка)
+        *   `route_json: Optional[str]` (JSON строка)
+        *   `properties_json: Optional[str]` (JSON строка `Record<string, any>`)
+    *   **Ответ**: `MobileGroupData` (созданный объект).
+
+*   **2.4. Обновить MobileGroup**
+    *   **Команда Discord**: `/master_mobile_group update`
+    *   **Параметры UI (`updateMobileGroup` с `MobileGroupUpdatePayload`) -> Команда**:
+        *   `group_id: int`
+        *   `field_to_update: str` (например, `static_id`, `name_i18n_json`, `leader_global_npc_id`, `members_definition_json`, `properties_json`)
+        *   `new_value: str`
+    *   **Ответ**: `MobileGroupData` (обновленный объект).
+
+*   **2.5. Удалить MobileGroup**
+    *   **Команда Discord**: `/master_mobile_group delete`
+    *   **Параметры UI (`deleteMobileGroup`) -> Команда**: `group_id: int`
+    *   **Ответ**: Сообщение об успехе/ошибке.
+
+---
+
 ## Документация API для UI Task 61: Управление фракциями и отношениями
 
 Эта документация описывает мастер-команды Discord (которые UI будет вызывать через API шлюз), необходимые для управления фракциями и отношениями.
