@@ -141,6 +141,7 @@ Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
 
 {Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?) - Moved to Done.txt}
+{Task 57: 🖥️ UI.3 UI for Player and Character Management. (Depends on API 1.3) - Moved to Done.txt}
 
 Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
 * Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
@@ -340,10 +341,6 @@ Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
 
 {Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?) - Moved to Done.txt}
-
-Task 57: 🖥️ UI.3 UI for Player and Character Management. (Depends on API 1.3)
-* Description: Create UI pages for viewing lists of players and characters for the selected guild. Implement functionality for displaying data (using API 1.3 for reading). Implement forms for creating, editing, and deleting Player and GeneratedNpc records (calling API 1.3 for create/update/delete). The UI must correctly handle i18n fields for displaying and editing texts in different languages.
-* Result: Interface for managing players and characters via UI.
 
 Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
 * Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
