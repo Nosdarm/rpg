@@ -3,7 +3,7 @@ from httpx import AsyncClient, Response, RequestError # httpx импортиро
 from fastapi import status, FastAPI, Depends
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock, MagicMock
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Generator
 import httpx # Повторный импорт не страшен
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +31,7 @@ def mock_db() -> AsyncMock:
     return db
 
 @pytest.fixture
-def client(mock_db: AsyncMock) -> TestClient:
+def client(mock_db: AsyncMock) -> Generator[TestClient, None, None]:
     from src.core.database import get_db_session
     app.dependency_overrides[get_db_session] = lambda: mock_db
     yield TestClient(app)
