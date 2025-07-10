@@ -141,13 +141,28 @@ Task Block: Phase UI (User Interface)
 This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
 
 {Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?) - Moved to Done.txt}
-{Task 57: 🖥️ UI.3 UI for Player and Character Management. (Backend and UI contract preparation) - Moved to Done.txt}
 
-{Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Backend and UI contract preparation) - Moved to Done.txt}
+Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
+* Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
+* Load the rule structure (from 13/0.3) and current values (via API 41, e.g., /master view_rules or a dedicated RuleConfig API). Display the rule structure in a convenient format (e.g., JSON tree structure).
+* Implement user-friendly controls (forms, input fields, sliders, dropdowns) for editing various types of rule parameters (numbers, strings, booleans, JSON).
+* Implement a save button for changes (calling the RuleConfig editing API 41).
+* Result: Graphical interface for configuring game rules by the Master.
 
-{Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Backend and UI contract preparation) - Moved to Done.txt}
+Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Depends on API 10)
+* Description: Create a UI page for managing AI generation and moderation.
+* Implement controls for triggering AI generation (calling API 10 trigger_location_generation). Ability to specify generation parameters (location, type).
+* Display a list of pending moderation requests for this guild (via API 41, e.g., /master review_ai).
+* Upon selecting a pending request: Display the generated content (NPCs, quests, items, descriptions) in a readable format (using API 47 for formatting or getting data directly from 18 ai_data_json). Display validation issues (from issues_json 18).
+* Implement "Approve", "Reject", "Edit" buttons (calling corresponding API 41). Editing should allow modifying entity fields in the pending request, including _i18n texts.
+* Result: Graphical interface for managing AI content generation and moderation.
 
-{Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42) - Moved to Done.txt}
+Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42)
+* Description: Create UI pages for viewing and editing character/NPC inventories and the general list of items in the guild.
+* Interface for viewing the inventory of a selected character/NPC (calling API 15 get_player_inventory or similar for NPCs). Display items with their details (properties, i18n descriptions).
+* Interface for viewing/editing the list of all items in the guild (calling CRUD API 41 for the Item model 42). Implement forms for creating/editing Items, including _i18n names/descriptions.
+* Ability to move items between inventories via UI (calling API 15 add/remove).
+* Result: Graphical interface for managing inventory and items in the guild.
 
 {Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21) - Moved to Done.txt}
 {Task 62: 🖥️ UI.8 UI for Quest Management (Backend Preparation & UI Stubs) - Moved to Done.txt}

@@ -24,6 +24,27 @@
     - Detailed UI component implementation and full test implementation are pending further UI-specific tasks.
 ---
 
+**Task 57: 🖥️ UI.3 UI for Player and Character Management (UI Stubs and Tests)**
+- **Completed**: [Текущая дата]
+- **Description**: Created placeholder UI pages and their respective test files for Player and GeneratedNpc management. This includes list and detail page stubs for both entity types. Backend preparation (API, TypeScript types, service stubs) was completed as part of a previous task ("Tasks 57, 58, 59: UI Backend Preparation...").
+- **Result**:
+    - Created directory `src/ui/src/pages/PlayerManagementPage/` with:
+        - `PlayerListPage.tsx` (basic React component placeholder)
+        - `PlayerListPage.test.tsx` (basic render test)
+        - `PlayerDetailPage.tsx` (basic React component placeholder)
+        - `PlayerDetailPage.test.tsx` (basic render test)
+    - Created directory `src/ui/src/pages/NpcManagementPage/` with:
+        - `NpcListPage.tsx` (basic React component placeholder)
+        - `NpcListPage.test.tsx` (basic render test)
+        - `NpcDetailPage.tsx` (basic React component placeholder)
+        - `NpcDetailPage.test.tsx` (basic render test)
+    - Created placeholder unit test files for UI services:
+        - `src/ui/src/services/playerService.test.ts`
+        - `src/ui/src/services/npcService.test.ts`
+    - Documented the relevant API endpoints (master commands for Player and GeneratedNpc) and data structures for the UI team in `AGENTS.MD` under "Документация API для UI Task 57: Управление игроками и NPC".
+    - The task of creating full UI components, implementing forms, state management, and comprehensive tests is pending further UI-specific development.
+---
+
 **Task 63: 🖥️ UI.9 UI for Global Entity Management (Backend Preparation & UI Stubs)**
 - **Completed**: [Текущая дата]
 - **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs, basic component placeholders, test file stubs) for Global Entity (GlobalNpc, MobileGroup) management UI. UI for GlobalEvent was deferred due to lack of backend master commands.

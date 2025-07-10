@@ -41,47 +41,55 @@
 
 ---
 ## Текущий план
-1.  ***Определить TypeScript интерфейсы в `src/ui/src/types/conflict.ts`***:
-    *   `UIConflictStatus`: Enum, дублирующий `ConflictStatus` из бэкенда для использования в UI.
-    *   `UIConflictListItem`: Интерфейс для элементов списка конфликтов.
-        *   Поля: `id: number`, `status: UIConflictStatus`, `created_at: string` (ISO date), `involved_entities_summary: string`.
-    *   `UIConflictActionEntity`: Интерфейс для представления сущности в рамках действия в конфликте.
-        *   Поля: `type: string` ("player", "npc", "party"), `id: number`, `name?: string`.
-    *   `UIConflictParsedAction`: Интерфейс для `conflicting_actions_json.action`.
-        *   Поля: `raw_text: string`, `intent: string`, `entities: UIConflictActionEntity[]`, `confidence?: number`, `details_json?: Record<string, any>`.
-    *   `UIConflictInvolvedUnit`: Интерфейс для элементов `involved_entities_json` и `conflicting_actions_json`.
-        *   Поля: `actor: UIConflictActionEntity`, `action: UIConflictParsedAction`.
-    *   `UIConflictDetails`: Интерфейс для полной информации о конфликте.
-        *   Поля: `id: number`, `guild_id: string`, `involved_entities: UIConflictInvolvedUnit[]`, `conflicting_actions: UIConflictInvolvedUnit[]`, `status: UIConflictStatus`, `resolution_notes?: string`, `resolved_action?: UIConflictParsedAction`, `created_at: string`, `resolved_at?: string`.
-    *   `UIMasterOutcomeOption`: Интерфейс для вариантов исхода, предлагаемых Мастеру.
-        *   Поля: `id: string` (значение Enum `ConflictStatus`), `name_key: string` (ключ для локализации имени).
-    *   `UIResolveConflictPayload`: Интерфейс для данных, отправляемых при разрешении конфликта.
-        *   Поля: `outcome_status: string`, `notes?: string`.
-    *   Использовать существующий `PaginatedResponse` из `src/ui/src/types/entities.ts`.
+1.  ***Обновить `AGENTS.md`***:
+    *   Переместить текущий план из `AGENTS.md` (который для Task 66) в лог действий Task 66.
+    *   Установить этот план (для Task 57) как "Текущий план" в `AGENTS.md`.
+    *   Создать новую запись в "Лог действий" для Task 57.
 
-2.  ***Создать стабы (заглушки) API сервисов в UI***:
-    *   Создать файл `src/ui/src/services/conflictService.ts`.
-    *   Реализовать моковые функции:
-        *   `getPendingConflicts(guildId: string, status?: UIConflictStatus, page?: number, limit?: number): Promise<PaginatedResponse<UIConflictListItem>>`
-        *   `getConflictDetails(guildId: string, conflictId: number): Promise<UIConflictDetails>`
-        *   `getConflictResolutionOutcomeOptions(guildId: string): Promise<UIMasterOutcomeOption[]>`
-        *   `resolveConflict(guildId: string, conflictId: number, payload: UIResolveConflictPayload): Promise<{ success: boolean; message?: string }>`
+2.  ***Добавить документацию по API для UI Task 57 в `AGENTS.md`***:
+    *   Описать эндпоинты (мастер-команды) для CRUD операций над `Player`.
+        *   `/master_player list [page] [limit]`
+        *   `/master_player view <player_id> [include_inventory=bool]`
+        *   `/master_player create <discord_user_id> <player_name> [прочие_параметры_json]`
+        *   `/master_player update <player_id> <field_to_update> <new_value>`
+        *   `/master_player delete <player_id>`
+    *   Описать эндпоинты для CRUD операций над `GeneratedNpc`.
+        *   `/master_npc list [page] [limit]`
+        *   `/master_npc view <npc_id> [include_inventory=bool]`
+        *   `/master_npc create <name_i18n_json> [прочие_параметры_json]`
+        *   `/master_npc update <npc_id> <field_to_update> <new_value>`
+        *   `/master_npc delete <npc_id>`
+    *   Указать используемые TypeScript интерфейсы: `Player`, `PlayerPayload`, `GeneratedNpc`, `GeneratedNpcPayload`, `PaginatedResponse` из `src/ui/src/types/entities.ts`.
+    *   Отметить, что команды `update` на бэкенде попольные.
 
-3.  ***Добавить документацию по API для UI Task 66 в `AGENTS.md`***:
-    *   Описать эндпоинты и структуры данных.
+3.  ***Создать файлы-заглушки для UI-компонентов и их тестов***:
+    *   Создать директорию `src/ui/src/pages/PlayerManagementPage/`.
+    *   В ней создать файлы:
+        *   `PlayerListPage.tsx`
+        *   `PlayerListPage.test.tsx`
+        *   `PlayerDetailPage.tsx`
+        *   `PlayerDetailPage.test.tsx`
+    *   Создать директорию `src/ui/src/pages/NpcManagementPage/`.
+    *   В ней создать файлы:
+        *   `NpcListPage.tsx`
+        *   `NpcListPage.test.tsx`
+        *   `NpcDetailPage.tsx`
+        *   `NpcDetailPage.test.tsx`
+    *   Каждый `.tsx` файл должен содержать базовую React-компонент-заглушку (например, `<div>Player List Page</div>`).
+    *   Каждый `.test.tsx` файл должен содержать один простой тест (например, проверка рендеринга текста компонента).
 
-4.  ***Создать файлы-заглушки для UI-компонентов и их тестов***:
-    *   Директория: `src/ui/src/pages/ConflictResolutionPage/`.
-    *   Файлы: `ConflictResolutionPage.tsx`, `ConflictListPage.tsx`, `ConflictDetailPage.tsx` и их `.test.tsx` аналоги.
+4.  ***Создать файлы-заглушки для тестов UI-сервисов***:
+    *   Создать файл `src/ui/src/services/playerService.test.ts`.
+        *   Добавить базовый `describe` блок и один `it` тест-заглушку (например, `it('should have tests');`).
+    *   Создать файл `src/ui/src/services/npcService.test.ts`.
+        *   Добавить базовый `describe` блок и один `it` тест-заглушку.
 
-5.  ***Создать файл-заглушку для тестов UI-сервиса***:
-    *   Файл: `src/ui/src/services/conflictService.test.ts`.
+5.  ***Обновить `Tasks.txt` и `done.txt`***:
+    *   Переместить Task 57 из `Tasks.txt` в `Done.txt` с пометкой о том, что созданы заглушки UI и тестов, а бэкенд-часть была готова ранее.
+    *   Убедиться, что в `Tasks.txt` корректно отражено, что следующей задачей будет Task 58.
 
-6.  ***Обновить `AGENTS.md`***:
-    *   Добавить этот план в секцию "Текущий план".
-    *   Создать новую запись в "Лог действий" для Task 66.
-
-7.  ***Обновить `Tasks.txt` и `done.txt`*** (после выполнения всех шагов).
+6.  ***Завершить задачу***:
+    *   Сделать коммит с описанием проделанной работы.
 ---
 ## Лог действий
 
@@ -97,8 +105,50 @@
         - `ConflictListPage.tsx` и `ConflictListPage.test.tsx`
         - `ConflictDetailPage.tsx` и `ConflictDetailPage.test.tsx`
     - Шаг 5: Создан файл-заглушка для тестов UI-сервиса: `src/ui/src/services/conflictService.test.ts`.
-    - Шаг 6: Обновлен `AGENTS.md` (этот лог и текущий план).
+    - Шаг 6: Обновлен `AGENTS.md` (этот лог и предыдущий текущий план).
 - **Статус Task 66**: Подготовка UI-контрактов, стабов API, документации API и заглушек UI-компонентов/тестов для разрешения конфликтов завершена. Задача готова к передаче UI-разработчикам для полной реализации UI и тестов.
+- **План (на момент завершения Task 66)**:
+    1.  ***Определить TypeScript интерфейсы в `src/ui/src/types/conflict.ts`***:
+        *   `UIConflictStatus`: Enum, дублирующий `ConflictStatus` из бэкенда для использования в UI.
+        *   `UIConflictListItem`: Интерфейс для элементов списка конфликтов.
+            *   Поля: `id: number`, `status: UIConflictStatus`, `created_at: string` (ISO date), `involved_entities_summary: string`.
+        *   `UIConflictActionEntity`: Интерфейс для представления сущности в рамках действия в конфликте.
+            *   Поля: `type: string` ("player", "npc", "party"), `id: number`, `name?: string`.
+        *   `UIConflictParsedAction`: Интерфейс для `conflicting_actions_json.action`.
+            *   Поля: `raw_text: string`, `intent: string`, `entities: UIConflictActionEntity[]`, `confidence?: number`, `details_json?: Record<string, any>`.
+        *   `UIConflictInvolvedUnit`: Интерфейс для элементов `involved_entities_json` и `conflicting_actions_json`.
+            *   Поля: `actor: UIConflictActionEntity`, `action: UIConflictParsedAction`.
+        *   `UIConflictDetails`: Интерфейс для полной информации о конфликте.
+            *   Поля: `id: number`, `guild_id: string`, `involved_entities: UIConflictInvolvedUnit[]`, `conflicting_actions: UIConflictInvolvedUnit[]`, `status: UIConflictStatus`, `resolution_notes?: string`, `resolved_action?: UIConflictParsedAction`, `created_at: string`, `resolved_at?: string`.
+        *   `UIMasterOutcomeOption`: Интерфейс для вариантов исхода, предлагаемых Мастеру.
+            *   Поля: `id: string` (значение Enum `ConflictStatus`), `name_key: string` (ключ для локализации имени).
+        *   `UIResolveConflictPayload`: Интерфейс для данных, отправляемых при разрешении конфликта.
+            *   Поля: `outcome_status: string`, `notes?: string`.
+        *   Использовать существующий `PaginatedResponse` из `src/ui/src/types/entities.ts`.
+    2.  ***Создать стабы (заглушки) API сервисов в UI***:
+        *   Создать файл `src/ui/src/services/conflictService.ts`.
+        *   Реализовать моковые функции:
+            *   `getPendingConflicts(guildId: string, status?: UIConflictStatus, page?: number, limit?: number): Promise<PaginatedResponse<UIConflictListItem>>`
+            *   `getConflictDetails(guildId: string, conflictId: number): Promise<UIConflictDetails>`
+            *   `getConflictResolutionOutcomeOptions(guildId: string): Promise<UIMasterOutcomeOption[]>`
+            *   `resolveConflict(guildId: string, conflictId: number, payload: UIResolveConflictPayload): Promise<{ success: boolean; message?: string }>`
+    3.  ***Добавить документацию по API для UI Task 66 в `AGENTS.md`***:
+        *   Описать эндпоинты и структуры данных.
+    4.  ***Создать файлы-заглушки для UI-компонентов и их тестов***:
+        *   Директория: `src/ui/src/pages/ConflictResolutionPage/`.
+        *   Файлы: `ConflictResolutionPage.tsx`, `ConflictListPage.tsx`, `ConflictDetailPage.tsx` и их `.test.tsx` аналоги.
+    5.  ***Создать файл-заглушку для тестов UI-сервиса***:
+        *   Файл: `src/ui/src/services/conflictService.test.ts`.
+    6.  ***Обновить `AGENTS.md`***:
+        *   Добавить этот план в секцию "Текущий план".
+        *   Создать новую запись в "Лог действий" для Task 66.
+    7.  ***Обновить `Tasks.txt` и `done.txt`*** (после выполнения всех шагов).
+
+## Task 57: 🖥️ UI.3 UI for Player and Character Management
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницы для просмотра списков игроков и персонажей (NPC) для выбранной гильдии. Реализовать отображение данных (используя API 1.3 для чтения). Реализовать формы для создания, редактирования и удаления записей Player и GeneratedNpc (вызывая API 1.3 для create/update/delete). UI должен корректно обрабатывать i18n поля для отображения и редактирования текстов на разных языках. Бэкенд-подготовка и контракты (TypeScript типы, стабы сервисов) были выполнены ранее в рамках "Tasks 57, 58, 59".
+- **Выполненные действия**:
+    - Шаг 1: Обновлен `AGENTS.md`: текущий план для Task 57 установлен, предыдущий план (Task 66) перенесен в лог Task 66, создана эта запись в логе для Task 57.
 
 ## Session: [Current Date/Time] - Start Task 65
 - **Анализ**: Проанализирован `AGENTS.md`. Обнаружено несоответствие: "Текущий план" был для Task 64, но `Tasks.txt` и `done.txt` указывают, что подготовка стабов для Task 64 завершена.
@@ -622,6 +672,106 @@
             - Добавлены закомментированные концептуальные примеры правил для конфликтов последовательности действий.
     - **Обновление Unit-тестов (`tests/core/test_conflict_simulation_system.py`)**:
         - В `TestExtractPrimaryTargetSignature` добавлены тесты для новой логики интента `use` с объектами мира и проверки приоритетов определения сигнатуры.
+
+---
+
+## Документация API для UI Task 57: Управление игроками и NPC
+
+Эта документация описывает мастер-команды Discord, которые UI будет вызывать через API шлюз (концептуально), для управления Игроками (`Player`) и генерируемыми Персонажами (`GeneratedNpc`).
+
+**Общие замечания:**
+
+*   Все команды требуют `guild_id`, который UI должен передавать (обычно получается из контекста активной сессии UI).
+*   Для полей JSON (например, `attributes_json`, `name_i18n_json`, `properties_json`) команды ожидают валидную JSON-строку. UI должен сериализовать объекты JavaScript в JSON перед отправкой.
+*   Команды `update` для `Player` и `GeneratedNpc` на бэкенде являются попольными (т.е. обновляют одно указанное поле за вызов). UI-сервисы (`playerService.updatePlayer`, `npcService.updateNpc`) могут симулировать PATCH-запрос, агрегируя несколько изменений в один логический вызов на стороне UI, но это потребует нескольких последовательных вызовов мастер-команд или доработки API-шлюза/бэкенда.
+*   Ответы команд будут содержать локализованные строки на языке Мастера.
+*   Используемые TypeScript интерфейсы: `Player`, `PlayerPayload`, `GeneratedNpc`, `GeneratedNpcPayload`, `PaginatedResponse` из `src/ui/src/types/entities.ts`.
+
+---
+
+**1. Игроки (Player)**
+
+*   **Сущность**: `Player`
+*   **Мастер-команды**: `/master_player ...` (из `src/bot/commands/master_commands/player_master_commands.py`)
+*   **Сервис UI**: `src/ui/src/services/playerService.ts`
+
+*   **1.1. Получить список игроков в гильдии (с пагинацией)**
+    *   **Команда Discord**: `/master_player list`
+    *   **Параметры UI -> Команда**: `page: Optional[int]`, `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<Player>`
+
+*   **1.2. Получить детали конкретного игрока**
+    *   **Команда Discord**: `/master_player view`
+    *   **Параметры UI -> Команда**: `player_id: int`, `include_inventory: Optional[bool]` (по умолчанию `false`)
+    *   **Ответ**: `Player` (с полем `inventory: EnrichedInventoryItem[]`, если `include_inventory=true`)
+
+*   **1.3. Создать нового игрока**
+    *   **Команда Discord**: `/master_player create`
+    *   **Параметры UI (`PlayerPayload` для создания) -> Команда**:
+        *   `discord_user_id: str` (ID пользователя Discord)
+        *   `player_name: str` (Имя игрока)
+        *   `language: Optional[str]` (например, "en", "ru")
+        *   `attributes_json: Optional[str]` (JSON строка для атрибутов)
+        *   `current_location_id: Optional[int]`
+    *   **Ответ**: Созданный объект `Player`.
+    *   *Примечание*: Команда ожидает `discord_user` (объект `discord.User`), но для API шлюза это будет `discord_user_id`. Начальные значения (level, xp, gold, hp, status) обычно устанавливаются по умолчанию на бэкенде.
+
+*   **1.4. Обновить игрока (попольно)**
+    *   **Команда Discord**: `/master_player update`
+    *   **Параметры UI (`playerId: number`, `payload: Partial<PlayerPayload>`) -> Команда**:
+        *   `player_id: int`
+        *   `field_to_update: str` (из списка: `name`, `level`, `xp`, `unspent_xp`, `gold`, `current_hp`, `current_status`, `language`, `current_location_id`, `current_party_id`, `attributes_json`)
+        *   `new_value: str` (JSON строка для `attributes_json`, иначе простое значение)
+    *   **Ответ**: Обновленный объект `Player`.
+
+*   **1.5. Удалить игрока**
+    *   **Команда Discord**: `/master_player delete`
+    *   **Параметры UI -> Команда**: `player_id: int`
+    *   **Ответ**: Сообщение об успехе или ошибке.
+
+---
+
+**2. Генерируемые NPC (GeneratedNpc)**
+
+*   **Сущность**: `GeneratedNpc`
+*   **Мастер-команды**: `/master_npc ...` (из `src/bot/commands/master_commands/npc_master_commands.py`)
+*   **Сервис UI**: `src/ui/src/services/npcService.ts`
+
+*   **2.1. Получить список NPC в гильдии (с пагинацией)**
+    *   **Команда Discord**: `/master_npc list`
+    *   **Параметры UI -> Команда**: `page: Optional[int]`, `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<GeneratedNpc>`
+
+*   **2.2. Получить детали конкретного NPC**
+    *   **Команда Discord**: `/master_npc view`
+    *   **Параметры UI -> Команда**: `npc_id: int`, `include_inventory: Optional[bool]` (по умолчанию `false`)
+    *   **Ответ**: `GeneratedNpc` (с полем `inventory: EnrichedInventoryItem[]`, если `include_inventory=true`)
+
+*   **2.3. Создать нового NPC**
+    *   **Команда Discord**: `/master_npc create`
+    *   **Параметры UI (`GeneratedNpcPayload` для создания) -> Команда**:
+        *   `name_i18n_json: str` (JSON строка `Record<string, string>`)
+        *   `description_i18n_json: Optional[str]`
+        *   `npc_type_i18n_json: Optional[str]`
+        *   `static_id: Optional[str]`
+        *   `faction_id: Optional[int]`
+        *   `current_location_id: Optional[int]`
+        *   `properties_json: Optional[str]`
+        *   `ai_metadata_json: Optional[str]`
+    *   **Ответ**: Созданный объект `GeneratedNpc`.
+
+*   **2.4. Обновить NPC (попольно)**
+    *   **Команда Discord**: `/master_npc update`
+    *   **Параметры UI (`npcId: number`, `payload: Partial<GeneratedNpcPayload>`) -> Команда**:
+        *   `npc_id: int`
+        *   `field_to_update: str` (из списка: `static_id`, `name_i18n_json`, `description_i18n_json`, `npc_type_i18n_json`, `faction_id`, `current_location_id`, `properties_json`, `ai_metadata_json`)
+        *   `new_value: str` (JSON строка для *_json полей, иначе простое значение или "None" для обнуления)
+    *   **Ответ**: Обновленный объект `GeneratedNpc`.
+
+*   **2.5. Удалить NPC**
+    *   **Команда Discord**: `/master_npc delete`
+    *   **Параметры UI -> Команда**: `npc_id: int`
+    *   **Ответ**: Сообщение об успехе или ошибке.
 
 ---
 ## Документация API для UI Task 60: Управление инвентарем и предметами
