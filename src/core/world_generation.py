@@ -401,7 +401,9 @@ async def generate_factions_and_relationships(
                     "ai_metadata_json": entity_data.ai_metadata_json,
                 }
                 # Check for unique static_id within the guild before creating
-                existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id) # type: ignore[arg-type]
+                # ParsedFactionData.static_id is non-optional, this assert is for Pyright's benefit
+                assert entity_data.static_id is not None, "ParsedFactionData.static_id should not be None here"
+                existing_faction = await crud_faction.get_by_static_id(session, guild_id=guild_id, static_id=entity_data.static_id) # type: ignore[reportArgumentType]
                 if existing_faction:
                     logger.warning(f"Faction with static_id '{entity_data.static_id}' already exists for guild {guild_id}. Skipping.")
                     # Optionally, map this static_id to the existing DB ID for relationship creation
@@ -845,7 +847,7 @@ async def generate_economic_entities(
                                 if inv_item_data.item_static_id: # Check before passing to CRUD
                                     from typing import cast
                                     # inv_item_data.item_static_id is confirmed to be str here
-                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=cast(str, inv_item_data.item_static_id))
+                                    existing_item_for_inv = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=cast(str, inv_item_data.item_static_id)) # type: ignore[reportArgumentType]
                                     if existing_item_for_inv:
                                         item_db_id = existing_item_for_inv.id
                                     else:

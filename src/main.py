@@ -28,7 +28,7 @@ app = FastAPI(title="Text RPG Bot API", version="0.1.0")
 
 # Включаем роутеры API
 app.include_router(commands_api_router, prefix="/api/v1", tags=["Bot Commands"])
-app.include_router(auth_router.router) # Регистрируем роутер аутентификации
+app.include_router(auth_router) # Регистрируем роутер аутентификации
 
 # Глобальный экземпляр бота, чтобы FastAPI мог его использовать
 # Это упрощенный подход; в более сложных сценариях можно использовать DI или другие методы.

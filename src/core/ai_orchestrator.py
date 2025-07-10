@@ -391,6 +391,12 @@ async def save_approved_generation(
                     # Default npc_type_i18n, can be overridden by trader specific logic
                     "npc_type_i18n": {"en": "NPC", "ru": "НПС"}
                 }
+                # Ensure 'level' from ParsedNpcData is saved into properties_json
+                if entity_data.level is not None:
+                    if not isinstance(npc_data_for_db["properties_json"], dict): # Should always be a dict due to above line
+                        npc_data_for_db["properties_json"] = {}
+                    npc_data_for_db["properties_json"]["level"] = entity_data.level
+
 
                 if isinstance(entity_data, ParsedNpcTraderData):
                     if entity_data.role_i18n: # This is valid for ParsedNpcTraderData

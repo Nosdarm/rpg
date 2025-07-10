@@ -45,6 +45,7 @@ class MockParsedQuest(BaseGeneratedEntity):
         {"step_order": 1, "title_i18n": {"en": "Step 1", "ru": "Шаг 1"}, "description_i18n": {"en": "Desc1", "ru": "Опис1"}}
     ]
     min_level: int = 1
+    rewards_json: Optional[Dict[str, Any]] = None
 
 class MockParsedFaction(BaseGeneratedEntity):
     entity_type: str = "faction"

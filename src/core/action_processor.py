@@ -901,8 +901,8 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
             # Using a separate session for this check to avoid interference if process_actions_for_guild
             # is ever called within an existing transaction context by another part of the system.
             # For its current usage from turn_controller, this is fine.
-            active_conflict_count = await pending_conflict_crud.get_count_by_guild_and_status(
-                pre_check_session, guild_id=guild_id, status=ConflictStatus.PENDING_MASTER_RESOLUTION
+            active_conflict_count = await pending_conflict_crud.count_by_attributes( # type: ignore
+                session=pre_check_session, guild_id=guild_id, status=ConflictStatus.PENDING_MASTER_RESOLUTION
             )
 
         if active_conflict_count > 0:
@@ -1013,7 +1013,10 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
             logger.info(f"Player {player.id} is in DIALOGUE. Routing message '{message.content}' (NLU: {parsed_action_for_dialogue_or_queue.intent if parsed_action_for_dialogue_or_queue else 'None'}) to handle_dialogue_input.")
 
             parsed_intent_val = parsed_action_for_dialogue_or_queue.intent if parsed_action_for_dialogue_or_queue else None
-            parsed_entities_val = parsed_action_for_dialogue_or_queue.entities if parsed_action_for_dialogue_or_queue else None
+
+            parsed_entities_for_dialogue: Optional[List[Dict[str, Any]]] = None
+            if parsed_action_for_dialogue_or_queue and parsed_action_for_dialogue_or_queue.entities:
+                parsed_entities_for_dialogue = [entity.model_dump() for entity in parsed_action_for_dialogue_or_queue.entities]
 
             success, response_or_key, context_data = await handle_dialogue_input(
                 session=session,
@@ -1021,7 +1024,7 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
                 player_id=player.id,
                 message_text=message.content, # Передаем оригинальный текст
                 parsed_intent=parsed_intent_val,
-                parsed_entities=parsed_entities_val
+                parsed_entities=parsed_entities_for_dialogue
             )
             # Отправка ответа NPC игроку
             if success:

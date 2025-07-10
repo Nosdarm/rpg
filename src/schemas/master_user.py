@@ -17,7 +17,7 @@ class MasterUserCreate(MasterUserBase):
     Требует discord_user_id и discord_username.
     """
     discord_user_id: str
-    discord_username: str
+    discord_username: str # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
 class MasterUserUpdate(MasterUserBase):
     """

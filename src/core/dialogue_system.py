@@ -175,7 +175,24 @@ async def start_dialogue(
     player.current_status = PlayerStatus.DIALOGUE
     session.add(player)
 
-    npc_display_name = npc.name_i18n.get(player.selected_language, npc.name_i18n.get("en", "the NPC"))
+    # Ensure language key is a string for .get()
+    lang_key_for_npc_name = player.selected_language # This can be None
+
+    npc_display_name = None
+    if isinstance(npc.name_i18n, dict):
+        if lang_key_for_npc_name: # Ensure lang_key_for_npc_name is not None
+            npc_display_name = npc.name_i18n.get(lang_key_for_npc_name)
+
+        if npc_display_name is None: # If primary lang failed or was None
+            npc_display_name = npc.name_i18n.get("en", "the NPC") # Fallback to "en", then to "the NPC"
+    else: # Should ideally not happen if npc.name_i18n is Dict[str,str] and not None
+        npc_display_name = "the NPC (name i18n error)"
+        logger.warning(f"NPC {npc.id} name_i18n is not a dict: {npc.name_i18n}")
+
+    if npc_display_name is None: # Ultimate fallback if .get("en", "the NPC") somehow results in None (e.g. if default was not provided)
+        npc_display_name = "the NPC"
+
+
     active_dialogues[dialogue_key] = {
         "npc_id": target_npc_id,
         "npc_name": npc_display_name, # Сохраняем имя NPC на языке игрока для удобства

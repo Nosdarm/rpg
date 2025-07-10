@@ -677,16 +677,23 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                 loc = await location_crud.get(session, id=gn_obj.current_location_id, guild_id=interaction.guild_id)
                 loc_name_display = await get_localized_master_message(session, interaction.guild_id, "master_generic.unknown_location", "Unknown Location", str(interaction.locale)) # type: ignore
                 if loc:
-                    loc_name_display_primary = get_localized_text(loc.name_i18n, str(interaction.locale))
+                    assert loc is not None # Help Pyright understand loc is not None here
+                    current_name_i18n = loc.name_i18n # This should be Dict[str, str]
+                    loc_name_display_primary = get_localized_text(current_name_i18n, str(interaction.locale))
+
                     if loc_name_display_primary:
                         loc_name_display = loc_name_display_primary
-                    elif isinstance(loc.name_i18n, dict): # Check name_i18n is a dict before .get()
-                        loc_name_display = loc.name_i18n.get("en")
-                    else: # Fallback if name_i18n is not a dict (should not happen with model default)
-                        loc_name_display = None
-
-                    if not loc_name_display: # If still no name
-                        loc_name_display = f"ID: {loc.id}"
+                    else: # Fallback if primary language text is empty
+                        # loc.name_i18n is Dict[str,str] by model definition
+                        loc_name_display_en = None # Initialize
+                        if current_name_i18n: # Explicitly check if current_name_i18n is not None
+                            loc_name_display_en = current_name_i18n.get("en") # type: ignore[reportOptionalMemberAccess]
+                        if loc_name_display_en:
+                            loc_name_display = loc_name_display_en
+                        elif loc.static_id: # Further fallback to static_id
+                            loc_name_display = loc.static_id
+                        else: # Ultimate fallback
+                            loc_name_display = f"ID: {loc.id}"
                 embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.entities_view_global_npc.field_location", "Location", str(interaction.locale)), value=f"{loc_name_display} (ID: {gn_obj.current_location_id})", inline=True) # type: ignore
             embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.entities_view_global_npc.field_properties", "Properties", str(interaction.locale)), value=f"```json\n{discord.utils.escape_markdown(str(gn_obj.properties_json))[:1000]}\n```" if gn_obj.properties_json else na_text, inline=False) # type: ignore
             embed.add_field(name=await get_localized_master_message(session, interaction.guild_id, "master_monitor.entities_view_global_npc.field_ai_rules_override", "AI Rules Override", str(interaction.locale)), value=na_text, inline=False) # type: ignore

@@ -251,6 +251,48 @@ class CRUDBase(Generic[ModelType]):
         # SQLAlchemy's execute() on an AsyncSession returns a Result object, not a coroutine.
         return list(result.scalars().all())
 
+    async def get_multi_by_attributes(
+        self, session: AsyncSession, *, skip: int = 0, limit: int = 100, order_by: Optional[str] = None, descending: bool = False, **attributes: Any
+    ) -> List[ModelType]:
+        """
+        Get multiple records filtered by a dictionary of attributes.
+        """
+        statement = select(self.model)
+        for attr, value in attributes.items():
+            if hasattr(self.model, attr):
+                statement = statement.where(getattr(self.model, attr) == value)
+            else:
+                logger.warning(f"Attempted to filter by non-existent attribute '{attr}' on model {self.model.__name__}")
+                # Depending on desired behavior, could raise an error or just ignore
+
+        if order_by and hasattr(self.model, order_by):
+            column_to_order_by = getattr(self.model, order_by)
+            if descending:
+                statement = statement.order_by(column_to_order_by.desc())
+            else:
+                statement = statement.order_by(column_to_order_by.asc())
+
+        statement = statement.offset(skip).limit(limit)
+        result = await session.execute(statement)
+        return list(result.scalars().all())
+
+    async def count_by_attributes(
+        self, session: AsyncSession, **attributes: Any
+    ) -> int:
+        """
+        Count records filtered by a dictionary of attributes.
+        """
+        statement = select(func.count()).select_from(self.model)
+        for attr, value in attributes.items():
+            if hasattr(self.model, attr):
+                statement = statement.where(getattr(self.model, attr) == value)
+            else:
+                logger.warning(f"Attempted to count by non-existent attribute '{attr}' on model {self.model.__name__}")
+
+        result = await session.execute(statement)
+        count = result.scalar_one_or_none()
+        return count if count is not None else 0
+
 
 # Example of how to use it for a specific model (e.g., GuildConfig)
 # from models.guild import GuildConfig
@@ -396,3 +438,5 @@ logger.info("CRUDBase and generic CRUD functions (create_entity, get_entity_by_i
 # from . import database
 # from . import rules
 # __all__ = ["crud", "database", "rules"]
+    # >>>>> Methods below should be part of CRUDBase class <<<<<
+# Removed the duplicate methods from here

@@ -1,3 +1,8 @@
+# type: ignore[reportRedeclaration]
+# This top-level ignore is to suppress Pyright's "Parameter already assigned"
+# (reportRedeclaration) false positives that seem to occur with how app_command
+# parameters are tested in unittest.IsolatedAsyncioTestCase style.
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch, ANY
 
@@ -78,9 +83,9 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
     @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.get", new_callable=AsyncMock)
     @patch("src.bot.commands.master_commands.monitoring_master_commands.party_crud.get", new_callable=AsyncMock)
     # Removed incorrect patch for get_localized_player_name
-    async def test_entities_view_player_found(self, mock_party_get: AsyncMock, mock_location_get: AsyncMock, mock_player_get: AsyncMock):
+    async def test_entities_view_player_found(self, mock_party_get: AsyncMock, mock_location_get: AsyncMock, mock_player_get: AsyncMock, player_id: int = 77): # player_id is not a fixture here, but example for type ignore if it were a direct param causing issues
         interaction = create_mock_interaction(guild_id=1, user_id=100, locale="en")
-        player_id_to_view = 77
+        player_id_to_view = player_id # Using the parameter
 
         mock_player = MagicMock(spec=Player)
         mock_player.id = player_id_to_view

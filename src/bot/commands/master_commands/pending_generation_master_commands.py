@@ -471,7 +471,7 @@ class MasterPendingGenerationCog(commands.Cog, name="Master Pending Generation C
 
         if new_status:
             try:
-                update_data["status"] = ModerationStatus[new_status.value]
+                update_data["status"] = ModerationStatus[new_status.value] # type: ignore[reportArgumentType]
                 updated_fields_count += 1
             except KeyError:
                 error_msg = await get_localized_master_message(

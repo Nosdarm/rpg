@@ -130,7 +130,9 @@ class TestAIPromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_session = AsyncMock(spec=AsyncSession)
 
         gc_instance = GuildConfig(id=1, main_language="en")
-        gc_instance.supported_languages_json = ["en", "ru"]
+        if gc_instance.properties_json is None:
+            gc_instance.properties_json = {}
+        gc_instance.properties_json["supported_languages"] = ["en", "ru"]
         mock_guild_get_config_crud.return_value = gc_instance
 
         mock_execute_other_contexts = MagicMock(spec=Result)

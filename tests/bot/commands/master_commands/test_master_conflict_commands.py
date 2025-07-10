@@ -1,8 +1,14 @@
+# type: ignore[reportRedeclaration]
+# This top-level ignore is to suppress Pyright's "Parameter already assigned"
+# (reportRedeclaration) false positives that seem to occur with how app_command
+# parameters are tested.
+
 import sys
 import os
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock, ANY
 import asyncio # For create_task
+from typing import cast # For type hinting mocks
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 if PROJECT_ROOT not in sys.path:
@@ -62,7 +68,7 @@ def mock_session_fixture():
     return session
 
 @pytest.fixture
-def pending_conflict_id_fixture() -> int:
+def pending_conflict_id_fixture() -> int: # type: ignore[reportGeneralTypeIssues]
     return 12345
 
 @pytest.fixture
@@ -131,7 +137,8 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     mock_crud_pending_conflict_instance.update.assert_called_once() # Check args if necessary
 
     # Check that get_count_by_guild_and_status was called after update to check remaining
-    mock_crud_pending_conflict_instance.get_count_by_guild_and_status.assert_called_once_with( # type: ignore[reportAttributeAccessIssue]
+    # Use cast to help Pyright understand the type of the mocked async method
+    cast(AsyncMock, mock_crud_pending_conflict_instance.get_count_by_guild_and_status).assert_called_once_with(
         mock_session_fixture, guild_id=guild_id_fixture, status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
 
@@ -212,7 +219,7 @@ async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
         notes="Another Test"
     )
 
-    mock_crud_pending_conflict_instance.get_count_by_guild_and_status.assert_called_once_with(
+    cast(AsyncMock, mock_crud_pending_conflict_instance.get_count_by_guild_and_status).assert_called_once_with(
         mock_session_fixture, guild_id=guild_id_fixture, status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
 

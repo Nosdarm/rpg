@@ -1,8 +1,14 @@
+# type: ignore[reportRedeclaration]
+# This top-level ignore is to suppress Pyright's "Parameter already assigned"
+# (reportRedeclaration) false positives that seem to occur with how app_command
+# parameters are tested.
+
 import sys
 import os
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock, ANY
 import json
+from typing import cast # For type hinting mocks
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 if PROJECT_ROOT not in sys.path:
@@ -99,7 +105,7 @@ async def test_master_player_create_success(
     mock_get_localized_template_cmd.side_effect = side_effect_cmd_loc
 
     cog = PlayerMasterCommandsCog(mock_bot_fixture)
-    mock_discord_user_arg = AsyncMock(spec=discord.User, id=123456789, locale=MagicMock(value="en")) # Renamed to avoid clash
+    mock_discord_user_arg = AsyncMock(spec=discord.User, id=123456789, locale=MagicMock(value="en")) # type: ignore[reportGeneralTypeIssues]
     mock_player_crud_instance.get_by_discord_id.return_value = None
     mock_player_crud_instance.create_with_defaults.return_value = created_player_fixture
 
@@ -130,12 +136,12 @@ async def test_master_player_create_success(
         session=mock_session_fixture
     )
     mock_interaction_fixture.response.defer.assert_called_once_with(ephemeral=True)
-    mock_player_crud_instance.get_by_discord_id.assert_called_once_with(mock_session_fixture, guild_id=guild_id_fixture, discord_id=123456789)
-    mock_player_crud_instance.create_with_defaults.assert_called_once()
-    mock_interaction_fixture.followup.send.assert_called_once()
+    cast(AsyncMock, mock_player_crud_instance.get_by_discord_id).assert_called_once_with(mock_session_fixture, guild_id=guild_id_fixture, discord_id=123456789)
+    cast(AsyncMock, mock_player_crud_instance.create_with_defaults).assert_called_once()
+    cast(AsyncMock, mock_interaction_fixture.followup.send).assert_called_once()
     # Ensure followup.send is an AsyncMock or MagicMock to have call_args
     assert hasattr(mock_interaction_fixture.followup.send, 'call_args'), "followup.send is not a mock object with call_args"
-    sent_embed = mock_interaction_fixture.followup.send.call_args.kwargs["embed"]
+    sent_embed = cast(AsyncMock, mock_interaction_fixture.followup.send).call_args.kwargs["embed"]
 
     expected_title_default = "Player Created: {player_name} (ID: {player_id})"
     expected_title = expected_title_default.format(player_name="Newbie", player_id=new_player_id_fixture)
@@ -165,7 +171,7 @@ async def test_master_player_create_handles_guild_none(
     guild_only_error_default = "This command must be used in a server."
     mock_get_localized_template_cmd.return_value = guild_only_error_default
 
-    mock_dummy_user_arg = AsyncMock(spec=discord.User, id=123) # Renamed
+    mock_dummy_user_arg = AsyncMock(spec=discord.User, id=123) # type: ignore[reportGeneralTypeIssues]
     await cog.player_create.callback( cog, mock_interaction_fixture, discord_user=mock_dummy_user_arg, player_name="Test")
 
     mock_interaction_fixture.response.defer.assert_called_once_with(ephemeral=True)
@@ -174,8 +180,8 @@ async def test_master_player_create_handles_guild_none(
     )
     # Ensure followup.send is an AsyncMock or MagicMock
     assert hasattr(mock_interaction_fixture.followup.send, 'assert_called_once_with'), "followup.send is not a mock object with assert_called_once_with"
-    mock_interaction_fixture.followup.send.assert_called_once_with(guild_only_error_default, ephemeral=True)
-    mock_player_crud_instance.create_with_defaults.assert_not_called()
+    cast(AsyncMock, mock_interaction_fixture.followup.send).assert_called_once_with(guild_only_error_default, ephemeral=True)
+    cast(AsyncMock, mock_player_crud_instance.create_with_defaults).assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -224,7 +230,7 @@ async def test_master_player_create_with_attributes_json(
     )
     mock_player_crud_instance.create_with_defaults.return_value = player_after_create
 
-    mock_discord_user_attr_arg = AsyncMock(spec=discord.User, id=12345, locale=MagicMock(value=command_locale_fixture)) # Renamed
+    mock_discord_user_attr_arg = AsyncMock(spec=discord.User, id=12345, locale=MagicMock(value=command_locale_fixture)) # type: ignore[reportGeneralTypeIssues]
     mock_player_crud_instance.get_by_discord_id.return_value = None
 
     async def mock_update_entity_side_effect(session, entity, data):
@@ -249,20 +255,20 @@ async def test_master_player_create_with_attributes_json(
         field_name="attributes_json_str",
         session=mock_session_fixture
     )
-    mock_update_entity_func_attr.assert_called_once()
-    called_with_data = mock_update_entity_func_attr.call_args.kwargs['data']
+    cast(AsyncMock, mock_update_entity_func_attr).assert_called_once()
+    called_with_data = cast(AsyncMock, mock_update_entity_func_attr).call_args.kwargs['data']
     assert 'name' not in called_with_data
     assert called_with_data['attributes_json'] == parsed_attributes
 
-    mock_player_crud_instance.create_with_defaults.assert_called_once()
-    create_defaults_args = mock_player_crud_instance.create_with_defaults.call_args.kwargs
+    cast(AsyncMock, mock_player_crud_instance.create_with_defaults).assert_called_once()
+    create_defaults_args = cast(AsyncMock, mock_player_crud_instance.create_with_defaults).call_args.kwargs
     assert create_defaults_args['discord_id'] == 12345
     assert create_defaults_args['name'] == "AttrPlayer"
 
-    mock_interaction_fixture.followup.send.assert_called_once()
+    cast(AsyncMock, mock_interaction_fixture.followup.send).assert_called_once()
     # Ensure followup.send is an AsyncMock or MagicMock to have call_args
     assert hasattr(mock_interaction_fixture.followup.send, 'call_args'), "followup.send is not a mock object with call_args"
-    sent_embed_attr = mock_interaction_fixture.followup.send.call_args.kwargs["embed"]
+    sent_embed_attr = cast(AsyncMock, mock_interaction_fixture.followup.send).call_args.kwargs["embed"]
     expected_title_default = "Player Created: {player_name} (ID: {player_id})"
     # The player_name in the embed should be "AttrPlayer" because update_entity returns the entity
     # which had its name set by create_with_defaults.
@@ -310,7 +316,7 @@ async def test_master_player_create_bad_attributes_json(
 
     mock_parse_json_parameter.side_effect = mock_parse_json_side_effect
 
-    mock_discord_user_bad_json_arg = AsyncMock(spec=discord.User, id=12345) # Renamed
+    mock_discord_user_bad_json_arg = AsyncMock(spec=discord.User, id=12345) # type: ignore[reportGeneralTypeIssues]
 
     await cog.player_create.callback(
         cog, # self
@@ -336,5 +342,5 @@ async def test_master_player_create_bad_attributes_json(
 
     # Ensure followup.send is an AsyncMock or MagicMock
     assert hasattr(mock_interaction_fixture.followup.send, 'assert_called_once_with'), "followup.send is not a mock object with assert_called_once_with"
-    mock_interaction_fixture.followup.send.assert_called_once_with(expected_final_message, ephemeral=True)
-    mock_player_crud_instance.create_with_defaults.assert_not_called()
+    cast(AsyncMock, mock_interaction_fixture.followup.send).assert_called_once_with(expected_final_message, ephemeral=True)
+    cast(AsyncMock, mock_player_crud_instance.create_with_defaults).assert_not_called()

@@ -72,16 +72,16 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             from typing import cast
             # The first argument to command.callback is the Interaction,
             # `self` (the cog instance) is bound by the decorator.
-            await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
-                self.cog,
-                cast(discord.Interaction, mock_interaction), # Interaction
-                "perception", # check_type
-                101,          # actor_id
-                "player",     # actor_type
-                None,         # target_id
-                None,         # target_type
-                15            # difficulty_dc
-                # json_context is omitted as it's optional and not used here
+            # The explicit self.cog was incorrect here.
+            await self.cog.simulate_check_command.callback( # type: ignore
+                interaction=cast(discord.Interaction, mock_interaction),
+                check_type="perception",
+                actor_id=101,
+                actor_type="player",
+                target_id=None,
+                target_type=None,
+                difficulty_dc=15,
+                json_context=None
             )
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
         mock_resolve_check.assert_called_once()
@@ -103,11 +103,15 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
-            await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
-                self.cog,
-                cast(discord.Interaction, mock_interaction), # Interaction
-                "test", 1, "player", # Positional: check_type, actor_id, actor_type
-                json_context="not_a_valid_json" # Keyword argument
+            await self.cog.simulate_check_command.callback(  # type: ignore
+                interaction=cast(discord.Interaction, mock_interaction),
+                check_type="test",
+                actor_id=1,
+                actor_type="player",
+                target_id=None,
+                target_type=None,
+                difficulty_dc=None,
+                json_context="not_a_valid_json"
             )
         mock_interaction.followup.send.assert_called_once()
         args, _ = mock_interaction.followup.send.call_args
@@ -126,13 +130,15 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
-            await self.cog.simulate_check_command.callback( # type: ignore[arg-type]
-                self.cog,
-                cast(discord.Interaction, mock_interaction), # Interaction
-                "test", # check_type
-                999,    # actor_id
-                "player" # actor_type
-                # Optional args (target_id, target_type, difficulty_dc, json_context) are omitted
+            await self.cog.simulate_check_command.callback(  # type: ignore
+                interaction=cast(discord.Interaction, mock_interaction),
+                check_type="test",
+                actor_id=999,
+                actor_type="player",
+                target_id=None,
+                target_type=None,
+                difficulty_dc=None,
+                json_context=None
             )
         mock_interaction.followup.send.assert_called_once()
         args, _ = mock_interaction.followup.send.call_args
@@ -179,14 +185,13 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
 
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
-            await self.cog.simulate_combat_action_command.callback( # type: ignore[arg-type]
-                self.cog,
-                cast(discord.Interaction, mock_interaction), # Interaction
-                1,          # combat_encounter_id
-                101,        # actor_id
-                "player",   # actor_type
-                action_data_str # action_json_data
-                # dry_run is optional and defaults to False
+            await self.cog.simulate_combat_action_command.callback(  # type: ignore
+                interaction=cast(discord.Interaction, mock_interaction),
+                combat_encounter_id=1,
+                actor_id=101,
+                actor_type="player",
+                action_json_data=action_data_str,
+                dry_run=False
             )
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, cast, Iterable # Added cast, Iterable
 import random
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -125,16 +125,23 @@ async def _get_nearby_entities_context(session: AsyncSession, guild_id: int, loc
     npcs_in_location = await generated_npc_crud.get_multi_by_attribute(
         session,
         guild_id=guild_id,
-        attribute="current_location_id", # Changed from attribute_name
-        value=location_id,
-        is_like=False # Explicitly add is_like
+        attribute="current_location_id",
+        value=location_id
     )
     npcs_context = []
     for npc in npcs_in_location:
-        if player_id and hasattr(npc, 'player_id_if_controlled') and npc.player_id_if_controlled == player_id : continue
+        npc_properties = npc.properties_json if isinstance(npc.properties_json, dict) else {}
+        if player_id and npc_properties.get("player_id_if_controlled") == player_id:
+            continue
         name_i18n_dict = npc.name_i18n if isinstance(npc.name_i18n, dict) else {}
         desc_i18n_dict = npc.description_i18n if isinstance(npc.description_i18n, dict) else {}
-        npcs_context.append({"id": npc.id, "name": get_localized_text(name_i18n_dict, lang), "description": get_localized_text(desc_i18n_dict, lang), "level": npc.level})
+        npc_level = npc_properties.get("level", npc_properties.get("stats", {}).get("level")) # Check top-level then stats
+        npcs_context.append({
+            "id": npc.id,
+            "name": get_localized_text(name_i18n_dict, lang),
+            "description": get_localized_text(desc_i18n_dict, lang),
+            "level": npc_level
+        })
     return {"npcs": npcs_context}
 
 async def _get_quests_context(session: AsyncSession, guild_id: int, lang: str, player_id: Optional[int] = None, party_id: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -183,8 +190,8 @@ async def _get_game_rules_terms(session: AsyncSession, guild_id: int, lang: str)
 
 async def _get_abilities_skills_terms(session: AsyncSession, guild_id: int, lang: str) -> Dict[str, List[Dict[str, Any]]]:
     # Ensure calls use `attribute` and `is_like` correctly.
-    abilities = await ability_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None, is_like=False)
-    skills = await skill_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None, is_like=False)
+    abilities = await ability_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None)
+    skills = await skill_crud.get_multi_by_attribute(session, guild_id=guild_id, attribute="id", value=None)
     return {
         "abilities": [{"static_id": ab.static_id, "name": get_localized_text(ab.name_i18n if isinstance(ab.name_i18n, dict) else {}, lang), "description": get_localized_text(ab.description_i18n if isinstance(ab.description_i18n, dict) else {}, lang)} for ab in abilities],
         "skills": [{"static_id": sk.static_id, "name": get_localized_text(sk.name_i18n if isinstance(sk.name_i18n, dict) else {}, lang), "description": get_localized_text(sk.description_i18n if isinstance(sk.description_i18n, dict) else {}, lang)} for sk in skills]
@@ -353,16 +360,22 @@ async def prepare_faction_relationship_generation_prompt(session: AsyncSession, 
         faction_rules = {"target_faction_count": all_rules.get("faction_generation:target_count", 3), "faction_themes": get_localized_text(all_rules.get("faction_generation:themes_i18n",{}), guild_main_lang) or DEFAULT_QUEST_THEMES.get(guild_main_lang,[]), "allow_player_faction_interaction": all_rules.get("faction_generation:allow_player_interaction", True), "world_description": get_localized_text(world_desc_i18n, guild_main_lang)}
         relationship_rules = {"initial_relationship_complexity": all_rules.get("relationship_generation:complexity", "moderate"), "default_relationship_types": all_rules.get("relationship_generation:default_types", ["faction_standing"])}
         entity_schemas = get_entity_schema_terms()
-        faction_themes_list = faction_rules['faction_themes']
-        if not isinstance(faction_themes_list, list):
-            faction_themes_list = [str(faction_themes_list)]
-        # Ensure all elements in faction_themes_list are strings for join
-        faction_themes_str_list = [str(theme) for theme in faction_themes_list if theme is not None]
+        faction_themes_value = faction_rules['faction_themes']
+
+        final_themes_for_join: List[str] = []
+        if isinstance(faction_themes_value, str):
+            if faction_themes_value: # Only add if not an empty string
+                final_themes_for_join.append(faction_themes_value)
+        elif isinstance(faction_themes_value, list):
+            for t in faction_themes_value:
+                if t is not None: # Ensure elements from list are not None
+                    final_themes_for_join.append(str(t)) # Ensure elements are strings
+        # Now final_themes_for_join is List[str]
 
         prompt_parts = [
             f"## AI Faction & Relationship Generation (Guild: {guild_id}, Lang: {guild_main_lang})",
             f"World: {faction_rules['world_description']}",
-            f"Task: Generate {faction_rules['target_faction_count']} factions with themes like '{', '.join(faction_themes_str_list)}'.",
+            f"Task: Generate {faction_rules['target_faction_count']} factions with themes like '{', '.join(final_themes_for_join)}'.", # type: ignore[reportArgumentType]
             f"Then, generate relationships between them (complexity: {relationship_rules['initial_relationship_complexity']}).",
             "If player interaction is allowed, may suggest relations to 'player_default' (type: player).",
             "Output: JSON with 'generated_factions' and 'generated_relationships' lists, per schemas.",

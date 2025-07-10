@@ -471,7 +471,7 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: igno
                 await interaction.followup.send(invalid_value_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True)
                 return
 
-            update_data = {db_field_name: parsed_value}
+            update_data = {db_field_name: parsed_value} # type: ignore[reportArgumentType]
 
             # player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id) # Already in session context
             player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id)

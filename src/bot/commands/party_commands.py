@@ -243,11 +243,11 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                     player_loc_obj = await location_crud.get(session, id=player.current_location_id, guild_id=guild_id)
                     if player_loc_obj:
                         # Pass the i18n dictionary (e.g., name_i18n) to get_localized_text
-                        # Correct parameter names: language, fallback_language
+                        # Correct parameter names: language, default_lang
                         player_location_name = get_localized_text(
-                            i18n_field=player_loc_obj.name_i18n, # Parameter name is i18n_field
-                            language=player.selected_language or "en", # Parameter name is language
-                            fallback_language="en" # Default fallback, or use a configured one
+                            i18n_dict=player_loc_obj.name_i18n,
+                            language=player.selected_language or "en",
+                            default_lang="en"
                         )
                         if not player_location_name: # Handle case where get_localized_text returns empty
                             player_location_name = "неизвестная локация"

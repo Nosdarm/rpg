@@ -4,11 +4,15 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib.parse import urlencode
 
+# Pydantic BaseModel import moved to top
+from pydantic import BaseModel
+from typing import Optional # Для response_model в get_active_guild
+
 from src.config import settings # Импортируем наши настройки
-from src.core.database import get_async_session
+from src.core.database import get_db_session # CORRECTED IMPORT
 from src.core.crud import crud_master_user
 from src.schemas.master_user import MasterUserCreate # Pydantic схема для создания MasterUser
-from src.core.security import create_access_token, TokenPayload # Функция для создания JWT и схема
+from src.core.security import create_access_token, TokenPayload, get_current_token_payload # get_current_token_payload for Depends
 
 router = APIRouter(
     prefix="/api/auth",
@@ -40,7 +44,7 @@ async def discord_login():
 
 
 @router.get("/discord/callback", summary="Handle Discord OAuth2 callback")
-async def discord_callback(code: str, session: AsyncSession = Depends(get_async_session)):
+async def discord_callback(code: str, session: AsyncSession = Depends(get_db_session)): # CORRECTED
     """
     Обрабатывает коллбэк от Discord после авторизации пользователя.
     Обменивает авторизационный код на access token, получает информацию о пользователе
@@ -133,7 +137,8 @@ async def discord_callback(code: str, session: AsyncSession = Depends(get_async_
                 discord_username=discord_username,
                 discord_avatar_url=avatar_url
             )
-            master_user = await crud_master_user.create(session, obj_in=master_user_in)
+            # Convert Pydantic model to dict before passing to CRUD
+            master_user = await crud_master_user.create(session, obj_in=master_user_in.model_dump())
 
         if not master_user: # Дополнительная проверка, если создание не удалось
             raise HTTPException(
@@ -198,7 +203,7 @@ async def discord_callback(code: str, session: AsyncSession = Depends(get_async_
 @router.get("/me/guilds", summary="Get accessible guilds for the authenticated user (TEMPORARY IMPLEMENTATION)")
 async def get_my_guilds(
     token_payload: TokenPayload = Depends(get_current_token_payload), # Защищаем эндпоинт
-    session: AsyncSession = Depends(get_async_session) # Для доступа к GuildConfig
+    session: AsyncSession = Depends(get_db_session) # Для доступа к GuildConfig # CORRECTED
 ):
     """
     ВРЕМЕННАЯ РЕАЛИЗАЦИЯ: Возвращает ВСЕ гильдии из GuildConfig.

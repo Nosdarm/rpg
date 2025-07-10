@@ -33,7 +33,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 @pytest.fixture(scope="function")
-async def test_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def test_db_session() -> AsyncGenerator[AsyncSession, None]: # Type hint already correct here based on current file content
     # Ensure tables are created and PRAGMA is set on a connection from the engine
     async with engine.connect() as connection:
         await connection.run_sync(Base.metadata.drop_all) # Drop first for clean state

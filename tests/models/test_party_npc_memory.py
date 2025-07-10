@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from src.models.base import Base
+# पार्टी_npc_memory -> party_npc_memory
 from src.models.party_npc_memory import PartyNpcMemory
 from src.models.guild import GuildConfig
 from src.models.party import Party
@@ -65,8 +66,11 @@ class TestPartyNpcMemoryModel:
     async def test_create_party_npc_memory_minimal(self, db_session: AsyncSession):
         async with db_session.begin():
             guild = await db_session.get(GuildConfig, 1)
+            assert guild is not None # Ensure guild is not None
             party = await db_session.get(Party, 1)
+            assert party is not None # Ensure party is not None
             npc = await db_session.get(GeneratedNpc, 1)
+            assert npc is not None # Ensure npc is not None
 
             memory = PartyNpcMemory(
                 guild_id=guild.id,
@@ -90,8 +94,11 @@ class TestPartyNpcMemoryModel:
     async def test_create_party_npc_memory_full(self, db_session: AsyncSession):
         async with db_session.begin():
             guild = await db_session.get(GuildConfig, 1)
+            assert guild is not None
             party = await db_session.get(Party, 1)
+            assert party is not None
             npc = await db_session.get(GeneratedNpc, 1)
+            assert npc is not None
 
             event_type = "QUEST_COMPLETED"
             details_i18n = {"en": "Party completed the quest"}
@@ -124,7 +131,9 @@ class TestPartyNpcMemoryModel:
 
     async def test_foreign_key_guild_constraint(self, db_session: AsyncSession):
         party = await db_session.get(Party, 1)
+        assert party is not None
         npc = await db_session.get(GeneratedNpc, 1)
+        assert npc is not None
         memory = PartyNpcMemory(guild_id=999, party_id=party.id, npc_id=npc.id)
         db_session.add(memory)
         with pytest.raises(IntegrityError):
@@ -133,7 +142,9 @@ class TestPartyNpcMemoryModel:
 
     async def test_foreign_key_party_constraint(self, db_session: AsyncSession):
         guild = await db_session.get(GuildConfig, 1)
+        assert guild is not None
         npc = await db_session.get(GeneratedNpc, 1)
+        assert npc is not None
         memory = PartyNpcMemory(guild_id=guild.id, party_id=999, npc_id=npc.id)
         db_session.add(memory)
         with pytest.raises(IntegrityError):
@@ -142,7 +153,9 @@ class TestPartyNpcMemoryModel:
 
     async def test_foreign_key_npc_constraint(self, db_session: AsyncSession):
         guild = await db_session.get(GuildConfig, 1)
+        assert guild is not None
         party = await db_session.get(Party, 1)
+        assert party is not None
         memory = PartyNpcMemory(guild_id=guild.id, party_id=party.id, npc_id=999)
         db_session.add(memory)
         with pytest.raises(IntegrityError):
@@ -152,8 +165,11 @@ class TestPartyNpcMemoryModel:
     async def test_nullable_fields(self, db_session: AsyncSession):
         async with db_session.begin():
             guild = await db_session.get(GuildConfig, 1)
+            assert guild is not None
             party = await db_session.get(Party, 1)
+            assert party is not None
             npc = await db_session.get(GeneratedNpc, 1)
+            assert npc is not None
             memory = PartyNpcMemory(
                 guild_id=guild.id,
                 party_id=party.id,

@@ -34,3 +34,6 @@ pyright>=1.1.300 # Added pyright for static type checking
 
 # OpenAI API client
 openai>=1.3.0
+
+# For password hashing and verification
+passlib>=1.7.4
