@@ -1,8 +1,7 @@
 from sqlalchemy import Column, String, BigInteger
 from sqlalchemy.orm import Mapped
 
-from src.models.base import Base
-from src.models.mixins import TimestampMixin
+from src.models.base import Base, TimestampMixin
 
 class MasterUser(Base, TimestampMixin):
     """
