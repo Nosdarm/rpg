@@ -12,6 +12,7 @@ from .crud_status_effect import status_effect_crud, active_status_effect_crud
 from .crud_guild import guild_crud # Added guild_crud
 from .crud_combat_encounter import combat_encounter_crud
 from .crud_faction import crud_faction # Added crud_faction
+from .crud_master_user import crud_master_user # Added for Task 56 (UI Auth)
 
 
 # You can also import base CRUD if needed to be exposed from here,
@@ -25,7 +26,7 @@ logger.info(
     "pending_generation_crud, npc_crud, item_crud, inventory_item_crud, ability_crud, "
     "status_effect_crud, active_status_effect_crud, combat_encounter_crud, crud_faction, "
     "crud_relationship, generated_quest_crud, quest_step_crud, player_quest_progress_crud, questline_crud, pending_conflict_crud, "
-    "crud_crafting_recipe, skill_crud, crud_player_npc_memory, crud_party_npc_memory, story_log_crud." # Added story_log_crud and crud_party_npc_memory
+    "crud_crafting_recipe, skill_crud, crud_player_npc_memory, crud_party_npc_memory, story_log_crud, crud_master_user." # Added story_log_crud, crud_party_npc_memory and crud_master_user
 )
 
 __all__ = [
@@ -56,6 +57,7 @@ __all__ = [
     "crud_player_npc_memory", # Added for PlayerNpcMemory
     "crud_party_npc_memory", # Added for PartyNpcMemory
     "story_log_crud", # Added StoryLog CRUD
+    "crud_master_user", # Added for Task 56
 ]
 from .crud_crafting_recipe import crud_crafting_recipe # Added for CraftingRecipe
 from .crud_skill import skill_crud # Added for Skill

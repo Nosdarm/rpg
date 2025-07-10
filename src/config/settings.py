@@ -99,11 +99,18 @@ BOT_PREFIX = os.getenv("BOT_PREFIX", "!")
 BOT_LANGUAGE = os.getenv("BOT_LANGUAGE", "en")
 
 # Secret Key
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY") # Используется для подписи JWT и других нужд безопасности
 
 # API Server settings
 API_HOST = os.getenv("API_HOST", "127.0.0.1")
 API_PORT = int(os.getenv("API_PORT", "8000"))
+
+# Discord OAuth2 Configuration (для UI аутентификации)
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID") # ID вашего Discord приложения
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET") # Секрет вашего Discord приложения
+# URL, куда Discord перенаправит пользователя после авторизации. Должен совпадать с указанным на Discord Developer Portal.
+# Пример: http://localhost:8000/api/auth/discord/callback или https://yourdomain.com/api/auth/discord/callback
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
 
 
 # Проверка наличия токена и URL базы данных при импорте модуля
@@ -121,7 +128,14 @@ if not OPENAI_API_KEY:
     print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения OPENAI_API_KEY не установлена.")
 
 if not SECRET_KEY:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения SECRET_KEY не установлена.")
+    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения SECRET_KEY не установлена. Это критично для безопасности JWT.")
+
+if not DISCORD_CLIENT_ID:
+    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_CLIENT_ID не установлена (необходима для OAuth2).")
+if not DISCORD_CLIENT_SECRET:
+    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_CLIENT_SECRET не установлена (необходима для OAuth2).")
+if not DISCORD_REDIRECT_URI:
+    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_REDIRECT_URI не установлена (необходима для OAuth2).")
 
 
 # Пример .env файла (создайте его в корне проекта, НЕ добавляйте в Git, если он содержит секреты):
@@ -163,7 +177,13 @@ DATABASE_URL=postgresql+asyncpg://user:pass@host:port/dbname
 OPENAI_API_KEY=your_openai_api_key_here
 BOT_PREFIX=!
 BOT_LANGUAGE=en
-SECRET_KEY=your_secret_key_here
+SECRET_KEY=your_very_secret_and_long_key_for_jwt_and_other_stuff # Обязательно смените на свой!
+
+# --- Discord OAuth2 for UI Authentication ---
+# Эти значения должны совпадать с настройками вашего Discord приложения на Developer Portal
+# DISCORD_CLIENT_ID=your_discord_application_client_id
+# DISCORD_CLIENT_SECRET=your_discord_application_client_secret
+# DISCORD_REDIRECT_URI=http://localhost:8000/api/auth/discord/callback # Или ваш публичный URL
 
 # GUILD_ID=your_guild_id_here # Пример дополнительной настройки
 """

@@ -22,6 +22,7 @@ pydantic>=2.0.0
 fastapi>=0.100.0
 uvicorn[standard]>=0.22.0
 httpx>=0.24.1 # Required by FastAPI TestClient
+python-jose[cryptography]>=3.3.0 # Для работы с JWT
 
 # Для тестирования
 pytest>=7.0.0

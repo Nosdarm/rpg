@@ -45,6 +45,7 @@ from .ability_outcomes import ( # Import Ability Outcome models
 from .combat_outcomes import CombatActionResult # Import CombatActionResult model
 from .check_results import CheckResult, CheckOutcome, ModifierDetail # Import CheckResult models
 from .command_info import CommandInfo, CommandParameterInfo, CommandListResponse # Import Command Info models
+from .master_user import MasterUser # Added for Task 56 (UI Auth)
 # ... и так далее для всех остальных моделей
 
 # Вызов model_rebuild для моделей с ForwardRefs после того, как все модели импортированы
@@ -97,7 +98,7 @@ logger.info(
     "StatusEffect, ActiveStatusEffect, Questline, GeneratedQuest, QuestStep, PlayerQuestProgress, " # MobileGroup removed from here for now
     "CraftingRecipe, PendingGeneration, ParsedAction, ActionEntity, PendingConflict, CombatEncounter, AbilityOutcomeDetails, "
     "AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail, CombatActionResult, CheckResult, CheckOutcome, ModifierDetail, "
-    "CommandInfo, CommandParameterInfo, CommandListResponse, GlobalNpc, MobileGroup, GlobalEvent." # Added new models
+    "CommandInfo, CommandParameterInfo, CommandListResponse, GlobalNpc, MobileGroup, GlobalEvent, MasterUser." # Added new models including MasterUser
 )
 
 # Perform model rebuilds here after all models are known
@@ -105,6 +106,7 @@ CombatActionResult.model_rebuild()
 CheckResult.model_rebuild() # Though CheckResult itself is self-contained, doesn't hurt
 ModifierDetail.model_rebuild()
 CheckOutcome.model_rebuild()
+# MasterUser.model_rebuild() # SQLAlchemy model, Pydantic model_rebuild() not applicable
 # Player.model_rebuild() # SQLAlchemy model
 # Guild.model_rebuild() # Not defined or SQLAlchemy model (GuildConfig)
 # Location.model_rebuild() # SQLAlchemy model
