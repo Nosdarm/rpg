@@ -150,11 +150,8 @@ This block presents tasks related to developing a separate client application (w
 {Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42) - Moved to Done.txt}
 
 {Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21) - Moved to Done.txt}
-
-Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45)
-* Description: Create UI pages for managing global entities.
-* Interface for viewing/editing the list of Global Entities (MobileGroup, GlobalNpc, GlobalEvent) in the guild (calling CRUD API 41 for models 45).
-* Display their state, routes, goals. Forms for editing.
+{Task 62: 🖥️ UI.8 UI for Quest Management (Backend Preparation & UI Stubs) - Moved to Done.txt}
+{Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45) - Moved to Done.txt}
 
 Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43)
 * Description: Create UI pages for monitoring game state and viewing logs.

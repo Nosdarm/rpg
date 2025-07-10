@@ -1,5 +1,28 @@
 ## Completed Tasks Log
 
+**Task 63: 🖥️ UI.9 UI for Global Entity Management (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs, basic component placeholders, test file stubs) for Global Entity (GlobalNpc, MobileGroup) management UI. UI for GlobalEvent was deferred due to lack of backend master commands.
+- **Result**:
+    - Analyzed existing GlobalNpc and MobileGroup models, CRUD operations, and Master commands; confirmed API readiness for these entities.
+    - Created TypeScript definitions in `src/ui/src/types/globalEntity.ts`:
+        - `GlobalNpcData`, `GlobalNpcPayload`, `GlobalNpcUpdatePayload`
+        - `MobileGroupData`, `MobileGroupPayload`, `MobileGroupUpdatePayload`
+        - Utilized common `PaginatedResponse<T>`.
+    - Created UI service stubs with mock implementations in `src/ui/src/services/globalEntityService.ts` for CRUD operations on GlobalNpc and MobileGroup.
+    - Created basic UI component file structure (placeholders) in `src/ui/src/pages/GlobalEntitiesPage/`:
+        - `GlobalNpcListPage.tsx`, `GlobalNpcDetailPage.tsx`
+        - `MobileGroupListPage.tsx`, `MobileGroupDetailPage.tsx`
+    - Created placeholder unit test files for the new service and page components:
+        - `src/ui/src/services/globalEntityService.test.ts`
+        - `src/ui/src/pages/GlobalEntitiesPage/GlobalNpcListPage.test.tsx`
+        - `src/ui/src/pages/GlobalEntitiesPage/GlobalNpcDetailPage.test.tsx`
+        - `src/ui/src/pages/GlobalEntitiesPage/MobileGroupListPage.test.tsx`
+        - `src/ui/src/pages/GlobalEntitiesPage/MobileGroupDetailPage.test.tsx`
+    - Documented the relevant API endpoints (master commands) and data structures for the UI team in `AGENTS.MD` under "Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)".
+    - Detailed UI component implementation (forms, tables, state management) and full test implementation are pending further UI-specific tasks.
+---
+
 **Task 62: 🖥️ UI.8 UI for Quest Management (Backend Preparation & UI Stubs)**
 - **Completed**: [Текущая дата]
 - **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs) for quest management UI.
