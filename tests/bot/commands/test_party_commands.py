@@ -65,35 +65,40 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         # Mock get_localized_text for party_commands (must be synchronous)
         def mock_get_loc_text_for_party_sync(*args, **kwargs):
-            # This mock handles two main call signatures observed or inferred for get_localized_text
+            i18n_data = kwargs.get('i18n_dict') # Corrected kwarg name
+            language = kwargs.get('language', 'en')
+            default_lang = kwargs.get('default_lang', 'en')
+
+            if i18n_data is not None and isinstance(i18n_data, dict):
+                name = i18n_data.get(language)
+                if name:
+                    return name
+                name = i18n_data.get(default_lang)
+                if name:
+                    return name
+                # Fallback if no specific language match, try 'en' or first available from dict
+                # or a very specific default if dict is empty or value is not string
+                for val in i18n_data.values(): # Ensure there's at least one string value
+                    if isinstance(val, str):
+                        return i18n_data.get("en", next(iter(i18n_data.values())))
+                return "Location Name Missing From i18n_dict Values"
+
+
+            # Fallback to key/default_text logic if i18n_dict not primary source or not suitable
             key = kwargs.get('key')
-            i18n_field = kwargs.get('i18n_field')
             default_text = kwargs.get('default_text')
-            # Determine language from kwargs, supporting 'language' or 'lang_code'
-            language = kwargs.get('language', kwargs.get('lang_code', 'en'))
-            # format_kwargs might be passed for messages that need formatting
             format_kwargs_actual = kwargs.get('format_kwargs', {})
 
-            # Call pattern 1: Using i18n_field (typically for entity names like location)
-            if i18n_field is not None and isinstance(i18n_field, dict):
-                # Use provided language, fallback to 'en', then to a generic mock string
-                return i18n_field.get(language, i18n_field.get('en', "Mocked Location Name"))
-
-            # Call pattern 2: Using key and default_text (typically for UI messages/templates)
-            # Determine the text to be used: default_text has priority over key
             final_text_template = default_text if default_text is not None else key
-
             if final_text_template is None:
-                return "Mocked Text (No Key/Default)"
+                return "Mocked Text (No Key/Default/i18n_dict)"
 
-            # If format_kwargs were provided and the text is a string, attempt to format it
             if format_kwargs_actual and isinstance(final_text_template, str):
                 try:
                     return final_text_template.format(**format_kwargs_actual)
-                except KeyError: # If formatting fails due to missing keys, return the template
-                    return final_text_template
-
-            return final_text_template # Return the text template or key if no formatting needed/possible
+                except KeyError:
+                    return final_text_template # Return unformatted if keys missing
+            return str(final_text_template) # Ensure string return
 
         self.mock_get_localized_text.side_effect = mock_get_loc_text_for_party_sync
 

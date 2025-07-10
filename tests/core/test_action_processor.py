@@ -1113,7 +1113,8 @@ async def test_process_player_message_for_nlu_player_in_dialogue(
         player_id=PLAYER_ID_PK_1,
         message_text=mock_bot_message.content,
         parsed_intent=nlu_result_action.intent,
-        parsed_entities=nlu_result_action.entities
+            # Expect a list of dicts, as ActionEntity objects are converted
+            parsed_entities=[entity.model_dump() for entity in nlu_result_action.entities]
     )
     mock_bot_message.channel.send.assert_called_once_with("**Friendly NPC**: NPC says hello back")
     assert mock_player_dialogue_status.collected_actions_json == "[]" # Actions not queued
