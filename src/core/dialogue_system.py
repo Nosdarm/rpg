@@ -176,20 +176,26 @@ async def start_dialogue(
     session.add(player)
 
     # Ensure language key is a string for .get()
-    lang_key_for_npc_name = player.selected_language # This can be None
+    lang_key_from_player = player.selected_language # This is Optional[str]
 
     npc_display_name = None
     if isinstance(npc.name_i18n, dict):
-        if lang_key_for_npc_name: # Ensure lang_key_for_npc_name is not None
-            npc_display_name = npc.name_i18n.get(lang_key_for_npc_name)
+        # Try to get display name using player's selected language if available
+        if lang_key_from_player is not None:
+            # At this point, lang_key_from_player is confirmed to be a str
+            npc_display_name = npc.name_i18n.get(lang_key_from_player)
 
-        if npc_display_name is None: # If primary lang failed or was None
-            npc_display_name = npc.name_i18n.get("en", "the NPC") # Fallback to "en", then to "the NPC"
-    else: # Should ideally not happen if npc.name_i18n is Dict[str,str] and not None
+        # If display name is still None (either key not found or player had no language preference),
+        # fallback to English, then to a generic default.
+        if npc_display_name is None:
+            npc_display_name = npc.name_i18n.get("en", "the NPC")
+    else:
+        # This case handles if npc.name_i18n is unexpectedly not a dict (e.g. None or wrong type from DB)
         npc_display_name = "the NPC (name i18n error)"
-        logger.warning(f"NPC {npc.id} name_i18n is not a dict: {npc.name_i18n}")
+        logger.warning(f"NPC {npc.id} name_i18n is not a dict or is None: {npc.name_i18n}")
 
-    if npc_display_name is None: # Ultimate fallback if .get("en", "the NPC") somehow results in None (e.g. if default was not provided)
+    # Final fallback if all else fails to produce a name (e.g., if "en" key was missing and no default provided in .get)
+    if npc_display_name is None:
         npc_display_name = "the NPC"
 
 
@@ -308,7 +314,7 @@ async def handle_dialogue_input(
     npc_response_text = await generate_npc_dialogue(session, guild_id, context_for_llm)
 
     # Добавляем ответ NPC в оригинальный список истории в сессии
-    active_dialogues[dialogue_key]["dialogue_history"].append({"speaker": "npc", "line": npc_response_text})
+    dialogue_session_data["dialogue_history"].append({"speaker": "npc", "line": npc_response_text})
     # Ограничение длины истории диалога, если нужно (например, последние N реплик)
     max_history_len = 10 # Например, хранить последние 10 обменов (20 реплик)
     if len(dialogue_session_data["dialogue_history"]) > max_history_len * 2:

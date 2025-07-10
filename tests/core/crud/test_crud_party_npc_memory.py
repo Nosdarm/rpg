@@ -1,14 +1,13 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock # Added MagicMock
-from typing import AsyncGenerator # Added AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock
+from typing import AsyncGenerator
 
-import pytest # Added pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select # Ensure this is the correct import for your SQLAlchemy version
-from sqlalchemy.orm import sessionmaker # Added sessionmaker
-from sqlalchemy import event, create_engine, text # Added create_engine, event, and text
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine # Changed create_engine to create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text, event # Removed create_engine, text is fine, event is fine
 
-from src.models.base import Base # Added Base
+from src.models.base import Base
 from src.core.crud.crud_party_npc_memory import crud_party_npc_memory, CRUDPartyNpcMemory
 from src.models.party_npc_memory import PartyNpcMemory
 from src.models.guild import GuildConfig
@@ -20,7 +19,7 @@ from src.models.player import Player # For party leader
 from sqlalchemy.pool import StaticPool
 
 # Configure in-memory SQLite for testing
-engine = create_engine(
+async_engine = create_async_engine( # Changed to create_async_engine
     "sqlite+aiosqlite:///:memory:",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
@@ -29,13 +28,13 @@ engine = create_engine(
 
 # AsyncSessionLocal factory
 AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
+    async_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False # Use async_engine
 )
 
 @pytest.fixture(scope="function")
-async def test_db_session() -> AsyncGenerator[AsyncSession, None]: # Type hint already correct here based on current file content
+async def test_db_session() -> AsyncGenerator[AsyncSession, None]:
     # Ensure tables are created and PRAGMA is set on a connection from the engine
-    async with engine.connect() as connection:
+    async with async_engine.connect() as connection: # Use async_engine
         await connection.run_sync(Base.metadata.drop_all) # Drop first for clean state
         await connection.run_sync(Base.metadata.create_all)
         await connection.execute(text("PRAGMA foreign_keys=ON;"))

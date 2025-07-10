@@ -1,9 +1,9 @@
 import pytest
 from datetime import datetime
-from typing import AsyncGenerator # Added AsyncGenerator
+from typing import AsyncGenerator
 
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import event, text # Removed create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine # Added create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
@@ -18,7 +18,7 @@ from src.models.player import Player
 
 # Configure in-memory SQLite for testing
 # This engine will be used by the fixture to create connections
-engine = create_engine(
+async_engine = create_async_engine( # Changed to create_async_engine
     "sqlite+aiosqlite:///:memory:",
     connect_args={"check_same_thread": False}, # Necessary for aiosqlite
     poolclass=StaticPool, # Ensures the same in-memory DB is used
@@ -27,13 +27,13 @@ engine = create_engine(
 
 # AsyncSessionLocal factory, to be used by the fixture
 AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
+    async_engine, class_=AsyncSession, expire_on_commit=False, autoflush=False # Use async_engine
 )
 
 @pytest.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # Ensure tables are created and PRAGMA is set on a connection from the engine
-    async with engine.connect() as connection:
+    async with async_engine.connect() as connection: # Use async_engine
         await connection.run_sync(Base.metadata.drop_all) # Drop first to ensure clean state
         await connection.run_sync(Base.metadata.create_all)
         await connection.execute(text("PRAGMA foreign_keys=ON;"))

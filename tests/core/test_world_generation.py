@@ -539,12 +539,18 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(call_args_rel['entity2_id'], created_faction2_db.id)
 
         mock_log_event.assert_called_once()
-        log_args = mock_log_event.call_args.kwargs
-        self.assertEqual(log_args['event_type'], EventType.WORLD_EVENT_FACTIONS_GENERATED.value)
-        # Assuming faction_ids is List[int], the assertIn should be fine.
-        # If Pyright complains about log_args['details_json']['faction_ids'] being str|None:
-        self.assertIn(created_faction1_db.id, log_args['details_json']['faction_ids']) # type: ignore[arg-type]
-        self.assertIn(created_faction2_db.id, log_args['details_json']['faction_ids']) # type: ignore[arg-type]
+        log_args_kwargs = mock_log_event.call_args.kwargs
+        self.assertEqual(log_args_kwargs['event_type'], EventType.WORLD_EVENT_FACTIONS_GENERATED.value)
+
+        details_json_val = log_args_kwargs.get('details_json')
+        self.assertIsInstance(details_json_val, dict, "details_json should be a dictionary")
+
+        faction_ids_val = details_json_val.get('faction_ids') # type: ignore[union-attr] # Guarded by assertIsInstance above
+        self.assertIsInstance(faction_ids_val, list, "faction_ids should be a list")
+
+        # Now faction_ids_val is known to be a list.
+        self.assertIn(created_faction1_db.id, faction_ids_val) # type: ignore[arg-type] # If pyright still complains, it means created_faction1_db.id is an issue or faction_ids_val is not List[int]
+        self.assertIn(created_faction2_db.id, faction_ids_val) # type: ignore[arg-type]
         self.session_commit_mock.assert_called_once()
 
     @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)

@@ -312,11 +312,13 @@ class TestNPCCombatStrategy:
 
                 targets = await _get_potential_targets( mock_session, mock_actor_npc, mock_combat_encounter, mock_ai_rules, 100, participants_list_for_test )
                 assert len(targets) == 2
-                target_ids = {t["entity"].id for t in targets} # Assuming t["entity"] has an id attribute
+                # Assuming t["entity"] is a dict as per pyright error "Cannot access attribute 'id' for class 'Dict[str, Any]'"
+                target_ids = {t["entity"]["id"] for t in targets}
                 assert mock_target_player.id in target_ids
                 assert mock_target_npc_hostile.id in target_ids
                 assert mock_target_npc_friendly_faction.id not in target_ids
-                player_target_entry = next(t for t in targets if t["entity"].id == mock_target_player.id)
+                # Assuming t["entity"] is a dict as per pyright error
+                player_target_entry = next(t for t in targets if t["entity"]["id"] == mock_target_player.id)
                 assert player_target_entry["combat_data"]["current_hp"] == 80
 
     @pytest.mark.asyncio
