@@ -22,3 +22,24 @@
     - Created/updated UI service stubs in `src/ui/src/services/` (`itemService.ts`, `inventoryService.ts`, `playerService.ts`, `npcService.ts`) to reflect new API capabilities and provide a clear interface for UI developers.
     - Documented the relevant API endpoints and data structures for the UI team in `AGENTS.MD`.
 ---
+
+**Task 61: 🖥️ UI.7 UI for Faction and Relationship Management (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs, basic component structure) for faction and relationship management UI.
+- **Result**:
+    - Analyzed existing Faction and Relationship models, CRUD operations, and Master commands; confirmed API readiness.
+    - Created TypeScript definitions:
+        - `src/ui/src/types/faction.ts`: `FactionLeaderInfo`, `Faction`, `FactionPayload`, `FactionUpdatePayload`.
+        - `src/ui/src/types/relationship.ts`: `RelationshipEntityInfo`, `RelationshipData`, `RelationshipPayload`, `RelationshipUpdatePayload`.
+        - Common `PaginatedResponse<T>` utilized.
+    - Created UI service stubs with mock implementations:
+        - `src/ui/src/services/factionService.ts`: CRUD functions for factions.
+        - `src/ui/src/services/relationshipService.ts`: CRUD functions for relationships.
+    - Created basic UI component file structure (placeholders):
+        - `src/ui/src/pages/FactionsPage/FactionsListPage.tsx`
+        - `src/ui/src/pages/FactionsPage/FactionDetailPage.tsx`
+        - `src/ui/src/pages/RelationshipsPage/RelationshipsListPage.tsx`
+        - `src/ui/src/pages/RelationshipsPage/RelationshipDetailPage.tsx`
+    - Documented the relevant API endpoints and data structures for the UI team in `AGENTS.MD`.
+    - Detailed UI component implementation (forms, tables, state management) is pending further UI-specific tasks.
+---

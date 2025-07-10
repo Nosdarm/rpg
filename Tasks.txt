@@ -149,11 +149,7 @@ This block presents tasks related to developing a separate client application (w
 
 {Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42) - Moved to Done.txt}
 
-Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21)
-* Description: Create UI pages for managing factions and relationships.
-* Interface for viewing/editing the list of factions (calling CRUD API 41 for the GeneratedFaction model 20). Forms for editing factions (including _i18n).
-* Interface for viewing/editing the list of relationships (calling CRUD API 41 for the Relationship model 21). Display relationships between entities in the guild, forms for changing them. Possibly a visual representation of relationships.
-* Result: Graphical interface for managing factions and relationships.
+{Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21) - Moved to Done.txt}
 
 Task 62: 🖥️ UI.8 UI for Quest Management. (Depends on API 39)
 * Description: Create UI pages for managing quests.

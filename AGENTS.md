@@ -41,10 +41,29 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет очищен после завершения Task 60)*
-
+*(Этот раздел будет заполняться планом для следующей задачи)*
 ---
 ## Лог действий
+
+## Task 61: 🖥️ UI.7 UI for Faction and Relationship Management
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницы для управления фракциями и отношениями.
+- **Выполненные действия**:
+    - Шаг 1: Определена первая невыполненная задача из `Tasks.txt`: Task 61.
+    - Шаг 2: Проанализирована задача Task 61 (описание, зависимости API - Task 41, модели - Task 20, 21).
+    - Шаг 3: Проанализированы существующие модели (`GeneratedFaction`, `Relationship`), CRUD-операции (`CRUDFaction`, `CRUDRelationship`) и мастер-команды (`faction_master_commands.py`, `relationship_master_commands.py`). API признаны готовыми для использования.
+    - Шаг 4: Составлен детальный план реализации UI-контрактов и стабов.
+    - Шаг 5: Определены TypeScript интерфейсы для UI:
+        - В `src/ui/src/types/faction.ts` созданы `FactionLeaderInfo`, `Faction`, `FactionPayload`, `FactionUpdatePayload`.
+        - В `src/ui/src/types/relationship.ts` созданы `RelationshipEntityInfo`, `RelationshipData`, `RelationshipPayload`, `RelationshipUpdatePayload`.
+        - В обоих файлах упомянут общий интерфейс `PaginatedResponse<T>`.
+    - Шаг 6: Созданы стабы (заглушки) для UI сервисов:
+        - В `src/ui/src/services/factionService.ts` реализованы моковые CRUD-функции для фракций.
+        - В `src/ui/src/services/relationshipService.ts` реализованы моковые CRUD-функции для отношений.
+    - Шаг 7: Реализована базовая структура UI компонентов (заглушки):
+        - Создана директория `src/ui/src/pages/FactionsPage` с файлами `FactionsListPage.tsx` и `FactionDetailPage.tsx`.
+        - Создана директория `src/ui/src/pages/RelationshipsPage` с файлами `RelationshipsListPage.tsx` и `RelationshipDetailPage.tsx`.
+    - Шаг 8: Обновлен `AGENTS.md` (этот лог, текущий план и документация API для UI).
 
 ## Task 60: 🖥️ UI.6 UI for Inventory and Item Management
 - **Дата**: [Текущая дата]
@@ -803,6 +822,111 @@
     - **Срок**: После стабилизации текущей системы диалогов и при наличии четких требований к механизму представления диалоговых опций игроку. Приоритет: средний/низкий, так как требует значительных доработок.
 
 ---
+## Документация API для UI Task 61: Управление фракциями и отношениями
+
+Эта документация описывает мастер-команды Discord (которые UI будет вызывать через API шлюз), необходимые для управления фракциями и отношениями.
+
+**Общие замечания:** См. Task 60.
+
+---
+
+**1. Фракции (GeneratedFaction)**
+
+*   **Сущность**: `GeneratedFaction`
+*   **Модель**: `src/models/generated_faction.py`
+*   **TypeScript**: `src/ui/src/types/faction.ts -> Faction, FactionPayload, FactionUpdatePayload`
+*   **Сервис UI**: `src/ui/src/services/factionService.ts`
+
+*   **1.1. Получить список всех фракций в гильдии (с пагинацией)**
+    *   **Команда Discord**: `/master_faction list`
+    *   **Параметры UI -> Команда**: `page: Optional[int]`, `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<Faction>` (поля `items`, `total`, `page`, `limit`).
+        *   Объект `Faction` будет содержать поля, как в интерфейсе `Faction`, включая `leader_npc_details` (если возможно обогащение на бэкенде или UI сделает доп. запрос).
+
+*   **1.2. Получить детали конкретной фракции**
+    *   **Команда Discord**: `/master_faction view`
+    *   **Параметры UI -> Команда**: `faction_id: int`
+    *   **Ответ**: Объект `Faction`.
+
+*   **1.3. Создать новую фракцию**
+    *   **Команда Discord**: `/master_faction create`
+    *   **Параметры UI (`FactionPayload`) -> Команда**:
+        *   `static_id: str`
+        *   `name_i18n_json: str` (JSON строка `Record<string, string>`)
+        *   `description_i18n_json: Optional[str]`
+        *   `ideology_i18n_json: Optional[str]`
+        *   `leader_npc_static_id: Optional[str]`
+        *   `resources_json: Optional[str]`
+        *   `ai_metadata_json: Optional[str]`
+    *   **Ответ**: Созданный объект `Faction`.
+
+*   **1.4. Обновить фракцию**
+    *   **Команда Discord**: `/master_faction update`
+    *   **Параметры UI (`factionId: number`, `payload: FactionUpdatePayload`) -> Команда**:
+        *   `faction_id: int`
+        *   `field_to_update: str` (из `FactionUpdatePayload.field_to_update`)
+        *   `new_value: str` (JSON строка для *_json полей, или строка для `static_id`, `leader_npc_static_id`)
+    *   **Ответ**: Обновленный объект `Faction`.
+
+*   **1.5. Удалить фракцию**
+    *   **Команда Discord**: `/master_faction delete`
+    *   **Параметры UI -> Команда**: `faction_id: int`
+    *   **Ответ**: Сообщение об успехе или ошибке.
+
+---
+
+**2. Отношения (Relationship)**
+
+*   **Сущность**: `Relationship`
+*   **Модель**: `src/models/relationship.py`
+*   **TypeScript**: `src/ui/src/types/relationship.ts -> RelationshipData, RelationshipPayload, RelationshipUpdatePayload`
+*   **Сервис UI**: `src/ui/src/services/relationshipService.ts`
+
+*   **2.1. Получить список отношений в гильдии (с пагинацией и фильтрами)**
+    *   **Команда Discord**: `/master_relationship list`
+    *   **Параметры UI -> Команда**:
+        *   `entity1_id: Optional[int]`
+        *   `entity1_type: Optional[str]` (строковое представление `RelationshipEntityType`)
+        *   `entity2_id: Optional[int]`
+        *   `entity2_type: Optional[str]`
+        *   `relationship_type_filter: Optional[str]`
+        *   `page: Optional[int]`
+        *   `limit: Optional[int]`
+    *   **Ответ**: `PaginatedResponse<RelationshipData>`.
+        *   Объект `RelationshipData` будет содержать поля, как в интерфейсе, включая `entity1_details` и `entity2_details` (если возможно обогащение).
+
+*   **2.2. Получить детали конкретного отношения**
+    *   **Команда Discord**: `/master_relationship view`
+    *   **Параметры UI -> Команда**: `relationship_id: int`
+    *   **Ответ**: Объект `RelationshipData`.
+
+*   **2.3. Создать новое отношение**
+    *   **Команда Discord**: `/master_relationship create`
+    *   **Параметры UI (`RelationshipPayload`) -> Команда**:
+        *   `entity1_id: int`
+        *   `entity1_type: str`
+        *   `entity2_id: int`
+        *   `entity2_type: str`
+        *   `relationship_type: str`
+        *   `value: int`
+        *   `source_log_id: Optional[int]`
+    *   **Ответ**: Созданный объект `RelationshipData`.
+
+*   **2.4. Обновить отношение**
+    *   **Команда Discord**: `/master_relationship update`
+    *   **Параметры UI (`relationshipId: number`, `payload: RelationshipUpdatePayload`) -> Команда**:
+        *   `relationship_id: int`
+        *   `field_to_update: str` (из `RelationshipUpdatePayload.field_to_update`, т.е. "relationship_type" или "value")
+        *   `new_value: str` (строка для `relationship_type`, строковое представление числа для `value`)
+    *   **Ответ**: Обновленный объект `RelationshipData`.
+
+*   **2.5. Удалить отношение**
+    *   **Команда Discord**: `/master_relationship delete`
+    *   **Параметры UI -> Команда**: `relationship_id: int`
+    *   **Ответ**: Сообщение об успехе или ошибке.
+
+---
+
 ### Структуры `RuleConfig` для Экономической Системы (Task 42)
 
 1.  **Базовые стоимости предметов по категориям/типам (`economy:base_item_values`)**
