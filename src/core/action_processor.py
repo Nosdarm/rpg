@@ -1014,9 +1014,14 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
 
             parsed_intent_val = parsed_action_for_dialogue_or_queue.intent if parsed_action_for_dialogue_or_queue else None
 
-            parsed_entities_for_dialogue: Optional[List[Dict[str, Any]]] = None
-            if parsed_action_for_dialogue_or_queue and parsed_action_for_dialogue_or_queue.entities:
-                parsed_entities_for_dialogue = [entity.model_dump() for entity in parsed_action_for_dialogue_or_queue.entities]
+            # Correctly prepare entities for dialogue_system.handle_dialogue_input
+            parsed_entities_list_of_dicts: Optional[List[Dict[str, Any]]] = None
+            if parsed_action_for_dialogue_or_queue:
+                if parsed_action_for_dialogue_or_queue.entities: # If there's a list of ActionEntity objects
+                    parsed_entities_list_of_dicts = [entity.model_dump() for entity in parsed_action_for_dialogue_or_queue.entities]
+                else: # If entities is None or an empty list on the ParsedAction
+                    parsed_entities_list_of_dicts = [] # Pass an empty list
+            # If parsed_action_for_dialogue_or_queue is None, parsed_entities_list_of_dicts remains None, which is acceptable by handle_dialogue_input
 
             success, response_or_key, context_data = await handle_dialogue_input(
                 session=session,
@@ -1024,7 +1029,7 @@ async def process_player_message_for_nlu(bot: commands.Bot, message: discord.Mes
                 player_id=player.id,
                 message_text=message.content, # Передаем оригинальный текст
                 parsed_intent=parsed_intent_val,
-                parsed_entities=parsed_entities_for_dialogue
+                parsed_entities=parsed_entities_list_of_dicts
             )
             # Отправка ответа NPC игроку
             if success:

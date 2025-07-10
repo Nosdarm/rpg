@@ -1,5 +1,6 @@
 import logging
 import json
+import datetime # Added import
 from typing import Dict, Any, Optional, List, cast, Union
 
 import discord
@@ -1055,6 +1056,148 @@ class MasterQuestCog(commands.Cog, name="Master Quest Commands"): # type: ignore
                 na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
                 owner_val = f"Player {pqp_item.player_id}" if pqp_item.player_id else (f"Party {pqp_item.party_id}" if pqp_item.party_id else na_value_str)
                 embed.add_field(name=name_tmpl.format(id=pqp_item.id, q_id=pqp_item.quest_id), value=val_tmpl.format(owner=owner_val, status_val=pqp_item.status.name, step_id=str(pqp_item.current_step_id) if pqp_item.current_step_id else na_value_str), inline=False)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @quest_master_cmds.command(name="progress_create", description="Manually create a PlayerQuestProgress entry.")
+    @app_commands.describe(
+        quest_id="Database ID of the GeneratedQuest.",
+        player_id="Optional: ID of the Player. Either player_id or party_id must be provided.",
+        party_id="Optional: ID of the Party. Either player_id or party_id must be provided.",
+        status="Optional: Initial status (e.g., NOT_STARTED, IN_PROGRESS). Defaults to NOT_STARTED.",
+        current_step_id="Optional: Database ID of the current QuestStep for this quest.",
+        progress_data_json="Optional: JSON string for initial progress data.",
+        accepted_at_iso="Optional: ISO 8601 datetime string when the quest was accepted."
+    )
+    async def progress_create(self, interaction: discord.Interaction,
+                              quest_id: int,
+                              player_id: Optional[int] = None,
+                              party_id: Optional[int] = None,
+                              status: Optional[str] = None,
+                              current_step_id: Optional[int] = None,
+                              progress_data_json: Optional[str] = None,
+                              accepted_at_iso: Optional[str] = None):
+        await interaction.response.defer(ephemeral=True)
+        lang_code = str(interaction.locale)
+
+        if interaction.guild_id is None:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        if not player_id and not party_id:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "pqp_create:error_no_owner", lang_code, "Either player_id or party_id must be provided.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+        if player_id and party_id:
+            async with get_db_session() as temp_session:
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "pqp_create:error_both_owners", lang_code, "Provide either player_id or party_id, not both.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
+
+        parsed_status = QuestStatus.NOT_STARTED
+        if status:
+            try:
+                parsed_status = QuestStatus[status.upper()]
+            except KeyError:
+                async with get_db_session() as temp_session:
+                    valid_statuses = ", ".join([s.name for s in QuestStatus])
+                    error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "pqp_create:error_invalid_status", lang_code, "Invalid status. Valid: {list}")
+                await interaction.followup.send(error_msg.format(list=valid_statuses), ephemeral=True); return
+
+        parsed_progress_data = None
+        if progress_data_json:
+            async with get_db_session() as temp_session: # for parse_json_parameter
+                parsed_progress_data = await parse_json_parameter(interaction, progress_data_json, "progress_data_json", temp_session)
+                if parsed_progress_data is None: return # Error already sent
+
+        parsed_accepted_at: Optional[datetime.datetime] = None
+        if accepted_at_iso:
+            try:
+                parsed_accepted_at = datetime.datetime.fromisoformat(accepted_at_iso.replace("Z", "+00:00"))
+            except ValueError:
+                async with get_db_session() as temp_session:
+                    error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "pqp_create:error_invalid_iso_date", lang_code, "Invalid ISO 8601 format for accepted_at_iso.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+        async with get_db_session() as session:
+            # Validate quest
+            parent_quest = await generated_quest_crud.get(session, id=quest_id, guild_id=interaction.guild_id)
+            if not parent_quest:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_quest_not_found", lang_code, "GeneratedQuest with ID {id} not found.")
+                await interaction.followup.send(error_msg.format(id=quest_id), ephemeral=True); return
+
+            # Validate player or party
+            if player_id:
+                from src.core.crud.crud_player import player_crud # Local import to avoid circular dependency at module level
+                player = await player_crud.get(session, id=player_id, guild_id=interaction.guild_id)
+                if not player:
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_player_not_found", lang_code, "Player with ID {id} not found.")
+                    await interaction.followup.send(error_msg.format(id=player_id), ephemeral=True); return
+            if party_id:
+                from src.core.crud.crud_party import party_crud # Local import
+                party = await party_crud.get(session, id=party_id, guild_id=interaction.guild_id)
+                if not party:
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_party_not_found", lang_code, "Party with ID {id} not found.")
+                    await interaction.followup.send(error_msg.format(id=party_id), ephemeral=True); return
+
+            # Validate current_step_id
+            if current_step_id is not None:
+                step = await quest_step_crud.get(session, id=current_step_id)
+                if not step or step.quest_id != quest_id:
+                    error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_step_not_found_for_quest", lang_code, "QuestStep ID {step_id} not found or does not belong to Quest ID {quest_id}.")
+                    await interaction.followup.send(error_msg.format(step_id=current_step_id, quest_id=quest_id), ephemeral=True); return
+
+            # Check for existing progress
+            existing_progress = None
+            if player_id:
+                existing_progress = await player_quest_progress_crud.get_by_player_and_quest(session, player_id=player_id, quest_id=quest_id, guild_id=interaction.guild_id)
+            elif party_id:
+                existing_progress = await player_quest_progress_crud.get_by_party_and_quest(session, party_id=party_id, quest_id=quest_id, guild_id=interaction.guild_id)
+
+            if existing_progress:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_progress_exists", lang_code, "Quest progress already exists for this owner and quest.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+            pqp_data_create: Dict[str, Any] = {
+                "guild_id": interaction.guild_id,
+                "quest_id": quest_id,
+                "player_id": player_id,
+                "party_id": party_id,
+                "status": parsed_status,
+                "current_step_id": current_step_id,
+                "progress_data": parsed_progress_data or {},
+                "accepted_at": parsed_accepted_at
+            }
+
+            created_pqp: Optional[PQPModel] = None
+            try:
+                async with session.begin():
+                    created_pqp = await player_quest_progress_crud.create(session, obj_in=pqp_data_create) # type: ignore
+                    await session.flush()
+                    if created_pqp: await session.refresh(created_pqp)
+            except Exception as e:
+                logger.error(f"Error creating PlayerQuestProgress: {e}", exc_info=True)
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_generic_create", lang_code, "Error creating PlayerQuestProgress: {error}")
+                await interaction.followup.send(error_msg.format(error=str(e)), ephemeral=True); return
+
+            if not created_pqp:
+                error_msg = await get_localized_message_template(session, interaction.guild_id, "pqp_create:error_unknown_fail", lang_code, "PlayerQuestProgress creation failed for an unknown reason.")
+                await interaction.followup.send(error_msg, ephemeral=True); return
+
+            success_title_template = await get_localized_message_template(session, interaction.guild_id, "pqp_create:success_title", lang_code, "Quest Progress Created (ID: {id})")
+            embed = discord.Embed(title=success_title_template.format(id=created_pqp.id), color=discord.Color.green())
+
+            async def get_created_label(key: str, default: str) -> str:
+                return await get_localized_message_template(session, interaction.guild_id, f"pqp_create:label_{key}", lang_code, default)
+
+            owner_str_val = f"Player ID: {created_pqp.player_id}" if created_pqp.player_id else (f"Party ID: {created_pqp.party_id}" if created_pqp.party_id else "N/A")
+            embed.add_field(name=await get_created_label("owner", "Owner"), value=owner_str_val, inline=True)
+            embed.add_field(name=await get_created_label("quest_id", "Quest ID"), value=str(created_pqp.quest_id), inline=True)
+            embed.add_field(name=await get_created_label("status", "Status"), value=created_pqp.status.name, inline=True)
+            na_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
+            embed.add_field(name=await get_created_label("current_step_id", "Current Step ID"), value=str(created_pqp.current_step_id) if created_pqp.current_step_id else na_str, inline=True)
+            if created_pqp.accepted_at:
+                embed.add_field(name=await get_created_label("accepted_at", "Accepted At"), value=discord.utils.format_dt(created_pqp.accepted_at, style='f'), inline=True)
+
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @quest_master_cmds.command(name="progress_update", description="Update status, current step, or progress data for a PlayerQuestProgress entry.")

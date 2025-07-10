@@ -74,6 +74,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             # `self` (the cog instance) is bound by the decorator.
             # The explicit self.cog was incorrect here.
             await self.cog.simulate_check_command.callback( # type: ignore
+                self.cog, # Added self.cog
                 interaction=cast(discord.Interaction, mock_interaction),
                 check_type="perception",
                 actor_id=101,
@@ -104,6 +105,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback(  # type: ignore
+                self.cog, # Added self.cog
                 interaction=cast(discord.Interaction, mock_interaction),
                 check_type="test",
                 actor_id=1,
@@ -131,6 +133,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback(  # type: ignore
+                self.cog, # Added self.cog as first argument
                 interaction=cast(discord.Interaction, mock_interaction),
                 check_type="test",
                 actor_id=999,
@@ -186,6 +189,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_combat_action_command.callback(  # type: ignore
+                self.cog, # Added self.cog
                 interaction=cast(discord.Interaction, mock_interaction),
                 combat_encounter_id=1,
                 actor_id=101,

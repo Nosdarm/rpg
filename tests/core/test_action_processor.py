@@ -885,13 +885,13 @@ async def test_handle_move_action_wrapper_execute_move_raises_exception(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session") # Patches the session_maker for process_actions_for_guild
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock) # To check if called
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock) # To check error logging
 async def test_process_actions_halts_if_conflict_pending(
     mock_log_event_conflict_check: AsyncMock,
     mock_load_actions: AsyncMock,
-    mock_pending_conflict_crud_instance: MagicMock,
+    mock_actual_pending_conflict_crud: MagicMock, # This is the mock for the imported object
     mock_session_maker_in_ap: MagicMock, # This is the patched get_db_session
     mock_session: AsyncMock, # Session returned by the maker
     caplog # For checking log messages
@@ -903,17 +903,20 @@ async def test_process_actions_halts_if_conflict_pending(
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     # Simulate active conflicts pending
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.return_value = 1
+    mock_actual_pending_conflict_crud.count_by_attributes = AsyncMock(return_value=1) # Configure the method on the mock
 
     caplog.clear() # Clear previous log captures
     with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
     # Assertions
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once_with(
-        mock_session, # The session from pre_check_session context
+    # The actual object used inside process_actions_for_guild is pending_conflict_crud from its local import.
+    # So, we assert on mock_actual_pending_conflict_crud.
+    from src.models.enums import ConflictStatus # Import for assertion
+    mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once_with(
+        session=mock_session,
         guild_id=guild_id_test,
-        status=ANY # Assuming ConflictStatus.PENDING_RESOLUTION is used, ANY for flexibility
+        status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
     mock_load_actions.assert_not_called() # Core processing step should be skipped
 
@@ -936,7 +939,7 @@ async def test_process_actions_halts_if_conflict_pending(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
 @patch("src.core.action_processor._execute_player_actions", new_callable=AsyncMock) # Further step
 @patch("src.core.action_processor._finalize_turn_processing", new_callable=AsyncMock) # Final step
@@ -946,7 +949,7 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
     mock_finalize_turn: AsyncMock,
     mock_execute_actions: AsyncMock,
     mock_load_actions: AsyncMock,
-    mock_pending_conflict_crud_instance: MagicMock,
+    mock_actual_pending_conflict_crud: MagicMock, # Mock for the imported object
     mock_session_maker_in_ap: MagicMock,
     mock_session: AsyncMock,
     caplog
@@ -958,15 +961,16 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
     mock_session_maker_in_ap.return_value.__aenter__.return_value = mock_session
 
     # Simulate no active conflicts
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.return_value = 0
+    mock_actual_pending_conflict_crud.count_by_attributes = AsyncMock(return_value=0)
     mock_load_actions.return_value = [] # Simulate no actions loaded to simplify test
 
     caplog.clear()
     with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once_with(
-        mock_session, guild_id=guild_id_test, status=ANY
+    from src.models.enums import ConflictStatus # Import for assertion
+    mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once_with(
+        session=mock_session, guild_id=guild_id_test, status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
     mock_load_actions.assert_called_once() # Should be called if no conflict
     # If mock_load_actions.return_value is [], _execute_player_actions should NOT be called.
@@ -990,13 +994,13 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
 
 @pytest.mark.asyncio
 @patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud", autospec=True) # Patched at definition
+@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
 @patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
 @patch("src.core.action_processor.log_event", new_callable=AsyncMock) # For logging CONFLICT_CHECK_ERROR
 async def test_process_actions_handles_exception_during_conflict_check(
     mock_log_event_conflict_exception: AsyncMock,
     mock_load_actions_exception: AsyncMock, # Renamed to avoid clash
-    mock_pending_conflict_crud_instance: MagicMock,
+    mock_actual_pending_conflict_crud: MagicMock, # Mock for the imported object
     mock_session_maker_in_ap: MagicMock,
     mock_session: AsyncMock, # Session object
     caplog
@@ -1006,13 +1010,13 @@ async def test_process_actions_handles_exception_during_conflict_check(
 
     # Simulate an exception during the conflict check
     test_exception = Exception("DB connection error during conflict check")
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.side_effect = test_exception
+    mock_actual_pending_conflict_crud.count_by_attributes = AsyncMock(side_effect=test_exception)
 
     caplog.clear()
     with caplog.at_level(logging.ERROR, logger="src.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    mock_pending_conflict_crud_instance.get_count_by_guild_and_status.assert_called_once()
+    mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once()
     mock_load_actions_exception.assert_not_called() # Processing should halt
 
     assert any(

@@ -129,10 +129,11 @@ class TestAIPromptBuilder(unittest.IsolatedAsyncioTestCase):
     async def test_prepare_ai_prompt_location_not_found(self, mock_get_multi_npc, mock_location_get, mock_guild_get_config_crud):
         mock_session = AsyncMock(spec=AsyncSession)
 
+        # GuildConfig constructor takes main_language. supported_languages is a property derived from properties_json.
+        # For this test, only main_language is relevant for _get_guild_main_language.
         gc_instance = GuildConfig(id=1, main_language="en")
-        if gc_instance.properties_json is None:
-            gc_instance.properties_json = {}
-        gc_instance.properties_json["supported_languages"] = ["en", "ru"]
+        # If the test needed to check supported_languages property, properties_json would be set:
+        # gc_instance.properties_json = {"supported_languages": ["en", "ru"]}
         mock_guild_get_config_crud.return_value = gc_instance
 
         mock_execute_other_contexts = MagicMock(spec=Result)
@@ -316,6 +317,13 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
 
         mock_get_player_npc_rel.return_value = None # Simulate no existing relationship
 
+        # Setup mock for session.execute for rules
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = [] # No RuleConfig entries
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        mock_session.execute.return_value = mock_execute_result_rules
+
         test_context = {
             "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "Who are you?",
         }
@@ -377,6 +385,14 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         test_context = {
             "npc_id": npc_id_test, "player_id": player_id_test, "player_input_text": "About that locket...",
         }
+
+        # Setup mock for session.execute for rules
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = [] # No RuleConfig entries
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        mock_session.execute.return_value = mock_execute_result_rules
+
         prompt = await prepare_dialogue_generation_prompt(mock_session, guild_id, test_context)
 
         self.assertIsInstance(prompt, str)
@@ -429,6 +445,16 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_get_memory.return_value = ["NPC STUB: Player seems okay."]
         mock_get_quests.return_value = []
         mock_get_world_state.return_value = {"global_event_active": "Festival of Stars"}
+
+        # Setup mock for session.execute used by get_rule -> load_rules_config_for_guild
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        # Simulate that get_rule for relationship_influence:dialogue:availability_and_tone returns None,
+        # and other rule lookups might also return None or their defaults from all_rules.
+        # This means the DB query for RuleConfig by get_rule->load_rules_config_for_guild returns no rows.
+        mock_scalars_result_rules.all.return_value = []
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        mock_session.execute.return_value = mock_execute_result_rules
 
         mock_npc_obj = self._create_mock_npc(
             npc_id=npc_id_test,
@@ -550,6 +576,20 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **very_friendly**.", prompt)
         mock_get_rule_config.assert_any_call(mock_session, guild_id, "relationship_influence:dialogue:availability_and_tone", default=None)
 
+        # Ensure session.execute is mocked for rule loading, if get_rule is called by SUT
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        # This specific test relies on mock_get_rule_config.side_effect to return the rule,
+        # so the .all() value here might not be critical IF get_rule is the only DB access for rules.
+        # However, if load_rules_config_for_guild is called before get_rule, this matters.
+        # Let's assume it might be called.
+        mock_rule_config_entry = RuleConfig(guild_id=guild_id, key="relationship_influence:dialogue:availability_and_tone", value_json=relationship_dialogue_rule)
+        mock_scalars_result_rules.all.return_value = [mock_rule_config_entry]
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None : # Avoid overriding specific test mocks for execute
+             mock_session.execute.return_value = mock_execute_result_rules
+
+
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
@@ -602,6 +642,15 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **hostile**.", prompt)
 
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_rule_config_entry = RuleConfig(guild_id=guild_id, key="relationship_influence:dialogue:availability_and_tone", value_json=relationship_dialogue_rule)
+        mock_scalars_result_rules.all.return_value = [mock_rule_config_entry]
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None :
+             mock_session.execute.return_value = mock_execute_result_rules
+
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
@@ -645,6 +694,15 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         test_context = {"npc_id": 10, "player_id": 1, "player_input_text": "Hello."}
         prompt = await prepare_dialogue_generation_prompt(mock_session, 1, test_context)
         self.assertIn(f"Your current emotional tone towards {player_name_test} should reflect: **standard_neutral_greeting**.", prompt)
+
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_rule_config_entry = RuleConfig(guild_id=1, key="relationship_influence:dialogue:availability_and_tone", value_json=relationship_dialogue_rule)
+        mock_scalars_result_rules.all.return_value = [mock_rule_config_entry] # Or [] if rule is expected to be missing for some part of logic
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None :
+            mock_session.execute.return_value = mock_execute_result_rules
 
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
@@ -708,6 +766,27 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Your current emotional tone towards", prompt) # Specific tone hint from relationship_influence rule should be absent
         self.assertIn("General Guideline: Default guideline", prompt) # Check that other rule types are still processed
 
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        # For this test, the specific rule is NOT found, so .all() should be empty for that key.
+        # However, other rules (like general guidelines) ARE found via all_rules.get().
+        # So, the mock for session.execute should reflect that the DB query underlying get_rule for the specific key returns nothing.
+        # The get_all_rules_for_guild mock already provides the general guidelines.
+        # If get_rule is called for "relationship_influence:dialogue:availability_and_tone", it should return None (its default).
+        # This is handled by mock_get_rule_config.side_effect.
+        # If load_rules_config_for_guild is called independently, it would need to return all rules.
+        # The critical part is that mock_get_rule_config.side_effect correctly returns None for the specific key.
+        # The session.execute mock here is more of a safety for general calls to load_rules_config_for_guild.
+        mock_scalars_result_rules.all.return_value = [
+            RuleConfig(guild_id=1, key="dialogue_rules:npc_general_guidelines:default", value_json={"guidelines_i18n": {"en": "Default guideline"}}),
+            RuleConfig(guild_id=1, key="dialogue_rules:npc_tone_modifiers:default", value_json=[{"condition_description_i18n": {"en": "player is neutral"}, "tone_hint_i18n": {"en": "standard"}}])
+        ] # Simulate other rules exist
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
+            mock_session.execute.return_value = mock_execute_result_rules
+
+
     # --- Конец тестов для Шага 3 ---
 
 
@@ -726,6 +805,15 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         prompt = await prepare_dialogue_generation_prompt(mock_session, 1, test_context)
         self.assertTrue(prompt.startswith("Error: NPC with ID 999 not found"))
 
+        # Ensure session.execute is mocked for any rule loading attempts
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = []
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        # Check if execute has a side_effect from a previous specific mock in a broader test setup
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
+            mock_session.execute.return_value = mock_execute_result_rules
+
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
@@ -742,6 +830,14 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         test_context = {"npc_id": 10, "player_id": 999, "player_input_text": "Is this the real life?"}
         prompt = await prepare_dialogue_generation_prompt(mock_session, 1, test_context)
         self.assertTrue(prompt.startswith("Error: Player with ID 999 not found"))
+
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = []
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
+            mock_session.execute.return_value = mock_execute_result_rules
 
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
@@ -775,6 +871,14 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_hidden_rels.return_value = []
         mock_quests.return_value = []
         mock_world_state.return_value = {}
+
+        # Setup mock for session.execute used by get_rule -> load_rules_config_for_guild
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = [] # No RuleConfig entries for this test
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        mock_session.execute.return_value = mock_execute_result_rules
+
         dialogue_history = [
             {"speaker": "player", "line": "Good day!"},
             {"speaker": "npc", "line": "And to you, traveler."},
@@ -838,6 +942,14 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"Recognized NLU entities: item_name: 'healing potion', quantity: '2'.", prompt)
         self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line.", prompt)
 
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = []
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
+            mock_session.execute.return_value = mock_execute_result_rules
+
     @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
@@ -882,6 +994,14 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("(Player's message was analyzed by NLU. Recognized intent: **'unknown_intent'**.)", prompt)
         # Check that the main task description still mentions NLU hints generally
         self.assertIn("Based on ALL context (personality, relationship, situation, memory, quests, dialogue history, NLU hints if provided), generate your next single, natural-sounding dialogue line.", prompt)
+
+        # Ensure session.execute is mocked
+        mock_execute_result_rules = MagicMock(spec=Result)
+        mock_scalars_result_rules = MagicMock(spec=ScalarResult)
+        mock_scalars_result_rules.all.return_value = []
+        mock_execute_result_rules.scalars.return_value = mock_scalars_result_rules
+        if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
+            mock_session.execute.return_value = mock_execute_result_rules
 
 if __name__ == '__main__':
     unittest.main()

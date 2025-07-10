@@ -62,12 +62,40 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         self.patcher_get_localized_text = patch('src.bot.commands.party_commands.get_localized_text')
         self.mock_get_localized_text = self.patcher_get_localized_text.start()
-        # Corrected lambda to match the actual signature and logic of get_localized_text
-        self.mock_get_localized_text.side_effect = lambda i18n_field, language, fallback_language="en": \
-            i18n_field.get(language) if i18n_field and i18n_field.get(language) is not None \
-            else i18n_field.get(fallback_language, "Unknown Location From Mock") if i18n_field \
-            else "Unknown Location From Mock"
 
+        # Mock get_localized_text for party_commands (must be synchronous)
+        def mock_get_loc_text_for_party_sync(*args, **kwargs):
+            # This mock handles two main call signatures observed or inferred for get_localized_text
+            key = kwargs.get('key')
+            i18n_field = kwargs.get('i18n_field')
+            default_text = kwargs.get('default_text')
+            # Determine language from kwargs, supporting 'language' or 'lang_code'
+            language = kwargs.get('language', kwargs.get('lang_code', 'en'))
+            # format_kwargs might be passed for messages that need formatting
+            format_kwargs_actual = kwargs.get('format_kwargs', {})
+
+            # Call pattern 1: Using i18n_field (typically for entity names like location)
+            if i18n_field is not None and isinstance(i18n_field, dict):
+                # Use provided language, fallback to 'en', then to a generic mock string
+                return i18n_field.get(language, i18n_field.get('en', "Mocked Location Name"))
+
+            # Call pattern 2: Using key and default_text (typically for UI messages/templates)
+            # Determine the text to be used: default_text has priority over key
+            final_text_template = default_text if default_text is not None else key
+
+            if final_text_template is None:
+                return "Mocked Text (No Key/Default)"
+
+            # If format_kwargs were provided and the text is a string, attempt to format it
+            if format_kwargs_actual and isinstance(final_text_template, str):
+                try:
+                    return final_text_template.format(**format_kwargs_actual)
+                except KeyError: # If formatting fails due to missing keys, return the template
+                    return final_text_template
+
+            return final_text_template # Return the text template or key if no formatting needed/possible
+
+        self.mock_get_localized_text.side_effect = mock_get_loc_text_for_party_sync
 
         self.guild = MockGuild(id=789)
         self.author = MockAuthor(id=321, name="TestPartyUser") # Reverted user to author

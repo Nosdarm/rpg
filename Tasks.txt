@@ -151,13 +151,6 @@ This block presents tasks related to developing a separate client application (w
 
 {Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21) - Moved to Done.txt}
 
-Task 62: 🖥️ UI.8 UI for Quest Management. (Depends on API 39)
-* Description: Create UI pages for managing quests.
-* Interface for viewing the list of all quests in the guild (calling CRUD API 41 for GeneratedQuest 39).
-* Interface for viewing/editing quest details, including steps, requirements (required_mechanics_json), abstract goals (abstract_goal_json), consequences (consequences_json). Convenient forms for editing these JSON structures. Editing _i18n texts.
-* Interface for tracking quest progress for players/parties.
-* Result: Graphical interface for managing quests in the guild.
-
 Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45)
 * Description: Create UI pages for managing global entities.
 * Interface for viewing/editing the list of Global Entities (MobileGroup, GlobalNpc, GlobalEvent) in the guild (calling CRUD API 41 for models 45).
@@ -367,13 +360,6 @@ Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on AP
 * Interface for viewing/editing the list of factions (calling CRUD API 41 for the GeneratedFaction model 20). Forms for editing factions (including _i18n).
 * Interface for viewing/editing the list of relationships (calling CRUD API 41 for the Relationship model 21). Display relationships between entities in the guild, forms for changing them. Possibly a visual representation of relationships.
 * Result: Graphical interface for managing factions and relationships.
-
-Task 62: 🖥️ UI.8 UI for Quest Management. (Depends on API 39)
-* Description: Create UI pages for managing quests.
-* Interface for viewing the list of all quests in the guild (calling CRUD API 41 for GeneratedQuest 39).
-* Interface for viewing/editing quest details, including steps, requirements (required_mechanics_json), abstract goals (abstract_goal_json), consequences (consequences_json). Convenient forms for editing these JSON structures. Editing _i18n texts.
-* Interface for tracking quest progress for players/parties.
-* Result: Graphical interface for managing quests in the guild.
 
 Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45)
 * Description: Create UI pages for managing global entities.
