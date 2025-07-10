@@ -41,11 +41,64 @@
 
 ---
 ## Текущий план
-*Предыдущий план для Task 64 (UI Stubs for Monitoring/Logging) завершен, как указано в `Tasks.txt` и `done.txt`. Следующая задача - Task 65.*
+1.  ***Определить TypeScript интерфейсы в `src/ui/src/types/conflict.ts`***:
+    *   `UIConflictStatus`: Enum, дублирующий `ConflictStatus` из бэкенда для использования в UI.
+    *   `UIConflictListItem`: Интерфейс для элементов списка конфликтов.
+        *   Поля: `id: number`, `status: UIConflictStatus`, `created_at: string` (ISO date), `involved_entities_summary: string`.
+    *   `UIConflictActionEntity`: Интерфейс для представления сущности в рамках действия в конфликте.
+        *   Поля: `type: string` ("player", "npc", "party"), `id: number`, `name?: string`.
+    *   `UIConflictParsedAction`: Интерфейс для `conflicting_actions_json.action`.
+        *   Поля: `raw_text: string`, `intent: string`, `entities: UIConflictActionEntity[]`, `confidence?: number`, `details_json?: Record<string, any>`.
+    *   `UIConflictInvolvedUnit`: Интерфейс для элементов `involved_entities_json` и `conflicting_actions_json`.
+        *   Поля: `actor: UIConflictActionEntity`, `action: UIConflictParsedAction`.
+    *   `UIConflictDetails`: Интерфейс для полной информации о конфликте.
+        *   Поля: `id: number`, `guild_id: string`, `involved_entities: UIConflictInvolvedUnit[]`, `conflicting_actions: UIConflictInvolvedUnit[]`, `status: UIConflictStatus`, `resolution_notes?: string`, `resolved_action?: UIConflictParsedAction`, `created_at: string`, `resolved_at?: string`.
+    *   `UIMasterOutcomeOption`: Интерфейс для вариантов исхода, предлагаемых Мастеру.
+        *   Поля: `id: string` (значение Enum `ConflictStatus`), `name_key: string` (ключ для локализации имени).
+    *   `UIResolveConflictPayload`: Интерфейс для данных, отправляемых при разрешении конфликта.
+        *   Поля: `outcome_status: string`, `notes?: string`.
+    *   Использовать существующий `PaginatedResponse` из `src/ui/src/types/entities.ts`.
 
-*(Этот раздел будет заполнен планом для Task 65)*
+2.  ***Создать стабы (заглушки) API сервисов в UI***:
+    *   Создать файл `src/ui/src/services/conflictService.ts`.
+    *   Реализовать моковые функции:
+        *   `getPendingConflicts(guildId: string, status?: UIConflictStatus, page?: number, limit?: number): Promise<PaginatedResponse<UIConflictListItem>>`
+        *   `getConflictDetails(guildId: string, conflictId: number): Promise<UIConflictDetails>`
+        *   `getConflictResolutionOutcomeOptions(guildId: string): Promise<UIMasterOutcomeOption[]>`
+        *   `resolveConflict(guildId: string, conflictId: number, payload: UIResolveConflictPayload): Promise<{ success: boolean; message?: string }>`
+
+3.  ***Добавить документацию по API для UI Task 66 в `AGENTS.md`***:
+    *   Описать эндпоинты и структуры данных.
+
+4.  ***Создать файлы-заглушки для UI-компонентов и их тестов***:
+    *   Директория: `src/ui/src/pages/ConflictResolutionPage/`.
+    *   Файлы: `ConflictResolutionPage.tsx`, `ConflictListPage.tsx`, `ConflictDetailPage.tsx` и их `.test.tsx` аналоги.
+
+5.  ***Создать файл-заглушку для тестов UI-сервиса***:
+    *   Файл: `src/ui/src/services/conflictService.test.ts`.
+
+6.  ***Обновить `AGENTS.md`***:
+    *   Добавить этот план в секцию "Текущий план".
+    *   Создать новую запись в "Лог действий" для Task 66.
+
+7.  ***Обновить `Tasks.txt` и `done.txt`*** (после выполнения всех шагов).
 ---
 ## Лог действий
+
+## Task 66: 🖥️ UI.12 UI for Conflict Resolution
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницу для ручного разрешения конфликтов действий. Включает отображение списка конфликтов, деталей выбранного конфликта и контролов для выбора исхода и его применения.
+- **Выполненные действия**:
+    - Шаг 1: Определены TypeScript интерфейсы в `src/ui/src/types/conflict.ts` для: `UIConflictStatus`, `UIConflictListItem`, `UIConflictActionEntity`, `UIConflictParsedAction`, `UIConflictInvolvedUnit`, `UIConflictDetails`, `UIMasterOutcomeOption`, `UIResolveConflictPayload`. Использован существующий `PaginatedResponse`.
+    - Шаг 2: Созданы стабы (заглушки) API сервисов в UI в файле `src/ui/src/services/conflictService.ts`. Реализованы моковые функции: `getPendingConflicts`, `getConflictDetails`, `getConflictResolutionOutcomeOptions`, `resolveConflict`.
+    - Шаг 3: Добавлена секция "Документация API для UI Task 66: Разрешение конфликтов" в `AGENTS.md`, описывающая релевантные команды `/master_conflict` и структуры данных.
+    - Шаг 4: Созданы файлы-заглушки для UI-компонентов и их тестов в `src/ui/src/pages/ConflictResolutionPage/`:
+        - `ConflictResolutionPage.tsx` и `ConflictResolutionPage.test.tsx`
+        - `ConflictListPage.tsx` и `ConflictListPage.test.tsx`
+        - `ConflictDetailPage.tsx` и `ConflictDetailPage.test.tsx`
+    - Шаг 5: Создан файл-заглушка для тестов UI-сервиса: `src/ui/src/services/conflictService.test.ts`.
+    - Шаг 6: Обновлен `AGENTS.md` (этот лог и текущий план).
+- **Статус Task 66**: Подготовка UI-контрактов, стабов API, документации API и заглушек UI-компонентов/тестов для разрешения конфликтов завершена. Задача готова к передаче UI-разработчикам для полной реализации UI и тестов.
 
 ## Session: [Current Date/Time] - Start Task 65
 - **Анализ**: Проанализирован `AGENTS.md`. Обнаружено несоответствие: "Текущий план" был для Task 64, но `Tasks.txt` и `done.txt` указывают, что подготовка стабов для Task 64 завершена.
@@ -1108,6 +1161,73 @@
 *   **Ответ**: `UIAiAnalysisResult`
     *   Содержит: `requested_entity_type`, `requested_target_count`, `used_real_ai`, `generation_context_provided`, `overall_summary`.
     *   Основное поле - `analysis_reports: List<UIEntityAnalysisReport>`. Каждый `UIEntityAnalysisReport` включает: `entity_index`, `entity_data_preview`, `raw_ai_response`, `parsed_entity_data`, `issues_found`, `suggestions`, `balance_score`, `validation_errors`, `balance_score_details`, `lore_score_details`, `quality_score_details`.
+
+---
+
+## Документация API для UI Task 66: Разрешение конфликтов
+
+Эта документация описывает мастер-команды Discord, которые UI будет вызывать через API шлюз (концептуально), для отображения и разрешения конфликтов действий.
+
+**Общие замечания:**
+
+*   Все команды требуют `guild_id`.
+*   Параметры передаются как часть объекта `parameters` при вызове через концептуальный `MASTER_COMMAND_ENDPOINT`.
+*   Ответы команд будут содержать локализованные строки на языке Мастера, где это применимо.
+*   Типы данных TypeScript (например, `UIConflictListItem`, `UIConflictDetails`, `UIResolveConflictPayload`, `PaginatedResponse`) определены в `src/ui/src/types/`.
+
+---
+
+**1. Получить список ожидающих конфликтов (`/master_conflict list`)**
+
+*   **Команда Discord**: `/master_conflict list`
+*   **Описание**: Возвращает список конфликтов для данной гильдии с возможностью фильтрации по статусу и пагинацией.
+*   **Параметры UI (`getPendingConflicts`) -> Команда**:
+    *   `guild_id: string` (неявный для команды, передается API шлюзом)
+    *   `status?: UIConflictStatus` (строковое значение из `UIConflictStatus` enum, необязательно)
+    *   `page?: number` (по умолчанию 1)
+    *   `limit?: number` (по умолчанию 10, максимум 10 на бэкенде)
+*   **Ответ**: `Promise<PaginatedResponse<UIConflictListItem>>`
+    *   `UIConflictListItem` содержит: `id`, `status`, `created_at`, `involved_entities_summary`.
+
+---
+
+**2. Получить детали конфликта (`/master_conflict view`)**
+
+*   **Команда Discord**: `/master_conflict view`
+*   **Описание**: Возвращает полную информацию о конкретном конфликте.
+*   **Параметры UI (`getConflictDetails`) -> Команда**:
+    *   `guild_id: string` (неявный)
+    *   `conflictId: number` (передается как `pending_conflict_id` в команду)
+*   **Ответ**: `Promise<UIConflictDetails>`
+    *   `UIConflictDetails` содержит: `id`, `guild_id`, `involved_entities` (список `UIConflictInvolvedUnit`), `conflicting_actions` (список `UIConflictInvolvedUnit`), `status`, `resolution_notes?`, `resolved_action?`, `created_at`, `resolved_at?`.
+
+---
+
+**3. Получить опции для разрешения конфликта (формируется на UI)**
+
+*   **Команда Discord**: Не требуется прямого вызова.
+*   **Описание**: UI сервис `getConflictResolutionOutcomeOptions` будет возвращать предопределенный список `UIMasterOutcomeOption[]` на основе известных допустимых значений параметра `outcome_status` команды `/master_conflict resolve`.
+*   **Значения `UIMasterOutcomeOption.id` (соответствуют `ConflictStatus` enum на бэкенде)**:
+    *   `RESOLVED_BY_MASTER_FAVOR_ACTION1`
+    *   `RESOLVED_BY_MASTER_FAVOR_ACTION2`
+    *   `RESOLVED_BY_MASTER_CUSTOM_ACTION`
+    *   `RESOLVED_BY_MASTER_DISMISS`
+*   **Поле `UIMasterOutcomeOption.name_key`** будет использоваться для получения локализованных имен этих опций в UI.
+
+---
+
+**4. Разрешить конфликт (`/master_conflict resolve`)**
+
+*   **Команда Discord**: `/master_conflict resolve`
+*   **Описание**: Позволяет Мастеру разрешить ожидающий конфликт.
+*   **Параметры UI (`resolveConflict` с `UIResolveConflictPayload`) -> Команда**:
+    *   `guild_id: string` (неявный)
+    *   `conflictId: number` (передается как `pending_conflict_id`)
+    *   `payload: UIResolveConflictPayload`:
+        *   `outcome_status: string` (одно из значений `UIMasterOutcomeOption.id`)
+        *   `notes?: string` (необязательные заметки Мастера)
+*   **Ответ**: `Promise<{ success: boolean; message?: string }>`
+    *   Содержит статус успеха операции и опциональное сообщение (например, подтверждение или описание ошибки).
 
 ---
 ## Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)
