@@ -1,0 +1,117 @@
+import { apiClient } from './apiClient';
+import type { Player, PlayerPayload, PaginatedResponse } from 'src/types/entities';
+
+const BASE_PATH = (guildId: number | string) => `/guilds/${guildId}/players`;
+
+export const playerService = {
+  async getPlayers(guildId: number, page: number = 1, limit: number = 10): Promise<PaginatedResponse<Player>> {
+    // Mock response structure, actual API would return this
+    const mockPlayers: Player[] = Array.from({ length: limit }, (_, i) => ({
+      id: (page - 1) * limit + i + 1,
+      guild_id: guildId,
+      discord_id: `discord_user_${(page - 1) * limit + i + 1}`,
+      name: `Player Name ${(page - 1) * limit + i + 1}`,
+      level: Math.floor(Math.random() * 10) + 1,
+      xp: Math.floor(Math.random() * 1000),
+      unspent_xp: Math.floor(Math.random() * 100),
+      gold: Math.floor(Math.random() * 500),
+      current_hp: 50,
+      max_hp: 100,
+      current_status: "IDLE",
+      selected_language: "en",
+      current_location_id: 1,
+      current_party_id: null,
+      attributes_json: { strength: 10, dexterity: 10 },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+    const mockPaginatedResponse: PaginatedResponse<Player> = {
+        items: mockPlayers,
+        current_page: page,
+        total_pages: Math.ceil(25 / limit), // Assuming 25 total items for mock
+        total_items: 25,
+        limit_per_page: limit
+    };
+    return apiClient.get<PaginatedResponse<Player>>(`${BASE_PATH(guildId)}?page=${page}&limit=${limit}`, mockPaginatedResponse);
+  },
+
+  async getPlayerById(guildId: number, playerId: number): Promise<Player> {
+    const mockPlayer: Player = {
+      id: playerId,
+      guild_id: guildId,
+      discord_id: `discord_user_${playerId}`,
+      name: `Player Name ${playerId}`,
+      level: 5,
+      xp: 500,
+      unspent_xp: 50,
+      gold: 200,
+      current_hp: 75,
+      max_hp: 100,
+      current_status: "EXPLORING",
+      selected_language: "en",
+      current_location_id: 2,
+      current_party_id: 1,
+      attributes_json: { strength: 12, intelligence: 8 },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    return apiClient.get<Player>(`${BASE_PATH(guildId)}/${playerId}`, mockPlayer);
+  },
+
+  async createPlayer(guildId: number, payload: PlayerPayload): Promise<Player> {
+    // The backend /master_player create expects discord_user (discord.User object) and player_name.
+    // For a direct API, it would be discord_user_id (string).
+    // The PlayerPayload should reflect what the direct API expects.
+    // Assuming payload contains discord_user_id as string.
+    const mockCreatedPlayer: Player = {
+      id: Math.floor(Math.random() * 1000) + 1,
+      guild_id: guildId,
+      discord_id: payload.discord_user_id || `new_discord_user_${Date.now()}`,
+      name: payload.player_name || payload.name || "New Player",
+      level: payload.level || 1,
+      xp: payload.xp || 0,
+      unspent_xp: payload.unspent_xp || 0,
+      gold: payload.gold || 0,
+      current_hp: payload.current_hp || 100,
+      max_hp: 100, // Should be determined by rules/attributes
+      current_status: payload.current_status || "IDLE",
+      selected_language: payload.language || "en",
+      current_location_id: payload.current_location_id || null,
+      current_party_id: payload.current_party_id || null,
+      attributes_json: payload.attributes_json || {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    return apiClient.post<Player, PlayerPayload>(`${BASE_PATH(guildId)}`, payload, mockCreatedPlayer);
+  },
+
+  async updatePlayer(guildId: number, playerId: number, payload: Partial<PlayerPayload>): Promise<Player> {
+    // A real PATCH API would take a partial payload.
+    // The current master command is field-by-field.
+    // This stub assumes a PATCH API.
+    const mockUpdatedPlayer: Player = { // This should ideally be the state of player after update
+        id: playerId,
+        guild_id: guildId,
+        discord_id: `discord_user_${playerId}`,
+        name: payload.name || `Player Name ${playerId}`, // Example update
+        level: payload.level || 5,
+        xp: payload.xp || 500,
+        unspent_xp: payload.unspent_xp || 50,
+        gold: payload.gold || 200,
+        current_hp: payload.current_hp || 75,
+        max_hp: 100,
+        current_status: payload.current_status || "EXPLORING",
+        selected_language: payload.language || "en",
+        current_location_id: payload.current_location_id || 2,
+        current_party_id: payload.current_party_id || 1,
+        attributes_json: payload.attributes_json || { strength: 12, intelligence: 8 },
+        created_at: new Date(Date.now() - 100000).toISOString(), // Older created_at
+        updated_at: new Date().toISOString(),
+      };
+    return apiClient.patch<Player, Partial<PlayerPayload>>(`${BASE_PATH(guildId)}/${playerId}`, payload, mockUpdatedPlayer);
+  },
+
+  async deletePlayer(guildId: number, playerId: number): Promise<void> {
+    return apiClient.delete<void>(`${BASE_PATH(guildId)}/${playerId}`);
+  },
+};
