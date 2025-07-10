@@ -16,7 +16,7 @@ from src.schemas.master_user import MasterUserCreate, MasterUserUpdate # Имп�
 # UpdateSchemaType = TypeVar("UpdateSchemaType", bound=MasterUserUpdate)
 
 
-class CRUDMasterUser(CRUDBase[MasterUser, MasterUserCreate, MasterUserUpdate]):
+class CRUDMasterUser(CRUDBase[MasterUser]): # Corrected: Only ModelType is needed for CRUDBase generic
     async def get_by_discord_id(self, session: AsyncSession, *, discord_user_id: str) -> Optional[MasterUser]:
         """
         Получает пользователя MasterUser по его discord_user_id.

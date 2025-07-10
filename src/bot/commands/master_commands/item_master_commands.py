@@ -218,13 +218,18 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"): # type: ignore[c
             embed.add_field(name=await get_created_label("stackable","Stackable"), value=str(created_item.is_stackable), inline=True)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @item_master_cmds.command(name="update", description="Update a specific field for an Item.")
+    @item_master_cmds.command(name="update", description="Update a specific field or multiple fields via JSON for an Item.")
     @app_commands.describe(
         item_id="The database ID of the Item to update.",
-        field_to_update="Field to update (e.g., static_id, name_i18n_json, item_type_i18n_json, base_value, slot_type, is_stackable, properties_json).",
-        new_value="New value for the field (use JSON for complex types; 'None' for nullable; True/False for boolean)."
+        field_to_update="Optional: Field to update (e.g., static_id, base_value, slot_type, is_stackable). Not for JSON fields.",
+        new_value="Optional: New value for the single field_to_update.",
+        data_json="Optional: JSON string with multiple fields to update (e.g., {\"name_i18n\": ..., \"properties_json\": ...})."
     )
-    async def item_update(self, interaction: discord.Interaction, item_id: int, field_to_update: str, new_value: str):
+    async def item_update(self, interaction: discord.Interaction,
+                          item_id: int,
+                          field_to_update: Optional[str] = None,
+                          new_value: Optional[str] = None,
+                          data_json: Optional[str] = None):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
         if interaction.guild_id is None:
@@ -232,66 +237,109 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"): # type: ignore[c
                 error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "common:error_guild_only_command", lang_code, "This command must be used in a server.")
             await interaction.followup.send(error_msg, ephemeral=True); return
 
-        allowed_fields = {
-            "static_id": str,
-            "name_i18n": dict,
-            "description_i18n": dict,
-            "item_type_i18n": dict,
-            "base_value": (int, type(None)),
-            "slot_type": (str, type(None)),
-            "is_stackable": bool,
-            "properties_json": dict,
-        }
-
-        field_to_update_lower = field_to_update.lower()
-        db_field_name = field_to_update_lower
-        user_facing_field_name = field_to_update_lower # For messages
-
-        if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
-             db_field_name = field_to_update_lower.replace("_json","")
-        # No specific mapping needed for item_type_i18n_json as it directly maps to item_type_i18n
-
-        field_type_info = allowed_fields.get(db_field_name)
-
-        if not field_type_info:
+        if not data_json and (field_to_update is None or new_value is None):
             async with get_db_session() as temp_session:
-                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "item_update:error_field_not_allowed", lang_code, "Field '{field_name}' is not allowed for update. Allowed: {allowed_list}")
-            await interaction.followup.send(error_msg.format(field_name=field_to_update, allowed_list=', '.join(allowed_fields.keys())), ephemeral=True); return
+                error_msg = await get_localized_message_template(temp_session, interaction.guild_id, "item_update:error_missing_params", lang_code, "Either 'data_json' or both 'field_to_update' and 'new_value' must be provided.")
+            await interaction.followup.send(error_msg, ephemeral=True); return
 
-        parsed_value: Any = None
+        if data_json and (field_to_update or new_value):
+            async with get_db_session() as temp_session:
+                warn_msg = await get_localized_message_template(temp_session, interaction.guild_id, "item_update:warn_data_json_priority", lang_code, "Warning: 'data_json' provided, 'field_to_update' and 'new_value' will be ignored.")
+            await interaction.followup.send(warn_msg, ephemeral=True) # Send as a warning, but proceed with data_json
+
+        allowed_fields = {
+            "static_id": str, "name_i18n": dict, "description_i18n": dict,
+            "item_type_i18n": dict, "base_value": (int, type(None)),
+            "slot_type": (str, type(None)), "is_stackable": bool, "properties_json": dict,
+        }
+        update_data_dict: Dict[str, Any] = {}
+
         async with get_db_session() as session:
             item_to_update = await item_crud.get(session, id=item_id, guild_id=interaction.guild_id)
             if not item_to_update:
                 error_msg = await get_localized_message_template(session, interaction.guild_id, "item_update:error_item_not_found", lang_code, "Item with ID {id} not found.")
                 await interaction.followup.send(error_msg.format(id=item_id), ephemeral=True); return
-            try:
-                if db_field_name == "static_id":
-                    parsed_value = new_value
-                    if not parsed_value: raise ValueError("static_id cannot be empty.")
-                    if parsed_value != item_to_update.static_id and await item_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_value):
-                        error_msg = await get_localized_message_template(session, interaction.guild_id, "item_update:error_static_id_exists", lang_code, "Another Item with static_id '{id}' already exists.")
-                        await interaction.followup.send(error_msg.format(id=parsed_value), ephemeral=True); return
-                elif db_field_name in ["name_i18n", "description_i18n", "item_type_i18n", "properties_json"]:
-                    parsed_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
-                    if parsed_value is None: return
-                elif db_field_name == "slot_type":
-                    if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
-                    else: parsed_value = new_value
-                elif db_field_name == "base_value":
-                    if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_value = None
-                    else: parsed_value = int(new_value)
-                elif db_field_name == "is_stackable":
-                    if new_value.lower() == 'true': parsed_value = True
-                    elif new_value.lower() == 'false': parsed_value = False
-                    else: raise ValueError("is_stackable must be 'True' or 'False'.")
-                else:
-                     error_msg = await get_localized_message_template(session, interaction.guild_id, "item_update:error_unknown_field_type", lang_code, "Internal error: Unknown field type for '{field_name}'.")
-                     await interaction.followup.send(error_msg.format(field_name=db_field_name), ephemeral=True); return
-            except ValueError as e:
-                error_msg = await get_localized_message_template(session, interaction.guild_id, "item_update:error_invalid_value_type", lang_code, "Invalid value '{value}' for field '{field_name}'. Details: {details}")
-                await interaction.followup.send(error_msg.format(value=new_value, field_name=field_to_update, details=str(e)), ephemeral=True); return
 
-            update_data_dict = {db_field_name: parsed_value}
+            try:
+                if data_json:
+                    parsed_json_data = await parse_json_parameter(interaction, data_json, "data_json", session)
+                    if parsed_json_data is None: return # Error already sent
+
+                    for key, value in parsed_json_data.items():
+                        db_key = key
+                        if key.endswith("_json") and key.replace("_json", "") in allowed_fields:
+                            db_key = key.replace("_json", "")
+
+                        if db_key not in allowed_fields:
+                            raise ValueError(f"Field '{key}' in data_json is not allowed for update.")
+
+                        field_type_info = allowed_fields[db_key]
+                        parsed_single_value: Any = None
+
+                        if db_key == "static_id":
+                            parsed_single_value = str(value)
+                            if not parsed_single_value: raise ValueError("static_id cannot be empty.")
+                            if parsed_single_value != item_to_update.static_id and \
+                               await item_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_single_value):
+                                raise ValueError(f"Another Item with static_id '{parsed_single_value}' already exists.")
+                        elif isinstance(field_type_info, type) and field_type_info == dict : # name_i18n, description_i18n, etc.
+                            if not isinstance(value, dict): raise ValueError(f"Field '{key}' must be a JSON object.")
+                            parsed_single_value = value
+                        elif db_key == "slot_type":
+                            parsed_single_value = str(value) if value is not None else None
+                        elif db_key == "base_value":
+                            parsed_single_value = int(value) if value is not None else None
+                        elif db_key == "is_stackable":
+                            if not isinstance(value, bool): raise ValueError("is_stackable must be a boolean (true/false).")
+                            parsed_single_value = value
+                        else:
+                            raise ValueError(f"Type processing for field '{key}' in data_json not fully implemented.")
+                        update_data_dict[db_key] = parsed_single_value
+
+                elif field_to_update and new_value is not None: # Single field update
+                    field_to_update_lower = field_to_update.lower()
+                    db_field_name = field_to_update_lower
+                    user_facing_field_name = field_to_update_lower
+
+                    if field_to_update_lower.endswith("_json") and field_to_update_lower.replace("_json","") in allowed_fields:
+                        db_field_name = field_to_update_lower.replace("_json","")
+
+                    field_type_info = allowed_fields.get(db_field_name)
+                    if not field_type_info:
+                        raise ValueError(f"Field '{field_to_update}' is not allowed for update.")
+
+                    parsed_single_value: Any = None
+                    if db_field_name == "static_id":
+                        parsed_single_value = new_value
+                        if not parsed_single_value: raise ValueError("static_id cannot be empty.")
+                        if parsed_single_value != item_to_update.static_id and \
+                           await item_crud.get_by_static_id(session, guild_id=interaction.guild_id, static_id=parsed_single_value):
+                            raise ValueError(f"Another Item with static_id '{parsed_single_value}' already exists.")
+                    elif db_field_name in ["name_i18n", "description_i18n", "item_type_i18n", "properties_json"]:
+                        parsed_single_value = await parse_json_parameter(interaction, new_value, user_facing_field_name, session)
+                        if parsed_single_value is None: return
+                    elif db_field_name == "slot_type":
+                        if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_single_value = None
+                        else: parsed_single_value = new_value
+                    elif db_field_name == "base_value":
+                        if new_value.lower() == 'none' or new_value.lower() == 'null': parsed_single_value = None
+                        else: parsed_single_value = int(new_value)
+                    elif db_field_name == "is_stackable":
+                        if new_value.lower() == 'true': parsed_single_value = True
+                        elif new_value.lower() == 'false': parsed_single_value = False
+                        else: raise ValueError("is_stackable must be 'True' or 'False'.")
+                    else:
+                        raise ValueError(f"Internal error: Unknown field type for '{db_field_name}'.")
+                    update_data_dict = {db_field_name: parsed_single_value}
+
+            except ValueError as e:
+                error_msg_template = await get_localized_message_template(session, interaction.guild_id, "item_update:error_invalid_value_type", lang_code, "Invalid value. Details: {details}")
+                await interaction.followup.send(error_msg_template.format(details=str(e)), ephemeral=True); return
+
+            if not update_data_dict:
+                no_changes_msg = await get_localized_message_template(session, interaction.guild_id, "item_update:no_changes_to_apply", lang_code, "No valid changes were provided to apply.")
+                await interaction.followup.send(no_changes_msg, ephemeral=True); return
+
             updated_item: Optional[Any] = None
             try:
                 async with session.begin():
@@ -312,26 +360,18 @@ class MasterItemCog(commands.Cog, name="Master Item Commands"): # type: ignore[c
             updated_item_name_display = updated_item.name_i18n.get(lang_code, updated_item.name_i18n.get("en", f"Item {updated_item.id}")) if hasattr(updated_item, 'name_i18n') and updated_item.name_i18n else f"Item {updated_item.id}"
             embed = discord.Embed(title=success_title_template.format(item_name=updated_item_name_display, item_id=updated_item.id), color=discord.Color.orange())
 
-            field_updated_label = await get_localized_message_template(session, interaction.guild_id, "item_update:label_field_updated", lang_code, "Field Updated")
-            new_value_label = await get_localized_message_template(session, interaction.guild_id, "item_update:label_new_value", lang_code, "New Value")
+            fields_updated_label = await get_localized_message_template(session, interaction.guild_id, "item_update:label_fields_updated", lang_code, "Fields Updated")
 
-            new_value_display_str: str
-            if parsed_value is None:
-                new_value_display_str = await get_localized_message_template(session, interaction.guild_id, "common:value_none", lang_code, "None")
-            elif isinstance(parsed_value, (dict, list)):
-                try:
-                    json_str = json.dumps(parsed_value, indent=2, ensure_ascii=False)
-                    new_value_display_str = f"```json\n{json_str[:1000]}\n```"
-                    if len(json_str) > 1000: new_value_display_str += "..."
-                except TypeError:
-                    new_value_display_str = await get_localized_message_template(session, interaction.guild_id, "item_update:error_serialization_new_value", lang_code, "Error displaying new value (non-serializable JSON).")
-            elif isinstance(parsed_value, bool):
-                new_value_display_str = str(parsed_value)
-            else:
-                new_value_display_str = str(parsed_value)
+            updated_fields_details = []
+            for key, value in update_data_dict.items():
+                val_display: str
+                if value is None: val_display = "None"
+                elif isinstance(value, dict): val_display = f"```json\n{json.dumps(value, indent=2, ensure_ascii=False)[:200]}\n```" # Truncate for display
+                elif isinstance(value, bool): val_display = str(value)
+                else: val_display = str(value)
+                updated_fields_details.append(f"**{key}**: {val_display}")
 
-            embed.add_field(name=field_updated_label, value=field_to_update, inline=True)
-            embed.add_field(name=new_value_label, value=new_value_display_str, inline=True)
+            embed.add_field(name=fields_updated_label, value="\n".join(updated_fields_details) if updated_fields_details else "No specific fields shown.", inline=False)
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @item_master_cmds.command(name="delete", description="Delete an Item definition from this guild.")

@@ -15,6 +15,7 @@ export interface Player {
   current_location_id: number | null;
   current_party_id: number | null;
   attributes_json: Record<string, any>; // e.g., {"strength": 10, "dexterity": 12}
+  inventory?: EnrichedInventoryItem[]; // Added for inventory details
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
 }
@@ -30,6 +31,7 @@ export interface GeneratedNpc {
   faction_id: number | null;
   current_location_id: number | null;
   properties_json: Record<string, any>; // e.g., {"stats": {"hp": 50, "attack": 5}, "role": "merchant", "inventory_template_key": "general_store"}
+  inventory?: EnrichedInventoryItem[]; // Added for inventory details
   ai_metadata_json: Record<string, any> | null;
   created_at: string; // ISO date string
   updated_at: string; // ISO date string
@@ -63,10 +65,16 @@ export interface GeneratedNpcPayload {
 }
 
 // For list responses
+// This was moved to items.ts, but if it's used by other entity lists, it can be kept here or in a more global types file.
+// For now, assuming items.ts PaginatedResponse will be the primary one.
+// If needed elsewhere, ensure consistency or create a global one.
 export interface PaginatedResponse<T> {
   items: T[];
-  current_page: number;
-  total_pages: number;
-  total_items: number;
-  limit_per_page: number;
+  current_page: number; // Ensure this matches what backend list commands actually return
+  total_pages: number;  // Or 'pages'
+  total_items: number;  // Or 'total'
+  limit_per_page: number; // Or 'limit'
 }
+
+// Import EnrichedInventoryItem if not already implicitly available through a global import strategy
+import { EnrichedInventoryItem } from './items';

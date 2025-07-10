@@ -147,12 +147,7 @@ This block presents tasks related to developing a separate client application (w
 
 {Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Backend and UI contract preparation) - Moved to Done.txt}
 
-Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42)
-* Description: Create UI pages for viewing and editing character/NPC inventories and the general list of items in the guild.
-* Interface for viewing the inventory of a selected character/NPC (calling API 15 get_player_inventory or similar for NPCs). Display items with their details (properties, i18n descriptions).
-* Interface for viewing/editing the list of all items in the guild (calling CRUD API 41 for the Item model 42). Implement forms for creating/editing Items, including _i18n names/descriptions.
-* Ability to move items between inventories via UI (calling API 15 add/remove).
-* Result: Graphical interface for managing inventory and items in the guild.
+{Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42) - Moved to Done.txt}
 
 Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21)
 * Description: Create UI pages for managing factions and relationships.

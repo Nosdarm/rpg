@@ -35,7 +35,14 @@ export const playerService = {
     return apiClient.get<PaginatedResponse<Player>>(`${BASE_PATH(guildId)}?page=${page}&limit=${limit}`, mockPaginatedResponse);
   },
 
-  async getPlayerById(guildId: number, playerId: number): Promise<Player> {
+  async getPlayerById(
+    guildId: number,
+    playerId: number,
+    includeInventory: boolean = false // New parameter
+  ): Promise<Player> {
+    // Adjust the mock and API call if includeInventory is true
+    const endpoint = `${BASE_PATH(guildId)}/${playerId}${includeInventory ? '?include_inventory=true' : ''}`;
+
     const mockPlayer: Player = {
       id: playerId,
       guild_id: guildId,
@@ -52,10 +59,26 @@ export const playerService = {
       current_location_id: 2,
       current_party_id: 1,
       attributes_json: { strength: 12, intelligence: 8 },
+      inventory: includeInventory ? [ // Mock inventory data if requested
+        {
+          inventory_item_id: 101, item_id: 1, name_i18n: { en: "Mock Sword" },
+          description_i18n: {en: "A trusty mock sword."}, is_stackable: false, quantity: 1,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+          // Fill other EnrichedInventoryItem fields as needed for mock
+        }
+      ] : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    return apiClient.get<Player>(`${BASE_PATH(guildId)}/${playerId}`, mockPlayer);
+    // The actual API call (if it were real) would pass include_inventory to the backend.
+    // For the mock, we adjust the mock response based on it.
+    // If using apiClient.post for commands:
+    // return apiClient.post<Player>('/master_command_endpoint', {
+    // command_name: 'master_player view',
+    // guild_id: guildId,
+    // params: { player_id: playerId, include_inventory: includeInventory },
+    // }, mockPlayer); // Pass mockPlayer for apiClient to return if it's a mock wrapper
+    return apiClient.get<Player>(endpoint, mockPlayer); // Assuming GET for this service structure
   },
 
   async createPlayer(guildId: number, payload: PlayerPayload): Promise<Player> {

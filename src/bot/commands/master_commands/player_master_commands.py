@@ -28,14 +28,13 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: igno
     )
 
     @player_master_cmds.command(name="view", description="View details of a specific player.")
-    @app_commands.describe(player_id="The database ID of the player to view.")
-    async def player_view(self, interaction: discord.Interaction, player_id: int):
+    @app_commands.describe(player_id="The database ID of the player to view.", include_inventory="Whether to include inventory details.")
+    async def player_view(self, interaction: discord.Interaction, player_id: int, include_inventory: bool = False):
         await interaction.response.defer(ephemeral=True)
         if interaction.guild_id is None:
-            # This should ideally not be reached if guild_only=True is effective on the group
-            async with get_db_session() as temp_session: # Need session for localization
+            async with get_db_session() as temp_session:
                 error_msg = await get_localized_message_template(
-                    temp_session, interaction.guild_id, "common:error_guild_only_command", str(interaction.locale), # interaction.guild_id might be None here
+                    temp_session, interaction.guild_id, "common:error_guild_only_command", str(interaction.locale),
                     "This command must be used in a server."
                 )
             await interaction.followup.send(error_msg, ephemeral=True)
@@ -68,14 +67,17 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: igno
             embed.add_field(name=await get_label("level", "Level"), value=str(player.level), inline=True)
             embed.add_field(name=await get_label("xp", "XP"), value=str(player.xp), inline=True)
             embed.add_field(name=await get_label("unspent_xp", "Unspent XP"), value=str(player.unspent_xp), inline=True)
+            embed.add_field(name=await get_label("gold", "Gold"), value=str(player.gold), inline=True)
+
 
             na_value_str = await get_localized_message_template(session, interaction.guild_id, "common:value_na", lang_code, "N/A")
 
             embed.add_field(name=await get_label("location_id", "Current Location ID"), value=str(player.current_location_id) if player.current_location_id else na_value_str, inline=True)
             embed.add_field(name=await get_label("party_id", "Current Party ID"), value=str(player.current_party_id) if player.current_party_id else na_value_str, inline=True)
             embed.add_field(name=await get_label("status", "Status"), value=player.current_status.value if player.current_status else na_value_str, inline=True)
-            player_language = getattr(player, 'selected_language', None) # Use selected_language as per model
+            player_language = getattr(player, 'selected_language', None)
             embed.add_field(name=await get_label("language", "Language"), value=player_language or na_value_str, inline=True)
+            embed.add_field(name=await get_label("current_hp", "Current HP"), value=str(player.current_hp) if player.current_hp is not None else na_value_str, inline=True)
 
 
             attributes_label = await get_label("attributes_json", "Attributes JSON")
@@ -87,6 +89,57 @@ class MasterPlayerCog(commands.Cog, name="Master Player Commands"): # type: igno
                     attributes_str = await get_localized_message_template(session, interaction.guild_id, "player_view:error_attributes_serialization", lang_code, "Error displaying attributes (non-serializable).")
 
             embed.add_field(name=attributes_label, value=f"```json\n{attributes_str[:1000]}\n```" + ("..." if len(attributes_str) > 1000 else ""), inline=False)
+
+            if include_inventory:
+                from src.core.crud.crud_inventory_item import inventory_item_crud
+                from src.core.crud.crud_item import item_crud
+                from src.models.enums import OwnerEntityType
+
+                inventory_items = await inventory_item_crud.get_inventory_for_owner(
+                    session,
+                    guild_id=interaction.guild_id,
+                    owner_entity_id=player.id,
+                    owner_entity_type=OwnerEntityType.PLAYER
+                )
+                inventory_label = await get_label("inventory", "Inventory")
+                if not inventory_items:
+                    no_inventory_str = await get_localized_message_template(session, interaction.guild_id, "player_view:no_inventory", lang_code, "No items in inventory.")
+                    embed.add_field(name=inventory_label, value=no_inventory_str, inline=False)
+                else:
+                    inventory_details_list = []
+                    item_ids_to_fetch = list(set(inv_item.item_id for inv_item in inventory_items))
+                    item_definitions = {}
+                    if item_ids_to_fetch:
+                        # Assuming item_crud.get_many_by_ids can handle guild_id=None for global items if necessary
+                        raw_item_defs = await item_crud.get_many_by_ids(session, ids=item_ids_to_fetch, guild_id=interaction.guild_id)
+                        item_definitions = {item_def.id: item_def for item_def in raw_item_defs}
+
+                    for inv_item in inventory_items:
+                        base_item_def = item_definitions.get(inv_item.item_id)
+                        item_name_display = base_item_def.name_i18n.get(lang_code, base_item_def.name_i18n.get("en", f"Item {inv_item.item_id}")) if base_item_def else f"Unknown Item (ID: {inv_item.item_id})"
+
+                        equipped_str = ""
+                        if inv_item.equipped_status:
+                            equipped_label = await get_localized_message_template(session, interaction.guild_id, "player_view:inventory_equipped_label", lang_code, "Equipped")
+                            equipped_str = f" ({equipped_label}: {inv_item.equipped_status})"
+
+                        props_str = ""
+                        if inv_item.instance_specific_properties_json:
+                            try:
+                                props_json_dump = json.dumps(inv_item.instance_specific_properties_json, ensure_ascii=False)
+                                props_str = f" - Props: {props_json_dump}"
+                            except TypeError:
+                                props_str = " - Props: (Error)"
+
+                        inventory_details_list.append(
+                            f"- {item_name_display} (ID: {inv_item.id}) x{inv_item.quantity}{equipped_str}{props_str}"
+                        )
+
+                    inventory_value_str = "\n".join(inventory_details_list)
+                    if len(inventory_value_str) > 1020: # Max field value length is 1024
+                        inventory_value_str = inventory_value_str[:1020] + "..."
+                    embed.add_field(name=inventory_label, value=inventory_value_str, inline=False)
+
 
             await interaction.followup.send(embed=embed, ephemeral=True)
 

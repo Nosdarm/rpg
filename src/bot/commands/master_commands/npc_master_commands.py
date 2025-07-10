@@ -30,8 +30,8 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"): # type: ignore[cal
     )
 
     @npc_master_cmds.command(name="view", description="View details of a specific Generated NPC.")
-    @app_commands.describe(npc_id="The database ID of the NPC to view.")
-    async def npc_view(self, interaction: discord.Interaction, npc_id: int):
+    @app_commands.describe(npc_id="The database ID of the NPC to view.", include_inventory="Whether to include inventory details.")
+    async def npc_view(self, interaction: discord.Interaction, npc_id: int, include_inventory: bool = False):
         await interaction.response.defer(ephemeral=True)
         lang_code = str(interaction.locale)
         if interaction.guild_id is None:
@@ -73,6 +73,56 @@ class MasterNpcCog(commands.Cog, name="Master NPC Commands"): # type: ignore[cal
             embed.add_field(name=await get_label("description_i18n", "Description (i18n)"), value=f"```json\n{description_i18n_str[:1000]}\n```", inline=False)
             properties_str = await format_json_field_helper(npc.properties_json, "npc_view:value_na_json", "npc_view:error_serialization")
             embed.add_field(name=await get_label("properties", "Properties JSON"), value=f"```json\n{properties_str[:1000]}\n```", inline=False)
+
+            if include_inventory:
+                from src.core.crud.crud_inventory_item import inventory_item_crud
+                from src.core.crud.crud_item import item_crud
+                from src.models.enums import OwnerEntityType
+
+                inventory_items = await inventory_item_crud.get_inventory_for_owner(
+                    session,
+                    guild_id=interaction.guild_id,
+                    owner_entity_id=npc.id,
+                    owner_entity_type=OwnerEntityType.GENERATED_NPC
+                )
+                inventory_label = await get_label("inventory", "Inventory")
+                if not inventory_items:
+                    no_inventory_str = await get_localized_message_template(session, interaction.guild_id, "npc_view:no_inventory", lang_code, "No items in inventory.")
+                    embed.add_field(name=inventory_label, value=no_inventory_str, inline=False)
+                else:
+                    inventory_details_list = []
+                    item_ids_to_fetch = list(set(inv_item.item_id for inv_item in inventory_items))
+                    item_definitions = {}
+                    if item_ids_to_fetch:
+                        raw_item_defs = await item_crud.get_many_by_ids(session, ids=item_ids_to_fetch, guild_id=interaction.guild_id)
+                        item_definitions = {item_def.id: item_def for item_def in raw_item_defs}
+
+                    for inv_item in inventory_items:
+                        base_item_def = item_definitions.get(inv_item.item_id)
+                        item_name_display = base_item_def.name_i18n.get(lang_code, base_item_def.name_i18n.get("en", f"Item {inv_item.item_id}")) if base_item_def else f"Unknown Item (ID: {inv_item.item_id})"
+
+                        equipped_str = ""
+                        if inv_item.equipped_status:
+                            equipped_label = await get_localized_message_template(session, interaction.guild_id, "npc_view:inventory_equipped_label", lang_code, "Equipped")
+                            equipped_str = f" ({equipped_label}: {inv_item.equipped_status})"
+
+                        props_str = ""
+                        if inv_item.instance_specific_properties_json:
+                            try:
+                                props_json_dump = json.dumps(inv_item.instance_specific_properties_json, ensure_ascii=False)
+                                props_str = f" - Props: {props_json_dump}"
+                            except TypeError:
+                                props_str = " - Props: (Error)"
+
+                        inventory_details_list.append(
+                            f"- {item_name_display} (ID: {inv_item.id}) x{inv_item.quantity}{equipped_str}{props_str}"
+                        )
+
+                    inventory_value_str = "\n".join(inventory_details_list)
+                    if len(inventory_value_str) > 1020:
+                        inventory_value_str = inventory_value_str[:1020] + "..."
+                    embed.add_field(name=inventory_label, value=inventory_value_str, inline=False)
+
             await interaction.followup.send(embed=embed, ephemeral=True)
 
     @npc_master_cmds.command(name="list", description="List Generated NPCs in this guild.")
