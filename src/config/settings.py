@@ -112,6 +112,10 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET") # Секрет ваш
 # Пример: http://localhost:8000/api/auth/discord/callback или https://yourdomain.com/api/auth/discord/callback
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
 
+# URL для редиректа на UI приложение после успешной OAuth2 аутентификации
+# Пример: http://localhost:3000/auth/callback или https://youruifrontend.com/auth/callback
+UI_APP_REDIRECT_URL_AFTER_LOGIN = os.getenv("UI_APP_REDIRECT_URL_AFTER_LOGIN", "http://localhost:3000/auth-callback") # Default for local dev
+
 
 # Проверка наличия токена и URL базы данных при импорте модуля
 if not DISCORD_BOT_TOKEN:

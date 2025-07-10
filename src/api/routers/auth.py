@@ -191,16 +191,24 @@ async def discord_callback(code: str, session: AsyncSession = Depends(get_db_ses
         }
         app_jwt_token = create_access_token(subject_data=jwt_subject_data)
 
-        return {
-            "message": "Аутентификация через Discord успешна.",
-            "access_token": app_jwt_token, # JWT нашего приложения
-            "token_type": "bearer",
-            # Можно также вернуть информацию о MasterUser, если это нужно UI
-            # "user": MasterUserSchema.from_orm(master_user) # Потребует импорт MasterUserSchema
-        }
+        # Формируем URL для редиректа на фронтенд с токеном в параметрах
+        # Убедимся, что settings.UI_APP_REDIRECT_URL_AFTER_LOGIN существует
+        if not settings.UI_APP_REDIRECT_URL_AFTER_LOGIN:
+            # Логирование критической ошибки конфигурации
+            # logger.error("UI_APP_REDIRECT_URL_AFTER_LOGIN не настроен в settings.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="URL для редиректа после входа не настроен на сервере."
+            )
+
+        # Добавляем токен как параметр запроса.
+        # Важно: фронтенд должен быть готов извлечь этот токен из URL.
+        redirect_url_with_token = f"{settings.UI_APP_REDIRECT_URL_AFTER_LOGIN}?token={app_jwt_token}"
+
+        return RedirectResponse(url=redirect_url_with_token)
 
 
-@router.get("/me/guilds", summary="Get accessible guilds for the authenticated user (TEMPORARY IMPLEMENTATION)")
+@router.get("/me/guilds", summary="Get accessible guilds for the authenticated user")
 async def get_my_guilds(
     token_payload: TokenPayload = Depends(get_current_token_payload), # Защищаем эндпоинт
     session: AsyncSession = Depends(get_db_session) # Для доступа к GuildConfig # CORRECTED
@@ -251,20 +259,38 @@ async def set_active_guild(
     Устанавливает активную гильдию для сессии пользователя.
     Обновляет JWT, добавляя/изменяя active_guild_id.
     Возвращает новый JWT.
-
-    Примечание: UI должен будет проверить, что пользователь действительно имеет доступ
-    к этому guild_id, используя список из /me/guilds (или данные, полученные от Discord).
-    Бэкенд здесь доверяет, что UI передает корректный guild_id из доступных пользователю.
-    Для большей безопасности, бэкенд мог бы также проверять доступ, если бы хранил
-    список доступных гильдий из JWT (после обновления callback'а).
     """
+    requested_guild_id = request_data.guild_id
+
+    # Проверка доступа к guild_id
+    if token_payload.accessible_guilds is None:
+        # logger.warning(f"Пользователь {token_payload.sub} пытался выбрать гильдию, но accessible_guilds в JWT отсутствует.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, # Можно использовать 400, если считать это некорректным состоянием токена
+            detail="Список доступных гильдий отсутствует в токене. Попробуйте перелогиниться."
+        )
+
+    is_accessible = False
+    # Проверяем, только если accessible_guilds не None (хотя выше уже есть проверка)
+    # и является списком (на всякий случай, если структура токена будет изменена некорректно)
+    if isinstance(token_payload.accessible_guilds, list):
+        for guild in token_payload.accessible_guilds:
+            if guild.get("id") == requested_guild_id:
+                is_accessible = True
+                break
+
+    if not is_accessible:
+        # logger.warning(f"Пользователь {token_payload.sub} пытался выбрать недоступную гильдию {requested_guild_id}.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Доступ к гильдии {requested_guild_id} запрещен или гильдия не найдена в списке доступных."
+        )
 
     # Создаем новый payload на основе старого, но с обновленным active_guild_id
-    new_jwt_subject_data = {
-        "sub": token_payload.sub,
-        "discord_user_id": token_payload.discord_user_id,
-        "active_guild_id": request_data.guild_id
-    }
+    # Важно сохранить остальные поля из token_payload, включая accessible_guilds
+    new_jwt_subject_data = token_payload.model_dump() # Копируем все поля из текущего токена
+    new_jwt_subject_data["active_guild_id"] = requested_guild_id
+    # Поле 'sub' уже есть в token_payload.model_dump()
 
     # Время жизни нового токена можно оставить таким же, как у стандартных токенов,
     # или сделать его короче/длиннее по необходимости. Используем стандартное.
@@ -362,6 +388,23 @@ async def test_active_guild(token_payload: TokenPayload = Depends(get_current_to
 # Для запуска: uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 """
 # Импортируем BaseModel для ActiveGuildRequest, если он еще не импортирован глобально
-from pydantic import BaseModel
+# from pydantic import BaseModel # Уже импортирован выше
 from typing import Optional # Для response_model в get_active_guild
-from src.core.security import get_current_token_payload # Убедимся, что он импортирован для Depends
+# from src.core.security import get_current_token_payload # Уже импортирован выше
+
+@router.post("/logout", summary="Logout user", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    # Защищаем эндпоинт, чтобы убедиться, что пользователь аутентифицирован,
+    # прежде чем "выходить". Хотя реальных действий на бэкенде нет, это хорошая практика.
+    token_payload: TokenPayload = Depends(get_current_token_payload)
+):
+    """
+    Logs out the current user.
+    In a stateless JWT setup, this endpoint primarily serves as a signal for the client
+    to discard the JWT. No server-side token invalidation is performed.
+    """
+    # logger.info(f"User {token_payload.sub} (Discord ID: {token_payload.discord_user_id}) logged out.")
+    # Нет необходимости что-либо делать с токеном на бэкенде,
+    # так как JWT по своей природе stateless.
+    # Клиент должен удалить токен из своего хранилища.
+    return None # FastAPI вернет 204 No Content из-за status_code в декораторе

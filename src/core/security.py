@@ -109,6 +109,20 @@ async def get_current_master_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="MasterUser not found for token subject.")
     return user
 
+async def get_current_active_guild_id(
+    token_payload: TokenPayload = Depends(get_current_token_payload)
+) -> str:
+    """
+    FastAPI dependency to get the active_guild_id from the current user's JWT payload.
+    Raises HTTPException if no active_guild_id is set in the token.
+    """
+    if not token_payload.active_guild_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, # Или HTTP_409_CONFLICT
+            detail="Активная гильдия не выбрана. Пожалуйста, выберите гильдию через POST /api/auth/session/active-guild."
+        )
+    return token_payload.active_guild_id
+
 # (Optional) Password hashing functions (not used for Discord OAuth2)
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
