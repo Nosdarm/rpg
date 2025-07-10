@@ -1,5 +1,29 @@
 ## Completed Tasks Log
 
+**Task 64: 🖥️ UI.10 UI for Monitoring and Logging (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs, basic component placeholders, test file stubs) for UI pages related to monitoring game state (WorldState), viewing event logs (StoryLog), and displaying a game map (Locations).
+- **Result**:
+    - Analyzed existing Master commands for monitoring (Task 49) and models for StoryLog and Location.
+    - Created TypeScript definitions:
+        - `src/ui/src/types/monitoring.ts`: `UIStoryLogData`, `UIEventType`, `UIStoryLogFilterParams`.
+        - `src/ui/src/types/location.ts`: `UILocationData`, `UILocationType`, `UILocationFilterParams`.
+        - Ensured usage of existing `PaginatedResponse` and `RuleConfigEntry`.
+    - Created UI service stubs with mock implementations:
+        - `src/ui/src/services/monitoringService.ts`: for WorldState and StoryLog.
+        - `src/ui/src/services/locationService.ts`: for Locations.
+    - Created basic UI component file structure (placeholders) and their test files:
+        - `src/ui/src/pages/MonitoringPage/WorldStatePage.tsx` & `.test.tsx`
+        - `src/ui/src/pages/MonitoringPage/StoryLogPage.tsx` & `.test.tsx`
+        - `src/ui/src/pages/MapPage/MapPage.tsx` & `.test.tsx`
+    - Created placeholder unit test files for the new services:
+        - `src/ui/src/services/monitoringService.test.ts`
+        - `src/ui/src/services/locationService.test.ts`
+    - Documented the relevant API endpoints (master commands from Task 49) and data structures for the UI team in `AGENTS.MD` under "Документация API для UI Task 64: Мониторинг, Логирование и Карта".
+    - Noted that data for other map entities (Players, NPCs, Global Entities) would be sourced via services defined in other UI tasks (Task 57, Task 63).
+    - Detailed UI component implementation and full test implementation are pending further UI-specific tasks.
+---
+
 **Task 63: 🖥️ UI.9 UI for Global Entity Management (Backend Preparation & UI Stubs)**
 - **Completed**: [Текущая дата]
 - **Description**: Prepared backend APIs and UI contract (TypeScript definitions, service stubs, basic component placeholders, test file stubs) for Global Entity (GlobalNpc, MobileGroup) management UI. UI for GlobalEvent was deferred due to lack of backend master commands.

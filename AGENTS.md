@@ -41,9 +41,86 @@
 
 ---
 ## Текущий план
-*(Этот раздел будет заполняться планом для следующей задачи)*
+1.  **Define TypeScript Interfaces (`src/ui/src/types`)**:
+    *   Create `src/ui/src/types/monitoring.ts`:
+        *   Define `UIStoryLogData` interface based on `src/models/story_log.py::StoryLog`. Include fields like `id`, `guild_id`, `timestamp`, `event_type` (string), `location_id`, `entity_ids_json`, `details_json`, `narrative_i18n`, `turn_number`. Add an optional `formatted_narrative_i18n: Record<string, string>` or `formatted_message: string` to hold the pre-formatted log message if the backend provides it (based on API 47 / `report_formatter.py`).
+        *   Define `UIEventType` string literal union based on `src/models/enums.py::EventType`.
+        *   Define `UIStoryLogFilterParams` for service method parameters: `page?: number`, `limit?: number`, `event_type?: UIEventType`.
+    *   Create `src/ui/src/types/location.ts` (or `map.ts`):
+        *   Define `UILocationData` interface based on `src/models/location.py::Location`. Include `id`, `guild_id`, `parent_location_id`, `static_id`, `name_i18n`, `descriptions_i18n`, `type` (string), `coordinates_json`, `neighbor_locations_json`.
+        *   Define `UILocationType` string literal union based on `src/models/location.py::LocationType`.
+        *   Define `UILocationFilterParams`: `page?: number`, `limit?: number`.
+    *   Ensure `PaginatedResponse` from `src/ui/src/types/entities.ts` is used for list responses. Check consistency of pagination fields (`page` vs `current_page`, etc.) with backend API response. The master commands for monitoring use `page` and `limit` as parameters, and the `PaginatedResponse` in `entities.ts` uses `current_page`, `total_pages`, `total_items`, `limit_per_page`. I will assume the service stubs will map these as needed, but the TS type should reflect what the UI expects from the service. For now, I'll use the existing `PaginatedResponse` and note this potential mapping need in the service stub.
+
+2.  **Create UI Service Stubs (`src/ui/src/services`)**:
+    *   Create `src/ui/src/services/monitoringService.ts`:
+        *   Import `RuleConfigEntry` from `../types/ruleconfig`.
+        *   Import `UIStoryLogData`, `UIStoryLogFilterParams`, `PaginatedResponse` (from `../types/entities`).
+        *   Implement `getWorldStateEntries(guildId: string, params: { page?: number; limit?: number; prefix?: string }): Promise<PaginatedResponse<RuleConfigEntry>>` - for WorldState list.
+        *   Implement `getWorldStateEntry(guildId: string, key: string): Promise<RuleConfigEntry>` - for single WorldState entry.
+        *   Implement `getStoryLogEntries(guildId: string, params: UIStoryLogFilterParams): Promise<PaginatedResponse<UIStoryLogData>>` - for event log list.
+        *   Implement `getStoryLogEntry(guildId: string, logId: number): Promise<UIStoryLogData>` - for single event log entry.
+        *   All functions will use a mock `apiClient.get()` for now.
+    *   Create `src/ui/src/services/locationService.ts` (or `mapService.ts`):
+        *   Import `UILocationData`, `UILocationFilterParams`, `PaginatedResponse`.
+        *   Implement `getLocations(guildId: string, params: UILocationFilterParams): Promise<PaginatedResponse<UILocationData>>`.
+        *   Implement `getLocationDetails(guildId: string, identifier: string | number): Promise<UILocationData>`.
+        *   All functions will use mock `apiClient.get()`.
+
+3.  **Document Backend APIs in `AGENTS.md`**:
+    *   Create a new section: "Документация API для UI Task 64: Мониторинг, Логирование и Карта".
+    *   Sub-section "WorldState":
+        *   Document `/master_monitor worldstate list` command: parameters (`guild_id`, `page`, `limit`, `prefix`), expected response structure (`PaginatedResponse<RuleConfigEntry>`).
+        *   Document `/master_monitor worldstate get` command: parameters (`guild_id`, `key`), expected response (`RuleConfigEntry`).
+    *   Sub-section "Event Log (StoryLog)":
+        *   Document `/master_monitor log list` command: parameters (`guild_id`, `page`, `limit`, `event_type_filter`), expected response (`PaginatedResponse<UIStoryLogData>`). Mention that `UIStoryLogData` might include a pre-formatted message.
+        *   Document `/master_monitor log view` command: parameters (`guild_id`, `log_id`), expected response (`UIStoryLogData`).
+    *   Sub-section "Map Data (Locations)":
+        *   Document `/master_monitor map list_locations` command: parameters (`guild_id`, `page`, `limit`), expected response (`PaginatedResponse<UILocationData>`).
+        *   Document `/master_monitor map view_location` command: parameters (`guild_id`, `identifier`), expected response (`UILocationData`).
+    *   Mention that for map visualization, data for Players, Parties, and Global Entities will be fetched via their respective services (defined in Tasks 57 and 63).
+
+4.  **Create Stub UI Page Components and Test Files**:
+    *   Create directory `src/ui/src/pages/MonitoringPage/`.
+        *   Create `src/ui/src/pages/MonitoringPage/WorldStatePage.tsx` (simple functional component placeholder).
+        *   Create `src/ui/src/pages/MonitoringPage/WorldStatePage.test.tsx` (basic render test).
+        *   Create `src/ui/src/pages/MonitoringPage/StoryLogPage.tsx` (simple placeholder).
+        *   Create `src/ui/src/pages/MonitoringPage/StoryLogPage.test.tsx` (basic render test).
+    *   Create directory `src/ui/src/pages/MapPage/`.
+        *   Create `src/ui/src/pages/MapPage/MapPage.tsx` (simple placeholder).
+        *   Create `src/ui/src/pages/MapPage/MapPage.test.tsx` (basic render test).
+    *   Create service test files:
+        *   `src/ui/src/services/monitoringService.test.ts` (basic mock tests for service functions).
+        *   `src/ui/src/services/locationService.test.ts` (basic mock tests for service functions).
+
+5.  **Update `AGENTS.md`**:
+    *   Add this plan to "Текущий план".
+    *   Create an entry for "Task 64" in "Лог действий" and log completion of each step there.
 ---
 ## Лог действий
+
+## Task 64: 🖥️ UI.10 UI for Monitoring and Logging
+- **Дата**: [Текущая дата]
+- **Определение задачи**: Создать UI страницы для мониторинга состояния игры и просмотра логов (WorldState, StoryLog), а также для визуализации карты (Locations). Подготовить TypeScript интерфейсы, стабы UI сервисов и документацию по API.
+- **Выполненные действия**:
+    - Шаг 1: Определены TypeScript интерфейсы:
+        - В `src/ui/src/types/monitoring.ts` созданы `UIStoryLogData`, `UIEventType`, `UIStoryLogFilterParams`.
+        - В `src/ui/src/types/location.ts` созданы `UILocationData`, `UILocationType`, `UILocationFilterParams`.
+        - Использованы существующие `PaginatedResponse` (из `entities.ts`) и `RuleConfigEntry` (из `ruleconfig.ts`).
+    - Шаг 2: Созданы стабы (заглушки) API сервисов в UI:
+        - В `src/ui/src/services/monitoringService.ts` реализованы моковые функции для получения WorldState и StoryLog.
+        - В `src/ui/src/services/locationService.ts` реализованы моковые функции для получения данных о локациях.
+    - Шаг 3: Добавлена секция "Документация API для UI Task 64: Мониторинг, Логирование и Карта" в `AGENTS.md`, описывающая релевантные подкоманды `/master_monitor`.
+    - Шаг 4: Созданы файлы-заглушки для UI-компонентов и их тестов:
+        - `src/ui/src/pages/MonitoringPage/WorldStatePage.tsx` и `WorldStatePage.test.tsx`
+        - `src/ui/src/pages/MonitoringPage/StoryLogPage.tsx` и `StoryLogPage.test.tsx`
+        - `src/ui/src/pages/MapPage/MapPage.tsx` и `MapPage.test.tsx`
+    - Шаг 4 (продолжение): Созданы файлы-заглушки для тестов UI-сервисов:
+        - `src/ui/src/services/monitoringService.test.ts`
+        - `src/ui/src/services/locationService.test.ts`
+    - Шаг 5: Обновлен `AGENTS.md` (этот лог и текущий план).
+- **Статус Task 64**: Подготовка UI-контрактов, стабов и документации API для мониторинга, логирования и карты завершена. Созданы заглушки для UI-компонентов и тестов. Задача готова к передаче UI-разработчикам для полной реализации UI и тестов.
+
 
 ## Task 63: 🖥️ UI.9 UI for Global Entity Management
 - **Дата**: [Текущая дата]
@@ -874,6 +951,101 @@
     - **Описание**: `dialogue_system.handle_dialogue_input` ожидает `List[Dict[str, Any]]`. `action_processor.process_player_message_for_nlu` преобразует `List[ActionEntity]` в `List[Dict]`. Тест должен отражать это.
     - **Возможное решение**: Обновить ассерты в тесте, чтобы ожидать `parsed_entities` в виде `List[Dict[str, Any]]`.
     - **Срок**: При следующем ресмотре тестов `action_processor.py`. Приоритет: средний.
+
+---
+## Документация API для UI Task 64: Мониторинг, Логирование и Карта
+
+Эта документация описывает мастер-команды Discord, которые UI будет вызывать через API шлюз (концептуально), для получения данных для страниц мониторинга, логирования и отображения карты.
+
+**Общие замечания:**
+
+*   Все команды требуют `guild_id`.
+*   Параметры пагинации (`page`, `limit`) стандартны для списочных команд.
+*   Ответы команд будут содержать локализованные строки на языке Мастера где это применимо (например, в `formatted_message` для логов).
+*   `GUILD_ID_PLACEHOLDER` в примерах вызовов сервисов UI должен быть заменен на реальный ID гильдии.
+*   Конечная точка вызова команд в `apiClient` (например, `/master_command_endpoint`) является концептуальной.
+*   Типы данных TypeScript (например, `RuleConfigEntry`, `UIStoryLogData`, `UILocationData`, `PaginatedResponse`) определены в `src/ui/src/types/`.
+
+---
+
+**1. WorldState (Конфигурация мира)**
+
+*   **Мастер-команды**: `/master_monitor worldstate ...` (из `src/bot/commands/master_commands/monitoring_master_commands.py`)
+*   **TypeScript**: `src/ui/src/types/ruleconfig.ts -> RuleConfigEntry`
+*   **Сервис UI**: `src/ui/src/services/monitoringService.ts`
+
+*   **1.1. Получить список записей WorldState (с пагинацией и фильтром по префиксу)**
+    *   **Команда Discord**: `/master_monitor worldstate list`
+    *   **Параметры UI (`getWorldStateEntries`) -> Команда**:
+        *   `guild_id: string` (неявный для команды, передается API шлюзом)
+        *   `page: Optional[int]` (по умолчанию 1)
+        *   `limit: Optional[int]` (по умолчанию 10)
+        *   `prefix: Optional[str]` (например, "worldstate:")
+    *   **Ответ**: `PaginatedResponse<RuleConfigEntry>`
+        *   Пример элемента `RuleConfigEntry`: `{ key: "worldstate:weather", value_json: {"current": "sunny"}, description: "Current weather" }`
+
+*   **1.2. Получить конкретную запись WorldState по ключу**
+    *   **Команда Discord**: `/master_monitor worldstate get`
+    *   **Параметры UI (`getWorldStateEntry`) -> Команда**:
+        *   `guild_id: string`
+        *   `key: string`
+    *   **Ответ**: `RuleConfigEntry`
+
+---
+
+**2. Event Log (StoryLog - Журнал событий)**
+
+*   **Мастер-команды**: `/master_monitor log ...` (из `src/bot/commands/master_commands/monitoring_master_commands.py`)
+*   **TypeScript**: `src/ui/src/types/monitoring.ts -> UIStoryLogData, UIEventType`
+*   **Сервис UI**: `src/ui/src/services/monitoringService.ts`
+
+*   **2.1. Получить список записей журнала событий (с пагинацией и фильтром по типу события)**
+    *   **Команда Discord**: `/master_monitor log list`
+    *   **Параметры UI (`getStoryLogEntries`) -> Команда**:
+        *   `guild_id: string`
+        *   `page: Optional[int]` (по умолчанию 1)
+        *   `limit: Optional[int]` (по умолчанию 10)
+        *   `event_type_filter: Optional[UIEventType]` (строковое значение из `UIEventType`)
+    *   **Ответ**: `PaginatedResponse<UIStoryLogData>`
+        *   Объект `UIStoryLogData` включает `id`, `timestamp`, `event_type`, `location_id`, `entity_ids_json`, `details_json`, `narrative_i18n`, `turn_number`.
+        *   Может также включать `formatted_message` (строка), если бэкенд предоставляет отформатированное сообщение (через `report_formatter.py` как часть Task 47/49).
+
+*   **2.2. Получить детали конкретной записи журнала событий**
+    *   **Команда Discord**: `/master_monitor log view`
+    *   **Параметры UI (`getStoryLogEntry`) -> Команда**:
+        *   `guild_id: string`
+        *   `log_id: int`
+    *   **Ответ**: `UIStoryLogData`
+
+---
+
+**3. Map Data (Данные для карты - Локации)**
+
+*   **Мастер-команды**: `/master_monitor map ...` (из `src/bot/commands/master_commands/monitoring_master_commands.py`)
+*   **TypeScript**: `src/ui/src/types/location.ts -> UILocationData, UILocationType`
+*   **Сервис UI**: `src/ui/src/services/locationService.ts`
+
+*   **3.1. Получить список локаций (с пагинацией)**
+    *   **Команда Discord**: `/master_monitor map list_locations`
+    *   **Параметры UI (`getLocations`) -> Команда**:
+        *   `guild_id: string`
+        *   `page: Optional[int]` (по умолчанию 1)
+        *   `limit: Optional[int]` (по умолчанию 10)
+    *   **Ответ**: `PaginatedResponse<UILocationData>`
+        *   Объект `UILocationData` включает `id`, `static_id`, `name_i18n`, `descriptions_i18n`, `type`, `coordinates_json`, `neighbor_locations_json`.
+
+*   **3.2. Получить детали конкретной локации**
+    *   **Команда Discord**: `/master_monitor map view_location`
+    *   **Параметры UI (`getLocationDetails`) -> Команда**:
+        *   `guild_id: string`
+        *   `identifier: string | number` (ID локации или ее `static_id`)
+    *   **Ответ**: `UILocationData`
+
+*   **3.3. Данные других сущностей для карты (Игроки, NPC, Глобальные сущности)**
+    *   Для отображения игроков, NPC, глобальных NPC и мобильных групп на карте, UI должен использовать существующие сервисы и команды, определенные в рамках других UI задач:
+        *   **Игроки (`Player`) и Генерируемые NPC (`GeneratedNpc`)**: Используйте `playerService.ts` и `npcService.ts` (из Task 57). Соответствующие мастер-команды: `/master_player list`, `/master_npc list`. Модели `Player` и `GeneratedNpc` содержат `current_location_id`.
+        *   **Глобальные NPC (`GlobalNpc`) и Мобильные Группы (`MobileGroup`)**: Используйте `globalEntityService.ts` (из Task 63). Соответствующие мастер-команды: `/master_global_npc list`, `/master_mobile_group list`. Модели содержат `current_location_id`.
+    *   UI будет агрегировать эти данные для отображения всех сущностей на карте в их текущих локациях.
 
 ---
 ## Документация API для UI Task 63: Управление глобальными сущностями (GlobalNpc, MobileGroup)

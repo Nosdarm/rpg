@@ -153,7 +153,7 @@ This block presents tasks related to developing a separate client application (w
 {Task 62: 🖥️ UI.8 UI for Quest Management (Backend Preparation & UI Stubs) - Moved to Done.txt}
 {Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45) - Moved to Done.txt}
 
-Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43)
+{Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43) - Moved to Done.txt}
 * Description: Create UI pages for monitoring game state and viewing logs.
 * Interface for viewing WorldState (API 43).
 * Interface for viewing the event log (API 43). Implement filtering and pagination for the log. Format log entries (API 47) for display.
