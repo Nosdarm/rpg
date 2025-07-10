@@ -23,6 +23,17 @@ from .party_utils import get_party
 from .game_events import log_event
 from .report_formatter import format_turn_report
 # Removed: from .command_utils import process_json_input # General utility
+from .security import ( # Added for Task 56 (UI Auth JWT)
+    create_access_token,
+    verify_token_payload, # Renamed from verify_token
+    TokenPayload,
+    ALGORITHM,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_current_token_payload, # FastAPI Dependency
+    get_current_master_user, # FastAPI Dependency
+    oauth2_scheme # FastAPI OAuth2PasswordBearer instance
+    # pwd_context, verify_password, get_password_hash # Опционально, если нужны для экспорта
+)
 
 # --- AI Systems ---
 from .ai_prompt_builder import (
@@ -93,6 +104,9 @@ __all__ = [
     "get_player", "get_party",
     "log_event", "format_turn_report",
     # Removed: "process_json_input",
+    # Security (JWT)
+    "create_access_token", "verify_token_payload", "TokenPayload", "ALGORITHM", "ACCESS_TOKEN_EXPIRE_MINUTES",
+    "get_current_token_payload", "get_current_master_user", "oauth2_scheme",
     # AI Systems
     "prepare_ai_prompt", "prepare_faction_relationship_generation_prompt",
     "prepare_quest_generation_prompt", "prepare_economic_entity_generation_prompt",

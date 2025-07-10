@@ -122,4 +122,23 @@ Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rul
 Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped). - APIs start_dialogue, handle_dialogue_input, end_dialogue implemented in dialogue_system.py. Manages active_dialogues (in-memory dict) storing npc_id, history. Updates PlayerStatus. Integrates with action_processor.py for "talk", "end_dialogue" intents and routing messages when player is in PlayerStatus.DIALOGUE. Logs dialogue events. Unit tests added.
 Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild). - Model PartyNpcMemory created (similar to PlayerNpcMemory). Alembic migration for party_npc_memories table. CRUDPartyNpcMemory created. Module npc_memory_system.py with APIs add_to_npc_memory, get_npc_memory (handles both player and party memories). Unit tests for model, CRUD, and API functions.
 Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped). - Modified action_processor.py (process_player_message_for_nlu): NLU parsing (parse_player_input) now occurs even if player is in PlayerStatus.DIALOGUE. The resulting intent and entities are passed to dialogue_system.handle_dialogue_input. Modified dialogue_system.py (handle_dialogue_input): Signature updated to accept parsed_intent and parsed_entities. These are added to the context for generate_npc_dialogue. Modified ai_prompt_builder.py (prepare_dialogue_generation_prompt): Prompt now includes recognized intent/entities if available and not 'unknown_intent', providing richer context to LLM. Unit tests for all 3 modified modules updated/added.
-
+---
+**Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development (Backend part)**
+- **Completed**: [Дата будет вставлена здесь агентом при коммите]
+- **Description**: Implemented the backend functionality for UI authentication via Discord OAuth2.
+    - Configured Discord OAuth2 settings (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`) in `src/config/settings.py`.
+    - Created FastAPI router `src/api/routers/auth.py` with:
+        - `GET /api/auth/discord`: Redirects to Discord authorization.
+        - `GET /api/auth/discord/callback`: Handles Discord callback, exchanges code for Discord token, fetches user info (`/users/@me`) and user's guilds (`/users/@me/guilds`). Filters guilds by admin permissions and presence in `GuildConfig`. Finds/creates a `MasterUser` record. Generates a JWT for the UI session, including the list of accessible guilds.
+    - Created `MasterUser` SQLAlchemy model (`src/models/master_user.py`) and Alembic migration (`cdc86ea77142_create_master_users_table.py`).
+    - Created Pydantic schemas for `MasterUser` in `src/schemas/master_user.py`.
+    - Implemented `CRUDMasterUser` in `src/core/crud/crud_master_user.py`.
+    - Implemented JWT creation and verification utilities in `src/core/security.py`, including `TokenPayload` (updated to store `accessible_guilds`), `create_access_token`, `verify_token_payload`, and FastAPI dependencies (`get_current_token_payload`, `get_current_master_user`).
+    - Implemented API endpoints for guild management within a session:
+        - `GET /api/auth/me/guilds`: Returns the list of accessible guilds from the JWT.
+        - `POST /api/auth/session/active-guild`: Sets the active guild ID in the JWT by issuing a new token.
+        - `GET /api/auth/session/active-guild`: Retrieves the active guild ID from the JWT.
+    - Ensured all new components are correctly imported and registered in `__init__.py` files.
+    - Prepared for future UI API endpoints by establishing JWT protection and context for `active_guild_id`.
+    - Unit tests for this functionality are pending and will be created in the next step.
+---
