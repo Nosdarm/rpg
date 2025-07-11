@@ -264,8 +264,8 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.mock_party_crud.delete.assert_called_once_with(self.session_mock, id=party_to_disband.id, guild_id=self.guild.id)
 
         # Check player updates
-        self.assertEqual(self.session_mock.merge.call_count, 2) # For player_in_db and member2
-        self.assertIsNone(player_in_db.current_party_id)
+        self.assertEqual(self.session_mock.merge.call_count, 2) # For leader_player and member2
+        self.assertIsNone(leader_player.current_party_id) # Corrected variable here
         self.assertIsNone(member2.current_party_id)
 
         self.session_mock.commit.assert_called_once()

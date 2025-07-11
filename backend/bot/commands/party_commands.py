@@ -1,5 +1,6 @@
 import logging
 import discord
+from discord import app_commands # Added app_commands
 from discord.ext import commands
 from typing import Optional
 
@@ -351,12 +352,6 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                 logger.error(f"Ошибка при присоединении к группе для {ctx.author} на сервере {guild_id}: {e}", exc_info=True)
                 await ctx.send("Произошла ошибка при присоединении к группе.")
 
-
-async def setup(bot: commands.Bot):
-    await bot.add_cog(PartyCog(bot))
-    logger.info("PartyCog успешно загружен и добавлен в бота.")
-
-
     @party_group.command(name="kick", help="Исключить игрока из вашей группы. Пример: /party kick @Игрок") # type: ignore[attr-defined]
     @app_commands.describe(target_player="Игрок, которого вы хотите исключить.")
     async def party_kick(self, ctx: commands.Context, target_player: discord.Member):
@@ -613,7 +608,6 @@ async def setup(bot: commands.Bot):
                 # TODO: Localize
                 await ctx.send("Произошла ошибка при просмотре информации о группе.")
 
-
     @party_group.command(name="invite", help="Пригласить игрока в вашу группу. Пример: /party invite @Игрок") # type: ignore[attr-defined]
     @app_commands.describe(target_player="Игрок, которого вы хотите пригласить.")
     async def party_invite(self, ctx: commands.Context, target_player: discord.Member):
@@ -711,3 +705,7 @@ async def setup(bot: commands.Bot):
                 logger.error(f"Ошибка в команде /party invite для {ctx.author} на сервере {guild_id}: {e}", exc_info=True)
                 # TODO: Localize
                 await ctx.send("Произошла ошибка при попытке пригласить игрока.")
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(PartyCog(bot))
+    logger.info("PartyCog успешно загружен и добавлен в бота.")
