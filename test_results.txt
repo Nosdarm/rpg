@@ -84,8 +84,8 @@ tests/bot/commands/test_map_commands.py::test_map_master_cog_check_is_master_id 
 tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_create_player_already_in_party PASSED [  8%]
 tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_create_success PASSED [  8%]
 tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_disband_success PASSED [  9%]
-tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_moves_player_location FAILED [  9%]
-tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_success_by_name FAILED [  9%]
+tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_moves_player_location PASSED [  9%]
+tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_success_by_name PASSED [  9%]
 tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_leave_success_and_disband PASSED [  9%]
 tests/bot/test_events.py::test_ensure_guild_config_exists_new_guild PASSED [  9%]
 tests/bot/test_events.py::test_ensure_guild_config_exists_existing_guild PASSED [  9%]
@@ -178,7 +178,7 @@ tests/core/test_action_processor.py::test_handle_move_action_wrapper_execute_mov
 tests/core/test_action_processor.py::test_process_actions_halts_if_conflict_pending PASSED [ 19%]
 tests/core/test_action_processor.py::test_process_actions_proceeds_if_no_conflict_pending PASSED [ 19%]
 tests/core/test_action_processor.py::test_process_actions_handles_exception_during_conflict_check PASSED [ 20%]
-tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_in_dialogue FAILED [ 20%]
+tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_in_dialogue PASSED [ 20%]
 tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_not_in_dialogue_queues_action PASSED [ 20%]
 tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_in_dialogue_nlu_unknown_intent PASSED [ 20%]
 tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_not_in_dialogue_unknown_intent_not_queued PASSED [ 20%]
@@ -859,42 +859,6 @@ tests/test_main.py::test_main_discord_login_failure PASSED               [ 99%]
 tests/test_main.py::test_main_generic_start_exception PASSED             [ 99%]
 tests/test_main.py::test_main_keyboard_interrupt_handling
 
-=================================== FAILURES ===================================
-___________ TestPartyCommands.test_party_join_moves_player_location ____________
-tests/bot/commands/test_party_commands.py:246: in test_party_join_moves_player_location
-    self.ctx.send.assert_called_once_with(f"{self.author.mention} успешно присоединился к группе 'FarAwayParty'! Текущая локация группы: Party's Hideout.")
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:961: in assert_called_once_with
-    return self.assert_called_with(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:949: in assert_called_with
-    raise AssertionError(_error_message()) from cause
-E   AssertionError: expected call not found.
-E   Expected: send("<@321> успешно присоединился к группе 'FarAwayParty'! Текущая локация группы: Party's Hideout.")
-E     Actual: send("<@321> успешно присоединился к группе 'FarAwayParty'! Текущая локация группы: Mocked Text (No Key/Default).")
-______________ TestPartyCommands.test_party_join_success_by_name _______________
-tests/bot/commands/test_party_commands.py:221: in test_party_join_success_by_name
-    self.ctx.send.assert_called_once_with(f"{self.author.mention} успешно присоединился к группе 'Joinable Party'! Текущая локация группы: Player's Spot.")
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:961: in assert_called_once_with
-    return self.assert_called_with(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:949: in assert_called_with
-    raise AssertionError(_error_message()) from cause
-E   AssertionError: expected call not found.
-E   Expected: send("<@321> успешно присоединился к группе 'Joinable Party'! Текущая локация группы: Player's Spot.")
-E     Actual: send("<@321> успешно присоединился к группе 'Joinable Party'! Текущая локация группы: Mocked Text (No Key/Default).")
-____________ test_process_player_message_for_nlu_player_in_dialogue ____________
-tests/core/test_action_processor.py:1110: in test_process_player_message_for_nlu_player_in_dialogue
-    mock_handle_dialogue_input.assert_called_once_with(
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:961: in assert_called_once_with
-    return self.assert_called_with(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:949: in assert_called_with
-    raise AssertionError(_error_message()) from cause
-E   AssertionError: expected call not found.
-E   Expected: handle_dialogue_input(session=<AsyncMock spec='AsyncSession' id='139785693305776'>, guild_id=1, player_id=1, message_text='Hello NPC', parsed_intent='talk_to_npc', parsed_entities=[ActionEntity(type='npc_name', value='NPC')])
-E     Actual: handle_dialogue_input(session=<AsyncMock spec='AsyncSession' id='139785693305776'>, guild_id=1, player_id=1, message_text='Hello NPC', parsed_intent='talk_to_npc', parsed_entities=[{'type': 'npc_name', 'value': 'NPC'}])
------------------------------- Captured log call -------------------------------
-INFO     src.core.action_processor:action_processor.py:1013 Player 1 is in DIALOGUE. Routing message 'Hello NPC' (NLU: talk_to_npc) to handle_dialogue_input.
 =============================== warnings summary ===============================
 ../home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/player.py:29
   /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/player.py:29: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
@@ -909,8 +873,10 @@ INFO     src.core.action_processor:action_processor.py:1013 Player 1 is in DIALO
     from crypt import crypt as _crypt
 
 tests/bot/commands/master_commands/test_master_conflict_commands.py::test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2566: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
-    return tuple.__new__(cls, (name, args, kwargs))
+tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
+tests/core/test_world_generation.py::TestWorldGeneration::test_generate_factions_and_relationships_parsing_error
+  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2217: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(self, name, parent):
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
@@ -930,13 +896,13 @@ tests/models/test_player.py: 4 warnings
   sys:1: SAWarning: Can't sort tables for DROP; an unresolvable foreign key dependency exists between tables: generated_factions, generated_npcs, global_npcs, mobile_groups; and backend does not support ALTER.  To restore at least a partial sort, apply use_alter=True to ForeignKey and ForeignKeyConstraint objects involved in the cycle to mark these as known cycles that will be ignored.
 
 tests/core/test_ability_system.py::test_apply_status_new_status
-  /app/src/core/ability_system.py:458: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/ability_system.py:458: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(active_status)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_ability_system.py::test_apply_status_refresh_duration
-  /app/src/core/ability_system.py:445: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/ability_system.py:445: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(existing_status_instance)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
@@ -948,7 +914,7 @@ tests/core/test_action_processor.py::test_process_actions_unknown_intent_uses_pl
 tests/core/test_action_processor.py::test_load_and_clear_all_actions_single_player_with_actions
 tests/core/test_action_processor.py::test_load_and_clear_all_actions_party_with_player_actions
 tests/core/test_action_processor.py::test_load_and_clear_all_actions_player_action_parsing_error
-  /app/src/core/action_processor.py:687: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:687: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(player_obj) # Add to session to mark for update
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
@@ -957,21 +923,21 @@ tests/core/test_action_processor.py::test_process_actions_single_player_only_loo
 tests/core/test_action_processor.py::test_process_actions_single_player_with_both_actions
 tests/core/test_action_processor.py::test_process_actions_unknown_intent_uses_placeholder
 tests/core/test_action_processor.py::test_finalize_turn_processing_updates_statuses_and_logs
-  /app/src/core/action_processor.py:866: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:866: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     final_session.add(player)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_action_processor.py::test_process_actions_party_with_one_player_actions
 tests/core/test_action_processor.py::test_finalize_turn_processing_updates_statuses_and_logs
-  /app/src/core/action_processor.py:872: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:872: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     final_session.add(party)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_action_processor.py::test_process_actions_party_with_one_player_actions
 tests/core/test_action_processor.py::test_finalize_turn_processing_updates_statuses_and_logs
-  /app/src/core/action_processor.py:878: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:878: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     final_session.add(member)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
@@ -984,13 +950,13 @@ tests/core/test_movement_logic.py::test_execute_move_failure_does_not_call_on_en
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_action_processor.py::test_load_and_clear_all_actions_player_malformed_json
-  /app/src/core/action_processor.py:691: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:691: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(player_obj)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_not_in_dialogue_queues_action
-  /app/src/core/action_processor.py:1073: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/action_processor.py:1073: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(player)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
@@ -1082,33 +1048,27 @@ tests/core/test_ai_analysis_system.py::TestQuestItemBalanceAnalysis::test_quest_
     parsed_quest_instance = parse_obj_as(ParsedQuestData, mock_quest.model_dump(mode='json'))
 
 tests/core/test_ai_response_parser.py: 13 warnings
-  /app/src/core/ai_response_parser.py:340: PydanticDeprecatedSince20: `parse_obj_as` is deprecated. Use `pydantic.TypeAdapter.validate_python` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
+  /app/backend/core/ai_response_parser.py:340: PydanticDeprecatedSince20: `parse_obj_as` is deprecated. Use `pydantic.TypeAdapter.validate_python` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
     validated_entity = parse_obj_as(GeneratedEntity, entity_data) # type: ignore[arg-type]
 
 tests/core/test_turn_controller.py::test_process_guild_turn_one_player_pending
 tests/core/test_turn_controller.py::test_process_guild_turn_releases_lock_on_exception
 tests/core/test_turn_controller.py::test_process_guild_turn_multiple_entities
-  /app/src/core/turn_controller.py:75: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/turn_controller.py:75: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(player)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/inspect.py:3076: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
-    params = OrderedDict((param.name, param) for param in parameters)
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
 tests/core/test_turn_controller.py::test_process_guild_turn_multiple_entities
-  /app/src/core/turn_controller.py:81: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/turn_controller.py:81: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(party)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
 tests/core/test_turn_controller.py::test_process_guild_turn_multiple_entities
-  /app/src/core/turn_controller.py:93: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  /app/backend/core/turn_controller.py:93: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     session.add(member_player)
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
@@ -1122,12 +1082,6 @@ tests/core/test_turn_controller.py::test_process_guild_turn_releases_lock_on_exc
 tests/core/test_turn_controller.py::test_process_guild_turn_releases_lock_on_exception
   /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/_pytest/stash.py:108: RuntimeWarning: coroutine 'test_process_guild_turn_releases_lock_on_exception.<locals>.sync_simulated_create_task.<locals>.run_coro_and_catch_exception' was never awaited
     del self._storage[key]
-  Enable tracemalloc to get traceback where the object was allocated.
-  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
-
-tests/core/test_world_generation.py::TestWorldGeneration::test_generate_factions_and_relationships_parsing_error
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2217: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
-    def __init__(self, name, parent):
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
@@ -1172,11 +1126,7 @@ tests/test_main.py::test_main_success
     from websockets.server import WebSocketServerProtocol
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_moves_player_location
-FAILED tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_join_success_by_name
-FAILED tests/core/test_action_processor.py::test_process_player_message_for_nlu_player_in_dialogue
 !!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt: Simulated Ctrl+C !!!!!!!!!!!!!!!!!!!!!!
 /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2291: KeyboardInterrupt: Simulated Ctrl+C
 (to show a full traceback on KeyboardInterrupt use --full-trace)
-===== 3 failed, 833 passed, 14 xfailed, 190 warnings in 100.18s (0:01:40) ======
+========== 836 passed, 14 xfailed, 190 warnings in 103.19s (0:01:43) ===========

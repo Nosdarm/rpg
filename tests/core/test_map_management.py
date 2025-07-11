@@ -11,15 +11,15 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.map_management import (
+from backend.core.map_management import (
     add_location_master,
     remove_location_master,
     connect_locations_master,
     disconnect_locations_master
 )
-from src.models import Location
-from src.models.location import LocationType # Исправленный импорт
-from src.models.enums import EventType
+from backend.models import Location
+from backend.models.location import LocationType # Исправленный импорт
+from backend.models.enums import EventType
 
 # pytestmark = pytest.mark.asyncio # Если использовать для всего модуля
 
@@ -49,9 +49,9 @@ async def test_add_location_master_success(
     neighbor_loc_mock = Location(id=2, guild_id=guild_id, name_i18n={"en":"Neighbor"}, neighbor_locations_json=[])
     mock_location_crud.get.return_value = neighbor_loc_mock # Когда update_location_neighbors будет его искать
 
-    with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
-         patch("src.core.map_management.location_crud", new=mock_location_crud), \
-         patch("src.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+    with patch("backend.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
+         patch("backend.core.map_management.location_crud", new=mock_location_crud), \
+         patch("backend.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
         location, error = await add_location_master(mock_db_session, guild_id, location_data)
 
@@ -82,7 +82,7 @@ async def test_add_location_master_static_id_exists(
     location_data = {"static_id": "existing_loc", "name_i18n": {}, "descriptions_i18n": {}, "type": "CITY"}
     mock_location_crud.get_by_static_id.return_value = Location(id=99, static_id="existing_loc") # Локация уже существует
 
-    with patch("src.core.map_management.location_crud", new=mock_location_crud):
+    with patch("backend.core.map_management.location_crud", new=mock_location_crud):
         location, error = await add_location_master(mock_db_session, guild_id, location_data)
 
     assert location is None
@@ -125,9 +125,9 @@ async def test_remove_location_master_success(
     # mock_location_crud.delete.return_value = True # This was the error
     mock_location_crud.delete = AsyncMock(return_value=loc_to_remove) # Fix: make it async and return the object
 
-    with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
-         patch("src.core.map_management.location_crud", new=mock_location_crud), \
-         patch("src.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+    with patch("backend.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
+         patch("backend.core.map_management.location_crud", new=mock_location_crud), \
+         patch("backend.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
         success, error = await remove_location_master(mock_db_session, guild_id, loc_id_to_remove)
 
@@ -151,7 +151,7 @@ async def test_remove_location_master_not_found(
     loc_id_to_remove = 999
     mock_location_crud.get.return_value = None # Локация не найдена
 
-    with patch("src.core.map_management.location_crud", new=mock_location_crud):
+    with patch("backend.core.map_management.location_crud", new=mock_location_crud):
         success, error = await remove_location_master(mock_db_session, guild_id, loc_id_to_remove)
 
     assert success is False
@@ -173,9 +173,9 @@ async def test_connect_locations_master_success(
     loc2 = Location(id=loc2_id, guild_id=guild_id, name_i18n={"en":"Loc2"}, neighbor_locations_json=[])
     mock_location_crud.get.side_effect = [loc1, loc2]
 
-    with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
-         patch("src.core.map_management.location_crud", new=mock_location_crud), \
-         patch("src.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+    with patch("backend.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
+         patch("backend.core.map_management.location_crud", new=mock_location_crud), \
+         patch("backend.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
         success, error = await connect_locations_master(mock_db_session, guild_id, loc1_id, loc2_id, conn_type)
 
@@ -205,9 +205,9 @@ async def test_disconnect_locations_master_success(
     loc2 = Location(id=loc2_id, guild_id=guild_id, name_i18n={"en":"Loc2"}, neighbor_locations_json=[{"id":loc1_id}])
     mock_location_crud.get.side_effect = [loc1, loc2]
 
-    with patch("src.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
-         patch("src.core.map_management.location_crud", new=mock_location_crud), \
-         patch("src.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+    with patch("backend.core.map_management.log_event", new_callable=AsyncMock) as mock_log_event, \
+         patch("backend.core.map_management.location_crud", new=mock_location_crud), \
+         patch("backend.core.map_management.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
         success, error = await disconnect_locations_master(mock_db_session, guild_id, loc1_id, loc2_id)
 

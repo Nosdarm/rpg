@@ -11,11 +11,11 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy import event
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.generated_faction import GeneratedFaction
-from src.core.crud.crud_faction import crud_faction
-from src.models.custom_types import JsonBForSQLite
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.generated_faction import GeneratedFaction
+from backend.core.crud.crud_faction import crud_faction
+from backend.models.custom_types import JsonBForSQLite
 
 # Event listeners for SQLite compatibility for GeneratedFaction JSON fields
 @event.listens_for(GeneratedFaction.__table__, "column_reflect")

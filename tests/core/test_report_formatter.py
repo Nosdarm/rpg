@@ -11,8 +11,8 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.report_formatter import format_turn_report, _format_log_entry_with_names_cache, _collect_entity_refs_from_log_entry
-from src.models.enums import EventType
+from backend.core.report_formatter import format_turn_report, _format_log_entry_with_names_cache, _collect_entity_refs_from_log_entry
+from backend.models.enums import EventType
 
 # Fixtures
 
@@ -247,7 +247,7 @@ async def test_format_player_action_examine_en_with_terms(mock_session, mock_nam
         "action": {"intent": "examine", "entities": [{"name": "a Dusty Box"}]},
         "result": {"description": "it is empty"}
     }
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, "en", mock_names_cache_fixture)
     assert "TestPlayer inspects 'a Dusty Box'. Observations: it is empty" in result
 
@@ -259,7 +259,7 @@ async def test_format_player_action_examine_ru_default_terms(mock_session, mock_
         "action": {"intent": "examine", "entities": [{"name": "Старый сундук"}]},
         "result": {"description": "внутри пыльно"}
     }
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
     assert "TestPlayer осматривает 'Старый сундук'. Вы видите: внутри пыльно" in result
 
@@ -275,7 +275,7 @@ async def test_format_combat_end_ru_with_terms_and_survivors(mock_session, mock_
         "location_id": 101, "outcome": "victory_players",
         "survivors": [{"type": "player", "id": 1}, {"type": "npc", "id": 602}]
     }
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, "ru", mock_names_cache_fixture)
     assert "Схватка в 'Old Location' окончена. Результат: победа игроков. Уцелевшие: TestPlayer, Ogre." in result
 
@@ -294,7 +294,7 @@ async def test_format_turn_report_empty_logs_integration(mock_session, mock_get_
     # scalars_object.all() is a synchronous method returning the list
     mock_scalars_object.all.return_value = [] # e.g., no rules
 
-    with patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+    with patch('backend.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, [], 1, "en")
         assert "Nothing significant happened this turn." in report_en
 
@@ -325,14 +325,14 @@ async def test_format_turn_report_with_logs_integration(mock_session, mock_get_r
         {"guild_id": 1, "event_type": EventType.MOVEMENT.value, "player_id": 1, "old_location_id": 101, "new_location_id": 102},
         {"guild_id": 1, "event_type": EventType.ITEM_ACQUIRED.value, "player_id": 1, "item_id": 201, "source": "a chest"}
     ]
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('backend.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_en = await format_turn_report(mock_session, 1, log_entries, 1, "en", "en")
 
     assert "Turn Report for PlayerOne:" in report_en
     assert "PlayerOne moves from 'Old Town' to 'New City'." in report_en # Changed "moved" to "moves"
     assert "PlayerOne acquired 'Sword of Testing' (x1) from a chest." in report_en # Added quotes around item name
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('src.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture),          patch('backend.core.report_formatter.get_batch_localized_entity_names', new=mock_get_batch_localized_entity_names_fixture):
         report_ru = await format_turn_report(mock_session, 1, log_entries, 1, "ru", "en")
 
     assert "Отчет по ходу для ИгрокОдин:" in report_ru
@@ -359,7 +359,7 @@ async def test_format_ability_used_with_terms(mock_session, mock_names_cache_fix
         "targets": [], 
         "outcome": {"description": "The air crackles." if lang == "en" else "Воздух трещит."}
     }
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
 
     actor_name = mock_names_cache_fixture[("player", 1)]
@@ -399,7 +399,7 @@ async def test_format_combat_start(mock_session, mock_names_cache_fixture, mock_
     
     expected_msg = default_template.format(location_name=location_name, participants_str=participants_str_rendered)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -448,7 +448,7 @@ async def test_format_npc_action(mock_session, mock_names_cache_fixture, mock_ge
         expected_msg += f" {result_message}"
     expected_msg = expected_msg.strip() # Final strip to handle potential leading/trailing spaces from logic
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -540,7 +540,7 @@ async def test_format_combat_action_with_check_result_and_relationship_details(
 
     final_expected_msg = expected_base_msg + expected_check_str
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
 
     assert result == final_expected_msg
@@ -587,7 +587,7 @@ async def test_format_item_used(mock_session, mock_names_cache_fixture, mock_get
         expected_msg += f" {outcome_desc}"
     expected_msg = expected_msg.strip()
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -613,7 +613,7 @@ async def test_format_item_dropped(mock_session, mock_names_cache_fixture, mock_
     item_name = mock_names_cache_fixture.get(item_key, "an item" if lang == "en" else "предмет")
     expected_msg = f"{player_name} {drops_term_default} '{item_name}' (x{quantity})."
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -638,7 +638,7 @@ async def test_format_dialogue_start(mock_session, mock_names_cache_fixture, moc
     npc_name = mock_names_cache_fixture.get(npc_key, "An NPC" if lang == "en" else "НИП")
     expected_msg = template_default.format(player_name=player_name, npc_name=npc_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -662,7 +662,7 @@ async def test_format_dialogue_end(mock_session, mock_names_cache_fixture, mock_
     npc_name = mock_names_cache_fixture[npc_key]       # Assume NPC is always in cache
     expected_msg = template_default.format(player_name=player_name, npc_name=npc_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -714,7 +714,7 @@ async def test_format_faction_change(mock_session, mock_names_cache_fixture, moc
         reason_term_fmt = "Reason" if lang == "en" else "Причина"
         expected_msg_base += f" ({reason_term_fmt}: {reason})"
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg_base
 
@@ -734,7 +734,7 @@ async def test_format_generic_events(mock_session, mock_names_cache_fixture, moc
     # No specific terms needed for generic formatter, it uses event_type and details_json keys
     mock_get_rule_fixture.set_map_for_test({})
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
 
     assert result.startswith(expected_prefix)
@@ -771,7 +771,7 @@ async def test_format_dialogue_line(mock_session, mock_names_cache_fixture, mock
     expected_msg = f'{speaker_name}: "{line_text}"' # Added quotes around line_text
 
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -796,7 +796,7 @@ async def test_format_status_removed(mock_session, mock_names_cache_fixture, moc
     status_name = mock_names_cache_fixture.get(status_key, "a status effect" if lang == "en" else "эффект состояния")
     expected_msg = default_template.format(status_name=status_name, target_name=target_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -831,7 +831,7 @@ async def test_format_quest_failed(mock_session, mock_names_cache_fixture, mock_
     else:
         expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -851,7 +851,7 @@ async def test_format_quest_accepted(mock_session, mock_names_cache_fixture, moc
     quest_name = mock_names_cache_fixture[quest_key]
     expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -884,7 +884,7 @@ async def test_format_quest_step_completed(mock_session, mock_names_cache_fixtur
     else:
         expected_msg = default_template_format.format(player_name=player_name, quest_name=quest_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -904,7 +904,7 @@ async def test_format_quest_completed(mock_session, mock_names_cache_fixture, mo
     quest_name = mock_names_cache_fixture[quest_key]
     expected_msg = default_template.format(player_name=player_name, quest_name=quest_name)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -930,7 +930,7 @@ async def test_format_level_up(mock_session, mock_names_cache_fixture, mock_get_
     
     expected_msg = default_template.format(player_name=player_name, level_str=level_str)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -975,7 +975,7 @@ async def test_format_xp_gained(mock_session, mock_names_cache_fixture, mock_get
     else:
         expected_msg = default_template_format.format(player_name=player_name, amount_str=amount_str, xp_term=xp_term)
 
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -1023,7 +1023,7 @@ async def test_format_relationship_change(mock_session, mock_names_cache_fixture
     else:
         expected_msg += "."
         
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg
 
@@ -1091,6 +1091,6 @@ async def test_format_status_applied(mock_session, mock_names_cache_fixture, moc
     msg_parts.append(".")
     expected_msg = " ".join(msg_parts)
         
-    with patch('src.core.report_formatter.get_rule', new=mock_get_rule_fixture):
+    with patch('backend.core.report_formatter.get_rule', new=mock_get_rule_fixture):
         result = await _format_log_entry_with_names_cache(mock_session, log_details, lang, mock_names_cache_fixture)
     assert result == expected_msg

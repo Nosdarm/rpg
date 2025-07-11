@@ -13,10 +13,10 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.result import Result, ScalarResult
 
-from src.core.ai_analysis_system import analyze_generated_content, AIAnalysisResult, EntityAnalysisReport
-from src.core.ai_response_parser import BaseGeneratedEntity, ParsedAiData, GeneratedEntity, CustomValidationError
-from src.core.ai_response_parser import PydanticNativeValidationError
-from src.models import GuildConfig, RuleConfig
+from backend.core.ai_analysis_system import analyze_generated_content, AIAnalysisResult, EntityAnalysisReport
+from backend.core.ai_response_parser import BaseGeneratedEntity, ParsedAiData, GeneratedEntity, CustomValidationError
+from backend.core.ai_response_parser import PydanticNativeValidationError
+from backend.models import GuildConfig, RuleConfig
 
 # Enhanced Mock Pydantic models
 class MockParsedNPC(BaseGeneratedEntity):
@@ -62,7 +62,7 @@ class MockParsedLocation(BaseGeneratedEntity):
     type: str = "generic"
 
 
-from src.core.ai_response_parser import (
+from backend.core.ai_response_parser import (
     ParsedNpcData, ParsedItemData, ParsedQuestData, ParsedFactionData,
     ParsedLocationData, ParsedRelationshipData, ParsedNpcTraderData
 )
@@ -78,14 +78,14 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.mock_session = AsyncMock(spec=AsyncSession)
         self.guild_id = 1
-        self.patch_prepare_quest = patch('src.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
-        self.patch_prepare_economic = patch('src.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
-        self.patch_prepare_general_loc = patch('src.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
-        self.patch_prepare_faction = patch('src.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock)
-        self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
-        self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
-        self.patch_guild_config_get_for_class = patch('src.core.crud.guild_crud.get', new_callable=AsyncMock)
+        self.patch_prepare_quest = patch('backend.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_economic = patch('backend.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_general_loc = patch('backend.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
+        self.patch_prepare_faction = patch('backend.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+        self.patch_get_entity_schemas = patch('backend.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock)
+        self.patch_parse_validate = patch('backend.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
+        self.patch_get_rule = patch('backend.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
+        self.patch_guild_config_get_for_class = patch('backend.core.crud.guild_crud.get', new_callable=AsyncMock)
 
         self.mock_prepare_quest_prompt = self.patch_prepare_quest.start()
         self.mock_prepare_economic_prompt = self.patch_prepare_economic.start()
@@ -169,7 +169,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
     async def test_key_field_missing_for_item(self):
         item_dict_missing_required_fields = {"entity_type": "item", "static_id": "item1", "name_i18n": {"en": "Item With Missing Fields"}}
         with self.assertRaises(ValidationError) as context:
-            from src.core.ai_response_parser import ParsedItemData
+            from backend.core.ai_response_parser import ParsedItemData
             parse_obj_as(ParsedItemData, item_dict_missing_required_fields)
         errors = context.exception.errors()
         self.assertTrue(any(err['type'] == 'missing' and err['loc'] == ('item_type',) for err in errors))
@@ -188,7 +188,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
             "summary_i18n": {"en": "This quest has no steps."},
             "steps": [], "min_level": 1
         }
-        from src.core.ai_response_parser import ParsedQuestData
+        from backend.core.ai_response_parser import ParsedQuestData
         # This test now checks Pydantic validation at the model level
         with self.assertRaises(ValidationError) as context:
             parse_obj_as(ParsedQuestData, raw_quest_data_no_steps)
@@ -232,7 +232,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
             "description_i18n": {"en": "Trader NPC"}, "level": 10, "properties_json": {"sells_wares": True},
             "inventory_items_json": [], "sells_item_types": ["weapon"], "buys_item_types": ["ore"], "currency_preferrence_json": {}
         }
-        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedEntity
+        from backend.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedEntity
         actual_item = parse_obj_as(ParsedItemData, mock_item.model_dump(mode='json'))
         actual_trader = parse_obj_as(ParsedNpcTraderData, mock_trader_dict)
         entities: List[GeneratedEntity] = [actual_item, actual_trader] # type: ignore
@@ -249,7 +249,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
             "description_i18n": {"en": "Trader NPC"}, "level": 10, "properties_json": {"sells_wares": True},
             "inventory_items_json": [], "sells_item_types": ["weapon"], "buys_item_types": ["ore"], "currency_preferrence_json": {}
         }
-        from src.core.ai_response_parser import ParsedItemData, ParsedNpcData, ParsedNpcTraderData, GeneratedEntity
+        from backend.core.ai_response_parser import ParsedItemData, ParsedNpcData, ParsedNpcTraderData, GeneratedEntity
         actual_item = parse_obj_as(ParsedItemData, mock_item_to_ignore.model_dump(mode='json'))
         actual_npc = parse_obj_as(ParsedNpcData, mock_npc_to_find.model_dump(mode='json'))
         actual_npc_trader = parse_obj_as(ParsedNpcTraderData, mock_npc_trader_dict_to_ignore)
@@ -264,20 +264,20 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.mock_session = AsyncMock(spec=AsyncSession)
         self.guild_id = 1
-        self.patch_prepare_quest = patch('src.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
-        self.patch_prepare_economic = patch('src.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
-        self.patch_prepare_general_loc = patch('src.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
-        self.patch_prepare_faction = patch('src.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-        self.patch_get_entity_schemas = patch('src.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock)
-        self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
-        self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
-        self.patch_make_real_ai_call = patch('src.core.ai_analysis_system.make_real_ai_call', new_callable=AsyncMock)
-        self.patch_analyze_item_balance = patch('src.core.ai_analysis_system._m_analyze_item_balance', new_callable=AsyncMock)
-        self.patch_analyze_npc_balance = patch('src.core.ai_analysis_system._m_analyze_npc_balance', new_callable=AsyncMock)
-        self.patch_analyze_quest_balance = patch('src.core.ai_analysis_system._m_analyze_quest_balance', new_callable=AsyncMock)
-        self.patch_analyze_text_lore = patch('src.core.ai_analysis_system._m_analyze_text_content_lore', new_callable=AsyncMock)
-        self.patch_analyze_props_structure = patch('src.core.ai_analysis_system._m_analyze_properties_json_structure', new_callable=AsyncMock)
-        self.patch_guild_config_get_main = patch('src.core.crud.guild_crud.get', new_callable=AsyncMock)
+        self.patch_prepare_quest = patch('backend.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_economic = patch('backend.core.ai_analysis_system.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+        self.patch_prepare_general_loc = patch('backend.core.ai_analysis_system.prepare_general_location_content_prompt', new_callable=AsyncMock)
+        self.patch_prepare_faction = patch('backend.core.ai_analysis_system.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+        self.patch_get_entity_schemas = patch('backend.core.ai_analysis_system.get_entity_schema_terms', new_callable=MagicMock)
+        self.patch_parse_validate = patch('backend.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
+        self.patch_get_rule = patch('backend.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
+        self.patch_make_real_ai_call = patch('backend.core.ai_analysis_system.make_real_ai_call', new_callable=AsyncMock)
+        self.patch_analyze_item_balance = patch('backend.core.ai_analysis_system._m_analyze_item_balance', new_callable=AsyncMock)
+        self.patch_analyze_npc_balance = patch('backend.core.ai_analysis_system._m_analyze_npc_balance', new_callable=AsyncMock)
+        self.patch_analyze_quest_balance = patch('backend.core.ai_analysis_system._m_analyze_quest_balance', new_callable=AsyncMock)
+        self.patch_analyze_text_lore = patch('backend.core.ai_analysis_system._m_analyze_text_content_lore', new_callable=AsyncMock)
+        self.patch_analyze_props_structure = patch('backend.core.ai_analysis_system._m_analyze_properties_json_structure', new_callable=AsyncMock)
+        self.patch_guild_config_get_main = patch('backend.core.crud.guild_crud.get', new_callable=AsyncMock)
 
         self.mock_guild_config_get_main = self.patch_guild_config_get_main.start()
         async def async_guild_config_mock_main(*args, **kwargs):
@@ -307,7 +307,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_analyze_generated_content_calls_item_specific_analyzers(self):
         mock_item_data = MockParsedItem(static_id="test_item1")
-        from src.core.ai_response_parser import ParsedItemData
+        from backend.core.ai_response_parser import ParsedItemData
         parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
@@ -319,7 +319,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_analyze_generated_content_calls_npc_specific_analyzers(self):
         mock_npc_data = MockParsedNPC(static_id="test_npc1")
-        from src.core.ai_response_parser import ParsedNpcData
+        from backend.core.ai_response_parser import ParsedNpcData
         parsed_npc_instance = parse_obj_as(ParsedNpcData, mock_npc_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_npc_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "npc", target_count=1)
@@ -330,7 +330,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_analyze_generated_content_calls_quest_specific_analyzers(self):
         mock_quest_data = MockParsedQuest(static_id="test_quest1")
-        from src.core.ai_response_parser import ParsedQuestData
+        from backend.core.ai_response_parser import ParsedQuestData
         parsed_quest_instance = parse_obj_as(ParsedQuestData, mock_quest_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_quest_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "quest", target_count=1)
@@ -355,7 +355,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
             return default_arg
         self.mock_get_rule.side_effect = i18n_test_get_rule_side_effect
         item_missing_de_mock = MockParsedItem(name_i18n={"en": "Test Item"})
-        from src.core.ai_response_parser import ParsedItemData
+        from backend.core.ai_response_parser import ParsedItemData
         parsed_item_instance = parse_obj_as(ParsedItemData, item_missing_de_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item_instance])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
@@ -369,7 +369,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_uniqueness_check_duplicate_static_id(self):
         item1_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
         item2_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
-        from src.core.ai_response_parser import ParsedItemData
+        from backend.core.ai_response_parser import ParsedItemData
         parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
         parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2])
@@ -382,7 +382,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_uniqueness_check_duplicate_name_i18n(self):
         item1_mock = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
         item2_mock = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
-        from src.core.ai_response_parser import ParsedItemData
+        from backend.core.ai_response_parser import ParsedItemData
         parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
         parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2])
@@ -396,7 +396,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
 
     async def test_score_aggregation(self):
         mock_item_data_mock = MockParsedItem()
-        from src.core.ai_response_parser import ParsedItemData
+        from backend.core.ai_response_parser import ParsedItemData
         parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data_mock.model_dump(mode='json'))
         initial_quality_details = {
             "batch_static_id_uniqueness": 1.0, "batch_name_uniqueness_en": 1.0,
@@ -443,17 +443,17 @@ class TestQuestItemBalanceAnalysis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.mock_session = AsyncMock(spec=AsyncSession)
         self.guild_id = 1
-        self.patch_get_rule = patch('src.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
+        self.patch_get_rule = patch('backend.core.ai_analysis_system.get_rule', new_callable=AsyncMock)
         self.mock_get_rule = self.patch_get_rule.start()
-        self.patch_prepare_quest_prompt = patch('src.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock, return_value="Quest Prompt")
+        self.patch_prepare_quest_prompt = patch('backend.core.ai_analysis_system.prepare_quest_generation_prompt', new_callable=AsyncMock, return_value="Quest Prompt")
         self.mock_prepare_quest_prompt = self.patch_prepare_quest_prompt.start()
-        self.patch_parse_validate = patch('src.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
+        self.patch_parse_validate = patch('backend.core.ai_analysis_system.parse_and_validate_ai_response', new_callable=AsyncMock)
         self.mock_parse_and_validate = self.patch_parse_validate.start()
-        self.patch_guild_crud_get = patch('src.core.crud.guild_crud.get', new_callable=AsyncMock)
+        self.patch_guild_crud_get = patch('backend.core.crud.guild_crud.get', new_callable=AsyncMock)
         self.mock_guild_crud_get = self.patch_guild_crud_get.start()
         mock_gc_instance = GuildConfig(id=self.guild_id, main_language="en", name="Test Guild")
         self.mock_guild_crud_get.return_value = mock_gc_instance
-        self.patch_analyze_text_lore = patch('src.core.ai_analysis_system._m_analyze_text_content_lore', new_callable=AsyncMock)
+        self.patch_analyze_text_lore = patch('backend.core.ai_analysis_system._m_analyze_text_content_lore', new_callable=AsyncMock)
         self.mock_analyze_text_lore = self.patch_analyze_text_lore.start()
         self.addCleanup(patch.stopall)
 
@@ -476,7 +476,7 @@ class TestQuestItemBalanceAnalysis(unittest.IsolatedAsyncioTestCase):
             min_level=quest_min_level,
             rewards_json={"item_static_ids": [f"item_{i}" for i in range(num_item_rewards)]}
         )
-        from src.core.ai_response_parser import ParsedQuestData
+        from backend.core.ai_response_parser import ParsedQuestData
         parsed_quest_instance = parse_obj_as(ParsedQuestData, mock_quest.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mocked quest", generated_entities=[parsed_quest_instance])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "quest", target_count=1)

@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord # type: ignore
 from discord.ext import commands # Added for commands.Bot
 
-from src.bot.commands.master_commands.master_simulation_tools_cog import MasterSimulationToolsCog
-from src.models.enums import RelationshipEntityType
-from src.models.check_results import CheckResult, CheckOutcome, ModifierDetail
-from src.models.combat_outcomes import CombatActionResult # Added for the new test
+from backend.bot.commands.master_commands.master_simulation_tools_cog import MasterSimulationToolsCog
+from backend.models.enums import RelationshipEntityType
+from backend.models.check_results import CheckResult, CheckOutcome, ModifierDetail
+from backend.models.combat_outcomes import CombatActionResult # Added for the new test
 
 # Mock discord.Interaction and other discord objects as needed
 class MockGuild:
@@ -41,9 +41,9 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         self.cog = MasterSimulationToolsCog(self.bot_mock)
         self.mock_db_session = AsyncMock()
 
-    @patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
-    @patch('src.core.check_resolver.resolve_check')
-    @patch('src.core.crud_base_definitions.get_entity_by_id_and_type_str')
+    @patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
+    @patch('backend.core.check_resolver.resolve_check')
+    @patch('backend.core.crud_base_definitions.get_entity_by_id_and_type_str')
     async def test_simulate_check_command_success(
         self,
         mock_get_entity_by_id_and_type_str: AsyncMock,
@@ -68,7 +68,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         mock_resolve_check.return_value = mock_check_result
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
-        with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
+        with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             # The first argument to command.callback is the Interaction,
             # `self` (the cog instance) is bound by the decorator.
@@ -95,14 +95,14 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         self.assertIn("perception", [field.value for field in sent_embed.fields if field.name == "Check Type"])
         self.assertIn("12", [field.value for field in sent_embed.fields if field.name == "Final Value"])
 
-    @patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
+    @patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
     async def test_simulate_check_invalid_json_context(self, mock_get_db_session_cm: MagicMock):
         mock_get_db_session_cm.return_value.__aenter__.return_value = self.mock_db_session
         mock_get_db_session_cm.return_value.__aexit__.return_value = None
         mock_interaction = MockInteraction(guild_id=1, locale_str="en")
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
-        with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
+        with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback(  # type: ignore
                 self.cog, # Added self.cog
@@ -119,8 +119,8 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         args, _ = mock_interaction.followup.send.call_args
         self.assertIn("Invalid JSON context", args[0])
 
-    @patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
-    @patch('src.core.crud_base_definitions.get_entity_by_id_and_type_str', new_callable=AsyncMock)
+    @patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
+    @patch('backend.core.crud_base_definitions.get_entity_by_id_and_type_str', new_callable=AsyncMock)
     async def test_simulate_check_actor_not_found(
         self, mock_get_entity_by_id_and_type_str: AsyncMock, mock_get_db_session_cm: MagicMock
     ):
@@ -130,7 +130,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         mock_get_entity_by_id_and_type_str.return_value = None
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
-        with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
+        with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_check_command.callback(  # type: ignore
                 self.cog, # Added self.cog as first argument
@@ -147,8 +147,8 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         args, _ = mock_interaction.followup.send.call_args
         self.assertIn("Actor player with ID 999 not found.", args[0])
 
-    @patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
-    @patch('src.core.combat_engine.process_combat_action')
+    @patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
+    @patch('backend.core.combat_engine.process_combat_action')
     # Patching CombatActionResult at the location it's imported in the cog, if it were a class.
     # However, it's a Pydantic model, so we typically mock the function returning it.
     # If we need to assert its creation, we'd patch it where it's instantiated.
@@ -186,7 +186,7 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
 
-        with patch('src.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
+        with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
             await self.cog.simulate_combat_action_command.callback(  # type: ignore
                 self.cog, # Added self.cog

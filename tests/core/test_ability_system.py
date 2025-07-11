@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 import datetime
 
-from src.core.ability_system import activate_ability, apply_status, remove_status
-from src.models import Player, GeneratedNpc, Ability, StatusEffect, GuildConfig # Removed ActiveStatusEffect from here
-from src.models.status_effect import ActiveStatusEffect # Direct import
-from src.models.ability_outcomes import AbilityOutcomeDetails, DamageDetail, HealingDetail, AppliedStatusDetail, CasterUpdateDetail
-from src.models.enums import RelationshipEntityType, EventType, PlayerStatus
+from backend.core.ability_system import activate_ability, apply_status, remove_status
+from backend.models import Player, GeneratedNpc, Ability, StatusEffect, GuildConfig # Removed ActiveStatusEffect from here
+from backend.models.status_effect import ActiveStatusEffect # Direct import
+from backend.models.ability_outcomes import AbilityOutcomeDetails, DamageDetail, HealingDetail, AppliedStatusDetail, CasterUpdateDetail
+from backend.models.enums import RelationshipEntityType, EventType, PlayerStatus
 
 # Mock data factories
 def _create_mock_player(player_id: int, guild_id: int, hp: int = 100, mana: int = 50, status: PlayerStatus = PlayerStatus.IDLE) -> Player:
@@ -106,7 +106,7 @@ def mock_session_with_existing_status_factory():
         return session
     return _factory
 
-COMMON_PATCH_BASE = 'src.core.ability_system.'
+COMMON_PATCH_BASE = 'backend.core.ability_system.'
 PATCHES = {
     'log_event': patch(COMMON_PATCH_BASE + 'log_event', new_callable=AsyncMock),
     'get_rule': patch(COMMON_PATCH_BASE + 'get_rule', new_callable=AsyncMock),

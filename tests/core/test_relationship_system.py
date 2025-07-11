@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.relationship_system import _get_canonical_entity_pair, update_relationship
-from src.models.enums import RelationshipEntityType, EventType
-from src.models.relationship import Relationship # For type hinting and creating mock instances
+from backend.core.relationship_system import _get_canonical_entity_pair, update_relationship
+from backend.models.enums import RelationshipEntityType, EventType
+from backend.models.relationship import Relationship # For type hinting and creating mock instances
 
 # Test cases for _get_canonical_entity_pair
 # Parameters: (e1_id, e1_type, e2_id, e2_type, expected_e1_id, expected_e1_type, expected_e2_id, expected_e2_type)
@@ -127,9 +127,9 @@ async def test_update_relationship_existing_relationship_updated(
     mock_crud_relationship.update.return_value = updated_rel_sim
 
 
-    with patch('src.core.relationship_system.crud_relationship', mock_crud_relationship), \
-         patch('src.core.relationship_system.get_rule', mock_get_rule), \
-         patch('src.core.relationship_system.log_event', mock_log_event):
+    with patch('backend.core.relationship_system.crud_relationship', mock_crud_relationship), \
+         patch('backend.core.relationship_system.get_rule', mock_get_rule), \
+         patch('backend.core.relationship_system.log_event', mock_log_event):
 
         # Act
         await update_relationship(

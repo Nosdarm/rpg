@@ -12,13 +12,13 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 # Imports from src
-from src.core.command_utils import (
+from backend.core.command_utils import (
     _get_localized_string,
     _extract_parameter_details,
     _extract_command_details,
     get_bot_commands
 )
-from src.models.command_info import CommandInfo, CommandParameterInfo
+from backend.models.command_info import CommandInfo, CommandParameterInfo
 
 # Mocking discord.py specific classes that are not easily instantiated
 # discord.app_commands.locale_str

@@ -12,11 +12,11 @@ if PROJECT_ROOT not in sys.path:
 
 import discord
 
-from src.bot.commands.map_commands import MapMasterCog
-from src.models import Location
-from src.core.world_generation import generate_location # Для мокирования
-from src.core.map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Для мокирования
-from src.config import settings
+from backend.bot.commands.map_commands import MapMasterCog
+from backend.models import Location
+from backend.core.world_generation import generate_location # Для мокирования
+from backend.core.map_management import add_location_master, remove_location_master, connect_locations_master, disconnect_locations_master # Для мокирования
+from backend.config import settings
 
 # pytestmark = pytest.mark.asyncio # Если использовать для всего модуля
 
@@ -49,7 +49,7 @@ async def test_generate_location_command_success(
 ):
     generated_loc = Location(id=1, guild_id=mock_interaction.guild_id, name_i18n={"en": "AI Loc"})
 
-    with patch("src.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(generated_loc, None)) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(generated_loc, None)) as mock_api_call:
         await map_master_cog.generate_location.callback(map_master_cog, mock_interaction) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -64,7 +64,7 @@ async def test_generate_location_command_api_error(
     map_master_cog: MapMasterCog,
     mock_interaction: MagicMock
 ):
-    with patch("src.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(None, "AI Error")) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.generate_location", new_callable=AsyncMock, return_value=(None, "AI Error")) as mock_api_call:
         await map_master_cog.generate_location.callback(map_master_cog, mock_interaction) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -82,7 +82,7 @@ async def test_add_location_command_success(
     loc_data_json = json.dumps({"static_id": "new_loc", "name_i18n": {"en":"New"}, "descriptions_i18n":{}, "type":"PLAINS"})
     added_loc = Location(id=2, guild_id=mock_interaction.guild_id, static_id="new_loc", name_i18n={"en":"New"})
 
-    with patch("src.bot.commands.map_commands.add_location_master", new_callable=AsyncMock, return_value=(added_loc, None)) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.add_location_master", new_callable=AsyncMock, return_value=(added_loc, None)) as mock_api_call:
         await map_master_cog.add_location.callback(map_master_cog, mock_interaction, location_data_json=loc_data_json) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -98,7 +98,7 @@ async def test_add_location_command_invalid_json(
     map_master_cog: MapMasterCog,
     mock_interaction: MagicMock
 ):
-    with patch("src.bot.commands.map_commands.add_location_master", new_callable=AsyncMock) as mock_api_call: # Не должен быть вызван
+    with patch("backend.bot.commands.map_commands.add_location_master", new_callable=AsyncMock) as mock_api_call: # Не должен быть вызван
         await map_master_cog.add_location.callback(map_master_cog, mock_interaction, location_data_json="invalid json") # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -114,7 +114,7 @@ async def test_remove_location_command_success(
     mock_interaction: MagicMock
 ):
     location_id_to_remove = 10
-    with patch("src.bot.commands.map_commands.remove_location_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.remove_location_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
         await map_master_cog.remove_location.callback(map_master_cog, mock_interaction, location_id=location_id_to_remove) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -132,7 +132,7 @@ async def test_connect_locations_command_success(
     loc1_id, loc2_id = 1, 2
     conn_type_json = json.dumps({"en": "a bridge"})
 
-    with patch("src.bot.commands.map_commands.connect_locations_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.connect_locations_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
         await map_master_cog.connect_locations.callback(map_master_cog, mock_interaction, location1_id=loc1_id, location2_id=loc2_id, connection_type_json=conn_type_json) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -148,7 +148,7 @@ async def test_disconnect_locations_command_success(
     mock_interaction: MagicMock
 ):
     loc1_id, loc2_id = 1, 2
-    with patch("src.bot.commands.map_commands.disconnect_locations_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
+    with patch("backend.bot.commands.map_commands.disconnect_locations_master", new_callable=AsyncMock, return_value=(True, None)) as mock_api_call:
         await map_master_cog.disconnect_locations.callback(map_master_cog, mock_interaction, location1_id=loc1_id, location2_id=loc2_id) # type: ignore
 
         mock_interaction.response.defer.assert_called_once_with(ephemeral=True)

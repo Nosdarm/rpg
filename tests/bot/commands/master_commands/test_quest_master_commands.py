@@ -10,11 +10,11 @@ import pytest
 from discord import app_commands # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.master_commands.quest_master_commands import MasterQuestCog
-from src.models.quest import GeneratedQuest, QuestStep, PlayerQuestProgress, Questline
-from src.models.player import Player
-from src.models.party import Party
-from src.models.enums import QuestStatus
+from backend.bot.commands.master_commands.quest_master_commands import MasterQuestCog
+from backend.models.quest import GeneratedQuest, QuestStep, PlayerQuestProgress, Questline
+from backend.models.player import Player
+from backend.models.party import Party
+from backend.models.enums import QuestStatus
 
 # Minimal mock for discord.Interaction
 class MockDiscordInteraction:
@@ -85,14 +85,14 @@ def mock_get_localized_message_template_side_effect_factory(expected_message_for
 
 # --- Tests for progress_create ---
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.quest_step_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
-@patch('src.core.crud.crud_player.player_crud')
-@patch('src.core.crud.crud_party.party_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.quest_step_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
+@patch('backend.core.crud.crud_player.player_crud')
+@patch('backend.core.crud.crud_party.party_crud')
 async def test_progress_create_success_player(
     mock_core_party_crud: MagicMock, mock_core_player_crud: MagicMock,
     mock_parse_json: MagicMock,
@@ -141,8 +141,8 @@ async def test_progress_create_success_player(
     assert success_msg_template.format(id=created_pqp_instance.id) in embed_sent.title
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_error_no_owner(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
     master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
@@ -157,9 +157,9 @@ async def test_progress_create_error_no_owner(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
 async def test_progress_create_error_quest_not_found(
     mock_gq_crud: MagicMock, mock_get_loc_msg: MagicMock,
     mock_get_db_session: MagicMock, master_quest_cog: MasterQuestCog,
@@ -176,11 +176,11 @@ async def test_progress_create_error_quest_not_found(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(id=999), ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.quest_step_crud')
-@patch('src.core.crud.crud_player.player_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.quest_step_crud')
+@patch('backend.core.crud.crud_player.player_crud')
 async def test_progress_create_error_step_not_found(
     mock_core_player_crud: MagicMock,
     mock_qs_crud: MagicMock, mock_gq_crud: MagicMock,
@@ -202,11 +202,11 @@ async def test_progress_create_error_step_not_found(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(step_id=999, quest_id=1), ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
-@patch('src.core.crud.crud_player.player_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
+@patch('backend.core.crud.crud_player.player_crud')
 async def test_progress_create_error_already_exists(
     mock_core_player_crud: MagicMock,
     mock_pqp_crud: MagicMock, mock_gq_crud: MagicMock,
@@ -228,8 +228,8 @@ async def test_progress_create_error_already_exists(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_guild_only_command(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
     master_quest_cog: MasterQuestCog, mock_session: AsyncMock
@@ -247,8 +247,8 @@ async def test_progress_create_guild_only_command(
     interaction_no_guild.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_error_both_player_and_party_ids(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
     master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
@@ -264,8 +264,8 @@ async def test_progress_create_error_both_player_and_party_ids(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_invalid_status_string(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
     master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
@@ -286,10 +286,10 @@ async def test_progress_create_invalid_status_string(
     assert kwargs['ephemeral'] is True
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.core.crud.crud_player.player_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.core.crud.crud_player.player_crud')
 async def test_progress_create_invalid_progress_data_json(
     mock_core_player_crud: MagicMock,
     mock_gq_crud: MagicMock, mock_parse_json: MagicMock,
@@ -316,8 +316,8 @@ async def test_progress_create_invalid_progress_data_json(
     mock_interaction.followup.send.assert_called_once_with("Invalid JSON from mock_parse_json", ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_invalid_accepted_at_iso_format(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
     master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
@@ -333,11 +333,11 @@ async def test_progress_create_invalid_accepted_at_iso_format(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
-@patch('src.core.crud.crud_player.player_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
+@patch('backend.core.crud.crud_player.player_crud')
 async def test_progress_create_db_error_on_create(
     mock_core_player_crud: MagicMock,
     mock_pqp_crud: MagicMock, mock_gq_crud: MagicMock,
@@ -360,13 +360,13 @@ async def test_progress_create_db_error_on_create(
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(error="DB error"), ephemeral=True)
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.quest_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
-@patch('src.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
-@patch('src.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
-@patch('src.core.crud.crud_party.party_crud')
-@patch('src.core.crud.crud_player.player_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
+@patch('backend.bot.commands.master_commands.quest_master_commands.generated_quest_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.player_quest_progress_crud')
+@patch('backend.bot.commands.master_commands.quest_master_commands.parse_json_parameter')
+@patch('backend.core.crud.crud_party.party_crud')
+@patch('backend.core.crud.crud_player.player_crud')
 async def test_progress_create_success_party(
     mock_core_player_crud: MagicMock, mock_core_party_crud: MagicMock,
     mock_parse_json: MagicMock,

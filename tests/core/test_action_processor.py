@@ -18,10 +18,10 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Removed _load_and_clear_actions from import
-from src.core.action_processor import process_actions_for_guild
-from src.models import Player, Party
-from src.models.actions import ParsedAction, ActionEntity
-from src.models.enums import PlayerStatus, PartyTurnStatus
+from backend.core.action_processor import process_actions_for_guild
+from backend.models import Player, Party
+from backend.models.actions import ParsedAction, ActionEntity
+from backend.models.enums import PlayerStatus, PartyTurnStatus
 
 DEFAULT_GUILD_ID = 1
 PLAYER_ID_PK_1 = 1
@@ -115,42 +115,42 @@ def patch_action_handlers_directly(mocker):
     mock_intra_location_handler = AsyncMock(return_value={"status": "success_intra_location_mocked"})
 
     # Patch the names in the module. If ACTION_DISPATCHER.get uses its default, it will pick these up.
-    mocker.patch('src.core.action_processor._handle_placeholder_action', new=mock_placeholder_handler)
-    mocker.patch('src.core.action_processor._handle_move_action_wrapper', new=mock_move_handler)
-    mocker.patch('src.core.action_processor._handle_intra_location_action_wrapper', new=mock_intra_location_handler)
+    mocker.patch('backend.core.action_processor._handle_placeholder_action', new=mock_placeholder_handler)
+    mocker.patch('backend.core.action_processor._handle_move_action_wrapper', new=mock_move_handler)
+    mocker.patch('backend.core.action_processor._handle_intra_location_action_wrapper', new=mock_intra_location_handler)
 
     # Critically, update the ACTION_DISPATCHER dictionary itself to use these mocks,
     # because it captured references to the original functions at module definition time.
-    import src.core.action_processor
+    import backend.core.action_processor
 
     # Ensure these specific keys in the live ACTION_DISPATCHER point to our new mocks.
     # For intents that are supposed to use the default _handle_placeholder_action (now mock_placeholder_handler),
     # if they are explicitly listed, they also need to be updated.
     # Based on the second (active) definition of ACTION_DISPATCHER in action_processor.py:
-    src.core.action_processor.ACTION_DISPATCHER["move"] = mock_move_handler
-    src.core.action_processor.ACTION_DISPATCHER["look"] = mock_placeholder_handler
-    src.core.action_processor.ACTION_DISPATCHER["attack"] = mock_placeholder_handler
-    src.core.action_processor.ACTION_DISPATCHER["take"] = mock_placeholder_handler
-    src.core.action_processor.ACTION_DISPATCHER["use"] = mock_placeholder_handler
-    src.core.action_processor.ACTION_DISPATCHER["talk"] = mock_placeholder_handler
-    src.core.action_processor.ACTION_DISPATCHER["examine"] = mock_intra_location_handler
-    src.core.action_processor.ACTION_DISPATCHER["interact"] = mock_intra_location_handler
-    src.core.action_processor.ACTION_DISPATCHER["go_to"] = mock_intra_location_handler
+    backend.core.action_processor.ACTION_DISPATCHER["move"] = mock_move_handler
+    backend.core.action_processor.ACTION_DISPATCHER["look"] = mock_placeholder_handler
+    backend.core.action_processor.ACTION_DISPATCHER["attack"] = mock_placeholder_handler
+    backend.core.action_processor.ACTION_DISPATCHER["take"] = mock_placeholder_handler
+    backend.core.action_processor.ACTION_DISPATCHER["use"] = mock_placeholder_handler
+    backend.core.action_processor.ACTION_DISPATCHER["talk"] = mock_placeholder_handler
+    backend.core.action_processor.ACTION_DISPATCHER["examine"] = mock_intra_location_handler
+    backend.core.action_processor.ACTION_DISPATCHER["interact"] = mock_intra_location_handler
+    backend.core.action_processor.ACTION_DISPATCHER["go_to"] = mock_intra_location_handler
     # Any other intents in the live ACTION_DISPATCHER would need similar treatment if not using the default.
 
 @pytest.fixture(autouse=True)
 def configure_module_logging(caplog):
-    caplog.set_level(logging.DEBUG, logger="src.core.action_processor")
+    caplog.set_level(logging.DEBUG, logger="backend.core.action_processor")
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock) # Patch for player_crud
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)   # Patch for party_crud
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock) # Patch for player_crud
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)   # Patch for party_crud
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
 # mock_get_player and mock_get_party might not be needed if _load_and_clear_all_actions only uses get_many_by_ids
 # but _finalize_turn_processing still uses get_player/get_party individually.
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_party", new_callable=AsyncMock)
 async def test_process_actions_single_player_only_look(
     mock_get_party_ap: AsyncMock, # Renamed to avoid conflict if used elsewhere
     mock_get_player_ap: AsyncMock, # Renamed
@@ -161,9 +161,9 @@ async def test_process_actions_single_player_only_look(
     mock_session: AsyncMock, # This is the session object returned by the maker
     mock_player_1_with_look_action: Player
 ):
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
-    move_handler_mock: AsyncMock = src.core.action_processor._handle_move_action_wrapper # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
+    move_handler_mock: AsyncMock = backend.core.action_processor._handle_move_action_wrapper # type: ignore
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
@@ -200,12 +200,12 @@ async def test_process_actions_single_player_only_look(
     # ... (further assertions on args and player state)
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing (not used in this test)
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("backend.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing (not used in this test)
 async def test_process_actions_single_player_with_both_actions(
     mock_get_party_ap: AsyncMock,
     mock_get_player_ap: AsyncMock,
@@ -216,9 +216,9 @@ async def test_process_actions_single_player_with_both_actions(
     mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player
 ):
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
-    move_handler_mock: AsyncMock = src.core.action_processor._handle_move_action_wrapper # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
+    move_handler_mock: AsyncMock = backend.core.action_processor._handle_move_action_wrapper # type: ignore
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
@@ -273,12 +273,12 @@ async def test_process_actions_single_player_with_both_actions(
     # ... (further assertions)
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("backend.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
 async def test_process_actions_party_with_one_player_actions(
     mock_get_party_ap: AsyncMock,
     mock_get_player_ap: AsyncMock,
@@ -289,9 +289,9 @@ async def test_process_actions_party_with_one_player_actions(
     mock_session: AsyncMock,
     mock_player_1_with_both_actions: Player, mock_party_with_player_1: Party
 ):
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
-    move_handler_mock: AsyncMock = src.core.action_processor._handle_move_action_wrapper # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
+    move_handler_mock: AsyncMock = backend.core.action_processor._handle_move_action_wrapper # type: ignore
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
@@ -347,16 +347,16 @@ async def test_process_actions_party_with_one_player_actions(
     # ... (further assertions)
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
 async def test_process_actions_player_no_actions(
     mock_log_event_ap: AsyncMock, mock_get_player: AsyncMock,
     mock_session_maker_in_ap: MagicMock, mock_session: AsyncMock,
     mock_player_2_no_actions: Player
 ):
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
 
     placeholder_handler_mock.reset_mock()
 
@@ -369,12 +369,12 @@ async def test_process_actions_player_no_actions(
     # ... (further assertions)
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock) # For _finalize_turn_processing
+@patch("backend.core.action_processor.get_party", new_callable=AsyncMock)   # For _finalize_turn_processing
 async def test_process_actions_unknown_intent_uses_placeholder(
     mock_get_party_ap: AsyncMock,
     mock_get_player_ap: AsyncMock,
@@ -384,8 +384,8 @@ async def test_process_actions_unknown_intent_uses_placeholder(
     mock_session_maker_in_ap: MagicMock,
     mock_session: AsyncMock
 ):
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
     placeholder_handler_mock.reset_mock()
     mock_log_event_ap.reset_mock()
 
@@ -445,7 +445,7 @@ async def test_process_actions_unknown_intent_uses_placeholder(
 
 # --- Granular tests for helper functions ---
 
-from src.core.action_processor import _load_and_clear_all_actions, _execute_player_actions, _finalize_turn_processing
+from backend.core.action_processor import _load_and_clear_all_actions, _execute_player_actions, _finalize_turn_processing
 
 @pytest.mark.asyncio
 async def test_load_and_clear_all_actions_empty_entities(mock_session: AsyncMock):
@@ -453,8 +453,8 @@ async def test_load_and_clear_all_actions_empty_entities(mock_session: AsyncMock
     assert actions == []
 
 @pytest.mark.asyncio
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
 async def test_load_and_clear_all_actions_single_player_with_actions(
     mock_party_crud_get_many: AsyncMock,
     mock_player_crud_get_many: AsyncMock,
@@ -482,8 +482,8 @@ async def test_load_and_clear_all_actions_single_player_with_actions(
 
 
 @pytest.mark.asyncio
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
-@patch("src.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_party.party_crud.get_many_by_ids", new_callable=AsyncMock)
 async def test_load_and_clear_all_actions_party_with_player_actions(
     mock_party_crud_get_many: AsyncMock,
     mock_player_crud_get_many: AsyncMock,
@@ -512,7 +512,7 @@ async def test_load_and_clear_all_actions_party_with_player_actions(
 
 
 @pytest.mark.asyncio
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
 async def test_load_and_clear_all_actions_player_malformed_json(
     mock_player_crud_get_many: AsyncMock,
     mock_session: AsyncMock
@@ -525,7 +525,7 @@ async def test_load_and_clear_all_actions_player_malformed_json(
     mock_player_crud_get_many.return_value = [malformed_player]
     entities_to_process = [{"id": PLAYER_ID_PK_1, "type": "player"}]
 
-    with patch('src.core.action_processor.logger.error') as mock_logger_error:
+    with patch('backend.core.action_processor.logger.error') as mock_logger_error:
         player_action_tuples = await _load_and_clear_all_actions(mock_session, DEFAULT_GUILD_ID, entities_to_process)
 
     assert len(player_action_tuples) == 0 # Should skip malformed and not load actions
@@ -535,7 +535,7 @@ async def test_load_and_clear_all_actions_player_malformed_json(
 
 
 @pytest.mark.asyncio
-@patch("src.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_player.player_crud.get_many_by_ids", new_callable=AsyncMock)
 async def test_load_and_clear_all_actions_player_action_parsing_error(
     mock_player_crud_get_many: AsyncMock,
     mock_session: AsyncMock
@@ -550,7 +550,7 @@ async def test_load_and_clear_all_actions_player_action_parsing_error(
     mock_player_crud_get_many.return_value = [player_bad_action_schema]
     entities_to_process = [{"id": PLAYER_ID_PK_1, "type": "player"}]
 
-    with patch('src.core.action_processor.logger.error') as mock_logger_error:
+    with patch('backend.core.action_processor.logger.error') as mock_logger_error:
         player_action_tuples = await _load_and_clear_all_actions(mock_session, DEFAULT_GUILD_ID, entities_to_process)
 
     assert len(player_action_tuples) == 1 # Only the valid 'look' action
@@ -568,21 +568,21 @@ async def test_execute_player_actions_empty_list(mock_session_maker: MagicMock):
 
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock) # For logging ACTION_PROCESSING_ERROR
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock) # For logging ACTION_PROCESSING_ERROR
 async def test_execute_player_actions_handler_exception(
     mock_log_event_execute: AsyncMock,
     mock_session_maker: MagicMock, # From conftest or defined here
     mock_session: AsyncMock # The session object returned by the maker
 ):
-    import src.core.action_processor # To access patched ACTION_DISPATCHER
+    import backend.core.action_processor # To access patched ACTION_DISPATCHER
 
     failing_action = ParsedAction(**look_action_data) # Use look_action_data for structure
     failing_action.intent = "failing_intent" # Ensure it's a distinct intent for mocking
 
     # Mock the specific handler for "failing_intent" to raise an error
     mock_failing_handler = AsyncMock(side_effect=ValueError("Handler boom!"))
-    original_dispatcher_entry = src.core.action_processor.ACTION_DISPATCHER.get("failing_intent")
-    src.core.action_processor.ACTION_DISPATCHER["failing_intent"] = mock_failing_handler
+    original_dispatcher_entry = backend.core.action_processor.ACTION_DISPATCHER.get("failing_intent")
+    backend.core.action_processor.ACTION_DISPATCHER["failing_intent"] = mock_failing_handler
 
     actions_to_run = [(PLAYER_ID_PK_1, failing_action)]
 
@@ -607,9 +607,9 @@ async def test_execute_player_actions_handler_exception(
 
     # Restore original dispatcher if it existed, or remove the test entry
     if original_dispatcher_entry:
-        src.core.action_processor.ACTION_DISPATCHER["failing_intent"] = original_dispatcher_entry
+        backend.core.action_processor.ACTION_DISPATCHER["failing_intent"] = original_dispatcher_entry
     else:
-        del src.core.action_processor.ACTION_DISPATCHER["failing_intent"]
+        del backend.core.action_processor.ACTION_DISPATCHER["failing_intent"]
 
 
 @pytest.mark.asyncio
@@ -618,9 +618,9 @@ async def test_execute_player_actions_dispatch_and_results(
     mock_session: AsyncMock, # The session object returned by the maker
 ):
     # Uses handlers patched by patch_action_handlers_directly fixture
-    import src.core.action_processor
-    placeholder_handler_mock: AsyncMock = src.core.action_processor._handle_placeholder_action # type: ignore
-    move_handler_mock: AsyncMock = src.core.action_processor._handle_move_action_wrapper # type: ignore
+    import backend.core.action_processor
+    placeholder_handler_mock: AsyncMock = backend.core.action_processor._handle_placeholder_action # type: ignore
+    move_handler_mock: AsyncMock = backend.core.action_processor._handle_move_action_wrapper # type: ignore
 
     placeholder_handler_mock.reset_mock()
     move_handler_mock.reset_mock()
@@ -654,9 +654,9 @@ async def test_execute_player_actions_dispatch_and_results(
 
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_party", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_party", new_callable=AsyncMock)
 async def test_finalize_turn_processing_updates_statuses_and_logs(
     mock_get_party_finalize: AsyncMock,
     mock_get_player_finalize: AsyncMock,
@@ -729,8 +729,8 @@ async def test_finalize_turn_processing_updates_statuses_and_logs(
     assert mock_session.commit.call_count == 1 # Commit by the session's context manager in finalize
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
-@patch("src.core.action_processor.get_player", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_player", new_callable=AsyncMock)
 async def test_finalize_turn_processing_player_not_processing(
     mock_get_player_finalize: AsyncMock,
     mock_log_event_finalize: AsyncMock,
@@ -763,11 +763,11 @@ async def test_finalize_turn_processing_player_not_processing(
 
 # --- Tests for _handle_move_action_wrapper specifically ---
 
-from src.core.action_processor import _handle_move_action_wrapper
+from backend.core.action_processor import _handle_move_action_wrapper
 
 @pytest.mark.asyncio
 # Corrected patch path to where execute_move_for_player_action is defined
-@patch("src.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
 async def test_handle_move_action_wrapper_success(
     mock_execute_move: AsyncMock,
     mock_session: AsyncMock
@@ -793,7 +793,7 @@ async def test_handle_move_action_wrapper_success(
     )
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
 async def test_handle_move_action_wrapper_extracts_target_from_location_name_entity(
     mock_execute_move: AsyncMock,
     mock_session: AsyncMock
@@ -814,7 +814,7 @@ async def test_handle_move_action_wrapper_extracts_target_from_location_name_ent
     )
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
 async def test_handle_move_action_wrapper_extracts_target_from_single_untyped_entity(
     mock_execute_move: AsyncMock,
     mock_session: AsyncMock
@@ -860,7 +860,7 @@ async def test_handle_move_action_wrapper_no_target_identifier(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.execute_move_for_player_action", new_callable=AsyncMock)
 async def test_handle_move_action_wrapper_execute_move_raises_exception(
     mock_execute_move: AsyncMock,
     mock_session: AsyncMock
@@ -884,10 +884,10 @@ async def test_handle_move_action_wrapper_execute_move_raises_exception(
 # --- Tests for Conflict Signaling in process_actions_for_guild ---
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session") # Patches the session_maker for process_actions_for_guild
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
-@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock) # To check if called
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock) # To check error logging
+@patch("backend.core.action_processor.get_db_session") # Patches the session_maker for process_actions_for_guild
+@patch("backend.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
+@patch("backend.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock) # To check if called
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock) # To check error logging
 async def test_process_actions_halts_if_conflict_pending(
     mock_log_event_conflict_check: AsyncMock,
     mock_load_actions: AsyncMock,
@@ -906,13 +906,13 @@ async def test_process_actions_halts_if_conflict_pending(
     mock_actual_pending_conflict_crud.count_by_attributes = AsyncMock(return_value=1) # Configure the method on the mock
 
     caplog.clear() # Clear previous log captures
-    with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
+    with caplog.at_level(logging.INFO, logger="backend.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
     # Assertions
     # The actual object used inside process_actions_for_guild is pending_conflict_crud from its local import.
     # So, we assert on mock_actual_pending_conflict_crud.
-    from src.models.enums import ConflictStatus # Import for assertion
+    from backend.models.enums import ConflictStatus # Import for assertion
     mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once_with(
         session=mock_session,
         guild_id=guild_id_test,
@@ -923,7 +923,7 @@ async def test_process_actions_halts_if_conflict_pending(
     assert any(
         f"Guild {guild_id_test}: Turn processing halted. 1 active conflict(s) require master resolution." in record.message
         for record in caplog.records
-        if record.name == "src.core.action_processor" # Ensure message is from the correct logger
+        if record.name == "backend.core.action_processor" # Ensure message is from the correct logger
     ), "Expected log message about halting due to conflict not found."
 
     # Ensure no error was logged for the conflict check itself
@@ -938,12 +938,12 @@ async def test_process_actions_halts_if_conflict_pending(
 
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
-@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
-@patch("src.core.action_processor._execute_player_actions", new_callable=AsyncMock) # Further step
-@patch("src.core.action_processor._finalize_turn_processing", new_callable=AsyncMock) # Final step
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock)
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
+@patch("backend.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
+@patch("backend.core.action_processor._execute_player_actions", new_callable=AsyncMock) # Further step
+@patch("backend.core.action_processor._finalize_turn_processing", new_callable=AsyncMock) # Final step
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock)
 async def test_process_actions_proceeds_if_no_conflict_pending(
     mock_log_event_no_conflict: AsyncMock,
     mock_finalize_turn: AsyncMock,
@@ -965,10 +965,10 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
     mock_load_actions.return_value = [] # Simulate no actions loaded to simplify test
 
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="src.core.action_processor"):
+    with caplog.at_level(logging.INFO, logger="backend.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
-    from src.models.enums import ConflictStatus # Import for assertion
+    from backend.models.enums import ConflictStatus # Import for assertion
     mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once_with(
         session=mock_session, guild_id=guild_id_test, status=ConflictStatus.PENDING_MASTER_RESOLUTION
     )
@@ -982,7 +982,7 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
 
     assert not any(
         "Turn processing halted" in record.message for record in caplog.records
-        if record.name == "src.core.action_processor"
+        if record.name == "backend.core.action_processor"
     ), "Log message about halting should not be present."
 
     found_conflict_check_error_log = False
@@ -993,10 +993,10 @@ async def test_process_actions_proceeds_if_no_conflict_pending(
     assert not found_conflict_check_error_log, "CONFLICT_CHECK_ERROR should not have been logged."
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.get_db_session")
-@patch("src.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
-@patch("src.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
-@patch("src.core.action_processor.log_event", new_callable=AsyncMock) # For logging CONFLICT_CHECK_ERROR
+@patch("backend.core.action_processor.get_db_session")
+@patch("backend.core.crud.crud_pending_conflict.pending_conflict_crud") # Patched at definition/import site
+@patch("backend.core.action_processor._load_and_clear_all_actions", new_callable=AsyncMock)
+@patch("backend.core.action_processor.log_event", new_callable=AsyncMock) # For logging CONFLICT_CHECK_ERROR
 async def test_process_actions_handles_exception_during_conflict_check(
     mock_log_event_conflict_exception: AsyncMock,
     mock_load_actions_exception: AsyncMock, # Renamed to avoid clash
@@ -1013,7 +1013,7 @@ async def test_process_actions_handles_exception_during_conflict_check(
     mock_actual_pending_conflict_crud.count_by_attributes = AsyncMock(side_effect=test_exception)
 
     caplog.clear()
-    with caplog.at_level(logging.ERROR, logger="src.core.action_processor"):
+    with caplog.at_level(logging.ERROR, logger="backend.core.action_processor"):
         await process_actions_for_guild(guild_id_test, [{"id": PLAYER_ID_PK_1, "type": "player"}])
 
     mock_actual_pending_conflict_crud.count_by_attributes.assert_called_once()
@@ -1022,7 +1022,7 @@ async def test_process_actions_handles_exception_during_conflict_check(
     assert any(
         f"Error during pre-check for active conflicts: {test_exception}" in record.message
         for record in caplog.records
-        if record.name == "src.core.action_processor"
+        if record.name == "backend.core.action_processor"
     ), "Expected error log for conflict check failure not found."
 
     # Check that CONFLICT_CHECK_ERROR was logged via log_event
@@ -1038,9 +1038,9 @@ async def test_process_actions_handles_exception_during_conflict_check(
 
 # --- Tests for process_player_message_for_nlu ---
 
-from src.core.action_processor import process_player_message_for_nlu
-from src.models.enums import PlayerStatus # Already imported but good for clarity
-from src.models.actions import ParsedAction, ActionEntity # Already imported
+from backend.core.action_processor import process_player_message_for_nlu
+from backend.models.enums import PlayerStatus # Already imported but good for clarity
+from backend.models.actions import ParsedAction, ActionEntity # Already imported
 
 @pytest.fixture
 def mock_bot_message():
@@ -1076,9 +1076,9 @@ def mock_player_exploring_status():
     return player
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
-@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
-@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("backend.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
 async def test_process_player_message_for_nlu_player_in_dialogue(
     mock_handle_dialogue_input: AsyncMock,
     mock_parse_nlu: AsyncMock,
@@ -1121,9 +1121,9 @@ async def test_process_player_message_for_nlu_player_in_dialogue(
     mock_session.add.assert_not_called() # Player status not changed by this path directly
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
-@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
-@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("backend.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
 async def test_process_player_message_for_nlu_player_not_in_dialogue_queues_action(
     mock_handle_dialogue_input: AsyncMock,
     mock_parse_nlu: AsyncMock,
@@ -1160,9 +1160,9 @@ async def test_process_player_message_for_nlu_player_not_in_dialogue_queues_acti
     mock_session.add.assert_called_once_with(mock_player_exploring_status)
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
-@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
-@patch("src.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("backend.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.dialogue_system.handle_dialogue_input", new_callable=AsyncMock) # Patched at source
 async def test_process_player_message_for_nlu_player_in_dialogue_nlu_unknown_intent(
     mock_handle_dialogue_input: AsyncMock,
     mock_parse_nlu: AsyncMock,
@@ -1196,8 +1196,8 @@ async def test_process_player_message_for_nlu_player_in_dialogue_nlu_unknown_int
     assert mock_player_dialogue_status.collected_actions_json == "[]"
 
 @pytest.mark.asyncio
-@patch("src.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
-@patch("src.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
+@patch("backend.core.action_processor.player_crud.get_by_discord_id", new_callable=AsyncMock)
+@patch("backend.core.nlu_service.parse_player_input", new_callable=AsyncMock) # Patched at source
 async def test_process_player_message_for_nlu_player_not_in_dialogue_unknown_intent_not_queued(
     mock_parse_nlu: AsyncMock,
     mock_get_player_by_discord_id: AsyncMock,

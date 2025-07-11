@@ -12,9 +12,9 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.character_commands import CharacterCog #, logger
-from src.models import Player
-from src.models.enums import PlayerStatus
+from backend.bot.commands.character_commands import CharacterCog #, logger
+from backend.models import Player
+from backend.models.enums import PlayerStatus
 
 @pytest.fixture
 def mock_bot_fixture():
@@ -66,10 +66,10 @@ def mock_session_fixture() -> AsyncMock:
 
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_success(
     mock_get_localized_text: MagicMock,
     mock_get_rule: AsyncMock,
@@ -122,8 +122,8 @@ async def test_levelup_command_success(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_no_unspent_xp(
     mock_get_localized_text: MagicMock,
     mock_get_player: AsyncMock,
@@ -154,10 +154,10 @@ async def test_levelup_command_no_unspent_xp(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_api_error_not_enough_points(
     mock_get_localized_text: MagicMock,
     mock_get_rule: AsyncMock,
@@ -213,8 +213,8 @@ async def test_levelup_command_api_error_not_enough_points(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_player_not_found(
     mock_get_localized_text: MagicMock,
     mock_get_player: AsyncMock,
@@ -232,10 +232,10 @@ async def test_levelup_command_player_not_found(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_message_formatting_fallback(
     mock_get_localized_text: MagicMock,
     mock_get_rule: AsyncMock,
@@ -269,10 +269,10 @@ async def test_levelup_command_message_formatting_fallback(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.commands.character_commands.localization_utils.get_localized_text')
+@patch('backend.bot.commands.character_commands.player_crud.get_by_discord_id', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.spend_attribute_points', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.localization_utils.get_localized_text')
 async def test_levelup_command_message_formatting_key_error(
     mock_get_localized_text: MagicMock,
     mock_get_rule: AsyncMock,
@@ -311,7 +311,7 @@ async def test_levelup_command_message_formatting_key_error(
     )
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.character_commands.CharacterCog._levelup_internal', new_callable=AsyncMock)
+@patch('backend.bot.commands.character_commands.CharacterCog._levelup_internal', new_callable=AsyncMock)
 async def test_levelup_command_calls_internal(
     mock_levelup_internal: AsyncMock,
     mock_bot_fixture: AsyncMock,

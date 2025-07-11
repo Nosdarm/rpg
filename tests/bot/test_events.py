@@ -14,11 +14,11 @@ import discord # Import discord for Guild type hint if needed, or use MagicMock
 from discord.ext.commands import Bot as DiscordBot # Import Bot directly
 
 # Import the Cog and the function to test
-import src.bot.events # Changed import style
+import backend.bot.events # Changed import style
 # _ensure_guild_config_exists is a method of EventCog, so we test it via an instance.
 # Alternatively, if it were a static/module-level function, we could import it directly.
 
-from src.models import GuildConfig
+from backend.models import GuildConfig
 
 @pytest_asyncio.fixture
 async def mock_session() -> AsyncSession:
@@ -29,16 +29,16 @@ def mock_bot() -> MagicMock: # Using MagicMock for bot as its methods might not 
     return MagicMock(spec=DiscordBot) # Use the imported DiscordBot
 
 @pytest.fixture
-def event_cog(mock_bot: MagicMock) -> src.bot.events.EventCog: # Use full path for type hint
-    return src.bot.events.EventCog(bot=mock_bot) # Use full path for instantiation
+def event_cog(mock_bot: MagicMock) -> backend.bot.events.EventCog: # Use full path for type hint
+    return backend.bot.events.EventCog(bot=mock_bot) # Use full path for instantiation
 
 @pytest.mark.asyncio
-@patch('src.bot.events.guild_crud', new_callable=MagicMock) # Mock the entire crud module object
-@patch('src.bot.events.update_rule_config', new_callable=AsyncMock) # Mock the function
+@patch('backend.bot.events.guild_crud', new_callable=MagicMock) # Mock the entire crud module object
+@patch('backend.bot.events.update_rule_config', new_callable=AsyncMock) # Mock the function
 async def test_ensure_guild_config_exists_new_guild(
     mock_update_rule_config: AsyncMock,
     mock_guild_crud: MagicMock,
-    event_cog: src.bot.events.EventCog, # Corrected type hint
+    event_cog: backend.bot.events.EventCog, # Corrected type hint
     mock_session: AsyncSession
 ):
     guild_id = 123
@@ -73,12 +73,12 @@ async def test_ensure_guild_config_exists_new_guild(
     assert returned_config == mock_created_guild_config
 
 @pytest.mark.asyncio
-@patch('src.bot.events.guild_crud', new_callable=MagicMock)
-@patch('src.bot.events.update_rule_config', new_callable=AsyncMock)
+@patch('backend.bot.events.guild_crud', new_callable=MagicMock)
+@patch('backend.bot.events.update_rule_config', new_callable=AsyncMock)
 async def test_ensure_guild_config_exists_existing_guild(
     mock_update_rule_config: AsyncMock,
     mock_guild_crud: MagicMock,
-    event_cog: src.bot.events.EventCog, # Corrected type hint
+    event_cog: backend.bot.events.EventCog, # Corrected type hint
     mock_session: AsyncSession
 ):
     guild_id = 456

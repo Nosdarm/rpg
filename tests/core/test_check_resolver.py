@@ -9,11 +9,11 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.player import Player
-from src.models.generated_npc import GeneratedNpc
-from src.core.check_resolver import resolve_check, CheckError
-from src.models.relationship import Relationship, RelationshipEntityType
-from src.models.check_results import CheckResult, CheckOutcome, ModifierDetail
+from backend.models.player import Player
+from backend.models.generated_npc import GeneratedNpc
+from backend.core.check_resolver import resolve_check, CheckError
+from backend.models.relationship import Relationship, RelationshipEntityType
+from backend.models.check_results import CheckResult, CheckOutcome, ModifierDetail
 
 
 DEFAULT_RULE_VALUES = {
@@ -49,20 +49,20 @@ class TestCheckResolver(unittest.IsolatedAsyncioTestCase):
         setattr(self.mock_npc, "attack_bonus", 2)
 
     async def asyncSetUp(self):
-        self.patch_get_rule = patch('src.core.check_resolver.get_rule', new_callable=AsyncMock)
+        self.patch_get_rule = patch('backend.core.check_resolver.get_rule', new_callable=AsyncMock)
         self.mock_get_rule = self.patch_get_rule.start()
 
-        self.patch_roll_dice = patch('src.core.check_resolver.roll_dice')
+        self.patch_roll_dice = patch('backend.core.check_resolver.roll_dice')
         self.mock_roll_dice = self.patch_roll_dice.start()
 
-        self.patch_get_entity_attribute = patch('src.core.check_resolver._get_entity_attribute', new_callable=AsyncMock)
+        self.patch_get_entity_attribute = patch('backend.core.check_resolver._get_entity_attribute', new_callable=AsyncMock)
         self.mock_get_entity_attribute = self.patch_get_entity_attribute.start()
 
-        self.patch_get_entity_by_id_and_type_str = patch('src.core.check_resolver.get_entity_by_id_and_type_str', new_callable=AsyncMock)
+        self.patch_get_entity_by_id_and_type_str = patch('backend.core.check_resolver.get_entity_by_id_and_type_str', new_callable=AsyncMock)
         self.mock_get_entity_by_id_and_type_str = self.patch_get_entity_by_id_and_type_str.start()
         self.mock_get_entity_by_id_and_type_str.side_effect = lambda db, entity_type_str, entity_id, guild_id: self.mock_player if entity_id == self.player_id else (self.mock_npc if entity_id == self.npc_id else None)
 
-        self.mock_crud_relationship_get_relationships_patcher = patch('src.core.check_resolver.crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
+        self.mock_crud_relationship_get_relationships_patcher = patch('backend.core.check_resolver.crud_relationship.get_relationships_for_entity', new_callable=AsyncMock)
         self.mock_crud_relationship_get_relationships = self.mock_crud_relationship_get_relationships_patcher.start()
         self.mock_crud_relationship_get_relationships.return_value = []
 

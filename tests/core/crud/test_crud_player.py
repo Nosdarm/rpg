@@ -13,20 +13,20 @@ from sqlalchemy import event, select
 from sqlalchemy.dialects.postgresql import JSONB # Not directly used here, but models might reference it
 from sqlalchemy.types import TypeDecorator, TEXT, JSON # For event listener type checking
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType
-from src.models.party import Party, PartyTurnStatus
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.location import Location, LocationType
+from backend.models.party import Party, PartyTurnStatus
 # JsonBForSQLite is already imported from custom_types below, so this specific alias for Location is not needed here.
-# from src.models.location import Location, LocationType, JsonBForSQLite as LocationJsonBForSQLite
-from src.models.player import Player, PlayerStatus
-from src.core.crud.crud_player import player_crud
-from src.core.crud.crud_location import location_crud # For creating test locations
-from src.core.crud.crud_party import party_crud # For creating test parties
-from src.models.rule_config import RuleConfig # Added import
-from src.core.crud_base_definitions import CRUDBase # Corrected import path
-from src.core.rules import update_rule_config # For adding rules
-from src.models.custom_types import JsonBForSQLite # This is the one we need
+# from backend.models.location import Location, LocationType, JsonBForSQLite as LocationJsonBForSQLite
+from backend.models.player import Player, PlayerStatus
+from backend.core.crud.crud_player import player_crud
+from backend.core.crud.crud_location import location_crud # For creating test locations
+from backend.core.crud.crud_party import party_crud # For creating test parties
+from backend.models.rule_config import RuleConfig # Added import
+from backend.core.crud_base_definitions import CRUDBase # Corrected import path
+from backend.core.rules import update_rule_config # For adding rules
+from backend.models.custom_types import JsonBForSQLite # This is the one we need
 
 # Event listeners for SQLite compatibility (similar to model tests)
 @event.listens_for(Player.__table__, "column_reflect")

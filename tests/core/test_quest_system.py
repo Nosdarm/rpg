@@ -4,15 +4,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.quest_system import (
+from backend.core.quest_system import (
     handle_player_event_for_quest,
     _check_mechanic_match,
     _evaluate_abstract_goal,
     _advance_quest_progress,
     _apply_quest_consequences,
 )
-from src.models import StoryLog, PlayerQuestProgress, GeneratedQuest, QuestStep, Player, Party
-from src.models.enums import EventType, QuestStatus, RelationshipEntityType
+from backend.models import StoryLog, PlayerQuestProgress, GeneratedQuest, QuestStep, Player, Party
+from backend.models.enums import EventType, QuestStatus, RelationshipEntityType
 
 
 class TestQuestSystem(unittest.IsolatedAsyncioTestCase):
@@ -80,13 +80,13 @@ class TestQuestSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_progress_entry.current_step = self.mock_quest_step_1
         self.mock_progress_entry.current_step_id = self.step_id_1
 
-    @patch('src.core.crud.crud_party.party_crud', new_callable=AsyncMock)
-    @patch('src.core.quest_system.select')
-    @patch('src.core.quest_system._check_mechanic_match', new_callable=AsyncMock)
-    @patch('src.core.quest_system._evaluate_abstract_goal', new_callable=AsyncMock)
-    @patch('src.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
-    @patch('src.core.quest_system._advance_quest_progress', new_callable=AsyncMock)
-    @patch('src.core.quest_system.core_log_event', new_callable=AsyncMock)
+    @patch('backend.core.crud.crud_party.party_crud', new_callable=AsyncMock)
+    @patch('backend.core.quest_system.select')
+    @patch('backend.core.quest_system._check_mechanic_match', new_callable=AsyncMock)
+    @patch('backend.core.quest_system._evaluate_abstract_goal', new_callable=AsyncMock)
+    @patch('backend.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
+    @patch('backend.core.quest_system._advance_quest_progress', new_callable=AsyncMock)
+    @patch('backend.core.quest_system.core_log_event', new_callable=AsyncMock)
     async def test_handle_player_event_successful_step_completion(
         self, mock_log_event_func, mock_advance_progress, mock_apply_consequences,
         mock_evaluate_goal, mock_check_mechanic, mock_sqlalchemy_select, mock_party_crud_instance
@@ -182,8 +182,8 @@ class TestQuestSystem(unittest.IsolatedAsyncioTestCase):
         }
         self.assertFalse(await _check_mechanic_match(self.mock_session, self.guild_id, event, required_mechanics))
 
-    @patch('src.core.quest_system.core_log_event', new_callable=AsyncMock)
-    @patch('src.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
+    @patch('backend.core.quest_system.core_log_event', new_callable=AsyncMock)
+    @patch('backend.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
     async def test_advance_quest_progress_to_next_step(self, mock_apply_consequences, mock_log_event_func):
         await _advance_quest_progress(self.mock_session, self.guild_id, self.mock_progress_entry, self.player_id, self.party_id, self.mock_event_log_entry)
 
@@ -205,8 +205,8 @@ class TestQuestSystem(unittest.IsolatedAsyncioTestCase):
             location_id=self.location_id
         )
 
-    @patch('src.core.quest_system.core_log_event', new_callable=AsyncMock)
-    @patch('src.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
+    @patch('backend.core.quest_system.core_log_event', new_callable=AsyncMock)
+    @patch('backend.core.quest_system._apply_quest_consequences', new_callable=AsyncMock)
     async def test_advance_quest_progress_to_completion(self, mock_apply_consequences, mock_log_event_func):
         self.mock_progress_entry.current_step = self.mock_quest_step_2 # Set current step to the last step
         self.mock_progress_entry.current_step_id = self.step_id_2
@@ -230,9 +230,9 @@ class TestQuestSystem(unittest.IsolatedAsyncioTestCase):
             self.player_id, self.party_id, self.quest_id, None, self.mock_event_log_entry
         )
 
-    @patch('src.core.experience_system.award_xp', new_callable=AsyncMock)
-    @patch('src.core.relationship_system.update_relationship', new_callable=AsyncMock)
-    @patch('src.core.quest_system.core_log_event', new_callable=AsyncMock)
+    @patch('backend.core.experience_system.award_xp', new_callable=AsyncMock)
+    @patch('backend.core.relationship_system.update_relationship', new_callable=AsyncMock)
+    @patch('backend.core.quest_system.core_log_event', new_callable=AsyncMock)
     async def test_apply_quest_consequences_all_types(self, mock_internal_log, mock_update_rel, mock_award_xp):
         consequences = {
             "xp_award": {"amount": 150},

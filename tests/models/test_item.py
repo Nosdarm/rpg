@@ -4,9 +4,9 @@ from typing import Dict, Any, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session as SQLAlchemySession
 
-from src.models.base import Base
-from src.models.item import Item
-from src.models.guild import GuildConfig # Needed for ForeignKey constraint
+from backend.models.base import Base
+from backend.models.item import Item
+from backend.models.guild import GuildConfig # Needed for ForeignKey constraint
 
 # Use an in-memory SQLite database for testing
 engine = create_engine("sqlite:///:memory:")

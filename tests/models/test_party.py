@@ -15,12 +15,12 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.exc import IntegrityError
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType
-from src.models.player import Player, PlayerStatus
-from src.models.party import Party, PartyTurnStatus
-# from src.models.custom_types import JsonBForSQLite # Not directly used in this test file's logic after listener removal
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.location import Location, LocationType
+from backend.models.player import Player, PlayerStatus
+from backend.models.party import Party, PartyTurnStatus
+# from backend.models.custom_types import JsonBForSQLite # Not directly used in this test file's logic after listener removal
 
 # Redundant event listeners removed as models (Location, Player, Party)
 # now use JsonBForSQLite directly for JSONB-like fields or standard JSON,

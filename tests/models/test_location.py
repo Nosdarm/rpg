@@ -13,9 +13,9 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.location import Location, LocationType
 
 # Костыль для SQLite для поддержки JSON/JSONB типов, аналогично test_combat_encounter.py
 # В реальном проекте с PostgreSQL это не требуется.

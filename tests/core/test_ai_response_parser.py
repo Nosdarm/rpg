@@ -12,7 +12,7 @@ if PROJECT_ROOT not in sys.path:
 
 from pydantic import ValidationError as PydanticNativeValidationError
 
-from src.core.ai_response_parser import (
+from backend.core.ai_response_parser import (
     ParsedFactionData,
     ParsedRelationshipData,
     parse_and_validate_ai_response,
@@ -97,7 +97,7 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
             rel.entity_type = "new_type"
 
     def test_parsed_npc_data_valid(self):
-        from src.core.ai_response_parser import ParsedNpcData
+        from backend.core.ai_response_parser import ParsedNpcData
         valid_npc_data = {
             "entity_type": "npc", "static_id": "npc_001",
             "name_i18n": {"en": "Guard", "ru": "Стражник"},
@@ -119,7 +119,7 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         self.assertIsNone(npc_no_sid.static_id)
 
     def test_parsed_npc_data_invalid_static_id(self):
-        from src.core.ai_response_parser import ParsedNpcData
+        from backend.core.ai_response_parser import ParsedNpcData
         invalid_npc_data_empty_static_id = {
             "entity_type": "npc", "static_id": " ",
             "name_i18n": {"en": "Guard", "ru": "Страж"},
@@ -141,7 +141,7 @@ class TestAIResponseParserPydanticModels(unittest.TestCase):
         self.assertIn("static_id must be a non-empty string if provided", str(context.exception))
 
     def test_parsed_npc_data_missing_required_fields(self):
-        from src.core.ai_response_parser import ParsedNpcData
+        from backend.core.ai_response_parser import ParsedNpcData
         with self.assertRaises(PydanticNativeValidationError):
             # Missing name_i18n
             ParsedNpcData(entity_type="npc", description_i18n={"en": "Desc"}) # type: ignore # level is optional

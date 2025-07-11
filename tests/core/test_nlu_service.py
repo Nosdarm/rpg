@@ -7,8 +7,8 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 import pytest
-from src.core.nlu_service import parse_player_input
-from src.models.actions import ActionEntity
+from backend.core.nlu_service import parse_player_input
+from backend.models.actions import ActionEntity
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

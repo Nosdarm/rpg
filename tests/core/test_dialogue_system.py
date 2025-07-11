@@ -4,19 +4,19 @@ from unittest.mock import patch, AsyncMock, MagicMock, call # Added call
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.dialogue_system import (
+from backend.core.dialogue_system import (
     start_dialogue,
     handle_dialogue_input,
     end_dialogue,
     active_dialogues,
     generate_npc_dialogue # To mock its behavior
 )
-from src.models import Player, GeneratedNpc
-from src.models.enums import PlayerStatus, EventType
-from src.core.crud.crud_player import CRUDPlayer
-from src.core.crud.crud_npc import CRUDNpc
+from backend.models import Player, GeneratedNpc
+from backend.models.enums import PlayerStatus, EventType
+from backend.core.crud.crud_player import CRUDPlayer
+from backend.core.crud.crud_npc import CRUDNpc
 # Импортируем CRUD напрямую, так как player_crud и npc_crud - это экземпляры
-# from src.core.crud import player_crud, npc_crud # This might cause issues if CRUDBase is complex to init for mocks
+# from backend.core.crud import player_crud, npc_crud # This might cause issues if CRUDBase is complex to init for mocks
 
 # Mocking CRUD instances directly if they are simple objects
 # If they are complex, we might need to mock their methods on the imported instances.
@@ -56,9 +56,9 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
             static_id="other_npc_01"
         )
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
-    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('backend.core.dialogue_system.log_event', new_callable=AsyncMock)
     async def test_start_dialogue_success(self, mock_log_event, mock_npc_crud, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         mock_npc_crud.get_by_id_and_guild.return_value = self.npc
@@ -89,7 +89,7 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         )
         self.mock_session.add.assert_called_with(self.player)
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
     async def test_start_dialogue_player_not_found(self, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = None
         success, msg_key, context = await start_dialogue(
@@ -99,8 +99,8 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(msg_key, "dialogue_error_player_not_found")
         self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
     async def test_start_dialogue_npc_not_found(self, mock_npc_crud, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         mock_npc_crud.get_by_id_and_guild.return_value = None
@@ -110,8 +110,8 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(success)
         self.assertEqual(msg_key, "dialogue_error_npc_not_found")
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
     async def test_start_dialogue_player_in_combat(self, mock_npc_crud, mock_player_crud):
         self.player.current_status = PlayerStatus.COMBAT
         mock_player_crud.get_by_id_and_guild.return_value = self.player
@@ -123,8 +123,8 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(msg_key, "dialogue_error_player_in_combat")
         self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
     async def test_start_dialogue_already_with_same_npc(self, mock_npc_crud, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         mock_npc_crud.get_by_id_and_guild.return_value = self.npc
@@ -136,8 +136,8 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(success)
         self.assertEqual(msg_key, "dialogue_already_started_with_npc")
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
     async def test_start_dialogue_already_with_other_npc(self, mock_npc_crud, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         # self.npc is the new target, self.other_npc is the one player is currently talking to
@@ -152,9 +152,9 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context["npc_name"], "OtherNPC")
 
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.generate_npc_dialogue', new_callable=AsyncMock) # Patched here
-    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.generate_npc_dialogue', new_callable=AsyncMock) # Patched here
+    @patch('backend.core.dialogue_system.log_event', new_callable=AsyncMock)
     async def test_handle_dialogue_input_success_with_nlu_data(self, mock_log_event, mock_generate_dialogue, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         active_dialogues[(self.guild_id, self.player_id)] = {
@@ -223,8 +223,8 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(success)
         self.assertEqual(response, "dialogue_error_not_in_dialogue")
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
-    @patch('src.core.dialogue_system.log_event', new_callable=AsyncMock)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.log_event', new_callable=AsyncMock)
     async def test_end_dialogue_success(self, mock_log_event, mock_player_crud):
         mock_player_crud.get_by_id_and_guild.return_value = self.player
         self.player.current_status = PlayerStatus.DIALOGUE
@@ -261,7 +261,7 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         )
         self.mock_session.add.assert_called_with(self.player)
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
     async def test_end_dialogue_not_in_dialogue_status_not_dialogue(self, mock_player_crud):
         self.player.current_status = PlayerStatus.EXPLORING
         mock_player_crud.get_by_id_and_guild.return_value = self.player
@@ -272,7 +272,7 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(success)
         self.assertEqual(msg_key, "dialogue_not_active_already_ended")
 
-    @patch('src.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
     async def test_end_dialogue_not_in_dialogue_status_is_dialogue(self, mock_player_crud):
         self.player.current_status = PlayerStatus.DIALOGUE
         mock_player_crud.get_by_id_and_guild.return_value = self.player

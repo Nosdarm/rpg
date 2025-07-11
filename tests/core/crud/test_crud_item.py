@@ -5,10 +5,10 @@ from typing import Dict, Any
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 # from sqlalchemy.orm import sessionmaker # Replaced with async_sessionmaker
 
-from src.models.base import Base
-from src.models.item import Item
-from src.models.guild import GuildConfig
-from src.core.crud.crud_item import item_crud
+from backend.models.base import Base
+from backend.models.item import Item
+from backend.models.guild import GuildConfig
+from backend.core.crud.crud_item import item_crud
 
 # Use an in-memory SQLite database for testing
 ASYNC_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

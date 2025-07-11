@@ -11,9 +11,9 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.experience_system import award_xp, _check_for_level_up
-from src.models import Player, Party, GuildConfig
-from src.models.enums import RelationshipEntityType, EventType, PlayerStatus
+from backend.core.experience_system import award_xp, _check_for_level_up
+from backend.models import Player, Party, GuildConfig
+from backend.models.enums import RelationshipEntityType, EventType, PlayerStatus
 
 # Фикстуры для правил из RuleConfig
 @pytest.fixture
@@ -76,9 +76,9 @@ def party_fixture(guild_id_fixture: int, player_fixture: Player) -> Party:
 
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock)
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_single_player_no_levelup(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -123,8 +123,8 @@ async def test_award_xp_single_player_no_levelup(
 
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_single_player_level_up(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -135,7 +135,7 @@ async def test_award_xp_single_player_level_up(
 ):
     player_for_levelup = Player(id=3, guild_id=guild_id_fixture, discord_id=111, name="Leveled Player", xp=90, level=1, unspent_xp=0, current_status=PlayerStatus.IDLE)
 
-    with patch('src.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock, return_value=player_for_levelup) as mock_player_crud_get:
+    with patch('backend.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock, return_value=player_for_levelup) as mock_player_crud_get:
         mock_get_rule.side_effect = [
             mock_level_curve_rules_fixture,
             mock_level_up_rewards_rules_fixture
@@ -175,9 +175,9 @@ async def test_award_xp_single_player_level_up(
     mock_session_fixture.refresh.assert_called_once_with(updated_player) # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.party_crud.get', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_party_equal_split_no_levelup(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -256,8 +256,8 @@ async def test_award_xp_party_equal_split_no_levelup(
     mock_session_fixture.refresh.assert_any_call(player2_updated) # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_check_for_level_up_multiple_levels(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -301,7 +301,7 @@ async def test_check_for_level_up_multiple_levels(
     mock_session_fixture.refresh.assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_check_for_level_up_no_rules_found(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
@@ -330,9 +330,9 @@ async def test_check_for_level_up_no_rules_found(
     assert player_fixture.unspent_xp == 0 # Наград нет
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock)
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.player_crud.get_by_id_and_guild', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_player_not_found(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -350,9 +350,9 @@ async def test_award_xp_player_not_found(
     mock_session_fixture.commit.assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.party_crud.get', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_party_not_found_or_empty(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -379,8 +379,8 @@ async def test_award_xp_party_not_found_or_empty(
     mock_session_fixture.commit.assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_check_for_level_up_max_level_reached(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -404,9 +404,9 @@ async def test_check_for_level_up_max_level_reached(
     mock_log_event.assert_not_called() # type: ignore
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.party_crud.get', new_callable=AsyncMock)
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.party_crud.get', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_award_xp_party_xp_per_player_becomes_zero(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -444,8 +444,8 @@ def mock_attribute_definitions_fixture():
     }
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_success(
     mock_get_rule: AsyncMock,
     mock_log_event: AsyncMock,
@@ -454,7 +454,7 @@ async def test_spend_attribute_points_success(
     mock_attribute_definitions_fixture,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
     player_fixture.attributes_json = {"strength": 10}
     player_fixture.selected_language = "en"
@@ -497,7 +497,7 @@ async def test_spend_attribute_points_success(
 
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_not_enough_xp(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
@@ -505,7 +505,7 @@ async def test_spend_attribute_points_not_enough_xp(
     mock_attribute_definitions_fixture,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 2
     player_fixture.attributes_json = {"strength": 10}
     mock_get_rule.return_value = mock_attribute_definitions_fixture
@@ -522,7 +522,7 @@ async def test_spend_attribute_points_not_enough_xp(
     assert player_fixture.attributes_json["strength"] == 10 # Не изменилось
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_invalid_attribute(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
@@ -530,7 +530,7 @@ async def test_spend_attribute_points_invalid_attribute(
     mock_attribute_definitions_fixture,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
     mock_get_rule.return_value = mock_attribute_definitions_fixture # "wisdom" не определен
 
@@ -549,7 +549,7 @@ async def test_spend_attribute_points_invalid_points_value(
     player_fixture: Player,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
 
     success, msg_key, details = await spend_attribute_points(
@@ -567,7 +567,7 @@ async def test_spend_attribute_points_invalid_points_value(
     assert details["points"] == -1
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_new_attribute(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
@@ -575,7 +575,7 @@ async def test_spend_attribute_points_new_attribute(
     mock_attribute_definitions_fixture,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
     player_fixture.attributes_json = {} # Атрибутов еще нет
     player_fixture.selected_language = "ru"
@@ -595,14 +595,14 @@ async def test_spend_attribute_points_new_attribute(
 
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_attribute_definitions_not_dict(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
     player_fixture: Player,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
     mock_get_rule.return_value = "not_a_dict" # Некорректные правила
 
@@ -616,14 +616,14 @@ async def test_spend_attribute_points_attribute_definitions_not_dict(
     assert player_fixture.unspent_xp == 5
 
 @pytest.mark.asyncio
-@patch('src.core.experience_system.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.core.experience_system.rules.get_rule', new_callable=AsyncMock)
 async def test_spend_attribute_points_no_attribute_definitions_rule(
     mock_get_rule: AsyncMock,
     mock_session_fixture: AsyncSession,
     player_fixture: Player,
     guild_id_fixture: int
 ):
-    from src.core.experience_system import spend_attribute_points # Локальный импорт
+    from backend.core.experience_system import spend_attribute_points # Локальный импорт
     player_fixture.unspent_xp = 5
     mock_get_rule.return_value = None # Правило не найдено
 

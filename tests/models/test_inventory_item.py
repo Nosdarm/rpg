@@ -4,11 +4,11 @@ from typing import Dict, Any, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session as SQLAlchemySession
 
-from src.models.base import Base
-from src.models.item import Item
-from src.models.inventory_item import InventoryItem
-from src.models.guild import GuildConfig
-from src.models.enums import OwnerEntityType
+from backend.models.base import Base
+from backend.models.item import Item
+from backend.models.inventory_item import InventoryItem
+from backend.models.guild import GuildConfig
+from backend.models.enums import OwnerEntityType
 
 # Use an in-memory SQLite database for testing
 engine = create_engine("sqlite:///:memory:")

@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.trade_system import (
+from backend.core.trade_system import (
     handle_trade_action,
     _calculate_item_price,
     TradeActionResult,
@@ -13,8 +13,8 @@ from src.core.trade_system import (
     InventoryViewData,
     _evaluate_formula # Import for direct testing if needed, or assume it works via _calculate_item_price
 )
-from src.models import Player, GeneratedNpc, Item, InventoryItem, Relationship, RuleConfig
-from src.models.enums import OwnerEntityType, RelationshipEntityType, EventType
+from backend.models import Player, GeneratedNpc, Item, InventoryItem, Relationship, RuleConfig
+from backend.models.enums import OwnerEntityType, RelationshipEntityType, EventType
 
 # Mock data structure for an Item
 def mock_item_data(id: int, static_id: str, name_en: str, base_value: Optional[int], category_en: Optional[str] = "misc") -> Dict[str, Any]:
@@ -75,15 +75,15 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
 
 
         # --- Patches ---
-        self.patch_player_crud = patch('src.core.trade_system.player_crud', AsyncMock())
+        self.patch_player_crud = patch('backend.core.trade_system.player_crud', AsyncMock())
         self.mock_player_crud = self.patch_player_crud.start()
         self.mock_player_crud.get_by_id_and_guild.return_value = self.mock_player
 
-        self.patch_npc_crud = patch('src.core.trade_system.npc_crud', AsyncMock())
+        self.patch_npc_crud = patch('backend.core.trade_system.npc_crud', AsyncMock())
         self.mock_npc_crud = self.patch_npc_crud.start()
         self.mock_npc_crud.get_by_id_and_guild.return_value = self.mock_npc
 
-        self.patch_item_crud = patch('src.core.trade_system.item_crud', AsyncMock())
+        self.patch_item_crud = patch('backend.core.trade_system.item_crud', AsyncMock())
         self.mock_item_crud = self.patch_item_crud.start()
         # Setup item_crud.get and get_by_static_id to return our mock items
         item_map = {self.item_sword.id: self.item_sword, self.item_potion.id: self.item_potion, self.item_gem_no_base_value.id: self.item_gem_no_base_value}
@@ -98,7 +98,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_item_crud.get_by_static_id = AsyncMock(side_effect=mock_item_get_by_static_id)
 
 
-        self.patch_inventory_item_crud = patch('src.core.trade_system.inventory_item_crud', AsyncMock())
+        self.patch_inventory_item_crud = patch('backend.core.trade_system.inventory_item_crud', AsyncMock())
         self.mock_inventory_item_crud = self.patch_inventory_item_crud.start()
         # Mock methods for inventory_item_crud as needed by tests, e.g., get_inventory_for_owner, add_item_to_owner, remove_item_from_owner
         self.mock_inventory_item_crud.get_inventory_for_owner.return_value = [] # Default empty
@@ -106,22 +106,22 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_inventory_item_crud.remove_item_from_owner = AsyncMock(return_value=None) # Or returns updated item
         self.mock_inventory_item_crud.get = AsyncMock(return_value=None) # For fetching specific InventoryItem by ID
 
-        self.patch_get_rule = patch('src.core.trade_system.get_rule', AsyncMock())
+        self.patch_get_rule = patch('backend.core.trade_system.get_rule', AsyncMock())
         self.mock_get_rule = self.patch_get_rule.start()
         self.mock_get_rule.return_value = None # Default no rule
 
-        self.patch_crud_relationship = patch('src.core.trade_system.crud_relationship', AsyncMock())
+        self.patch_crud_relationship = patch('backend.core.trade_system.crud_relationship', AsyncMock())
         self.mock_crud_relationship = self.patch_crud_relationship.start()
         self.mock_crud_relationship.get_relationship_between_entities.return_value = None # Default no relationship
 
-        self.patch_log_event = patch('src.core.trade_system.log_event', AsyncMock())
+        self.patch_log_event = patch('backend.core.trade_system.log_event', AsyncMock())
         self.mock_log_event = self.patch_log_event.start()
         self.mock_log_event.return_value = MagicMock(id=12345) # Mocked StoryLog entry with an ID
 
-        self.patch_update_relationship = patch('src.core.trade_system.update_relationship', AsyncMock())
+        self.patch_update_relationship = patch('backend.core.trade_system.update_relationship', AsyncMock())
         self.mock_update_relationship = self.patch_update_relationship.start()
 
-        self.patch_evaluate_formula = patch('src.core.trade_system._evaluate_formula', MagicMock())
+        self.patch_evaluate_formula = patch('backend.core.trade_system._evaluate_formula', MagicMock())
         self.mock_evaluate_formula = self.patch_evaluate_formula.start()
         self.mock_evaluate_formula.return_value = 1.0 # Default no modification from formula
 
@@ -290,7 +290,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         ]
         # Mock price calculation for this test - assume _calculate_item_price is tested separately
         # For view_inventory, _calculate_item_price is called for NPC items (buy for player) and Player items (sell for player)
-        with patch('src.core.trade_system._calculate_item_price', new_callable=AsyncMock) as mock_calc_price:
+        with patch('backend.core.trade_system._calculate_item_price', new_callable=AsyncMock) as mock_calc_price:
             mock_calc_price.side_effect = [60.0] # Price for sword (player buys from NPC)
 
             result = await handle_trade_action(self.mock_session, self.guild_id, self.player_id, self.npc_id, "view_inventory")
@@ -327,7 +327,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         npc_sword_stack = InventoryItem(**mock_inventory_item_data(id=101, item_model=self.item_sword, quantity=5, owner_id=self.npc_id, owner_type=OwnerEntityType.GENERATED_NPC))
         self.mock_inventory_item_crud.get_inventory_for_owner.return_value = [npc_sword_stack] # NPC has swords
 
-        with patch('src.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)) as mock_calc_price: # Player buys sword at 60
+        with patch('backend.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)) as mock_calc_price: # Player buys sword at 60
             result = await handle_trade_action(
                 self.mock_session, self.guild_id, self.player_id, self.npc_id,
                 action_type="buy", item_static_id=self.item_sword.static_id, count=2
@@ -353,7 +353,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         npc_sword_stack = InventoryItem(**mock_inventory_item_data(id=101, item_model=self.item_sword, quantity=1, owner_id=self.npc_id, owner_type=OwnerEntityType.GENERATED_NPC))
         self.mock_inventory_item_crud.get_inventory_for_owner.return_value = [npc_sword_stack]
 
-        with patch('src.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)):
+        with patch('backend.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)):
             result = await handle_trade_action(
                 self.mock_session, self.guild_id, self.player_id, self.npc_id,
                 action_type="buy", item_static_id=self.item_sword.static_id, count=1
@@ -367,7 +367,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         npc_sword_stack = InventoryItem(**mock_inventory_item_data(id=101, item_model=self.item_sword, quantity=1, owner_id=self.npc_id, owner_type=OwnerEntityType.GENERATED_NPC))
         self.mock_inventory_item_crud.get_inventory_for_owner.return_value = [npc_sword_stack]
 
-        with patch('src.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)):
+        with patch('backend.core.trade_system._calculate_item_price', AsyncMock(return_value=60.0)):
              result = await handle_trade_action(
                 self.mock_session, self.guild_id, self.player_id, self.npc_id,
                 action_type="buy", item_static_id=self.item_sword.static_id, count=2 # Request 2, NPC has 1
@@ -383,7 +383,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         player_potion_stack = InventoryItem(**mock_inventory_item_data(id=201, item_model=self.item_potion, quantity=5, owner_id=self.player_id, owner_type=OwnerEntityType.PLAYER))
         self.mock_inventory_item_crud.get.return_value = player_potion_stack # Mock fetching the stack by ID
 
-        with patch('src.core.trade_system._calculate_item_price', AsyncMock(return_value=5.0)) as mock_calc_price: # Player sells potion at 5
+        with patch('backend.core.trade_system._calculate_item_price', AsyncMock(return_value=5.0)) as mock_calc_price: # Player sells potion at 5
             result = await handle_trade_action(
                 self.mock_session, self.guild_id, self.player_id, self.npc_id,
                 action_type="sell", inventory_item_db_id=player_potion_stack.id, count=3
@@ -409,7 +409,7 @@ class TestTradeSystem(unittest.IsolatedAsyncioTestCase):
         player_potion_stack = InventoryItem(**mock_inventory_item_data(id=201, item_model=self.item_potion, quantity=2, owner_id=self.player_id, owner_type=OwnerEntityType.PLAYER))
         self.mock_inventory_item_crud.get.return_value = player_potion_stack
 
-        with patch('src.core.trade_system._calculate_item_price', AsyncMock(return_value=5.0)):
+        with patch('backend.core.trade_system._calculate_item_price', AsyncMock(return_value=5.0)):
             result = await handle_trade_action(
                 self.mock_session, self.guild_id, self.player_id, self.npc_id,
                 action_type="sell", inventory_item_db_id=player_potion_stack.id, count=3 # Request 3, player has 2

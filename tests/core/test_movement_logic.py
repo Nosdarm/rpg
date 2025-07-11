@@ -11,9 +11,9 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.movement_logic import handle_move_action, MovementError
-from src.models import Player, Party, Location, LocationType
-from src.models.enums import PlayerStatus, PartyTurnStatus
+from backend.core.movement_logic import handle_move_action, MovementError
+from backend.models import Player, Party, Location, LocationType
+from backend.models.enums import PlayerStatus, PartyTurnStatus
 
 
 # Default attributes for mock objects
@@ -101,13 +101,13 @@ def mock_unconnected_location() -> Location:
     )
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session") # For handle_move_action's own session
-@patch("src.core.database.get_db_session") # For @transactional on _update_entities_location
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session") # For handle_move_action's own session
+@patch("backend.core.database.get_db_session") # For @transactional on _update_entities_location
 async def test_handle_move_action_successful_solo_player(
     mock_db_get_db_session: MagicMock, # For @transactional
     mock_logic_get_db_session: MagicMock, # For handle_move_action
@@ -169,13 +169,13 @@ async def test_handle_move_action_successful_solo_player(
     # We trust the decorator works if session.add is called.
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session") # For handle_move_action
-@patch("src.core.database.get_db_session")      # For @transactional on _update_entities_location
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session") # For handle_move_action
+@patch("backend.core.database.get_db_session")      # For @transactional on _update_entities_location
 async def test_handle_move_action_successful_party_move(
     mock_db_get_db_session: MagicMock,
     mock_logic_get_db_session: MagicMock,
@@ -227,9 +227,9 @@ async def test_handle_move_action_successful_party_move(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_player_not_found(
     mock_get_db_session: MagicMock,
     mock_location_crud: AsyncMock, # Patched but not directly asserted
@@ -246,9 +246,9 @@ async def test_handle_move_action_player_not_found(
     assert f"Player with Discord ID {DEFAULT_PLAYER_DISCORD_ID} not found" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_target_location_not_found(
     mock_get_db_session: MagicMock,
     mock_location_crud: AsyncMock,
@@ -269,9 +269,9 @@ async def test_handle_move_action_target_location_not_found(
     assert f"Location with ID '{NON_EXISTENT_LOCATION_STATIC_ID}' not found" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_already_at_target_location(
     mock_get_db_session: MagicMock,
     mock_location_crud: AsyncMock,
@@ -292,9 +292,9 @@ async def test_handle_move_action_already_at_target_location(
     assert f"You are already at '{mock_start_location.name_i18n['en']}'" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_not_connected(
     mock_get_db_session: MagicMock,
     mock_location_crud: AsyncMock,
@@ -322,9 +322,9 @@ async def test_handle_move_action_not_connected(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_malformed_neighbors_json(
     mock_get_db_session: MagicMock,
     mock_location_crud: AsyncMock,
@@ -349,12 +349,12 @@ async def test_handle_move_action_malformed_neighbors_json(
     assert "You cannot move directly" in message # Should fail connectivity check
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_player_no_current_location_id(
     mock_get_db_session: MagicMock,
     mock_on_enter_location: AsyncMock,
@@ -376,12 +376,12 @@ async def test_handle_move_action_player_no_current_location_id(
     assert "has no current location set" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_current_location_not_found_in_db(
     mock_get_db_session: MagicMock,
     mock_on_enter_location: AsyncMock,
@@ -403,12 +403,12 @@ async def test_handle_move_action_current_location_not_found_in_db(
     assert f"Current location ID {mock_player.current_location_id} for player {mock_player.id} not found" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session")
 async def test_handle_move_action_current_location_wrong_guild(
     mock_get_db_session: MagicMock,
     mock_on_enter_location: AsyncMock,
@@ -432,13 +432,13 @@ async def test_handle_move_action_current_location_wrong_guild(
     assert f"Data integrity issue: Player's current location {mock_start_location.id} does not belong to guild {DEFAULT_GUILD_ID}" in message
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session") # For handle_move_action
-@patch("src.core.database.get_db_session")      # For @transactional on _update_entities_location
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session") # For handle_move_action
+@patch("backend.core.database.get_db_session")      # For @transactional on _update_entities_location
 async def test_handle_move_action_party_not_found_proceeds_solo(
     mock_db_get_db_session: MagicMock,
     mock_logic_get_db_session: MagicMock,
@@ -510,14 +510,14 @@ def mock_party_for_pk_player(mock_player_pk: Player) -> Party:
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
 # No need to patch get_db_session for execute_move_for_player_action as session is passed in
 # However, _update_entities_location uses @transactional which uses database.get_db_session
-@patch("src.core.database.get_db_session")
+@patch("backend.core.database.get_db_session")
 async def test_execute_move_successful_solo_player(
     mock_db_get_db_session: MagicMock, # For @transactional on _update_entities_location
     mock_on_enter_location: AsyncMock,
@@ -550,7 +550,7 @@ async def test_execute_move_successful_solo_player(
 
     mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found, get_rule returns default
 
-    from src.core.movement_logic import execute_move_for_player_action # Import here
+    from backend.core.movement_logic import execute_move_for_player_action # Import here
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
@@ -583,12 +583,12 @@ async def test_execute_move_successful_solo_player(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.database.get_db_session")
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.database.get_db_session")
 async def test_execute_move_successful_party_move(
     mock_db_get_db_session: MagicMock,
     mock_on_enter_location: AsyncMock,
@@ -615,7 +615,7 @@ async def test_execute_move_successful_party_move(
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
     mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
@@ -642,14 +642,14 @@ async def test_execute_move_successful_party_move(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
 async def test_execute_move_player_not_found(
     mock_player_crud: AsyncMock,
     mock_session: AsyncMock,
 ):
     mock_player_crud.get.return_value = None # Player not found by PK
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
@@ -658,7 +658,7 @@ async def test_execute_move_player_not_found(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
 async def test_execute_move_player_wrong_guild(
     mock_player_crud: AsyncMock,
     mock_session: AsyncMock,
@@ -667,7 +667,7 @@ async def test_execute_move_player_wrong_guild(
     mock_player_pk.guild_id = DEFAULT_GUILD_ID + 1 # Player in wrong guild
     mock_player_crud.get.return_value = mock_player_pk
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
@@ -676,8 +676,8 @@ async def test_execute_move_player_wrong_guild(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
 async def test_execute_move_target_location_not_found_by_static_id(
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
@@ -716,7 +716,7 @@ async def test_execute_move_target_location_not_found_by_static_id(
         mock_exec_name_search_result  # For name search lang 3 (en fallback)
     ]
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, NON_EXISTENT_LOCATION_STATIC_ID
     )
@@ -726,8 +726,8 @@ async def test_execute_move_target_location_not_found_by_static_id(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
 async def test_execute_move_not_connected(
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
@@ -753,7 +753,7 @@ async def test_execute_move_not_connected(
         {"location_id": TARGET_LOCATION_ID, "connection_type_i18n": {"en": "path"}}
     ]
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, UNCONNECTED_LOCATION_STATIC_ID
     )
@@ -761,10 +761,10 @@ async def test_execute_move_not_connected(
     assert f"You cannot move directly from '{mock_start_location.name_i18n['en']}' to '{mock_unconnected_location.name_i18n['en']}'" in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock) # To check it's NOT called on failure
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock) # To check it's NOT called on failure
 async def test_execute_move_failure_does_not_call_on_enter_location(
     mock_on_enter_location: AsyncMock,
     mock_party_crud: AsyncMock,
@@ -778,7 +778,7 @@ async def test_execute_move_failure_does_not_call_on_enter_location(
     mock_location_crud.get.return_value = mock_start_location
     mock_location_crud.get_by_static_id.return_value = None # Target not found leading to failure
 
-    from src.core.movement_logic import execute_move_for_player_action
+    from backend.core.movement_logic import execute_move_for_player_action
     result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, NON_EXISTENT_LOCATION_STATIC_ID
     )
@@ -787,11 +787,11 @@ async def test_execute_move_failure_does_not_call_on_enter_location(
 
 # --- Tests for _find_location_by_identifier ---
 
-from src.core.movement_logic import _find_location_by_identifier
-from src.models.rule_config import RuleConfig # For mock_rule
+from backend.core.movement_logic import _find_location_by_identifier
+from backend.models.rule_config import RuleConfig # For mock_rule
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 @patch("sqlalchemy.ext.asyncio.AsyncSession.execute", new_callable=AsyncMock) # To mock session.execute for name search
 async def test_find_location_by_static_id_success(
     mock_session_execute: AsyncMock,
@@ -813,7 +813,7 @@ async def test_find_location_by_static_id_success(
     mock_session_execute.assert_not_called() # Should not search by name if static_id matches
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 # Patch the execute method on the mock_session instance that will be passed to the function
 async def test_find_location_by_name_player_language_actual_logic(
     mock_get_by_static_id: AsyncMock,
@@ -853,7 +853,7 @@ async def test_find_location_by_name_player_language_actual_logic(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 async def test_find_location_by_name_guild_language_fallback_actual_logic(
     mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock,
@@ -890,7 +890,7 @@ async def test_find_location_by_name_guild_language_fallback_actual_logic(
     assert mock_session.execute.call_count == 2 # Called for 'de', then 'en'
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 async def test_find_location_by_name_english_fallback_actual_logic(
     mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock,
@@ -930,7 +930,7 @@ async def test_find_location_by_name_english_fallback_actual_logic(
     assert mock_session.execute.call_count == 3 # de, fr, en
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 async def test_find_location_by_name_case_insensitive_actual_logic(
     mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock,
@@ -957,7 +957,7 @@ async def test_find_location_by_name_case_insensitive_actual_logic(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
 async def test_find_location_not_found_actual_logic(
     mock_get_by_static_id: AsyncMock,
     mock_session: AsyncMock
@@ -992,8 +992,8 @@ async def test_find_location_not_found_actual_logic(
 
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
-@patch("src.core.movement_logic.logger.warning")
+@patch("backend.core.movement_logic.location_crud.get_by_static_id", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.logger.warning")
 async def test_find_location_by_name_ambiguous_returns_first_and_logs_actual_logic(
     mock_logger_warning: MagicMock,
     mock_get_by_static_id: AsyncMock,
@@ -1032,14 +1032,14 @@ async def test_find_location_by_name_ambiguous_returns_first_and_logs_actual_log
 # --- Update tests for execute_move_for_player_action to use _find_location_by_identifier ---
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
 # Patch the helper directly within its module
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.database.get_db_session") # For @transactional on _update_entities_location
-@patch("src.core.movement_logic.get_rule", new_callable=AsyncMock) # For guild_main_language
+@patch("backend.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.database.get_db_session") # For @transactional on _update_entities_location
+@patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock) # For guild_main_language
 async def test_execute_move_uses_find_location_helper_success(
     mock_get_rule: AsyncMock,
     mock_db_get_db_session: MagicMock,
@@ -1065,8 +1065,8 @@ async def test_execute_move_uses_find_location_helper_success(
     mock_get_rule.return_value = "en" # Assume guild lang is 'en'
 
     # We need to patch location_crud.get inside execute_move_for_player_action for current_location
-    with patch("src.core.movement_logic.location_crud", mock_location_crud):
-        from src.core.movement_logic import execute_move_for_player_action
+    with patch("backend.core.movement_logic.location_crud", mock_location_crud):
+        from backend.core.movement_logic import execute_move_for_player_action
         result = await execute_move_for_player_action(
             mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
         )
@@ -1084,9 +1084,9 @@ async def test_execute_move_uses_find_location_helper_success(
     mock_on_enter_location.assert_called_once()
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_rule", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic._find_location_by_identifier", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock)
 async def test_execute_move_when_find_location_helper_returns_none(
     mock_get_rule: AsyncMock,
     mock_find_loc_helper: AsyncMock,
@@ -1104,8 +1104,8 @@ async def test_execute_move_when_find_location_helper_returns_none(
     mock_rule_obj = MagicMock(spec=RuleConfig); mock_rule_obj.value_json = "en"
     mock_get_rule.return_value = mock_rule_obj
 
-    with patch("src.core.movement_logic.location_crud", mock_location_crud_instance):
-        from src.core.movement_logic import execute_move_for_player_action
+    with patch("backend.core.movement_logic.location_crud", mock_location_crud_instance):
+        from backend.core.movement_logic import execute_move_for_player_action
         result = await execute_move_for_player_action(
             mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, "some_unknown_place"
         )
@@ -1115,13 +1115,13 @@ async def test_execute_move_when_find_location_helper_returns_none(
     mock_find_loc_helper.assert_called_once()
 
 @pytest.mark.asyncio
-@patch("src.core.movement_logic.player_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.location_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.party_crud", new_callable=AsyncMock)
-@patch("src.core.movement_logic.log_event", new_callable=AsyncMock)
-@patch("src.core.movement_logic.on_enter_location", new_callable=AsyncMock)
-@patch("src.core.movement_logic.get_db_session") # For handle_move_action
-@patch("src.core.database.get_db_session")      # For @transactional on _update_entities_location
+@patch("backend.core.movement_logic.player_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.location_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.party_crud", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.log_event", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.on_enter_location", new_callable=AsyncMock)
+@patch("backend.core.movement_logic.get_db_session") # For handle_move_action
+@patch("backend.core.database.get_db_session")      # For @transactional on _update_entities_location
 async def test_handle_move_action_party_in_wrong_guild_proceeds_solo(
     mock_db_get_db_session: MagicMock,
     mock_logic_get_db_session: MagicMock,

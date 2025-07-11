@@ -8,13 +8,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
-from src.models.base import Base
+from backend.models.base import Base
 # पार्टी_npc_memory -> party_npc_memory
-from src.models.party_npc_memory import PartyNpcMemory
-from src.models.guild import GuildConfig
-from src.models.party import Party
-from src.models.generated_npc import GeneratedNpc
-from src.models.player import Player
+from backend.models.party_npc_memory import PartyNpcMemory
+from backend.models.guild import GuildConfig
+from backend.models.party import Party
+from backend.models.generated_npc import GeneratedNpc
+from backend.models.player import Player
 
 # Configure in-memory SQLite for testing
 # This engine will be used by the fixture to create connections

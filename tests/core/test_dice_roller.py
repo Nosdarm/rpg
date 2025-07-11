@@ -11,7 +11,7 @@ if PROJECT_ROOT not in sys.path:
 
 # Adjust the import path based on your project structure
 # If src is a top-level package and your tests are run from the project root:
-from src.core.dice_roller import roll_dice
+from backend.core.dice_roller import roll_dice
 
 class TestDiceRoller(unittest.TestCase):
 

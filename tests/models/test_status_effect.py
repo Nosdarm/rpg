@@ -13,9 +13,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import JSON
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.status_effect import ActiveStatusEffect, StatusEffect
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.status_effect import ActiveStatusEffect, StatusEffect
 
 # Use an in-memory SQLite database for testing
 engine = create_engine("sqlite:///:memory:")

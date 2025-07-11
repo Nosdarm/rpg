@@ -10,10 +10,10 @@ from typing import List, Dict, Any, Optional, Tuple # Added Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import Player, GeneratedNpc, PendingConflict, Item, InventoryItem # Added Item, InventoryItem
-from src.models.actions import ParsedAction, ActionEntity
-from src.models.enums import RelationshipEntityType, ConflictStatus
-from src.core.conflict_simulation_system import simulate_conflict_detection, _extract_primary_target_signature, SimulatedActionActor
+from backend.models import Player, GeneratedNpc, PendingConflict, Item, InventoryItem # Added Item, InventoryItem
+from backend.models.actions import ParsedAction, ActionEntity
+from backend.models.enums import RelationshipEntityType, ConflictStatus
+from backend.core.conflict_simulation_system import simulate_conflict_detection, _extract_primary_target_signature, SimulatedActionActor
 
 # Helper function to create ParsedAction instances easily
 from typing import List, Dict, Any, Optional # Ensure Optional is imported
@@ -206,7 +206,7 @@ class TestExtractPrimaryTargetSignature(unittest.TestCase):
 
 
 # ... другие импорты ...
-from src.core.conflict_simulation_system import (
+from backend.core.conflict_simulation_system import (
     DEFAULT_RULES_SAME_INTENT_SAME_TARGET_CFG,
     DEFAULT_RULES_CONFLICTING_INTENT_PAIRS_CFG
 )
@@ -216,11 +216,11 @@ class TestSimulateConflictDetection(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.mock_session = AsyncMock(spec=AsyncSession)
 
-        self.mock_player_crud_get = patch('src.core.crud.player_crud.get', new_callable=AsyncMock).start()
-        self.mock_npc_crud_get = patch('src.core.crud.npc_crud.get', new_callable=AsyncMock).start()
+        self.mock_player_crud_get = patch('backend.core.crud.player_crud.get', new_callable=AsyncMock).start()
+        self.mock_npc_crud_get = patch('backend.core.crud.npc_crud.get', new_callable=AsyncMock).start()
 
         # Мокируем get_rule, используемый внутри conflict_simulation_system
-        self.mock_get_rule = patch('src.core.conflict_simulation_system.get_rule', new_callable=AsyncMock).start()
+        self.mock_get_rule = patch('backend.core.conflict_simulation_system.get_rule', new_callable=AsyncMock).start()
 
         # Настройка поведения по умолчанию для mock_get_rule
         # Он будет возвращать дефолтные правила, если не указано иное в конкретном тесте
@@ -471,7 +471,7 @@ class TestConflictRuleApplication(unittest.IsolatedAsyncioTestCase):
         self.player3_sim_actor = SimulatedActionActor(guild_id=self.guild_id, player=Player(id=3, name="P3", guild_id=self.guild_id), parsed_action=create_parsed_action("",""))
 
         # Import the functions to be tested (they are not async, so direct import is fine)
-        from src.core.conflict_simulation_system import (
+        from backend.core.conflict_simulation_system import (
             _apply_same_intent_conflict_rules,
             _apply_conflicting_intent_pairs_rules,
             _check_use_self_vs_take_conflicts,

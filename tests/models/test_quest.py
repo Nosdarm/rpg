@@ -1,8 +1,8 @@
 import unittest
 import datetime
 
-from src.models.quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress
-from src.models.enums import QuestStatus, RelationshipEntityType
+from backend.models.quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress
+from backend.models.enums import QuestStatus, RelationshipEntityType
 
 # Поскольку модели теперь наследуют TimestampMixin, created_at и updated_at будут присутствовать.
 # Мы не будем их явно задавать в тестах, а просто проверим их наличие и тип после создания.

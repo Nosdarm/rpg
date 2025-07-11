@@ -8,11 +8,11 @@ import httpx # Повторный импорт не страшен
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.main import app
-from src.core.security import TokenPayload, create_access_token
-from src.models.master_user import MasterUser
-from src.config import settings
-from src.schemas.master_user import MasterUserCreate
+from backend.main import app
+from backend.core.security import TokenPayload, create_access_token
+from backend.models.master_user import MasterUser
+from backend.config import settings
+from backend.schemas.master_user import MasterUserCreate
 from urllib.parse import quote_plus
 
 
@@ -32,7 +32,7 @@ def mock_db() -> AsyncMock:
 
 @pytest.fixture
 def client(mock_db: AsyncMock) -> Generator[TestClient, None, None]:
-    from src.core.database import get_db_session
+    from backend.core.database import get_db_session
     app.dependency_overrides[get_db_session] = lambda: mock_db
     yield TestClient(app)
     app.dependency_overrides.clear()
@@ -73,9 +73,9 @@ def auto_patch_settings_secret_key(mocker):
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.httpx.AsyncClient")
-@patch("src.api.routers.auth.crud_master_user", new_callable=AsyncMock)
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.httpx.AsyncClient")
+@patch("backend.api.routers.auth.crud_master_user", new_callable=AsyncMock)
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_callback_success(
     mock_api_auth_settings: MagicMock, # Переименовал, чтобы не конфликтовать с глобальным settings
     mock_crud_master_user: AsyncMock,
@@ -138,7 +138,7 @@ async def test_discord_callback_success(
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_callback_missing_redirect_url_config(
     mock_api_auth_settings: MagicMock, client: TestClient, mock_db: AsyncMock, mocker
 ):
@@ -148,8 +148,8 @@ async def test_discord_callback_missing_redirect_url_config(
     mock_api_auth_settings.UI_APP_REDIRECT_URL_AFTER_LOGIN = None
     # settings.SECRET_KEY уже должен быть запатчен
 
-    with patch("src.api.routers.auth.httpx.AsyncClient") as mock_async_client_constructor, \
-         patch("src.api.routers.auth.crud_master_user", new_callable=AsyncMock) as mock_crud_master_user:
+    with patch("backend.api.routers.auth.httpx.AsyncClient") as mock_async_client_constructor, \
+         patch("backend.api.routers.auth.crud_master_user", new_callable=AsyncMock) as mock_crud_master_user:
 
         mock_http_client = AsyncMock()
         mock_async_client_constructor.return_value.__aenter__.return_value = mock_http_client
@@ -223,7 +223,7 @@ def test_logout_no_token(client: TestClient):
 
 
 _test_app_for_dependency = FastAPI()
-from src.core.security import get_current_active_guild_id
+from backend.core.security import get_current_active_guild_id
 
 @_test_app_for_dependency.get("/test-dependency-active-guild")
 async def route_test_active_guild(active_guild_id: str = Depends(get_current_active_guild_id)):
@@ -255,7 +255,7 @@ def test_get_current_active_guild_id_missing_token():
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_login_redirect(mock_api_auth_settings: MagicMock, client: TestClient):
     mock_api_auth_settings.DISCORD_CLIENT_ID = "test_client_id"
     mock_api_auth_settings.DISCORD_REDIRECT_URI = "http://testserver/callback"
@@ -270,7 +270,7 @@ async def test_discord_login_redirect(mock_api_auth_settings: MagicMock, client:
     assert "scope=identify+guilds+email" in location
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_login_missing_config(mock_api_auth_settings: MagicMock, client: TestClient):
     mock_api_auth_settings.DISCORD_CLIENT_ID = None
     mock_api_auth_settings.DISCORD_REDIRECT_URI = "http://testserver/callback"
@@ -307,8 +307,8 @@ def test_get_session_active_guild_not_set(client: TestClient):
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.httpx.AsyncClient")
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.httpx.AsyncClient")
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_callback_token_exchange_error(
     mock_api_auth_settings: MagicMock,
     mock_async_client_constructor: MagicMock,
@@ -337,8 +337,8 @@ async def test_discord_callback_token_exchange_error(
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.httpx.AsyncClient")
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.httpx.AsyncClient")
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_callback_user_info_error(
     mock_api_auth_settings: MagicMock,
     mock_async_client_constructor: MagicMock,
@@ -388,9 +388,9 @@ except FileExistsError:
 
 
 @pytest.mark.asyncio
-@patch("src.api.routers.auth.httpx.AsyncClient")
-@patch("src.api.routers.auth.crud_master_user", new_callable=AsyncMock)
-@patch("src.api.routers.auth.settings", new_callable=MagicMock)
+@patch("backend.api.routers.auth.httpx.AsyncClient")
+@patch("backend.api.routers.auth.crud_master_user", new_callable=AsyncMock)
+@patch("backend.api.routers.auth.settings", new_callable=MagicMock)
 async def test_discord_callback_master_user_creation_details(
     mock_api_auth_settings: MagicMock,
     mock_crud_master_user: AsyncMock,

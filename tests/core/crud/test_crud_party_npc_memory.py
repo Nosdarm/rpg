@@ -7,13 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine # Changed c
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text, event # Removed create_engine, text is fine, event is fine
 
-from src.models.base import Base
-from src.core.crud.crud_party_npc_memory import crud_party_npc_memory, CRUDPartyNpcMemory
-from src.models.party_npc_memory import PartyNpcMemory
-from src.models.guild import GuildConfig
-from src.models.party import Party
-from src.models.generated_npc import GeneratedNpc
-from src.models.player import Player # For party leader
+from backend.models.base import Base
+from backend.core.crud.crud_party_npc_memory import crud_party_npc_memory, CRUDPartyNpcMemory
+from backend.models.party_npc_memory import PartyNpcMemory
+from backend.models.guild import GuildConfig
+from backend.models.party import Party
+from backend.models.generated_npc import GeneratedNpc
+from backend.models.player import Player # For party leader
 
 # Use an in-memory SQLite database for testing
 from sqlalchemy.pool import StaticPool

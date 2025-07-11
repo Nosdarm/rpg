@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from src.models.mobile_group import MobileGroup
+from backend.models.mobile_group import MobileGroup
 
 class TestMobileGroupModel(unittest.TestCase):
 

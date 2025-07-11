@@ -9,12 +9,12 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.models.check_results import CheckOutcome # Removed CheckOutcomeStatus
+from backend.models.check_results import CheckOutcome # Removed CheckOutcomeStatus
 
-from src.core.interaction_handlers import handle_intra_location_action
-from src.models import Player, Location, LocationType # Added LocationType
-from src.models.enums import PlayerStatus
-from src.models.check_results import CheckOutcome # Import CheckOutcome
+from backend.core.interaction_handlers import handle_intra_location_action
+from backend.models import Player, Location, LocationType # Added LocationType
+from backend.models.enums import PlayerStatus
+from backend.models.check_results import CheckOutcome # Import CheckOutcome
 
 DEFAULT_GUILD_ID = 1
 DEFAULT_PLAYER_ID = 1
@@ -109,9 +109,9 @@ def mock_location_with_details(request) -> Location:
     )
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_existing_object(
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
@@ -136,9 +136,9 @@ async def test_examine_existing_object(
     assert log_kwargs["details_json"]["target"] == "Old Chest"
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_non_existent_object(
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
@@ -154,9 +154,9 @@ async def test_examine_non_existent_object(
     mock_log_event.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_unexaminable_object(
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
@@ -172,11 +172,11 @@ async def test_examine_unexaminable_object(
     mock_log_event.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_with_check_success(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -223,11 +223,11 @@ async def test_interact_object_with_check_success(
     assert log_kwargs["details_json"]["applied_consequences_key"] == "chest_opens_reveals_loot"
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_with_check_failure(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -267,11 +267,11 @@ async def test_interact_object_with_check_failure(
     assert details_json_val.get("applied_consequences_key") == "lever_stuck"
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.resolve_check", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_no_check_required(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -311,10 +311,10 @@ async def test_interact_object_no_check_required(
     assert details_json_val.get("applied_consequences_key") == "lever_activates_passage"
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.get_rule", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.get_rule", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_rule_not_found(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -343,9 +343,9 @@ async def test_interact_object_rule_not_found(
     assert details_json_val.get("rule_found") is False
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_object_no_interaction_key(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -372,9 +372,9 @@ async def test_interact_object_no_interaction_key(
     assert details_json_val.get("interaction_rules_key") is None
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_interact_non_existent_object(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -390,9 +390,9 @@ async def test_interact_non_existent_object(
     mock_log_event.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_move_to_valid_sublocation(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -420,9 +420,9 @@ async def test_move_to_valid_sublocation(
     assert log_kwargs["details_json"]["target_sublocation"] == expected_sublocation_name
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_move_to_invalid_sublocation_not_a_sublocation_type(
     mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
@@ -438,9 +438,9 @@ async def test_move_to_invalid_sublocation_not_a_sublocation_type(
     log_event_mock: AsyncMock = mock_log_event; log_event_mock.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_move_to_non_existent_sublocation(
     mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player, mock_location_with_details: Location
@@ -456,8 +456,8 @@ async def test_move_to_non_existent_sublocation(
     log_event_mock: AsyncMock = mock_log_event; log_event_mock.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 async def test_handle_action_player_not_found(
     mock_location_crud: AsyncMock, mock_player_crud: AsyncMock, mock_session: AsyncSession,
 ):
@@ -468,8 +468,8 @@ async def test_handle_action_player_not_found(
     assert "Error: Player not found." in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 async def test_handle_action_location_not_found(
     mock_location_crud: AsyncMock, mock_player_crud: AsyncMock, mock_session: AsyncSession, mock_player: Player,
 ):
@@ -481,8 +481,8 @@ async def test_handle_action_location_not_found(
     assert "Error: Current location not found." in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 async def test_handle_action_no_target_name(
     mock_location_crud: AsyncMock, mock_player_crud: AsyncMock, mock_session: AsyncSession,
     mock_player: Player, mock_location_no_details: Location
@@ -499,8 +499,8 @@ async def test_handle_action_no_target_name(
     assert "What do you want to interact with?" in result_no_entities["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 async def test_handle_action_unknown_intent(
     mock_location_crud: AsyncMock, mock_player_crud: AsyncMock, mock_session: AsyncSession,
     mock_player: Player, mock_location_no_details: Location
@@ -513,9 +513,9 @@ async def test_handle_action_unknown_intent(
     assert "You are not sure how to 'sing'." in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 @pytest.mark.parametrize("mock_location_with_details", [({"interactable_elements": "not a list"})], indirect=True)
 async def test_find_target_malformed_interactable_elements(
     mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
@@ -529,7 +529,7 @@ async def test_find_target_malformed_interactable_elements(
     assert "You don't see any 'Old Chest' here to examine." in result["message"]
     mock_log_event.assert_not_called()
 
-from src.core.interaction_handlers import _find_target_in_location
+from backend.core.interaction_handlers import _find_target_in_location
 
 def test_find_target_empty_location_data():
     assert _find_target_in_location(None, "target") is None
@@ -572,9 +572,9 @@ def test_find_target_item_no_name_key():
     assert _find_target_in_location(location_data, "Item without name") is None
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_present(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -591,9 +591,9 @@ async def test_examine_object_player_lang_present(
     assert f"You examine Old Chest: {expected_desc_es}" in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_missing_fallback_en(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -610,9 +610,9 @@ async def test_examine_object_player_lang_missing_fallback_en(
     assert f"You examine Old Chest: {expected_desc_en}" in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_player_lang_and_en_missing_fallback_default(
     mock_log_event: AsyncMock, # type: ignore
     mock_location_crud: AsyncMock, # type: ignore
@@ -630,9 +630,9 @@ async def test_examine_object_player_lang_and_en_missing_fallback_default(
     assert "You examine Mysterious Scroll: You see nothing special." in result["message"]
 
 @pytest.mark.asyncio
-@patch("src.core.interaction_handlers.player_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.location_crud", new_callable=AsyncMock)
-@patch("src.core.interaction_handlers.log_event", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
+@patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 async def test_examine_object_no_description_i18n(
     mock_log_event: AsyncMock, mock_location_crud: AsyncMock, mock_player_crud: AsyncMock,
     mock_session: AsyncSession, mock_player: Player,
@@ -648,6 +648,6 @@ async def test_examine_object_no_description_i18n(
     assert "You examine Plain Stone: You see nothing special." in result["message"]
 
 # Removed erroneous line:
-# from src.core import localization_utils as localization_utils_module
+# from backend.core import localization_utils as localization_utils_module
 # localization_utils_logger = localization_utils_module.logger
 # [end of tests/core/test_interaction_handlers.py] # This line was causing syntax error

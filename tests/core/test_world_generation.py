@@ -13,20 +13,20 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine # Added create_async_engine etc.
 from sqlalchemy import event, select # Added select
-from src.models.base import Base # Added
-from src.models.guild import GuildConfig # Added
-from src.models.rule_config import RuleConfig # Added
-from src.models.location import Location, LocationType
-from src.models.generated_faction import GeneratedFaction # Added
-from src.models.relationship import Relationship # Added
-from src.models.enums import EventType, RelationshipEntityType # Added RelationshipEntityType
-from src.models.custom_types import JsonBForSQLite # Added
+from backend.models.base import Base # Added
+from backend.models.guild import GuildConfig # Added
+from backend.models.rule_config import RuleConfig # Added
+from backend.models.location import Location, LocationType
+from backend.models.generated_faction import GeneratedFaction # Added
+from backend.models.relationship import Relationship # Added
+from backend.models.enums import EventType, RelationshipEntityType # Added RelationshipEntityType
+from backend.models.custom_types import JsonBForSQLite # Added
 
-from src.core.crud.crud_location import location_crud # Added
-from src.core.crud.crud_faction import crud_faction # Added
-from src.core.crud.crud_relationship import crud_relationship # Added
-from src.core.world_generation import generate_location, update_location_neighbors, generate_factions_and_relationships # Added new func
-from src.core.ai_response_parser import ParsedLocationData, ParsedAiData, CustomValidationError, ParsedFactionData, ParsedRelationshipData # Added Faction/Rel data
+from backend.core.crud.crud_location import location_crud # Added
+from backend.core.crud.crud_faction import crud_faction # Added
+from backend.core.crud.crud_relationship import crud_relationship # Added
+from backend.core.world_generation import generate_location, update_location_neighbors, generate_factions_and_relationships # Added new func
+from backend.core.ai_response_parser import ParsedLocationData, ParsedAiData, CustomValidationError, ParsedFactionData, ParsedRelationshipData # Added Faction/Rel data
 
 # Event listeners for SQLite compatibility
 @event.listens_for(Location.__table__, "column_reflect")
@@ -168,12 +168,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.mock_location_crud.get_by_static_id.return_value = existing_neighbor_mock
         self.mock_location_crud.get.return_value = existing_neighbor_mock
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt") as mock_prepare_prompt, \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{"entity_type": "location", ...}]') as mock_ai_call, \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data) as mock_parse_validate, \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt") as mock_prepare_prompt, \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{"entity_type": "location", ...}]') as mock_ai_call, \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data) as mock_parse_validate, \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             location, error = await generate_location(
                 session=self.session, # Use self.session
@@ -211,9 +211,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.session_rollback_mock.reset_mock() # type: ignore
         validation_error = CustomValidationError(error_type="TestError", message="AI validation failed")
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='invalid json'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=validation_error):
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='invalid json'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=validation_error):
 
             location, error = await generate_location(
                 session=self.session, # Use self.session
@@ -232,9 +232,9 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.session_rollback_mock.reset_mock() # type: ignore
         mock_parsed_ai_data_empty = ParsedAiData(generated_entities=[], raw_ai_output="mock raw output", parsing_metadata={})
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data_empty):
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Test Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data_empty):
 
             location, error = await generate_location(
                 session=self.session, # Use self.session
@@ -309,12 +309,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.mock_location_crud.create.return_value = created_location_mock
         self.mock_location_crud.get_by_static_id.return_value = None
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             location, error = await generate_location(self.session, guild_id)
 
@@ -340,12 +340,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.mock_location_crud.create.return_value = created_location_mock
         self.mock_location_crud.get.return_value = None # Parent location not found
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             location, error = await generate_location(self.session, guild_id, parent_location_id=999)
 
@@ -382,12 +382,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         created_location_mock = Location(id=103, guild_id=guild_id, name_i18n=mock_parsed_location_data.name_i18n, neighbor_locations_json=[])
         self.mock_location_crud.create.return_value = created_location_mock
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             location, error = await generate_location(self.session, guild_id)
 
@@ -411,12 +411,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.mock_location_crud.create.return_value = created_location_mock
         self.mock_location_crud.get.return_value = parent_location_mock # Parent found
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock) as mock_log_event, \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             # Call generate_location without connection_details_i18n
             location, error = await generate_location(self.session, guild_id, parent_location_id=parent_loc_id, connection_details_i18n=None)
@@ -450,12 +450,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         )
         self.mock_location_crud.create.return_value = created_location_mock
 
-        with patch("src.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
-             patch("src.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
-             patch("src.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
-             patch("src.core.world_generation.log_event", new_callable=AsyncMock), \
-             patch("src.core.world_generation.location_crud", new=self.mock_location_crud), \
-             patch("src.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
+        with patch("backend.core.world_generation.prepare_ai_prompt", new_callable=AsyncMock, return_value="Prompt"), \
+             patch("backend.core.world_generation._mock_openai_api_call", new_callable=AsyncMock, return_value='[{}]'), \
+             patch("backend.core.world_generation.parse_and_validate_ai_response", new_callable=AsyncMock, return_value=mock_parsed_ai_data), \
+             patch("backend.core.world_generation.log_event", new_callable=AsyncMock), \
+             patch("backend.core.world_generation.location_crud", new=self.mock_location_crud), \
+             patch("backend.core.world_generation.update_location_neighbors", new_callable=AsyncMock) as mock_update_neighbors:
 
             location, error = await generate_location(self.session, guild_id)
 
@@ -472,12 +472,12 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
     # --- Tests for generate_factions_and_relationships ---
 
-    @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=12345))
-    @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
-    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('backend.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=12345))
+    @patch('backend.core.world_generation.crud_faction', new_callable=MagicMock)
+    @patch('backend.core.world_generation.crud_relationship', new_callable=MagicMock)
     async def test_generate_factions_and_relationships_success(
         self, mock_crud_relationship, mock_crud_faction, mock_log_event,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
@@ -553,8 +553,8 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertIn(created_faction2_db.id, faction_ids_val) # type: ignore[arg-type]
         self.session_commit_mock.assert_called_once()
 
-    @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock) # No need to mock _mock_openai_api_call if this is mocked
+    @patch('backend.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock) # No need to mock _mock_openai_api_call if this is mocked
     async def test_generate_factions_and_relationships_parsing_error(
         self, mock_parse_validate, mock_prepare_prompt
     ):
@@ -571,11 +571,11 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         if error_message: self.assertIn("Simulated parsing error", error_message)
         self.session_rollback_mock.assert_not_called() # Error returned before DB ops
 
-    @patch('src.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.crud_faction', new_callable=MagicMock)
-    @patch('src.core.world_generation.crud_relationship', new_callable=MagicMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=67890)) # Added mock for log_event
+    @patch('backend.core.world_generation.prepare_faction_relationship_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.crud_faction', new_callable=MagicMock)
+    @patch('backend.core.world_generation.crud_relationship', new_callable=MagicMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock, return_value=MagicMock(id=67890)) # Added mock for log_event
     async def test_generate_factions_and_relationships_existing_static_id(
         self, mock_log_event, mock_crud_relationship, mock_crud_faction, mock_parse_validate, mock_prepare_prompt # Corrected order & added mock_log_event
     ):
@@ -619,20 +619,20 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
 
     # --- Tests for generate_quests_for_guild ---
 
-    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.generated_quest_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.quest_step_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.questline_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.generated_quest_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.quest_step_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.questline_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock)
     async def test_generate_quests_for_guild_success(
         self, mock_log_event, mock_ql_crud, mock_qs_crud, mock_gq_crud,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_quests_for_guild # SUT
-        from src.models.quest import GeneratedQuest, QuestStep, Questline # DB Models
-        from src.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData # Pydantic Parsers
+        from backend.core.world_generation import generate_quests_for_guild # SUT
+        from backend.models.quest import GeneratedQuest, QuestStep, Questline # DB Models
+        from backend.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData # Pydantic Parsers
 
         guild_id_test = self.test_guild_id
         self.session_commit_mock.reset_mock()
@@ -697,13 +697,13 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertEqual(log_args['details_json']['generated_quests_count'], 1)
         self.session_commit_mock.assert_called_once()
 
-    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
     async def test_generate_quests_for_guild_parse_error(
         self, mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_quests_for_guild # SUT
+        from backend.core.world_generation import generate_quests_for_guild # SUT
         guild_id_test = self.test_guild_id
         self.session_commit_mock.reset_mock()
         self.session_rollback_mock.reset_mock()
@@ -721,18 +721,18 @@ class TestWorldGeneration(unittest.IsolatedAsyncioTestCase): # Changed to unitte
         self.assertIn("AI response validation failed for quests: Bad JSON", error_msg)
         self.session_rollback_mock.assert_not_called() # Rollback is not called for early returns
 
-    @patch('src.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.generated_quest_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_quest_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.generated_quest_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock)
     async def test_generate_quests_for_guild_skips_duplicate_quest_static_id(
         self, mock_log_event, mock_gq_crud,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_quests_for_guild # SUT
-        from src.models.quest import GeneratedQuest
-        from src.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData
+        from backend.core.world_generation import generate_quests_for_guild # SUT
+        from backend.models.quest import GeneratedQuest
+        from backend.core.ai_response_parser import ParsedQuestData, ParsedQuestStepData
 
         guild_id_test = self.test_guild_id
         self.session_commit_mock.reset_mock()
@@ -823,20 +823,20 @@ class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
             await self.session.rollback()
             await self.session.close()
 
-    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock)
     async def test_generate_economic_entities_success(
         self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_economic_entities # SUT
-        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedInventoryItemEntry
-        from src.models import Item, GeneratedNpc
+        from backend.core.world_generation import generate_economic_entities # SUT
+        from backend.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedInventoryItemEntry
+        from backend.models import Item, GeneratedNpc
 
         guild_id = self.test_guild_id
         mock_prepare_prompt.return_value = "economic_entities_prompt"
@@ -904,12 +904,12 @@ class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
 
         self.session_commit_mock.assert_called_once()
 
-    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
     async def test_generate_economic_entities_ai_parse_error(
         self, mock_parse_validate, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_economic_entities # SUT
+        from backend.core.world_generation import generate_economic_entities # SUT
         guild_id = self.test_guild_id
         mock_prepare_prompt.return_value = "prompt_for_parse_error"
 
@@ -925,20 +925,20 @@ class TestWorldGenerationEconomicEntities(unittest.IsolatedAsyncioTestCase):
         self.session_rollback_mock.assert_not_called() # Error returned before DB ops
         self.session_commit_mock.assert_not_called()
 
-    @patch('src.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
-    @patch('src.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
-    @patch('src.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
-    @patch('src.core.world_generation.item_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.npc_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.inventory_item_crud', new_callable=MagicMock)
-    @patch('src.core.world_generation.log_event', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.prepare_economic_entity_generation_prompt', new_callable=AsyncMock)
+    @patch('backend.core.world_generation._mock_openai_api_call', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.parse_and_validate_ai_response', new_callable=AsyncMock)
+    @patch('backend.core.world_generation.item_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.npc_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.inventory_item_crud', new_callable=MagicMock)
+    @patch('backend.core.world_generation.log_event', new_callable=AsyncMock)
     async def test_generate_economic_entities_handles_existing_item_and_npc(
         self, mock_log_event, mock_inv_item_crud, mock_npc_crud, mock_item_crud,
         mock_parse_validate, mock_ai_call, mock_prepare_prompt
     ):
-        from src.core.world_generation import generate_economic_entities
-        from src.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData
-        from src.models import Item, GeneratedNpc
+        from backend.core.world_generation import generate_economic_entities
+        from backend.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData
+        from backend.models import Item, GeneratedNpc
 
         guild_id = self.test_guild_id
         mock_prepare_prompt.return_value = "prompt_existing"

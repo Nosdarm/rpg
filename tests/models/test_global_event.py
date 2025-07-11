@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from src.models.global_event import GlobalEvent
+from backend.models.global_event import GlobalEvent
 
 class TestGlobalEventModel(unittest.TestCase):
 

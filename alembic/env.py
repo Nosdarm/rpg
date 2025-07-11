@@ -31,11 +31,11 @@ import sys
 # а импорты должны быть относительно src.
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.config.settings import DATABASE_URL # Импортируем URL базы данных
-from src.models import Base # Импортируем базовую модель из src.models.__init__
+from backend.config.settings import DATABASE_URL # Импортируем URL базы данных
+from backend.models import Base # Импортируем базовую модель из backend.models.__init__
 
 # --- Add this print statement ---
-print(f"DEBUG: alembic/env.py: DATABASE_URL from src.config.settings: {DATABASE_URL}")
+print(f"DEBUG: alembic/env.py: DATABASE_URL from backend.config.settings: {DATABASE_URL}")
 # --- End of added print statement ---
 
 # Устанавливаем URL базы данных из настроек проекта
@@ -49,14 +49,14 @@ print(f"DEBUG: alembic/env.py: Final sqlalchemy.url set for Alembic: {config.get
 # --- BEGIN DIAGNOSTIC IMPORT ---
 # Explicitly import GeneratedNpc to ensure it's loaded before metadata is accessed
 try:
-    from src.models.generated_npc import GeneratedNpc
+    from backend.models.generated_npc import GeneratedNpc
     print(f"DEBUG: alembic/env.py: Explicitly imported GeneratedNpc. Columns: {GeneratedNpc.__table__.columns.keys()}")
     if 'faction_id' in GeneratedNpc.__table__.columns:
         print("DEBUG: alembic/env.py: 'faction_id' IS present in explicitly imported GeneratedNpc.__table__.columns")
         # Also check the faction relationship to ensure GeneratedFaction is seen
         if hasattr(GeneratedNpc, 'faction'):
             print(f"DEBUG: alembic/env.py: GeneratedNpc.faction relationship exists. Type: {type(GeneratedNpc.faction.property.mapper.class_)}")
-            from src.models.generated_faction import GeneratedFaction
+            from backend.models.generated_faction import GeneratedFaction
             if GeneratedNpc.faction.property.mapper.class_ == GeneratedFaction:
                  print("DEBUG: alembic/env.py: GeneratedNpc.faction relationship correctly points to GeneratedFaction.")
             else:

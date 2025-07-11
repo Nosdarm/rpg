@@ -19,9 +19,9 @@ from discord import app_commands
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.master_commands.player_master_commands import MasterPlayerCog as PlayerMasterCommandsCog
-from src.models import Player
-from src.models.enums import PlayerStatus
+from backend.bot.commands.master_commands.player_master_commands import MasterPlayerCog as PlayerMasterCommandsCog
+from backend.models import Player
+from backend.models.enums import PlayerStatus
 
 # --- Pytest Fixtures ---
 
@@ -74,11 +74,11 @@ def created_player_fixture(guild_id_fixture, new_player_id_fixture) -> Player:
 # --- Test Cases ---
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.player_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
-@patch('src.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.utils.parse_json_parameter', new_callable=AsyncMock) # Patch for parse_json_parameter
+@patch('backend.bot.commands.master_commands.player_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.utils.parse_json_parameter', new_callable=AsyncMock) # Patch for parse_json_parameter
 async def test_master_player_create_success(
     mock_parse_json_parameter: AsyncMock,
     mock_core_get_rule: AsyncMock,
@@ -118,7 +118,7 @@ async def test_master_player_create_success(
         # If 'name' is in 'data', it would override. Here, 'name' is not in data for update.
         return entity
 
-    with patch('src.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func:
+    with patch('backend.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func:
         mock_update_entity_func.side_effect = mock_update_entity_side_effect_success
         await cog.player_create.callback(
             cog, # self
@@ -149,10 +149,10 @@ async def test_master_player_create_success(
 
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.player_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
-@patch('src.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.rules.get_rule', new_callable=AsyncMock)
 async def test_master_player_create_handles_guild_none(
     mock_core_get_rule: AsyncMock,
     mock_get_localized_template_cmd: AsyncMock,
@@ -185,11 +185,11 @@ async def test_master_player_create_handles_guild_none(
 
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.player_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
-@patch('src.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.utils.parse_json_parameter', new_callable=AsyncMock)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.utils.parse_json_parameter', new_callable=AsyncMock)
 async def test_master_player_create_with_attributes_json(
     mock_parse_json_parameter: AsyncMock,
     mock_core_get_rule: AsyncMock,
@@ -240,7 +240,7 @@ async def test_master_player_create_with_attributes_json(
             setattr(entity, key, value)
         return entity
 
-    with patch('src.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func_attr:
+    with patch('backend.bot.commands.master_commands.player_master_commands.update_entity', new_callable=AsyncMock) as mock_update_entity_func_attr:
         mock_update_entity_func_attr.side_effect = mock_update_entity_side_effect
         await cog.player_create.callback(
             cog, # self
@@ -277,11 +277,11 @@ async def test_master_player_create_with_attributes_json(
 
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.player_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
-@patch('src.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.rules.get_rule', new_callable=AsyncMock)
-@patch('src.bot.utils.parse_json_parameter', new_callable=AsyncMock)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.player_master_commands.player_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.player_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.rules.get_rule', new_callable=AsyncMock)
+@patch('backend.bot.utils.parse_json_parameter', new_callable=AsyncMock)
 async def test_master_player_create_bad_attributes_json(
     mock_parse_json_parameter: AsyncMock,
     mock_core_get_rule: AsyncMock,

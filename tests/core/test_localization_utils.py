@@ -11,8 +11,8 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.localization_utils import get_localized_text, get_localized_entity_name, get_batch_localized_entity_names # Added import
-from src.models import Player, Location, GeneratedNpc, Item # Assuming these models exist
+from backend.core.localization_utils import get_localized_text, get_localized_entity_name, get_batch_localized_entity_names # Added import
+from backend.models import Player, Location, GeneratedNpc, Item # Assuming these models exist
 
 # Mock model instances
 @pytest.fixture
@@ -85,7 +85,7 @@ def test_get_localized_text(i18n_field, lang, fallback_lang, expected):
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_player_success(mock_db_session: AsyncSession, mock_player_instance: Player): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_specific_player_getter = AsyncMock(return_value=mock_player_instance)
         mock_getter_map.get.return_value = mock_specific_player_getter
 
@@ -106,7 +106,7 @@ async def test_get_localized_entity_name_player_success(mock_db_session: AsyncSe
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_location_success(mock_db_session: AsyncSession, mock_location_instance: Location): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_specific_loc_getter = AsyncMock(return_value=mock_location_instance)
         mock_getter_map.get.return_value = mock_specific_loc_getter
 
@@ -116,7 +116,7 @@ async def test_get_localized_entity_name_location_success(mock_db_session: Async
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_npc_success(mock_db_session: AsyncSession, mock_npc_instance: GeneratedNpc): # mock_session -> mock_db_session
-     with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+     with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_specific_npc_getter = AsyncMock(return_value=mock_npc_instance)
         mock_getter_map.get.return_value = mock_specific_npc_getter
 
@@ -127,7 +127,7 @@ async def test_get_localized_entity_name_npc_success(mock_db_session: AsyncSessi
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_item_success(mock_db_session: AsyncSession, mock_item_instance: Item): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_specific_item_getter = AsyncMock(return_value=mock_item_instance)
         mock_getter_map.get.return_value = mock_specific_item_getter
 
@@ -137,7 +137,7 @@ async def test_get_localized_entity_name_item_success(mock_db_session: AsyncSess
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_entity_not_found(mock_db_session: AsyncSession): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_getter_that_returns_none = AsyncMock(return_value=None)
         mock_getter_map.get.return_value = mock_getter_that_returns_none
 
@@ -148,9 +148,9 @@ async def test_get_localized_entity_name_entity_not_found(mock_db_session: Async
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_unsupported_type(mock_db_session: AsyncSession): # mock_session -> mock_db_session
     # No need to patch ENTITY_TYPE_GETTER_MAP if .get() will return None for the key
-    with patch("src.core.localization_utils.ENTITY_TYPE_MODEL_MAP", new_callable=MagicMock) as mock_model_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_MODEL_MAP", new_callable=MagicMock) as mock_model_map:
         mock_model_map.get.return_value = None # Ensure model map also doesn't find it
-        with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP", new_callable=MagicMock) as mock_getter_map:
+        with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP", new_callable=MagicMock) as mock_getter_map:
             mock_getter_map.get.return_value = None # Ensure getter map doesn't find it
 
             name = await get_localized_entity_name(mock_db_session, 100, "dragon", 1, "en")
@@ -161,7 +161,7 @@ async def test_get_localized_entity_name_unsupported_type(mock_db_session: Async
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_nameless_entity(mock_db_session: AsyncSession, mock_nameless_entity_instance: MagicMock): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_getter = AsyncMock(return_value=mock_nameless_entity_instance)
         mock_getter_map.get.return_value = mock_getter
 
@@ -170,7 +170,7 @@ async def test_get_localized_entity_name_nameless_entity(mock_db_session: AsyncS
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_plain_name_fallback(mock_db_session: AsyncSession, mock_plain_name_entity_instance: MagicMock): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_getter = AsyncMock(return_value=mock_plain_name_entity_instance)
         mock_getter_map.get.return_value = mock_getter
 
@@ -180,7 +180,7 @@ async def test_get_localized_entity_name_plain_name_fallback(mock_db_session: As
 
 @pytest.mark.asyncio
 async def test_get_localized_entity_name_getter_exception(mock_db_session: AsyncSession): # mock_session -> mock_db_session
-    with patch("src.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
+    with patch("backend.core.localization_utils.ENTITY_TYPE_GETTER_MAP") as mock_getter_map:
         mock_getter_with_exception = AsyncMock(side_effect=Exception("Database connection failed"))
         mock_getter_map.get.return_value = mock_getter_with_exception
 
@@ -190,7 +190,7 @@ async def test_get_localized_entity_name_getter_exception(mock_db_session: Async
 # The test `test_get_localized_entity_name_generic_getter_fallback` was removed
 # because the generic fallback mechanism using `get_entity_by_id_gino_style` and
 # `ENTITY_TYPE_MODEL_MAP` (when a specific getter is not found) has been removed
-# from `src.core.localization_utils.get_localized_entity_name`.
+# from `backend.core.localization_utils.get_localized_entity_name`.
 # The current behavior (returning a placeholder like "[entity_type ID: entity_id]")
 # is already covered by `test_get_localized_entity_name_unsupported_type`.
 
@@ -230,7 +230,7 @@ async def test_get_batch_localized_entity_names_success(mock_db_session: AsyncSe
     mock_item_crud_instance.get_many_by_ids = AsyncMock(return_value=[item1])
 
 
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
         "player": mock_player_crud_instance,
         "location": mock_location_crud_instance,
         "item": mock_item_crud_instance
@@ -265,7 +265,7 @@ async def test_get_batch_localized_entity_names_empty_input(mock_db_session: Asy
 async def test_get_batch_localized_entity_names_unsupported_type_in_batch(mock_db_session: AsyncSession): # mock_session -> mock_db_session
     guild_id = 100
     entities_to_fetch = [{"entity_type": "dragon", "entity_id": 1}]
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {}): # Ensure dragon is not in map
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {}): # Ensure dragon is not in map
         names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
     assert names_cache[("dragon", 1)] == "[dragon ID: 1 (No CRUD)]" # Исправлено
 
@@ -278,7 +278,7 @@ async def test_get_batch_localized_entity_names_crud_exception(mock_db_session: 
     mock_player_crud_failing = MagicMock()
     mock_player_crud_failing.get_many_by_ids = AsyncMock(side_effect=Exception("DB error"))
 
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {"player": mock_player_crud_failing}):
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {"player": mock_player_crud_failing}):
         names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
 
     assert names_cache[("player", 1)] == "[player ID: 1 (Error)]" # Исправлено P -> p
@@ -297,7 +297,7 @@ async def test_get_batch_localized_entity_names_all_entities_not_found(mock_db_s
     mock_location_crud_instance = MagicMock()
     mock_location_crud_instance.get_many_by_ids = AsyncMock(return_value=[]) # No locations found
 
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
         "player": mock_player_crud_instance,
         "location": mock_location_crud_instance,
     }):
@@ -334,7 +334,7 @@ async def test_get_batch_localized_entity_names_fallback_and_nameless(mock_db_se
     mock_location_crud_instance = MagicMock()
     mock_location_crud_instance.get_many_by_ids = AsyncMock(return_value=[entity_no_name])
 
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {
         "player": mock_player_crud_instance,
         "location": mock_location_crud_instance,
     }):
@@ -363,7 +363,7 @@ async def test_get_batch_localized_entity_names_invalid_refs_skipped(mock_db_ses
     mock_player_crud_instance = MagicMock()
     mock_player_crud_instance.get_many_by_ids = AsyncMock(return_value=[player1])
 
-    with patch("src.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {"player": mock_player_crud_instance}):
+    with patch("backend.core.localization_utils.ENTITY_TYPE_CRUD_MAP", {"player": mock_player_crud_instance}):
         with patch.object(localization_utils_logger, 'warning') as mock_logger_warning: # Assuming logger is named localization_utils_logger
             names_cache = await get_batch_localized_entity_names(mock_db_session, guild_id, entities_to_fetch, "en")
 
@@ -377,5 +377,5 @@ async def test_get_batch_localized_entity_names_invalid_refs_skipped(mock_db_ses
     # For now, checking call_count is a good indicator.
 
 # Need to import logger from the module to patch it correctly
-from src.core import localization_utils as localization_utils_module
+from backend.core import localization_utils as localization_utils_module
 localization_utils_logger = localization_utils_module.logger

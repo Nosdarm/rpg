@@ -9,7 +9,7 @@ if PROJECT_ROOT not in sys.path:
 import pytest
 from pydantic import ValidationError
 
-from src.models.command_info import (
+from backend.models.command_info import (
     CommandParameterInfo,
     CommandInfo,
     CommandListResponse

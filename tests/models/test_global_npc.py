@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from src.models.global_npc import GlobalNpc
+from backend.models.global_npc import GlobalNpc
 
 class TestGlobalNpcModel(unittest.TestCase):
 

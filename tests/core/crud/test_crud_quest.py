@@ -5,17 +5,17 @@ import sqlalchemy as sa # Добавлен импорт sa
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import select # Уточнен импорт select
 
-from src.models.quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress
-from src.models.enums import QuestStatus, RelationshipEntityType
-from src.core.crud.crud_quest import (
+from backend.models.quest import Questline, GeneratedQuest, QuestStep, PlayerQuestProgress
+from backend.models.enums import QuestStatus, RelationshipEntityType
+from backend.core.crud.crud_quest import (
     questline_crud,
     generated_quest_crud,
     quest_step_crud,
     player_quest_progress_crud
 )
-from src.models.guild import GuildConfig # Для создания GuildConfig
-from src.models.player import Player # Для создания Player
-from src.models.party import Party # Для создания Party
+from backend.models.guild import GuildConfig # Для создания GuildConfig
+from backend.models.player import Player # Для создания Player
+from backend.models.party import Party # Для создания Party
 
 # Вспомогательная функция для создания мок-сессии и результата
 def _get_mock_session_with_result(result_value):

@@ -13,15 +13,15 @@ from sqlalchemy import event, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT, JSON
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType # Removed LocationJsonBForSQLite
-from src.models.player import Player # Needed for leader_player_id
-from src.models.party import Party, PartyTurnStatus
-from src.core.crud.crud_party import party_crud
-from src.core.crud.crud_location import location_crud
-from src.core.crud.crud_player import player_crud # For creating leader player
-from src.models.custom_types import JsonBForSQLite
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.location import Location, LocationType # Removed LocationJsonBForSQLite
+from backend.models.player import Player # Needed for leader_player_id
+from backend.models.party import Party, PartyTurnStatus
+from backend.core.crud.crud_party import party_crud
+from backend.core.crud.crud_location import location_crud
+from backend.core.crud.crud_player import player_crud # For creating leader player
+from backend.models.custom_types import JsonBForSQLite
 
 
 # Event listeners for SQLite compatibility
@@ -41,7 +41,7 @@ def _player_column_reflect_crud_party(inspector, table, column_info):
          pass
 
 # Need to import CraftingRecipe model to attach listener
-from src.models.crafting_recipe import CraftingRecipe
+from backend.models.crafting_recipe import CraftingRecipe
 
 @event.listens_for(CraftingRecipe.__table__, "column_reflect")
 def _crafting_recipe_column_reflect_crud_party(inspector, table, column_info):

@@ -12,16 +12,16 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.result import Result, ScalarResult
 
-from src.models import GuildConfig, Location, Player, GeneratedNpc, Relationship, RuleConfig
-from src.core.ai_prompt_builder import (
+from backend.models import GuildConfig, Location, Player, GeneratedNpc, Relationship, RuleConfig
+from backend.core.ai_prompt_builder import (
     prepare_ai_prompt,
     prepare_faction_relationship_generation_prompt,
     prepare_quest_generation_prompt,
     prepare_economic_entity_generation_prompt,
     prepare_dialogue_generation_prompt
 )
-from src.models.location import LocationType
-from src.models.enums import RelationshipEntityType, PlayerStatus
+from backend.models.location import LocationType
+from backend.models.enums import RelationshipEntityType, PlayerStatus
 
 async def mock_get_guild_config(session, id, guild_id=None):
     if id == 1 and (guild_id is None or guild_id == 1) :
@@ -52,14 +52,14 @@ async def mock_get_multi_npc_generic(session, guild_id, **kwargs):
 
 class TestAIPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock) # Innermost now
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.guild_config_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.crud.crud_party.party_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get_multi_by_attribute', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock) # Outermost
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock) # Innermost now
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.guild_config_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.crud.crud_party.party_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get_multi_by_attribute', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock) # Outermost
     async def test_prepare_ai_prompt_basic_scenario(
         self, mock_get_all_rules, mock_crud_relationship_get_relationship_between_entities,
         mock_generated_npc_crud_get_multi_by_attribute, mock_party_crud_get,
@@ -123,9 +123,9 @@ class TestAIPromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("npc_schema", result_prompt)
         self.assertIn("quest_schema", result_prompt)
 
-    @patch('src.core.ai_prompt_builder.guild_config_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.location_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get_multi_by_attribute', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.guild_config_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.location_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get_multi_by_attribute', new_callable=AsyncMock)
     async def test_prepare_ai_prompt_location_not_found(self, mock_get_multi_npc, mock_location_get, mock_guild_get_config_crud):
         mock_session = AsyncMock(spec=AsyncSession)
 
@@ -154,8 +154,8 @@ class TestAIPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
 class TestAIFactionPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     async def test_prepare_faction_relationship_generation_prompt_basic(
         self, mock_get_all_rules, mock_get_guild_lang
     ):
@@ -182,10 +182,10 @@ class TestAIFactionPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
 class TestAIQuestPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_player_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_player_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
     async def test_prepare_quest_generation_prompt_with_context(
         self, mock_get_loc_ctx, mock_get_player_ctx, mock_get_all_rules, mock_get_guild_lang
     ):
@@ -239,8 +239,8 @@ class TestAIQuestPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
 class TestAIEconomicPromptBuilder(unittest.IsolatedAsyncioTestCase):
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     async def test_prepare_economic_entity_generation_prompt_basic(
         self, mock_get_all_rules, mock_get_guild_lang
     ):
@@ -286,19 +286,19 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_player.level = level
         return mock_player
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     # Minimal mocks for other context functions
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_prepare_dialogue_prompt_no_relationship(
         self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
         mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
@@ -335,19 +335,19 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         mock_get_player_npc_rel.assert_called_once_with(mock_session, guild_id, player_id_test, RelationshipEntityType.PLAYER, npc_id_test, RelationshipEntityType.GENERATED_NPC)
 
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock) # for _get_guild_main_language and other rules
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock) # for _get_guild_main_language and other rules
     # Mocks for other context functions that are called but not asserted on directly in this test
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={"name": "Somewhere", "description": "A place."})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={"name": "Somewhere", "description": "A place."})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_prepare_dialogue_prompt_with_relationship_quest_hidden_context(
         self, mock_get_world_state, mock_get_memory, mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
         mock_get_all_rules, mock_get_quests_ctx, mock_get_hidden_rels_ctx, mock_get_player_npc_rel,
@@ -412,18 +412,18 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("1. 'The Stolen Locket' (step: 'Find clues in the market')", prompt)
         mock_get_quests_ctx.assert_called_once()
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     async def test_prepare_dialogue_prompt_basic_success(
         self, mock_get_rules, mock_get_world_state, mock_get_quests,
         mock_get_memory, mock_get_hidden_rels, mock_get_player_npc_rel,
@@ -519,20 +519,20 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
 
     # --- Начало тестов для Шага 3 текущего плана (влияние отношений на тон) ---
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_rule') # Not async, direct patch
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_rule') # Not async, direct patch
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     # Minimal mocks for other context functions
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_dialogue_prompt_with_positive_relationship_tone_hint(
         self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
         mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
@@ -590,19 +590,19 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
              mock_session.execute.return_value = mock_execute_result_rules
 
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_dialogue_prompt_with_negative_relationship_tone_hint(
         self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
         mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
@@ -651,19 +651,19 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None :
              mock_session.execute.return_value = mock_execute_result_rules
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_dialogue_prompt_with_neutral_relationship_default_tone_hint(
         self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
         mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
@@ -704,20 +704,20 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None :
             mock_session.execute.return_value = mock_execute_result_rules
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_rule') # Synchronous
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_rule') # Synchronous
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
     # Mocks for other context functions
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
     async def test_dialogue_prompt_no_relationship_influence_rule(
         self, mock_get_world_state, mock_get_quests_ctx, mock_get_memory_stub, mock_get_hidden_rels_ctx,
         mock_get_nearby_entities, mock_get_loc_ctx, mock_get_party_ctx,
@@ -790,8 +790,8 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
     # --- Конец тестов для Шага 3 ---
 
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
     async def test_prepare_dialogue_prompt_npc_not_found(self, mock_generated_npc_get, mock_get_guild_language_direct):
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_guild_language_direct.return_value = "en"
@@ -814,9 +814,9 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
             mock_session.execute.return_value = mock_execute_result_rules
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
     async def test_prepare_dialogue_prompt_player_not_found(self, mock_get_player, mock_get_npc, mock_get_lang):
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_lang.return_value = "en"
@@ -839,18 +839,18 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
             mock_session.execute.return_value = mock_execute_result_rules
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock)
     async def test_dialogue_history_inclusion(
         self, mock_world_state, mock_quests, mock_hidden_rels, mock_player_npc_rel,
         mock_nearby_entities, mock_loc_ctx, mock_party_ctx, mock_rules,
@@ -894,20 +894,20 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Adventurer: Any news?", prompt)
         self.assertIn("Adventurer says to you: \"What about the old ruins?\"", prompt)
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
     # Mock all other context-gathering functions to return empty/neutral values
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
-    @patch('src.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
+    @patch('backend.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
     async def test_prepare_dialogue_prompt_with_nlu_data(
         self, mock_get_rule, mock_get_all_rules, mock_get_world_state, mock_get_quests,
         mock_get_memory, mock_get_hidden_rels, mock_get_player_npc_rel,
@@ -950,19 +950,19 @@ class TestDialoguePromptBuilder(unittest.IsolatedAsyncioTestCase):
         if not hasattr(mock_session.execute, 'side_effect') or mock_session.execute.side_effect is None:
             mock_session.execute.return_value = mock_execute_result_rules
 
-    @patch('src.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
-    @patch('src.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
-    @patch('src.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
-    @patch('src.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
-    @patch('src.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
-    @patch('src.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
-    @patch('src.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
+    @patch('backend.core.ai_prompt_builder._get_guild_main_language', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.generated_npc_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder.player_crud.get', new_callable=AsyncMock)
+    @patch('backend.core.ai_prompt_builder._get_party_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_location_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder._get_nearby_entities_context', new_callable=AsyncMock, return_value={"npcs": []})
+    @patch('backend.core.ai_prompt_builder.crud_relationship.get_relationship_between_entities', new_callable=AsyncMock, return_value=None)
+    @patch('backend.core.ai_prompt_builder._get_hidden_relationships_context_for_dialogue', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_npc_memory_context_stub', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_quests_context', new_callable=AsyncMock, return_value=[])
+    @patch('backend.core.ai_prompt_builder._get_world_state_context', new_callable=AsyncMock, return_value={})
+    @patch('backend.core.ai_prompt_builder.get_all_rules_for_guild', new_callable=AsyncMock, return_value={"guild_main_language": "en"})
+    @patch('backend.core.ai_prompt_builder.get_rule', new_callable=AsyncMock) # Changed to AsyncMock
     async def test_prepare_dialogue_prompt_with_nlu_unknown_intent(
         self, mock_get_rule, mock_get_all_rules, mock_get_world_state, mock_get_quests,
         mock_get_memory, mock_get_hidden_rels, mock_get_player_npc_rel,

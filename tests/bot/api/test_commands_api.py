@@ -16,16 +16,16 @@ import discord # Added import for discord
 
 # Важно: FastAPI приложение должно быть импортировано ПОСЛЕ sys.path modification
 # и ПОСЛЕ того, как моки для зависимостей, используемых при импорте, могут быть установлены.
-# В данном случае, главный app из src.main импортирует src.bot.api.commands_api,
-# который импортирует src.core.command_utils.
-# Главное, чтобы src.main был доступен.
+# В данном случае, главный app из backend.main импортирует backend.bot.api.commands_api,
+# который импортирует backend.core.command_utils.
+# Главное, чтобы backend.main был доступен.
 
-from src.main import app # Импортируем FastAPI app из src.main
-from src.main import app # Импортируем FastAPI app из src.main
-from src.models.command_info import CommandInfo, CommandListResponse
-from src.bot.core import BotCore # Импортируем BotCore для спека
+from backend.main import app # Импортируем FastAPI app из backend.main
+from backend.main import app # Импортируем FastAPI app из backend.main
+from backend.models.command_info import CommandInfo, CommandListResponse
+from backend.bot.core import BotCore # Импортируем BotCore для спека
 
-from src.bot.api.commands_api import get_bot_instance as actual_get_bot_instance # Импортируем реальную зависимость
+from backend.bot.api.commands_api import get_bot_instance as actual_get_bot_instance # Импортируем реальную зависимость
 
 # Фикстура для мока экземпляра бота
 @pytest.fixture
@@ -54,14 +54,14 @@ def override_bot_dependency(mock_bot_api_instance: AsyncMock):
 # Тесты для API эндпоинта /commands/
 def test_list_bot_commands_success_empty(client: TestClient, mocker, mock_bot_api_instance: AsyncMock):
     # Мокаем get_bot_commands, чтобы вернуть пустой список
-    mocked_get_commands = mocker.patch("src.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
+    mocked_get_commands = mocker.patch("backend.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
     mocked_get_commands.return_value = []
 
     response = client.get("/api/v1/commands/")
     assert response.status_code == 200
     data = response.json()
     assert data["commands"] == []
-    from src.config import settings # Импорт для доступа к BOT_LANGUAGE
+    from backend.config import settings # Импорт для доступа к BOT_LANGUAGE
     assert data["language_code"] == settings.BOT_LANGUAGE # Ожидаем язык по умолчанию
     # Убедимся, что mock_bot_api_instance был передан в get_bot_commands
     mocked_get_commands.assert_called_once_with(bot=mock_bot_api_instance, guild_id=None, language=settings.BOT_LANGUAGE)
@@ -72,7 +72,7 @@ def test_list_bot_commands_success_with_data_and_lang(client: TestClient, mocker
         CommandInfo(name="help", description="Shows help", parameters=[]),
     ]
     # Мокаем get_bot_commands
-    mocked_get_commands = mocker.patch("src.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
+    mocked_get_commands = mocker.patch("backend.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
     mocked_get_commands.return_value = sample_commands
 
     response = client.get("/api/v1/commands/?lang=ru&guild_id=123")
@@ -87,9 +87,9 @@ def test_list_bot_commands_success_with_data_and_lang(client: TestClient, mocker
     mocked_get_commands.assert_called_once_with(bot=mock_bot_api_instance, guild_id=123, language="ru")
 
 def test_list_bot_commands_uses_default_language_if_none_provided(client: TestClient, mocker, mock_bot_api_instance: AsyncMock):
-    from src.config import settings # Импортируем здесь, чтобы получить актуальное значение
+    from backend.config import settings # Импортируем здесь, чтобы получить актуальное значение
 
-    mocked_get_commands = mocker.patch("src.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
+    mocked_get_commands = mocker.patch("backend.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
     mocked_get_commands.return_value = [] # Содержимое не важно, важны параметры вызова
 
     response = client.get("/api/v1/commands/")
@@ -102,13 +102,13 @@ def test_list_bot_commands_uses_default_language_if_none_provided(client: TestCl
 
 def test_list_bot_commands_internal_error(client: TestClient, mocker, mock_bot_api_instance: AsyncMock):
     # Мокаем get_bot_commands, чтобы он вызывал исключение
-    mocked_get_commands = mocker.patch("src.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
+    mocked_get_commands = mocker.patch("backend.bot.api.commands_api.get_bot_commands", new_callable=AsyncMock)
     mocked_get_commands.side_effect = Exception("Internal processing error")
 
     response = client.get("/api/v1/commands/")
     assert response.status_code == 500
     data = response.json()
-    from src.config import settings # Импортируем здесь для языка по умолчанию
+    from backend.config import settings # Импортируем здесь для языка по умолчанию
     expected_lang = settings.BOT_LANGUAGE
     assert data["detail"] == "Failed to retrieve bot commands."
     # Проверяем, что get_bot_commands был вызван с моком бота

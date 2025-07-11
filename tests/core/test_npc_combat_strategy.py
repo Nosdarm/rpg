@@ -11,16 +11,16 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.npc_combat_strategy import (
+from backend.core.npc_combat_strategy import (
     _get_npc_ai_rules, _is_hostile, _get_potential_targets,
     _calculate_target_score, _get_available_abilities, _choose_action,
     get_npc_combat_action
 )
-from src.models.generated_npc import GeneratedNpc
-from src.models.player import Player
-from src.models.combat_encounter import CombatEncounter
-from src.models.enums import CombatParticipantType as EntityType
-from src.models.relationship import Relationship
+from backend.models.generated_npc import GeneratedNpc
+from backend.models.player import Player
+from backend.models.combat_encounter import CombatEncounter
+from backend.models.enums import CombatParticipantType as EntityType
+from backend.models.relationship import Relationship
 
 class TestNPCCombatStrategy:
 
@@ -109,7 +109,7 @@ class TestNPCCombatStrategy:
             if key == "ai_behavior:npc_default_strategy": return base_npc_rules_from_db
             if key == "relationship_influence:npc_combat:behavior": return specific_rel_rules_from_db
             return default
-        with patch('src.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
+        with patch('backend.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
             compiled_rules = await _get_npc_ai_rules(mock_session, 100, mock_actor_npc, mock_combat_encounter, actor_hidden_relationships=None)
         assert compiled_rules["target_selection"]["priority_order"] == ["lowest_hp_percentage"]
         assert compiled_rules["action_selection"]["offensive_bias"] == 0.8
@@ -134,7 +134,7 @@ class TestNPCCombatStrategy:
             if key == f"hidden_relationship_effects:npc_combat:{hidden_rel_npc_to_player.relationship_type}": return rule_for_hidden_secret_positive
             if key == "hidden_relationship_effects:npc_combat:secret_positive_to_entity": return {"enabled": True, "priority":10, "target_score_modifier_formula": "value * 0.1"}
             return default
-        with patch('src.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
+        with patch('backend.core.npc_combat_strategy.get_rule', AsyncMock(side_effect=mock_get_rule_side_effect)):
             compiled_rules = await _get_npc_ai_rules(mock_session, 100, mock_actor_npc, mock_combat_encounter, actor_hidden_relationships=actor_hidden_rels)
         assert "parsed_hidden_relationship_combat_effects" in compiled_rules
         hidden_effects_list = compiled_rules["parsed_hidden_relationship_combat_effects"]
@@ -182,7 +182,7 @@ class TestNPCCombatStrategy:
     @pytest.mark.asyncio
     async def test_is_hostile_player_default_hostile(self, mock_session, mock_actor_npc, mock_target_player, mock_ai_rules):
         target_player_combat_info = {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 100}
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_player_combat_info, mock_target_player, mock_ai_rules)
             assert hostile is True
 
@@ -190,7 +190,7 @@ class TestNPCCombatStrategy:
     async def test_is_hostile_explicitly_friendly_relationship_player(self, mock_session, mock_actor_npc, mock_target_player, mock_ai_rules):
         target_player_combat_info = {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 100}
         mock_ai_rules["target_selection"]["hostility_rules"]["relationship_friendly_threshold"] = 20
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=25)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=25)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_player_combat_info, mock_target_player, mock_ai_rules)
             assert hostile is False
 
@@ -198,7 +198,7 @@ class TestNPCCombatStrategy:
     async def test_is_hostile_explicitly_hostile_relationship_npc(self, mock_session, mock_actor_npc, mock_target_npc_friendly_faction, mock_ai_rules):
         target_npc_combat_info = {"id": mock_target_npc_friendly_faction.id, "type": EntityType.NPC.value, "hp": 30}
         mock_ai_rules["target_selection"]["hostility_rules"]["relationship_hostile_threshold"] = -50
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-60)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-60)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_friendly_faction, mock_ai_rules)
             assert hostile is True
 
@@ -206,14 +206,14 @@ class TestNPCCombatStrategy:
     async def test_is_hostile_same_faction_npc_friendly_by_default(self, mock_session, mock_actor_npc, mock_target_npc_friendly_faction, mock_ai_rules):
         target_npc_combat_info = {"id": mock_target_npc_friendly_faction.id, "type": EntityType.NPC.value, "hp": 30}
         mock_ai_rules["target_selection"]["hostility_rules"]["same_faction_is_friendly"] = True
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_friendly_faction, mock_ai_rules)
             assert hostile is False
 
     @pytest.mark.asyncio
     async def test_is_hostile_different_faction_npc_hostile_by_default(self, mock_session, mock_actor_npc, mock_target_npc_hostile, mock_ai_rules):
         target_npc_combat_info = {"id": mock_target_npc_hostile.id, "type": EntityType.NPC.value, "hp": 40}
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=None)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_hostile, mock_ai_rules)
             assert hostile is True
 
@@ -224,7 +224,7 @@ class TestNPCCombatStrategy:
         mock_ai_rules_custom["relationship_influence"]["npc_combat"]["behavior"]["hostility_threshold_modifier_formula"] = "-(relationship_value / 10)"
         mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_hostile_threshold"] = -20
         mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_friendly_threshold"] = 20
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_player_combat_info, mock_target_player, mock_ai_rules_custom)
             assert hostile is False
 
@@ -236,7 +236,7 @@ class TestNPCCombatStrategy:
         mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_hostile_threshold"] = -20
         mock_ai_rules_custom["target_selection"]["hostility_rules"]["relationship_friendly_threshold"] = 20
         mock_ai_rules_custom["target_selection"]["hostility_rules"]["same_faction_is_friendly"] = True
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_npc_combat_info, mock_target_npc_friendly_faction, mock_ai_rules_custom)
             assert hostile is True
 
@@ -247,9 +247,9 @@ class TestNPCCombatStrategy:
         target_info["combat_data"]["threat_generated_towards_actor"] = 20
         mock_ai_rules_custom = mock_ai_rules.copy()
         mock_ai_rules_custom["relationship_influence"]["npc_combat"]["behavior"]["target_score_modifier_formula"] = "-(relationship_value * 0.2)"
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
             score_friendly = await _calculate_target_score(mock_session, 100, mock_actor_npc, target_info, metric, mock_ai_rules_custom, mock_combat_encounter)
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
             score_hostile = await _calculate_target_score(mock_session, 100, mock_actor_npc, target_info, metric, mock_ai_rules_custom, mock_combat_encounter)
         base_threat_calculated = 20 * 1.5
         expected_score_friendly = base_threat_calculated - (50 * 0.2)
@@ -260,7 +260,7 @@ class TestNPCCombatStrategy:
     @pytest.mark.asyncio
     async def test_is_hostile_hidden_relationship_override_friendly(self, mock_session, mock_actor_npc, mock_target_player, mock_ai_rules_with_hidden_effects ):
         target_player_combat_info = {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 100}
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
             hostile = await _is_hostile(mock_session, 100, mock_actor_npc, target_player_combat_info, mock_target_player, mock_ai_rules_with_hidden_effects )
             assert hostile is False
 
@@ -268,7 +268,7 @@ class TestNPCCombatStrategy:
     async def test_calculate_target_score_hidden_relationship_modifier(self, mock_session, mock_actor_npc, mock_target_player, mock_ai_rules_with_hidden_effects, mock_combat_encounter):
         target_info = {"entity": mock_target_player, "combat_data": {"id": mock_target_player.id, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100, "threat_generated_towards_actor": 10}}
         metric = "highest_threat_score"
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
             score = await _calculate_target_score(mock_session, 100, mock_actor_npc, target_info, metric, mock_ai_rules_with_hidden_effects, mock_combat_encounter)
         expected_base_threat = 10 * mock_ai_rules_with_hidden_effects["target_selection"]["threat_factors"]["damage_dealt_to_self_factor"]
         expected_final_score = expected_base_threat + (70 * 0.1)
@@ -284,8 +284,8 @@ class TestNPCCombatStrategy:
             if action_details.get("type") == "attack": return 10.0
             if action_details.get("ability_props", {}).get("static_id") == "tactical_buff": return 8.0
             return 1.0
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
-            with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=0)):
+            with patch('backend.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
                 chosen_action = await _choose_action( mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules_with_hidden_effects, mock_combat_encounter)
         assert chosen_action.get("ability_props", {}).get("static_id") == "tactical_buff"
         mock_actor_npc.properties_json["abilities"].pop()
@@ -303,8 +303,8 @@ class TestNPCCombatStrategy:
             if p_info_dict.get("id") == mock_target_npc_hostile.id: return True
             if p_info_dict.get("id") == mock_target_npc_friendly_faction.id: return False
             return False
-        with patch('src.core.npc_combat_strategy._get_participant_entity', AsyncMock(side_effect=mock_get_entity_side_effect)):
-            with patch('src.core.npc_combat_strategy._is_hostile', AsyncMock(side_effect=mock_is_hostile_side_effect)):
+        with patch('backend.core.npc_combat_strategy._get_participant_entity', AsyncMock(side_effect=mock_get_entity_side_effect)):
+            with patch('backend.core.npc_combat_strategy._is_hostile', AsyncMock(side_effect=mock_is_hostile_side_effect)):
                 participants_list_for_test = mock_combat_encounter.participants_json
                 # Ensure participants_list_for_test is a list before passing
                 if not isinstance(participants_list_for_test, list):
@@ -338,13 +338,13 @@ class TestNPCCombatStrategy:
         assert quick_stab_ability_props is not None
         chosen_action_details_from_chooser = { "type": "ability", "name": "Quick Stab", "ability_props": quick_stab_ability_props }
         expected_formatted_action = { "action_type": "ability", "target_id": mock_target_player.id, "target_type": EntityType.PLAYER.value, "ability_id": "quick_stab" }
-        with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_loaded_npc)):
-            with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_loaded_combat_encounter)):
-                with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
-                    with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
-                        with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[selected_target_info])):
-                            with patch('src.core.npc_combat_strategy._select_target', AsyncMock(return_value=selected_target_info)):
-                                with patch('src.core.npc_combat_strategy._choose_action', AsyncMock(return_value=chosen_action_details_from_chooser)):
+        with patch('backend.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_loaded_npc)):
+            with patch('backend.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_loaded_combat_encounter)):
+                with patch('backend.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
+                    with patch('backend.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
+                        with patch('backend.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[selected_target_info])):
+                            with patch('backend.core.npc_combat_strategy._select_target', AsyncMock(return_value=selected_target_info)):
+                                with patch('backend.core.npc_combat_strategy._choose_action', AsyncMock(return_value=chosen_action_details_from_chooser)):
                                     action_result = await get_npc_combat_action( mock_session, mock_actor_npc.guild_id if mock_actor_npc.guild_id is not None else -1, mock_actor_npc.id if mock_actor_npc.id is not None else -1, mock_combat_encounter.id if mock_combat_encounter.id is not None else -1 )
                                     assert mock_target_player.id is not None
                                     assert action_result.get("action_type") == expected_formatted_action.get("action_type")
@@ -364,9 +364,9 @@ class TestNPCCombatStrategy:
                 defeated_actor_combat_data = p_data
                 break
         assert defeated_actor_combat_data is not None and defeated_actor_combat_data.get("current_hp") == 0
-        with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc_defeated_data)):
-            with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
-                with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
+        with patch('backend.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc_defeated_data)):
+            with patch('backend.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
+                with patch('backend.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
                     action_result = await get_npc_combat_action( mock_session, mock_actor_npc_defeated_data.guild_id if mock_actor_npc_defeated_data.guild_id is not None else -1, mock_actor_npc_defeated_data.id if mock_actor_npc_defeated_data.id is not None else -1, mock_combat_encounter.id if mock_combat_encounter.id is not None else -1 )
                     assert action_result == {"action_type": "idle", "reason": "Actor is defeated."}
         if defeated_actor_combat_data:
@@ -376,11 +376,11 @@ class TestNPCCombatStrategy:
 
     @pytest.mark.asyncio
     async def test_get_npc_combat_action_no_targets_available(self, mock_session, mock_actor_npc, mock_combat_encounter, mock_ai_rules):
-        with patch('src.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc)):
-            with patch('src.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
-                with patch('src.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
-                    with patch('src.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
-                        with patch('src.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])) as mock_get_targets:
+        with patch('backend.core.npc_combat_strategy._get_npc_data', AsyncMock(return_value=mock_actor_npc)):
+            with patch('backend.core.npc_combat_strategy._get_combat_encounter_data', AsyncMock(return_value=mock_combat_encounter)):
+                with patch('backend.core.npc_combat_strategy.crud_relationship.get_relationships_for_entity', AsyncMock(return_value=[])):
+                    with patch('backend.core.npc_combat_strategy._get_npc_ai_rules', AsyncMock(return_value=mock_ai_rules)):
+                        with patch('backend.core.npc_combat_strategy._get_potential_targets', AsyncMock(return_value=[])) as mock_get_targets:
                             action_result = await get_npc_combat_action( mock_session, mock_actor_npc.guild_id if mock_actor_npc.guild_id is not None else -1, mock_actor_npc.id if mock_actor_npc.id is not None else -1, mock_combat_encounter.id if mock_combat_encounter.id is not None else -1 )
                             mock_get_targets.assert_called_once()
                             assert action_result == {"action_type": "idle", "reason": "No targets available."}
@@ -390,14 +390,14 @@ class TestNPCCombatStrategy:
         actor_combat_data = {"id": mock_actor_npc.id if mock_actor_npc.id is not None else -1, "type": EntityType.NPC.value, "hp": 30, "max_hp": 50, "resources": {"mana": 10}, "cooldowns": {}}
         target_info_combat_data = {"id": mock_target_player.id if mock_target_player.id is not None else -1, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}
         target_info = {"entity": mock_target_player, "combat_data": target_info_combat_data }
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=50)):
             async def mock_eval_effectiveness_v2(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
                 if action_details.get("type") == "attack": return 10.0
                 elif action_details.get("ability_props", {}).get("static_id") == "self_heal_low": return 9.0
                 elif action_details.get("ability_props", {}).get("static_id") == "strong_hit": return 8.0
                 elif action_details.get("ability_props", {}).get("static_id") == "quick_stab": return 7.0
                 return 1.0
-            with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness_v2)):
+            with patch('backend.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness_v2)):
                 chosen_action = await _choose_action(mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules, mock_combat_encounter)
         assert chosen_action.get("ability_props", {}).get("static_id") == "self_heal_low"
 
@@ -406,13 +406,13 @@ class TestNPCCombatStrategy:
         actor_combat_data = {"id": mock_actor_npc.id if mock_actor_npc.id is not None else -1, "type": EntityType.NPC.value, "hp": 50, "max_hp":50, "resources": {"mana": 10}, "cooldowns": {}}
         target_info_combat_data = {"id": mock_target_player.id if mock_target_player.id is not None else -1, "type": EntityType.PLAYER.value, "hp": 80, "max_hp": 100}
         target_info = {"entity": mock_target_player, "combat_data": target_info_combat_data}
-        with patch('src.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
+        with patch('backend.core.npc_combat_strategy._get_relationship_value', AsyncMock(return_value=-50)):
             async def mock_eval_effectiveness(session, guild_id, actor_npc_eval, actor_data_eval, target_info_eval, action_details, ai_rules_eval):
                 if action_details.get("ability_props", {}).get("static_id") == "strong_hit": return 10.0
                 if action_details.get("type") == "attack": return 9.0
                 if action_details.get("ability_props", {}).get("static_id") == "quick_stab": return 8.0
                 if action_details.get("ability_props", {}).get("static_id") == "self_heal_low": return 7.0
                 return 1.0
-            with patch('src.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
+            with patch('backend.core.npc_combat_strategy._evaluate_action_effectiveness', AsyncMock(side_effect=mock_eval_effectiveness)):
                 chosen_action = await _choose_action(mock_session, 100, mock_actor_npc, actor_combat_data, target_info, mock_ai_rules, mock_combat_encounter)
         assert chosen_action.get("ability_props", {}).get("static_id") == "strong_hit"

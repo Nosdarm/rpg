@@ -12,10 +12,10 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import event, JSON, select
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.rule_config import RuleConfig
-from src.core.rules import (
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.rule_config import RuleConfig
+from backend.core.rules import (
     load_rules_config_for_guild,
     get_rule,
     update_rule_config,
@@ -88,7 +88,7 @@ async def test_load_rules_config_populates_cache(db_session: AsyncSession):
 async def test_get_rule_cache_hit(db_session: AsyncSession):
     _rules_cache[DEFAULT_GUILD_ID] = {"cached_key": "cached_value"}
 
-    with patch("src.core.rules.load_rules_config_for_guild", new_callable=AsyncMock) as mock_load_rules:
+    with patch("backend.core.rules.load_rules_config_for_guild", new_callable=AsyncMock) as mock_load_rules:
         value = await get_rule(db_session, DEFAULT_GUILD_ID, "cached_key", "default")
         assert value == "cached_value"
         mock_load_rules.assert_not_called()
@@ -192,7 +192,7 @@ async def test_get_all_rules_for_guild_uses_cache(db_session: AsyncSession):
     cached_rules = {"cached_rule": "cached_val"}
     _rules_cache[DEFAULT_GUILD_ID] = cached_rules
 
-    with patch("src.core.rules.load_rules_config_for_guild", new_callable=AsyncMock) as mock_load_rules:
+    with patch("backend.core.rules.load_rules_config_for_guild", new_callable=AsyncMock) as mock_load_rules:
         rules = await get_all_rules_for_guild(db_session, DEFAULT_GUILD_ID)
         assert rules == cached_rules
         mock_load_rules.assert_not_called()

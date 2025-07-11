@@ -10,9 +10,9 @@ import discord
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.master_commands.monitoring_master_commands import MasterMonitoringCog
-from src.models import StoryLog, EventType, Player, RuleConfig, Location, LocationType
-from src.models.enums import PlayerStatus
+from backend.bot.commands.master_commands.monitoring_master_commands import MasterMonitoringCog
+from backend.models import StoryLog, EventType, Player, RuleConfig, Location, LocationType
+from backend.models.enums import PlayerStatus
 
 def create_mock_interaction(guild_id: int, user_id: int, locale: str = "en") -> MagicMock:
     interaction = MagicMock(spec=discord.Interaction)
@@ -38,7 +38,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.bot_mock = AsyncMock(spec=commands.Bot)
         self.cog = MasterMonitoringCog(self.bot_mock)
 
-        self.patcher_core_get_rule = patch('src.core.rules.get_rule', new_callable=AsyncMock)
+        self.patcher_core_get_rule = patch('backend.core.rules.get_rule', new_callable=AsyncMock)
         self.mock_core_get_rule = self.patcher_core_get_rule.start()
         self.mock_core_get_rule.return_value = None
         self.mock_core_get_rule.side_effect = None
@@ -47,7 +47,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.mock_master_player = MagicMock(spec=Player)
 
         self.patch_ensure_guild = patch(
-            "src.bot.commands.master_commands.monitoring_master_commands.ensure_guild_configured_and_get_session",
+            "backend.bot.commands.master_commands.monitoring_master_commands.ensure_guild_configured_and_get_session",
             return_value=(self.mock_master_player, self.mock_session)
         )
         self.mock_ensure_guild_func = self.patch_ensure_guild.start()
@@ -59,13 +59,13 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
             return fallback_text_if_not_found if fallback_text_if_not_found is not None else ""
 
         self.patcher_loc_utils_get_localized_text = patch(
-             "src.core.localization_utils.get_localized_text",
+             "backend.core.localization_utils.get_localized_text",
              side_effect=get_localized_text_side_effect_mock
         )
         self.mock_loc_utils_get_localized_text_func = self.patcher_loc_utils_get_localized_text.start()
 
         # Patch get_batch_localized_entity_names at its source
-        self.patcher_get_batch_names = patch("src.core.localization_utils.get_batch_localized_entity_names", new_callable=AsyncMock)
+        self.patcher_get_batch_names = patch("backend.core.localization_utils.get_batch_localized_entity_names", new_callable=AsyncMock)
         self.mock_get_batch_names = self.patcher_get_batch_names.start()
         # Default behavior for tests that don't care about specific names
         self.mock_get_batch_names.return_value = {}
@@ -79,9 +79,9 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.patcher_get_batch_names.stop()
         patch.stopall()
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.player_crud.get", new_callable=AsyncMock)
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.get", new_callable=AsyncMock)
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.party_crud.get", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.player_crud.get", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.location_crud.get", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.party_crud.get", new_callable=AsyncMock)
     # Removed incorrect patch for get_localized_player_name
     async def test_entities_view_player_found(self, mock_party_get: AsyncMock, mock_location_get: AsyncMock, mock_player_get: AsyncMock, player_id: int = 77): # player_id is not a fixture here, but example for type ignore if it were a direct param causing issues
         interaction = create_mock_interaction(guild_id=1, user_id=100, locale="en")
@@ -176,7 +176,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Attributes", field_names) # Default template
         self.assertEqual(f"```json\n{str(mock_player.attributes_json)}\n```", field_values.get("Attributes"))
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get", new_callable=AsyncMock)
     # get_batch_localized_entity_names is now patched in asyncSetUp
     async def test_log_view_found(self, mock_story_log_get: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100, locale="en")
@@ -216,7 +216,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("Location ID", sent_embed.fields[3].name) # Default template
         self.assertEqual(str(mock_log_entry.location_id), sent_embed.fields[3].value)
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get", new_callable=AsyncMock)
     async def test_log_view_not_found(self, mock_story_log_get: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100)
         log_id_to_view = 404
@@ -224,8 +224,8 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         await self.cog.log_view.callback(self.cog, interaction, log_id=log_id_to_view)
         interaction.followup.send.assert_called_once_with(f"Log entry with ID {log_id_to_view} not found.", ephemeral=True)
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.count_by_guild_with_filters", new_callable=AsyncMock)
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get_multi_by_guild_with_filters", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.count_by_guild_with_filters", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get_multi_by_guild_with_filters", new_callable=AsyncMock)
     async def test_log_list_success(self, mock_get_multi: AsyncMock, mock_count: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100)
         page, limit = 1, 5; total_entries = 2
@@ -248,8 +248,8 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         total_pages = (total_entries + limit - 1) // limit
         self.assertEqual(f"Page {page}/{total_pages} ({total_entries} entries)", sent_embed.footer.text)
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.count_by_guild_with_filters", new_callable=AsyncMock)
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get_multi_by_guild_with_filters", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.count_by_guild_with_filters", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.story_log_crud.get_multi_by_guild_with_filters", new_callable=AsyncMock)
     async def test_log_list_empty(self, mock_get_multi: AsyncMock, mock_count: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100)
         page, limit = 1, 5
@@ -258,7 +258,7 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         await self.cog.log_list.callback(self.cog, interaction, page=page, limit=limit, event_type_filter=None)
         interaction.followup.send.assert_called_once_with(f"No log entries found on page {page}.", ephemeral=True)
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.rule_config_crud.get_by_key", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.rule_config_crud.get_by_key", new_callable=AsyncMock)
     async def test_worldstate_get_found(self, mock_rule_get_by_key: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100)
         key_to_get = "worldstate:test_flag"
@@ -280,8 +280,8 @@ class TestMasterMonitoringCog(unittest.IsolatedAsyncioTestCase):
         # In this test, rule_entry.description is "A test flag".
         self.assertEqual(mock_rule_entry.description, sent_embed.fields[1].value)
 
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.count", new_callable=AsyncMock)
-    @patch("src.bot.commands.master_commands.monitoring_master_commands.location_crud.get_multi", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.location_crud.count", new_callable=AsyncMock)
+    @patch("backend.bot.commands.master_commands.monitoring_master_commands.location_crud.get_multi", new_callable=AsyncMock)
     async def test_map_list_locations_success(self, mock_get_multi_loc: AsyncMock, mock_count_loc: AsyncMock):
         interaction = create_mock_interaction(guild_id=1, user_id=100, locale="en")
         page, limit = 1, 2; total_entries = 1

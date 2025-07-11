@@ -5,13 +5,13 @@ from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 # from sqlalchemy.orm import sessionmaker # Replaced with async_sessionmaker
 
-from src.models.base import Base
-from src.models.item import Item
-from src.models.inventory_item import InventoryItem
-from src.models.guild import GuildConfig
-from src.models.enums import OwnerEntityType
-from src.core.crud.crud_inventory_item import inventory_item_crud
-from src.core.crud.crud_item import item_crud # To create items for tests
+from backend.models.base import Base
+from backend.models.item import Item
+from backend.models.inventory_item import InventoryItem
+from backend.models.guild import GuildConfig
+from backend.models.enums import OwnerEntityType
+from backend.core.crud.crud_inventory_item import inventory_item_crud
+from backend.core.crud.crud_item import item_crud # To create items for tests
 
 # Use an in-memory SQLite database for testing
 ASYNC_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

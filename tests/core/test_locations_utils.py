@@ -13,11 +13,11 @@ from sqlalchemy import event, JSON, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator, TEXT
 
-from src.models.base import Base
-from src.models.guild import GuildConfig
-from src.models.location import Location, LocationType
-from src.core.locations_utils import get_localized_text, get_location, get_location_by_static_id
-from src.core.crud.crud_location import location_crud
+from backend.models.base import Base
+from backend.models.guild import GuildConfig
+from backend.models.location import Location, LocationType
+from backend.core.locations_utils import get_localized_text, get_location, get_location_by_static_id
+from backend.core.crud.crud_location import location_crud
 
 class JsonCompat(TypeDecorator):
     impl = TEXT
@@ -177,7 +177,7 @@ class TestLocationDBUtils(unittest.IsolatedAsyncioTestCase):
         location = await get_location_by_static_id(self.session, guild_id=self.test_guild_id + 1, static_id="loc_001")
         self.assertIsNone(location)
 
-    @patch("src.core.crud.crud_location.location_crud.get", new_callable=AsyncMock)
+    @patch("backend.core.crud.crud_location.location_crud.get", new_callable=AsyncMock)
     async def test_get_location_mocked(self, mock_crud_get):
         mock_location_instance = Location(id=1, guild_id=1, name_i18n={"en":"Mocked"})
         mock_crud_get.return_value = mock_location_instance

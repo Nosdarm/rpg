@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession # Added import
 import discord # type: ignore
 from discord.ext import commands # Added commands import
 
-from src.bot.commands.general_commands import GeneralCog
-from src.models.player import Player, PlayerStatus
-from src.models.location import Location, LocationType
-from src.models.guild import GuildConfig # Added import
-from src.bot.events import DEFAULT_STATIC_LOCATIONS # Для мокирования или проверки
+from backend.bot.commands.general_commands import GeneralCog
+from backend.models.player import Player, PlayerStatus
+from backend.models.location import Location, LocationType
+from backend.models.guild import GuildConfig # Added import
+from backend.bot.events import DEFAULT_STATIC_LOCATIONS # Для мокирования или проверки
 
 # Для удобства мокирования объектов discord.py
 class MockGuild:
@@ -48,7 +48,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         # Патчим get_db_session, чтобы он возвращал мок сессии
         self.session_mock = AsyncMock()
         self.session_mock = AsyncMock(spec=AsyncSession) # Added spec for better mocking
-        self.patcher_get_db_session = patch('src.bot.commands.general_commands.get_db_session')
+        self.patcher_get_db_session = patch('backend.bot.commands.general_commands.get_db_session')
         self.mock_get_db_session = self.patcher_get_db_session.start()
         self.mock_get_db_session.return_value.__aenter__.return_value = self.session_mock
 
@@ -66,17 +66,17 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
 
         # Патчим CRUD операции
-        self.patcher_player_crud = patch('src.bot.commands.general_commands.player_crud', new_callable=AsyncMock)
+        self.patcher_player_crud = patch('backend.bot.commands.general_commands.player_crud', new_callable=AsyncMock)
         self.mock_player_crud = self.patcher_player_crud.start()
 
-        self.patcher_location_crud = patch('src.bot.commands.general_commands.location_crud', new_callable=AsyncMock)
+        self.patcher_location_crud = patch('backend.bot.commands.general_commands.location_crud', new_callable=AsyncMock)
         self.mock_location_crud = self.patcher_location_crud.start()
 
-        self.patcher_guild_crud = patch('src.bot.commands.general_commands.guild_crud', new_callable=AsyncMock)
+        self.patcher_guild_crud = patch('backend.bot.commands.general_commands.guild_crud', new_callable=AsyncMock)
         self.mock_guild_crud = self.patcher_guild_crud.start()
 
         # Мокируем DEFAULT_STATIC_LOCATIONS, если нужно контролировать его в тестах
-        self.patcher_default_locs = patch('src.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
+        self.patcher_default_locs = patch('backend.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
         self.mock_default_locs = self.patcher_default_locs.start()
 
     def _create_mock_interaction(self, user: MockUser, guild: Optional[MockGuild] = None) -> AsyncMock:

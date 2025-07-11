@@ -13,9 +13,9 @@ from unittest import mock
 import pytest
 import discord
 
-# Теперь можно импортировать из src
-from src import main as main_module
-from src.bot.core import BotCore # Убедимся, что BotCore можно импортировать
+# Теперь можно импортировать из backend
+from backend import main as main_module
+from backend.bot.core import BotCore # Убедимся, что BotCore можно импортировать
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def mock_settings(monkeypatch):
     """Мокает настройки и переменные окружения."""
     monkeypatch.setattr(main_module, 'DISCORD_BOT_TOKEN', 'fake_token')
     monkeypatch.setattr(main_module, 'LOG_LEVEL', 'DEBUG')
-    monkeypatch.setattr('src.config.settings.BOT_PREFIX', '?')
+    monkeypatch.setattr('backend.config.settings.BOT_PREFIX', '?')
 
 @pytest.fixture
 def mock_bot_core(monkeypatch):
@@ -31,7 +31,7 @@ def mock_bot_core(monkeypatch):
     mock_bot = mock.AsyncMock(spec=BotCore)
     mock_bot.is_closed.return_value = False
     mock_bot.command_prefix = "?"
-    monkeypatch.setattr('src.main.BotCore', mock.MagicMock(return_value=mock_bot))
+    monkeypatch.setattr('backend.main.BotCore', mock.MagicMock(return_value=mock_bot))
     return mock_bot
 
 @pytest.fixture

@@ -16,8 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm.attributes import flag_modified
 
 
-from src.models.base import Base
-from src.models.custom_types import JsonBForSQLite
+from backend.models.base import Base
+from backend.models.custom_types import JsonBForSQLite
 
 # --- Test Model using JsonBForSQLite ---
 class JsonTestModel(Base):

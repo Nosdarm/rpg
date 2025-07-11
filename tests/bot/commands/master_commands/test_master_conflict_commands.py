@@ -18,10 +18,10 @@ import discord
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.bot.commands.master_commands.conflict_master_commands import MasterConflictCog
-from src.models import PendingConflict
-from src.models.enums import ConflictStatus
-from src.core.crud.crud_pending_conflict import pending_conflict_crud # Direct import for patching
+from backend.bot.commands.master_commands.conflict_master_commands import MasterConflictCog
+from backend.models import PendingConflict
+from backend.models.enums import ConflictStatus
+from backend.core.crud.crud_pending_conflict import pending_conflict_crud # Direct import for patching
 
 # --- Fixtures (can be shared via conftest.py later if needed) ---
 
@@ -85,10 +85,10 @@ def mock_pending_conflict_fixture(guild_id_fixture, pending_conflict_id_fixture)
 # --- Test Cases for Signaling ---
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.conflict_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.conflict_master_commands.pending_conflict_crud', autospec=True)
-@patch('src.bot.commands.master_commands.conflict_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.turn_controller.trigger_guild_turn_processing', new_callable=AsyncMock) # Key mock for signaling
+@patch('backend.bot.commands.master_commands.conflict_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.conflict_master_commands.pending_conflict_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.conflict_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.turn_controller.trigger_guild_turn_processing', new_callable=AsyncMock) # Key mock for signaling
 @patch('asyncio.create_task', new_callable=MagicMock) # Mock asyncio.create_task
 async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
     mock_create_task: MagicMock,
@@ -177,10 +177,10 @@ async def test_resolve_conflict_triggers_reprocessing_when_no_other_conflicts(
 
 
 @pytest.mark.asyncio
-@patch('src.bot.commands.master_commands.conflict_master_commands.get_db_session')
-@patch('src.bot.commands.master_commands.conflict_master_commands.pending_conflict_crud', autospec=True)
-@patch('src.bot.commands.master_commands.conflict_master_commands.get_localized_message_template', new_callable=AsyncMock)
-@patch('src.core.turn_controller.trigger_guild_turn_processing', new_callable=AsyncMock)
+@patch('backend.bot.commands.master_commands.conflict_master_commands.get_db_session')
+@patch('backend.bot.commands.master_commands.conflict_master_commands.pending_conflict_crud', autospec=True)
+@patch('backend.bot.commands.master_commands.conflict_master_commands.get_localized_message_template', new_callable=AsyncMock)
+@patch('backend.core.turn_controller.trigger_guild_turn_processing', new_callable=AsyncMock)
 @patch('asyncio.create_task', new_callable=MagicMock)
 async def test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain(
     mock_create_task: MagicMock,

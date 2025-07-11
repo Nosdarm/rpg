@@ -10,17 +10,17 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.combat_engine import (
+from backend.core.combat_engine import (
     _get_combat_rule,
     _calculate_attribute_modifier,
     _get_participant_stat,
     process_combat_action
 )
-from src.models import Player, GeneratedNpc, CombatEncounter
-from src.models.combat_outcomes import CombatActionResult
-from src.models.check_results import CheckResult, CheckOutcome, ModifierDetail
-from src.models.enums import PlayerStatus, CombatStatus, EventType
-from src.core.rules import _rules_cache
+from backend.models import Player, GeneratedNpc, CombatEncounter
+from backend.models.combat_outcomes import CombatActionResult
+from backend.models.check_results import CheckResult, CheckOutcome, ModifierDetail
+from backend.models.enums import PlayerStatus, CombatStatus, EventType
+from backend.core.rules import _rules_cache
 
 # Фикстуры и вспомогательные функции
 
@@ -101,7 +101,7 @@ async def test_get_combat_rule_from_snapshot(mock_session: AsyncMock, mock_comba
 async def test_get_combat_rule_from_db(mock_session: AsyncMock, mock_combat_encounter: CombatEncounter):
     rule_key = "combat:attack:damage_formula"
     expected_value = "1d6"
-    with patch('src.core.combat_engine.core_get_rule', new_callable=AsyncMock) as mock_core_get_rule:
+    with patch('backend.core.combat_engine.core_get_rule', new_callable=AsyncMock) as mock_core_get_rule:
         mock_core_get_rule.return_value = expected_value
         result = await _get_combat_rule(mock_combat_encounter.rules_config_snapshot_json, mock_session, mock_combat_encounter.guild_id, rule_key, default="default_value")
         assert result == expected_value
@@ -113,7 +113,7 @@ async def test_calculate_attribute_modifier(mock_session: AsyncMock, mock_combat
     assert result_mod_16 == 3
     result_mod_7 = await _calculate_attribute_modifier(7, mock_session, 1, mock_combat_encounter.rules_config_snapshot_json)
     assert result_mod_7 == -2
-    with patch('src.core.combat_engine._get_combat_rule', new_callable=AsyncMock) as mock_get_rule:
+    with patch('backend.core.combat_engine._get_combat_rule', new_callable=AsyncMock) as mock_get_rule:
         mock_get_rule.return_value = "value // 2"
         result_custom_formula = await _calculate_attribute_modifier(20, mock_session, 1, None)
         assert result_custom_formula == 10
@@ -151,13 +151,13 @@ async def test_get_participant_stat_from_npc_model(mock_session: AsyncMock, mock
 
 # @pytest.mark.skip(reason="process_combat_action not yet implemented with full logic") # Unskip this test
 @pytest.mark.asyncio
-@patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_dice_roller.roll_dice')
-@patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_dice_roller.roll_dice')
+@patch('backend.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
 # _get_participant_stat и _calculate_attribute_modifier не мокируются, т.к. их тестируем отдельно,
 # а _get_combat_rule мокируется для контроля над правилами в тесте process_combat_action
-@patch('src.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
+@patch('backend.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
 async def test_process_combat_action_attack_hit(
     mock_get_combat_rule: AsyncMock, mock_log_event: AsyncMock, mock_roll_dice: MagicMock,
     mock_resolve_check: AsyncMock, mock_get_entity: AsyncMock, mock_session: AsyncMock,
@@ -238,7 +238,7 @@ async def test_process_combat_action_actor_not_found(mock_session: AsyncMock, mo
     mock_session.get.return_value = mock_combat_encounter # Combat encounter exists
 
     # Patch get_entity_by_id to simulate actor not found
-    with patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
+    with patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
         mock_get_entity.return_value = None # Actor not found
 
         action_data = {"action_type": "attack", "target_id": mock_player.id, "target_type": "player"} # Target can be anyone for this test
@@ -291,7 +291,7 @@ async def test_process_combat_action_target_not_in_combat(
     # Mock get_entity_by_id to return player (actor) and this other NPC (target)
     other_npc_not_in_combat = GeneratedNpc(id=777, guild_id=1, name_i18n={"en": "Other NPC"}, properties_json={"stats":{"current_hp":30}})
 
-    with patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
+    with patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
         mock_get_entity.side_effect = [mock_player, other_npc_not_in_combat] # Player (actor), Other NPC (target)
 
         action_data = {"action_type": "attack", "target_id": other_npc_not_in_combat.id, "target_type": "npc"}
@@ -318,7 +318,7 @@ async def test_process_combat_action_target_already_defeated(
                 p_data["current_hp"] = 0
                 break
 
-    with patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
+    with patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as mock_get_entity:
         mock_get_entity.side_effect = [mock_player, mock_npc]
 
         action_data = {"action_type": "attack", "target_id": mock_npc.id, "target_type": "npc"}
@@ -335,11 +335,11 @@ async def test_process_combat_action_target_already_defeated(
 
 # @pytest.mark.skip(reason="process_combat_action not yet implemented for this scenario or needs more detailed rule setup") # Unskip
 @pytest.mark.asyncio
-@patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_dice_roller.roll_dice')
-@patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_dice_roller.roll_dice')
+@patch('backend.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
 async def test_process_combat_action_attack_miss(
     mock_get_combat_rule: AsyncMock, mock_log_event: AsyncMock, mock_roll_dice: MagicMock,
     mock_resolve_check: AsyncMock, mock_get_entity: AsyncMock, mock_session: AsyncMock,
@@ -406,11 +406,11 @@ async def test_process_combat_action_attack_miss(
 
 # @pytest.mark.skip(reason="process_combat_action not yet implemented for this specific critical hit scenario") # Unskip
 @pytest.mark.asyncio
-@patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_dice_roller.roll_dice')
-@patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_dice_roller.roll_dice')
+@patch('backend.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
 async def test_process_combat_action_attack_crit_hit(
     mock_get_combat_rule: AsyncMock, mock_log_event: AsyncMock, mock_roll_dice: MagicMock,
     mock_resolve_check: AsyncMock, mock_get_entity: AsyncMock, mock_session: AsyncMock,
@@ -509,11 +509,11 @@ async def test_process_combat_action_attack_crit_hit(
 
 
 @pytest.mark.asyncio
-@patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
-@patch('src.core.combat_engine.core_dice_roller.roll_dice') # Not expected to be called for crit fail outcome if no damage
-@patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
-@patch('src.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_check_resolver.resolve_check', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.core_dice_roller.roll_dice') # Not expected to be called for crit fail outcome if no damage
+@patch('backend.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.combat_engine._get_combat_rule', new_callable=AsyncMock)
 async def test_process_combat_action_attack_crit_fail(
     mock_get_combat_rule: AsyncMock, mock_log_event: AsyncMock, mock_roll_dice: MagicMock,
     mock_resolve_check: AsyncMock, mock_get_entity: AsyncMock, mock_session: AsyncMock,
@@ -589,7 +589,7 @@ async def test_process_combat_action_unknown_action( # Removed mock_get_entity f
     # For this test, we assume actor is found if the function gets that far.
     # Let's refine this by patching it specifically for this test if needed, or ensure actor loading happens before action type check.
     # Based on current implementation, actor is loaded before action type check.
-    with patch('src.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as patched_get_entity:
+    with patch('backend.core.combat_engine.get_entity_by_id', new_callable=AsyncMock) as patched_get_entity:
         patched_get_entity.return_value = mock_player # Actor is found
 
         action_data = {"action_type": "dance", "target_id": mock_player.id, "target_type": "player"}
@@ -606,7 +606,7 @@ async def test_process_combat_action_unknown_action( # Removed mock_get_entity f
         assert "Action type 'dance' is not recognized" in description_text
 
         # Patch log_event to assert it's not called for unknown actions that return early
-        with patch('src.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock) as mock_log_event_unknown:
+        with patch('backend.core.combat_engine.core_game_events.log_event', new_callable=AsyncMock) as mock_log_event_unknown:
             # Re-run the action processing part that might call log_event
             # Note: This re-run is primarily for the mock_log_event_unknown.assert_not_called()
             # The result object is already obtained from the first call.

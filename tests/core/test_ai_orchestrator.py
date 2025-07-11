@@ -15,12 +15,12 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext import commands
 
-from src.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
-from src.models import (
+from backend.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
+from backend.models import (
     PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship
 )
-from src.models.enums import ModerationStatus, PlayerStatus
-from src.core.ai_response_parser import ParsedAiData, CustomValidationError, ParsedNpcData
+from backend.models.enums import ModerationStatus, PlayerStatus
+from backend.core.ai_response_parser import ParsedAiData, CustomValidationError, ParsedNpcData
 
 DEFAULT_GUILD_ID = 1
 DEFAULT_PLAYER_ID_PK = 1
@@ -58,17 +58,17 @@ def mock_guild_config_with_notification_channel() -> GuildConfig:
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.prepare_ai_prompt", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator._mock_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.parse_and_validate_ai_response", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.notify_master", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.prepare_ai_prompt", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator._mock_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.parse_and_validate_ai_response", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.notify_master", new_callable=AsyncMock)
 # Patch transactional at the source (database.py) to ensure it's a passthrough for this test
-@patch("src.core.database.transactional")
+@patch("backend.core.database.transactional")
 async def test_trigger_ai_generation_flow_success(
-    mock_transactional_deco: MagicMock, # For src.core.database.transactional
+    mock_transactional_deco: MagicMock, # For backend.core.database.transactional
     mock_notify_master: AsyncMock,
     mock_update_entity: AsyncMock,
     mock_get_entity_by_id: AsyncMock,
@@ -136,12 +136,12 @@ async def test_trigger_ai_generation_flow_success(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.prepare_ai_prompt", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator._mock_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.parse_and_validate_ai_response", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.notify_master", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.prepare_ai_prompt", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator._mock_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.parse_and_validate_ai_response", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.notify_master", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_trigger_ai_generation_validation_failed(
     mock_transactional_deco: MagicMock,
     mock_notify_master: AsyncMock,
@@ -169,7 +169,7 @@ async def test_trigger_ai_generation_validation_failed(
         return instance
     mock_create_entity.side_effect = mock_create_entity_side_effect_val_fail
 
-    with patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock, return_value=mock_guild_config_with_notification_channel):
+    with patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock, return_value=mock_guild_config_with_notification_channel):
         result = await trigger_ai_generation_flow( # type: ignore[reportMissingParameter, reportCallIssue]
             session=mock_session,
             bot=mock_bot,
@@ -189,10 +189,10 @@ async def test_trigger_ai_generation_validation_failed(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_success(
     mock_transactional_deco: MagicMock,
     mock_update_entity: AsyncMock,
@@ -256,14 +256,14 @@ async def test_save_approved_generation_success(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True)
-@patch("src.core.ai_orchestrator.create_entity", autospec=True)
-@patch("src.core.ai_orchestrator.update_entity", autospec=True)
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True) # Keep this if resolving existing NPCs
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
-@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", autospec=True)
+@patch("backend.core.ai_orchestrator.create_entity", autospec=True)
+@patch("backend.core.ai_orchestrator.update_entity", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("backend.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True) # Keep this if resolving existing NPCs
+@patch("backend.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_relationship.create", autospec=True)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_npc_rel_to_existing_faction(
     mock_transactional_deco: MagicMock,
     mock_crud_relationship_create: AsyncMock,
@@ -281,9 +281,9 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
         return wrapper
     mock_transactional_deco.side_effect = passthrough
 
-    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
-    from src.models.enums import RelationshipEntityType # Corrected import
-    from src.models import GeneratedFaction # For mock_crud_faction_get_static return
+    from backend.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from backend.models.enums import RelationshipEntityType # Corrected import
+    from backend.models import GeneratedFaction # For mock_crud_faction_get_static return
 
     npc_data = ParsedNpcData(static_id="npc_loyalist", name_i18n={"en": "Loyalist Guard"}, description_i18n={"en": "Loyal to the Kingsguard."})
     # Relationship to an *existing* faction
@@ -323,15 +323,15 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True)
-@patch("src.core.ai_orchestrator.create_entity", autospec=True)
-@patch("src.core.ai_orchestrator.update_entity", autospec=True)
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
-@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True) # For create
-@patch("src.core.ai_orchestrator.crud_relationship.update", autospec=True) # For update
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", autospec=True)
+@patch("backend.core.ai_orchestrator.create_entity", autospec=True)
+@patch("backend.core.ai_orchestrator.update_entity", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("backend.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_relationship.create", autospec=True) # For create
+@patch("backend.core.ai_orchestrator.crud_relationship.update", autospec=True) # For update
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_updates_existing_relationship(
     mock_transactional_deco: MagicMock,
     mock_crud_relationship_update: AsyncMock, # Renamed for clarity
@@ -350,9 +350,9 @@ async def test_save_approved_generation_updates_existing_relationship(
         return wrapper
     mock_transactional_deco.side_effect = passthrough
 
-    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
-    from src.models.enums import RelationshipEntityType, PlayerStatus # Import PlayerStatus
-    from src.models import Relationship # Import for existing_rel
+    from backend.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from backend.models.enums import RelationshipEntityType, PlayerStatus # Import PlayerStatus
+    from backend.models import Relationship # Import for existing_rel
 
     mock_player.current_status = PlayerStatus.AWAITING_MODERATION # Set player status
 
@@ -420,8 +420,8 @@ async def test_save_approved_generation_updates_existing_relationship(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_pending_gen_not_found(
     mock_transactional_deco: MagicMock,
     mock_get_entity_by_id: AsyncMock,
@@ -436,9 +436,9 @@ async def test_save_approved_generation_pending_gen_not_found(
     assert success is False
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_not_approved_status(
     mock_transactional_deco: MagicMock,
     mock_update_entity: AsyncMock,
@@ -457,9 +457,9 @@ async def test_save_approved_generation_not_approved_status(
     mock_update_entity.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_no_parsed_data(
     mock_transactional_deco: MagicMock,
     mock_update_entity: AsyncMock,
@@ -486,10 +486,10 @@ async def test_save_approved_generation_no_parsed_data(
     assert "Missing parsed_validated_data_json" in update_call_args[2]["master_notes"]
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
-@patch("src.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_entity_creation_fails(
     mock_transactional_deco: MagicMock,
     mock_update_entity: AsyncMock,
@@ -529,10 +529,10 @@ async def test_save_approved_generation_entity_creation_fails(
 
 # Tests for generate_narrative
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
-@patch("src.core.rules.get_rule", new_callable=AsyncMock)
-@patch("src.core.database.transactional") # Patch for the @transactional decorator
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock)
+@patch("backend.core.database.transactional") # Patch for the @transactional decorator
 async def test_generate_narrative_success_player_language(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock,
@@ -571,7 +571,7 @@ async def test_generate_narrative_success_player_language(
     }
 
     # Import generate_narrative here to ensure patches are active
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
 
     # Call the function being tested
     # The session is automatically injected by @transactional,
@@ -603,10 +603,10 @@ async def test_generate_narrative_success_player_language(
     assert language_arg == "fr"
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
-@patch("src.core.rules.get_rule", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_generate_narrative_success_guild_language_player_context(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock,
@@ -624,7 +624,7 @@ async def test_generate_narrative_success_guild_language_player_context(
     mock_get_player.return_value = mock_player
 
     # Simulate RuleConfig for guild_main_language
-    from src.models import RuleConfig # Import here if not at top
+    from backend.models import RuleConfig # Import here if not at top
     mock_guild_lang_rule = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="de")
     mock_get_rule.return_value = mock_guild_lang_rule
 
@@ -633,7 +633,7 @@ async def test_generate_narrative_success_guild_language_player_context(
 
     context = {"player_id": mock_player.id, "event_type": "guild_lang_event"}
 
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
 
     assert narrative == expected_narrative
@@ -647,10 +647,10 @@ async def test_generate_narrative_success_guild_language_player_context(
     assert call_args[1] == "de"
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock) # Should not be called
-@patch("src.core.rules.get_rule", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock) # Should not be called
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_generate_narrative_success_guild_language_no_player_context(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock,
@@ -663,7 +663,7 @@ async def test_generate_narrative_success_guild_language_no_player_context(
         return wrapper
     mock_transactional_deco.side_effect = passthrough
 
-    from src.models import RuleConfig
+    from backend.models import RuleConfig
     mock_guild_lang_rule = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="es")
     mock_get_rule.return_value = mock_guild_lang_rule
 
@@ -672,7 +672,7 @@ async def test_generate_narrative_success_guild_language_no_player_context(
 
     context = {"event_type": "system_event"} # No player_id
 
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
 
     assert narrative == expected_narrative
@@ -684,10 +684,10 @@ async def test_generate_narrative_success_guild_language_no_player_context(
     assert call_args[1] == "es"
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
-@patch("src.core.rules.get_rule", new_callable=AsyncMock) # To simulate no rule found
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock) # To simulate no rule found
+@patch("backend.core.database.transactional")
 async def test_generate_narrative_success_default_language(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock,
@@ -710,7 +710,7 @@ async def test_generate_narrative_success_default_language(
 
     context = {"player_id": mock_player.id}
 
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
 
     assert narrative == expected_narrative
@@ -723,10 +723,10 @@ async def test_generate_narrative_success_default_language(
 
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
-@patch("src.core.rules.get_rule", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_generate_narrative_prompt_construction_all_fields(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock, # Irrelevant for this specific check, but part of signature
@@ -751,7 +751,7 @@ async def test_generate_narrative_prompt_construction_all_fields(
         "world_state_summary": "The world is in peril.",
         "custom_instruction": "Make it dramatic."
     }
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
     await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
 
     mock_narrative_call.assert_called_once()
@@ -765,10 +765,10 @@ async def test_generate_narrative_prompt_construction_all_fields(
     assert "Specific Instruction: Make it dramatic." in prompt_arg
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
-@patch("src.core.player_utils.get_player", new_callable=AsyncMock)
-@patch("src.core.rules.get_rule", new_callable=AsyncMock)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator._mock_narrative_openai_api_call", new_callable=AsyncMock)
+@patch("backend.core.player_utils.get_player", new_callable=AsyncMock)
+@patch("backend.core.rules.get_rule", new_callable=AsyncMock)
+@patch("backend.core.database.transactional")
 async def test_generate_narrative_llm_call_error(
     mock_transactional_deco: MagicMock,
     mock_get_rule: AsyncMock,
@@ -786,13 +786,13 @@ async def test_generate_narrative_llm_call_error(
     mock_narrative_call.side_effect = Exception("LLM API is down")
 
     context = {"event_type": "error_test"}
-    from src.core.ai_orchestrator import generate_narrative
+    from backend.core.ai_orchestrator import generate_narrative
     narrative = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
 
     assert narrative == "An error occurred while generating the narrative."
 
     # Test Russian error message
-    from src.models import RuleConfig
+    from backend.models import RuleConfig
     mock_get_rule.return_value = RuleConfig(guild_id=DEFAULT_GUILD_ID, key="guild_main_language", value_json="ru")
     narrative_ru = await generate_narrative(mock_session, DEFAULT_GUILD_ID, context) # type: ignore[reportMissingParameter, reportCallIssue]
     assert narrative_ru == "Произошла ошибка при генерации повествования."
@@ -801,14 +801,14 @@ async def test_generate_narrative_llm_call_error(
 # --- Tests for save_approved_generation with Relationships (Task 38) ---
 
 @pytest.mark.asyncio
-@patch("src.core.ai_orchestrator.get_entity_by_id", autospec=True) # For PendingGeneration, Player
-@patch("src.core.ai_orchestrator.create_entity", autospec=True) # For GeneratedNpc etc.
-@patch("src.core.ai_orchestrator.update_entity", autospec=True) # For PendingGeneration, Player
-@patch("src.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
-@patch("src.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
-@patch("src.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
-@patch("src.core.ai_orchestrator.crud_relationship.create", autospec=True)
-@patch("src.core.database.transactional")
+@patch("backend.core.ai_orchestrator.get_entity_by_id", autospec=True) # For PendingGeneration, Player
+@patch("backend.core.ai_orchestrator.create_entity", autospec=True) # For GeneratedNpc etc.
+@patch("backend.core.ai_orchestrator.update_entity", autospec=True) # For PendingGeneration, Player
+@patch("backend.core.ai_orchestrator.crud_faction.get_by_static_id", autospec=True)
+@patch("backend.core.ai_orchestrator.actual_npc_crud.get_by_static_id", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
+@patch("backend.core.ai_orchestrator.crud_relationship.create", autospec=True)
+@patch("backend.core.database.transactional")
 async def test_save_approved_generation_with_npc_relationships(
     mock_transactional_deco: MagicMock,
     mock_crud_relationship_create: AsyncMock,
@@ -826,8 +826,8 @@ async def test_save_approved_generation_with_npc_relationships(
         return wrapper
     mock_transactional_deco.side_effect = passthrough
 
-    from src.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
-    from src.models.enums import RelationshipEntityType # Corrected import
+    from backend.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
+    from backend.models.enums import RelationshipEntityType # Corrected import
 
     # Prepare ParsedAiData with NPCs and a relationship between them
     npc_data_1 = ParsedNpcData(static_id="npc_gen_1", name_i18n={"en": "NPC Gen 1"}, description_i18n={"en": "Desc 1"})

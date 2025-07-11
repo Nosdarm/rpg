@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.npc_memory_system import add_to_npc_memory, get_npc_memory
-from src.models.player_npc_memory import PlayerNpcMemory
-from src.models.party_npc_memory import PartyNpcMemory
+from backend.core.npc_memory_system import add_to_npc_memory, get_npc_memory
+from backend.models.player_npc_memory import PlayerNpcMemory
+from backend.models.party_npc_memory import PartyNpcMemory
 
 # Mocking CRUD functions directly as they are imported in npc_memory_system
 # If they were methods of a class passed around, we'd mock the class.
@@ -17,8 +17,8 @@ class TestNpcMemorySystem:
     def mock_session(self) -> AsyncMock:
         return AsyncMock(spec=AsyncSession)
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_add_to_npc_memory_player(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -51,8 +51,8 @@ class TestNpcMemorySystem:
         mock_crud_party_mem.create.assert_not_called()
         assert result == mock_created_player_memory
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_add_to_npc_memory_party(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -84,8 +84,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.create.assert_not_called()
         assert result == mock_created_party_memory
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_add_to_npc_memory_both_ids_error(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -96,8 +96,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.create.assert_not_called()
         mock_crud_party_mem.create.assert_not_called()
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_add_to_npc_memory_no_ids_error(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -108,8 +108,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.create.assert_not_called()
         mock_crud_party_mem.create.assert_not_called()
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_add_to_npc_memory_crud_exception(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -118,8 +118,8 @@ class TestNpcMemorySystem:
         assert result is None
 
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_get_npc_memory_player(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -141,8 +141,8 @@ class TestNpcMemorySystem:
         mock_crud_party_mem.get_multi_by_party_and_npc.assert_not_called()
         assert result == mock_player_memories
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_get_npc_memory_party(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -164,8 +164,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.get_multi_by_player_and_npc.assert_not_called()
         assert result == mock_party_memories
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_get_npc_memory_both_ids_error(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -176,8 +176,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.get_multi_by_player_and_npc.assert_not_called()
         mock_crud_party_mem.get_multi_by_party_and_npc.assert_not_called()
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_get_npc_memory_no_ids_error(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):
@@ -186,8 +186,8 @@ class TestNpcMemorySystem:
         mock_crud_player_mem.get_multi_by_player_and_npc.assert_not_called()
         mock_crud_party_mem.get_multi_by_party_and_npc.assert_not_called()
 
-    @patch('src.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
-    @patch('src.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_player_npc_memory', new_callable=AsyncMock)
+    @patch('backend.core.npc_memory_system.crud_party_npc_memory', new_callable=AsyncMock)
     async def test_get_npc_memory_crud_exception(
         self, mock_crud_party_mem: AsyncMock, mock_crud_player_mem: AsyncMock, mock_session: AsyncMock
     ):

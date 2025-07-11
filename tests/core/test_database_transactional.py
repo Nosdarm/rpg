@@ -9,7 +9,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sqlalchemy.ext.asyncio import AsyncSession # For type hinting and spec
-from src.core.database import transactional, get_db_session # The decorator and session getter
+from backend.core.database import transactional, get_db_session # The decorator and session getter
 
 # --- Test Functions to be Decorated ---
 
@@ -77,7 +77,7 @@ async def test_transactional_success_new_session(
     """Test successful operation creates and commits a new session."""
     decorated_success = transactional(successful_operation)
 
-    with patch("src.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
+    with patch("backend.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
         result = await decorated_success(data="commit_test")
 
     assert result == "Success: commit_test"
@@ -98,7 +98,7 @@ async def test_transactional_failure_new_session_rollbacks(
     """Test failing operation creates a new session and rolls back."""
     decorated_failure = transactional(failing_operation)
 
-    with patch("src.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
+    with patch("backend.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
         with pytest.raises(ValueError, match="Operation failed: rollback_test"):
             await decorated_failure(data="rollback_test")
 
@@ -116,7 +116,7 @@ async def test_transactional_uses_passed_session_positional(mock_async_session_i
     decorated_success = transactional(successful_operation)
 
     # We are bypassing get_db_session by passing the session directly
-    with patch("src.core.database.get_db_session") as mock_get_db_session_func:
+    with patch("backend.core.database.get_db_session") as mock_get_db_session_func:
         result = await decorated_success(mock_async_session_instance, data="passed_session_pos")
 
         assert result == "Success: passed_session_pos"
@@ -132,7 +132,7 @@ async def test_transactional_uses_passed_session_keyword(mock_async_session_inst
     """Test decorator uses an explicitly passed session (keyword)."""
     decorated_success = transactional(successful_operation)
 
-    with patch("src.core.database.get_db_session") as mock_get_db_session_func:
+    with patch("backend.core.database.get_db_session") as mock_get_db_session_func:
         result = await decorated_success(session=mock_async_session_instance, data="passed_session_kw")
 
         assert result == "Success: passed_session_kw"
@@ -149,7 +149,7 @@ async def test_transactional_failure_with_passed_session_no_rollback_by_decorato
     """Test failing operation with passed session; decorator itself doesn't rollback."""
     decorated_failure = transactional(failing_operation)
 
-    with patch("src.core.database.get_db_session") as mock_get_db_session_func:
+    with patch("backend.core.database.get_db_session") as mock_get_db_session_func:
         with pytest.raises(ValueError, match="Operation failed: passed_fail"):
             await decorated_failure(session=mock_async_session_instance, data="passed_fail")
 
@@ -173,7 +173,7 @@ async def test_transactional_correctly_passes_args_and_kwargs_new_session(
 
     decorated_op = transactional(op_with_args)
 
-    with patch("src.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
+    with patch("backend.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
         # Call with positional guild_id and keyword data_kw. Session is injected.
         result = await decorated_op(123, data_kw="test_data")
 
@@ -226,7 +226,7 @@ async def test_transactional_handles_session_as_kwarg_in_wrapped_func_sig(
 
     decorated_op = transactional(operation_with_session_kwarg)
 
-    with patch("src.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
+    with patch("backend.core.database.get_db_session", return_value=mock_get_db_session_context_manager):
         result = await decorated_op(guild_id=101, data="kw_session_test")
 
     assert result == "KW Session: kw_session_test, Guild: 101"

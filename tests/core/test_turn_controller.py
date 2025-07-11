@@ -15,13 +15,13 @@ from unittest.mock import AsyncMock, patch, MagicMock, call
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine import Result # For mocking query results
 
-from src.core.turn_controller import (
+from backend.core.turn_controller import (
     process_guild_turn_if_ready,
     trigger_guild_turn_processing,
     _guild_turn_processing_locks, # To inspect/manipulate for tests
 )
-from src.models import Player, Party # GuildConfig not directly used in tested functions here
-from src.models.enums import PlayerStatus, PartyTurnStatus
+from backend.models import Player, Party # GuildConfig not directly used in tested functions here
+from backend.models.enums import PlayerStatus, PartyTurnStatus
 
 DEFAULT_GUILD_ID = 1
 PLAYER_ID_1 = 10
@@ -78,7 +78,7 @@ def mock_party_pending_1(mock_player_pending_2: Player) -> Party:
 
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_no_pending_entities(
     mock_start_worker: AsyncMock,
     mock_session: AsyncMock
@@ -96,8 +96,8 @@ async def test_process_guild_turn_no_pending_entities(
     mock_session.add.assert_not_called()
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller.asyncio.create_task")
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller.asyncio.create_task")
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_one_player_pending(
     mock_start_worker_direct_call: AsyncMock,
     mock_create_task: MagicMock,
@@ -121,8 +121,8 @@ async def test_process_guild_turn_one_player_pending(
     assert DEFAULT_GUILD_ID not in _guild_turn_processing_locks
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller.asyncio.create_task")
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller.asyncio.create_task")
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_one_party_pending_with_member(
     mock_start_worker_direct_call: AsyncMock,
     mock_create_task: MagicMock,
@@ -153,7 +153,7 @@ async def test_process_guild_turn_one_party_pending_with_member(
     assert DEFAULT_GUILD_ID not in _guild_turn_processing_locks
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_lock_prevents_concurrent(
     mock_start_worker: AsyncMock,
     mock_session: AsyncMock,
@@ -171,7 +171,7 @@ async def test_process_guild_turn_lock_prevents_concurrent(
     assert _guild_turn_processing_locks[DEFAULT_GUILD_ID] is True
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller.process_guild_turn_if_ready", new_callable=AsyncMock)
+@patch("backend.core.turn_controller.process_guild_turn_if_ready", new_callable=AsyncMock)
 async def test_trigger_guild_turn_processing_calls_process_ready(
     mock_process_ready: AsyncMock,
 ):
@@ -185,8 +185,8 @@ async def test_trigger_guild_turn_processing_calls_process_ready(
     mock_process_ready.assert_called_once_with(mock_session_instance, DEFAULT_GUILD_ID)
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller.asyncio.create_task")
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller.asyncio.create_task")
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_releases_lock_on_exception(
     mock_start_worker_direct_call: AsyncMock,
     mock_create_task: MagicMock,
@@ -246,8 +246,8 @@ async def test_process_guild_turn_releases_lock_on_exception(
 
 
 @pytest.mark.asyncio
-@patch("src.core.turn_controller.asyncio.create_task")
-@patch("src.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
+@patch("backend.core.turn_controller.asyncio.create_task")
+@patch("backend.core.turn_controller._start_action_processing_worker", new_callable=AsyncMock)
 async def test_process_guild_turn_multiple_entities(
     mock_start_worker_direct_call: AsyncMock,
     mock_create_task: MagicMock,

@@ -12,8 +12,8 @@ from sqlalchemy import Column, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.models.base import Base as ActualBase
-from src.core.crud_base_definitions import CRUDBase
+from backend.models.base import Base as ActualBase
+from backend.core.crud_base_definitions import CRUDBase
 
 
 # --- Mock SQLAlchemy Models for Testing ---
@@ -130,7 +130,7 @@ async def test_get_many_by_ids_model_no_pk_logs_error(
 ):
     # MockNoPK is now defined at module level
     crud_no_pk = CRUDBase(MockNoPK)
-    with patch('src.core.crud_base_definitions.logger.error') as mock_logger_error:
+    with patch('backend.core.crud_base_definitions.logger.error') as mock_logger_error:
         result = await crud_no_pk.get_many_by_ids(session=mock_db_session, ids=[1])
         assert result == []
         mock_logger_error.assert_called_once_with( # type: ignore

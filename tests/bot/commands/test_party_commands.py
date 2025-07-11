@@ -13,10 +13,10 @@ import discord # type: ignore
 from discord.ext import commands # type: ignore
 from typing import Optional # Added Optional
 
-from src.bot.commands.party_commands import PartyCog
-from src.models.player import Player, PlayerStatus
-from src.models.party import Party, PartyTurnStatus
-from src.models.location import Location, LocationType
+from backend.bot.commands.party_commands import PartyCog
+from backend.models.player import Player, PlayerStatus
+from backend.models.party import Party, PartyTurnStatus
+from backend.models.location import Location, LocationType
 
 # Моки для discord.py объектов
 class MockGuild:
@@ -47,20 +47,20 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.cog = PartyCog(self.bot_mock)
 
         self.session_mock = AsyncMock(spec=AsyncSession)
-        self.patcher_get_db_session = patch('src.bot.commands.party_commands.get_db_session')
+        self.patcher_get_db_session = patch('backend.bot.commands.party_commands.get_db_session')
         self.mock_get_db_session = self.patcher_get_db_session.start()
         self.mock_get_db_session.return_value.__aenter__.return_value = self.session_mock
 
-        self.patcher_player_crud = patch('src.bot.commands.party_commands.player_crud', new_callable=AsyncMock)
+        self.patcher_player_crud = patch('backend.bot.commands.party_commands.player_crud', new_callable=AsyncMock)
         self.mock_player_crud = self.patcher_player_crud.start()
 
-        self.patcher_party_crud = patch('src.bot.commands.party_commands.party_crud', new_callable=AsyncMock)
+        self.patcher_party_crud = patch('backend.bot.commands.party_commands.party_crud', new_callable=AsyncMock)
         self.mock_party_crud = self.patcher_party_crud.start()
 
-        self.patcher_location_crud = patch('src.bot.commands.party_commands.location_crud', new_callable=AsyncMock)
+        self.patcher_location_crud = patch('backend.bot.commands.party_commands.location_crud', new_callable=AsyncMock)
         self.mock_location_crud = self.patcher_location_crud.start()
 
-        self.patcher_get_localized_text = patch('src.bot.commands.party_commands.get_localized_text')
+        self.patcher_get_localized_text = patch('backend.bot.commands.party_commands.get_localized_text')
         self.mock_get_localized_text = self.patcher_get_localized_text.start()
 
         # Mock get_localized_text for party_commands (must be synchronous)

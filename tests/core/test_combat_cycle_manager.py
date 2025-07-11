@@ -10,15 +10,15 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.combat_cycle_manager import start_combat, process_combat_turn #, _handle_combat_end_consequences (private)
-from src.models import Player, GeneratedNpc, CombatEncounter, Party
-from src.models.enums import CombatStatus, PlayerStatus, PartyTurnStatus, EventType
-from src.core.rules import get_rule # For mocking
-from src.core.dice_roller import roll_dice # For mocking
-from src.core.game_events import log_event # For mocking
-from src.core.npc_combat_strategy import get_npc_combat_action
-from src.core.combat_engine import process_combat_action as engine_process_combat_action
-from src.models.combat_outcomes import CombatActionResult # Added import
+from backend.core.combat_cycle_manager import start_combat, process_combat_turn #, _handle_combat_end_consequences (private)
+from backend.models import Player, GeneratedNpc, CombatEncounter, Party
+from backend.models.enums import CombatStatus, PlayerStatus, PartyTurnStatus, EventType
+from backend.core.rules import get_rule # For mocking
+from backend.core.dice_roller import roll_dice # For mocking
+from backend.core.game_events import log_event # For mocking
+from backend.core.npc_combat_strategy import get_npc_combat_action
+from backend.core.combat_engine import process_combat_action as engine_process_combat_action
+from backend.models.combat_outcomes import CombatActionResult # Added import
 
 
 # --- Fixtures ---
@@ -92,9 +92,9 @@ def mock_player_entity_2() -> Player: # Another player for multi-player scenario
 # --- Tests for start_combat ---
 
 @pytest.mark.asyncio
-@patch('src.core.rules.get_rule')
-@patch('src.core.dice_roller.roll_dice')
-@patch('src.core.game_events.log_event')
+@patch('backend.core.rules.get_rule')
+@patch('backend.core.dice_roller.roll_dice')
+@patch('backend.core.game_events.log_event')
 async def test_start_combat_successful_creation(
     mock_log_event: AsyncMock,
     mock_roll_dice: MagicMock,
@@ -240,8 +240,8 @@ async def test_start_combat_successful_creation(
 
 
 @pytest.mark.asyncio
-@patch('src.core.rules.get_rule')
-@patch('src.core.dice_roller.roll_dice')
+@patch('backend.core.rules.get_rule')
+@patch('backend.core.dice_roller.roll_dice')
 async def test_start_combat_initiative_tie_break_order(
     mock_roll_dice: MagicMock,
     mock_get_rule: AsyncMock,
@@ -296,7 +296,7 @@ async def test_start_combat_initiative_tie_break_order(
 @pytest.mark.asyncio
 async def test_start_combat_no_participants(mock_session: AsyncMock):
     # Should ideally not happen, but test robustness
-    with patch('src.core.game_events.log_event', new_callable=AsyncMock) as mock_log_event_empty: # Avoid conflict
+    with patch('backend.core.game_events.log_event', new_callable=AsyncMock) as mock_log_event_empty: # Avoid conflict
         combat_encounter = await start_combat(mock_session, 100, 10, [])
         assert combat_encounter.status == CombatStatus.ERROR # Or some other appropriate status
         # No log event for COMBAT_START should be called if it errors out early.
@@ -316,11 +316,11 @@ async def test_start_combat_no_participants(mock_session: AsyncMock):
 # These will be more complex as they involve mocking more interactions.
 
 @pytest.mark.asyncio
-@patch('src.core.combat_cycle_manager._handle_combat_end_consequences', new_callable=AsyncMock)
-@patch('src.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
-@patch('src.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
-@patch('src.core.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
-@patch('src.core.combat_engine.process_combat_action', new_callable=AsyncMock) # engine_process_combat_action
+@patch('backend.core.combat_cycle_manager._handle_combat_end_consequences', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
+@patch('backend.core.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_engine.process_combat_action', new_callable=AsyncMock) # engine_process_combat_action
 # @pytest.mark.skip(reason="Temporarily skipping due to RecursionError, needs detailed mock setup for turn progression.") # Unskip
 async def test_process_combat_turn_npc_action(
     mock_engine_process_action: AsyncMock,
@@ -421,8 +421,8 @@ async def test_process_combat_turn_npc_action(
 # This is a private helper, usually tested via its public caller (process_combat_turn when combat ends)
 # For direct testing (if desired):
 # @pytest.mark.asyncio
-# @patch('src.core.combat_cycle_manager.xp_awarder.award_xp', new_callable=AsyncMock)
-# @patch('src.core.combat_cycle_manager.loot_generator.distribute_loot', new_callable=AsyncMock)
+# @patch('backend.core.combat_cycle_manager.xp_awarder.award_xp', new_callable=AsyncMock)
+# @patch('backend.core.combat_cycle_manager.loot_generator.distribute_loot', new_callable=AsyncMock)
 # ... and so on for other placeholders and game_events.log_event
 # async def test_handle_combat_end_consequences_player_wins(
 # mock_award_xp, mock_distribute_loot, ..., mock_session, mock_player_entity, mock_npc_entity
@@ -489,7 +489,7 @@ def test_check_combat_end_scenarios():
 # To run these tests, you'd typically use `pytest` in your terminal.
 # Ensure that the test file is discoverable by pytest (e.g., named test_*.py or *_test.py).
 # You might need to configure PYTHONPATH or install your package in editable mode (`pip install -e .`)
-# for imports like `from src.core...` to work correctly.
+# for imports like `from backend.core...` to work correctly.
 # Also, ensure `asyncio_mode = auto` in pytest.ini or use `pytest-asyncio`.
 
 # pytest.ini example:
@@ -516,9 +516,9 @@ def test_check_combat_end_scenarios():
 
 # Test for player in a party status update
 @pytest.mark.asyncio
-@patch('src.core.rules.get_rule')
-@patch('src.core.dice_roller.roll_dice')
-@patch('src.core.game_events.log_event')
+@patch('backend.core.rules.get_rule')
+@patch('backend.core.dice_roller.roll_dice')
+@patch('backend.core.game_events.log_event')
 async def test_start_combat_player_in_party_status_update(
     mock_log_event: AsyncMock,
     mock_roll_dice: MagicMock,
