@@ -17,7 +17,7 @@ from src.config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL, API_HOST, API_PORT
 from src.core.database import init_db
 from src.bot.api.commands_api import router as commands_api_router
 from src.api.routers.auth import router as auth_router # Импортируем новый роутер аутентификации
-from src.api.routers.command_list_api import router as command_list_router # Импортируем новый роутер для списка команд
+from src.bot.api.commands_api import router as command_list_router # Импортируем новый роутер для списка команд
 
 # Настройка логирования
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO),
