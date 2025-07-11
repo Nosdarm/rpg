@@ -4,37 +4,749 @@ Overall Project Context: This is a scalable backend service for a Discord bot su
 Decomposed Backend Development Task List (For AI Agent - Autonomous Tasks)
 
 Phase 0: Architecture and Initialization (Foundation MVP)
-🔧 0.1 Discord Bot Project Initialization and Basic Guild Integration.
-Description: Set up the Python project structure using the chosen asynchronous framework. Initialize integration with the Discord API, handle basic Discord events (on_ready, on_message, on_guild_join, on_guild_remove). Configure logging. Implement utility commands (e.g., /ping).
+🔧 Task 0.1: Discord Bot Project Initialization and Basic Guild Integration (A-Z Implementation Plan)
+
+**1. Project Setup & Dependencies:**
+    *   **Initialize Project Structure:**
+        *   Create root directory (e.g., `text_rpg_bot`).
+        *   Create `src/` directory for all source code.
+        *   Inside `src/`, create:
+            *   `bot/`: For Discord bot specific logic.
+            *   `core/`: For core game logic (initially might be minimal).
+            *   `config/`: For configuration files.
+            *   `models/`: For Pydantic/SQLAlchemy models (even if DB is in a later task, basic Pydantic models for config might be here).
+            *   `utils/`: For common utility functions.
+            *   `main.py`: Entry point for the bot application.
+        *   Create `tests/` directory at the root.
+        *   Create `requirements.txt` at the root.
+        *   Create `.gitignore`.
+    *   **Dependencies (`requirements.txt`):**
+        *   `discord.py` (or `nextcord`/`disnake` if preferred, assuming `discord.py` for now as per common usage)
+        *   `python-dotenv` (for managing environment variables like bot token)
+        *   `SQLAlchemy` (even if full DB setup is later, for ORM base models if any config is DB-driven early)
+        *   `alembic` (for DB migrations, setup can be done here)
+        *   `asyncpg` (or `psycopg2-binary` if PostgreSQL is chosen and synchronous parts exist, but prefer async)
+        *   `pydantic` (for data validation and settings management)
+        *   Standard logging library (built-in `logging`)
+    *   **Environment Configuration (`.env` file):**
+        *   `DISCORD_BOT_TOKEN`
+        *   `LOG_LEVEL` (e.g., INFO, DEBUG)
+        *   (Potentially `DATABASE_URL` if setting up Alembic base)
+
+**2. Configuration System (`src/config/settings.py`):**
+    *   Implement a Pydantic `BaseSettings` class to load configuration from environment variables (`.env`) and provide typed access to settings.
+    *   Include `DISCORD_BOT_TOKEN`, `LOG_LEVEL`.
+    *   Initialize settings instance (e.g., `settings = Settings()`).
+
+**3. Logging Setup (`src/config/logging_config.py` or directly in `main.py` initially):**
+    *   Configure a logger using Python's `logging` module.
+    *   Set log level based on `settings.LOG_LEVEL`.
+    *   Format log messages to include timestamp, level, module name, and message.
+    *   Output logs to console. (File logging can be added later if needed).
+    *   Example:
+        ```python
+        # src/config/logging_config.py
+        import logging
+        from .settings import settings # Assuming settings are accessible
+
+        def setup_logging():
+            logging.basicConfig(
+                level=settings.LOG_LEVEL.upper(),
+                format="%(asctime)s - %(levelname)s - [%(name)s] - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            )
+            # Silence overly verbose discord.py logs if necessary
+            # logging.getLogger("discord").setLevel(logging.WARNING)
+        ```
+
+**4. Bot Core (`src/bot/core.py` or `main.py`):**
+    *   Initialize `discord.Bot` (or `commands.Bot`) instance with necessary intents (e.g., `guilds`, `messages`, `message_content`).
+        ```python
+        # src/main.py
+        import discord
+        from discord.ext import commands
+        from config.settings import settings
+        from config.logging_config import setup_logging
+        import logging
+
+        setup_logging()
+        logger = logging.getLogger(__name__)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.messages = True
+        intents.message_content = True # Required for message content in on_message
+
+        bot = commands.Bot(command_prefix="!", intents=intents) # Or discord.Bot for app commands focus
+
+        @bot.event
+        async def on_ready():
+            logger.info(f"Bot {bot.user.name} has connected to Discord!")
+            logger.info(f"Guilds: {[guild.name for guild in bot.guilds]}")
+            # For slash commands, ensure they are synced
+            # await bot.tree.sync() # If using app_commands.Bot or discord.Bot
+            # logger.info("Commands synced.")
+
+        # ... other event handlers and command loading ...
+
+        if __name__ == "__main__":
+            if not settings.DISCORD_BOT_TOKEN:
+                logger.error("DISCORD_BOT_TOKEN not found in environment variables.")
+            else:
+                bot.run(settings.DISCORD_BOT_TOKEN)
+        ```
+
+**5. Basic Event Handlers (`src/bot/events.py` or directly in `main.py`/`core.py`):**
+    *   **`on_ready`:**
+        *   Log bot connection status, username, and list of connected guilds.
+        *   If using slash commands, sync the command tree: `await bot.tree.sync()`.
+    *   **`on_message(message: discord.Message)`:**
+        *   Log basic message info (author, guild, channel, content).
+        *   Ignore messages from the bot itself.
+        *   (Initially, no command processing here if focusing on slash commands. If using prefix commands, basic parsing could be added).
+    *   **`on_guild_join(guild: discord.Guild)`:**
+        *   Log that the bot has joined a new guild (guild name, ID).
+        *   *(Future Task 0.2/1.1 integration: This is where initial guild configuration in DB would happen, e.g., creating `GuildConfig` entry, populating default static locations if any).*
+    *   **`on_guild_remove(guild: discord.Guild)`:**
+        *   Log that the bot has been removed from a guild.
+        *   *(Future Task: Mark guild data as inactive or schedule for cleanup in DB).*
+
+    ```python
+    # Example structure in src/bot/events.py
+    # import discord
+    # import logging
+    # logger = logging.getLogger(__name__)
+
+    # async def on_message_handler(message: discord.Message, bot_user):
+    #     if message.author == bot_user:
+    #         return
+    #     logger.debug(f"Message from {message.author} in {message.guild.name if message.guild else 'DM'}: {message.content}")
+
+    # async def on_guild_join_handler(guild: discord.Guild):
+    #     logger.info(f"Joined new guild: {guild.name} (ID: {guild.id})")
+    #     # Placeholder for GuildConfig creation
+    #     # await setup_guild_config(guild.id)
+
+    # async def on_guild_remove_handler(guild: discord.Guild):
+    #     logger.info(f"Removed from guild: {guild.name} (ID: {guild.id})")
+
+    # def setup_event_handlers(bot: commands.Bot):
+    #     @bot.event
+    #     async def on_message(message: discord.Message):
+    #         await on_message_handler(message, bot.user)
+
+    #     @bot.event
+    #     async def on_guild_join(guild: discord.Guild):
+    #         await on_guild_join_handler(guild)
+
+    #     @bot.event
+    #     async def on_guild_remove(guild: discord.Guild):
+    #         await on_guild_remove_handler(guild)
+    ```
+    *Then call `setup_event_handlers(bot)` in `main.py`.*
+
+**6. Utility Commands (`src/bot/commands/general_commands.py`):**
+    *   Create a new Cog for general/utility commands.
+    *   **`/ping` command (Application Command / Slash Command):**
+        *   Responds with "Pong!" and the bot's latency.
+        *   Example:
+            ```python
+            # src/bot/commands/general_commands.py
+            import discord
+            from discord.ext import commands
+            from discord import app_commands # For slash commands
+            import logging
+
+            logger = logging.getLogger(__name__)
+
+            class GeneralCog(commands.Cog):
+                def __init__(self, bot: commands.Bot):
+                    self.bot = bot
+
+                @app_commands.command(name="ping", description="Responds with the bot's latency.")
+                async def ping(self, interaction: discord.Interaction):
+                    latency_ms = round(self.bot.latency * 1000)
+                    await interaction.response.send_message(f"Pong! Latency: {latency_ms}ms")
+                    logger.info(f"/ping command executed by {interaction.user} in guild {interaction.guild_id}. Latency: {latency_ms}ms")
+
+            async def setup(bot: commands.Bot):
+                await bot.add_cog(GeneralCog(bot))
+                logger.info("GeneralCog loaded.")
+            ```
+    *   Load this Cog in `main.py`:
+        ```python
+        # In main.py, before bot.run()
+        # async def load_extensions():
+        #    await bot.load_extension("bot.commands.general_commands")
+        # asyncio.run(load_extensions()) # Or within an async main function
+        # More robustly:
+        # async def main_async():
+        #     async with bot:
+        #         await bot.load_extension("bot.commands.general_commands")
+        #         await bot.start(settings.DISCORD_BOT_TOKEN)
+        # if __name__ == "__main__":
+        #    asyncio.run(main_async())
+        ```
+        A simpler way for initial setup in `main.py`:
+        ```python
+        # In main.py
+        # @bot.event
+        # async def setup_hook(): # setup_hook is called after login but before on_ready
+        #    logger.info("Running setup_hook...")
+        #    try:
+        #        await bot.load_extension("bot.commands.general_commands")
+        #        logger.info("Successfully loaded general_commands extension.")
+        #    except Exception as e:
+        #        logger.error(f"Failed to load general_commands extension: {e}", exc_info=True)
+        #    # For slash commands, ensure they are synced after loading cogs
+        #    # This might be better in on_ready if cogs can be loaded/unloaded dynamically
+        #    # or if bot.tree.sync is guild-specific in some cases.
+        #    # Global sync:
+        #    # await bot.tree.sync()
+        #    # logger.info("Command tree synced globally.")
+        ```
+        *Self-correction: `setup_hook` is a good place for initial cog loading. Global command sync is usually fine in `on_ready` or `setup_hook` after cogs are loaded.*
+
+**7. Language System (Basic Placeholder):**
+    *   While full i18n is complex, for this initial task, ensure any user-facing strings (like in `/ping` or log messages meant for GMs if any) are identifiable.
+    *   A very simple approach for now: constants or a simple dict.
+        ```python
+        # src/bot/localization.py (very basic)
+        # STRINGS = {
+        #     "en": {"PONG_RESPONSE": "Pong! Latency: {latency}ms"},
+        #     "ru": {"PONG_RESPONSE": "Понг! Задержка: {latency}мс"}
+        # }
+        # def get_text(key, lang="en", **kwargs):
+        #     return STRINGS.get(lang, STRINGS["en"]).get(key, key).format(**kwargs)
+        ```
+    *   The `/ping` command could use this, but for simplicity in Task 0.1, hardcoded English is acceptable, with a note to integrate a proper localization system later (as per Task 0.3 for `RuleConfig` and further for general text).
+
+**8. Testing Considerations (Conceptual for this stage):**
+    *   **Unit Tests:**
+        *   Test configuration loading (`config/settings.py`).
+        *   Test basic Cog loading.
+        *   Test the `/ping` command logic (mocking `discord.Interaction` and `bot.latency`).
+    *   **Integration Tests (Manual for now):**
+        *   Run the bot.
+        *   Invite to a test server.
+        *   Verify `on_ready`, `on_guild_join` logs.
+        *   Send messages and check `on_message` logs.
+        *   Execute `/ping` and verify response.
+        *   Remove from server and check `on_guild_remove` logs.
 Result: Basic working Discord bot, configured for multiple guilds, logging, language system.
 
 
-💾 0.2 DBMS Setup and Database Model Definition with Guild ID.
-Description: Select a scalable DBMS (PostgreSQL/MySQL) and ORM. Define the structure of all data models in the DB. Crucial: All models storing game data specific to a particular guild MUST INCLUDE a guild_id field (BIGINT, Indexed) as part of a composite key or FK to GuildConfig). (Field details are in task descriptions where these models are detailed: Player, Location, WorldState, Party, GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, RuleConfig, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe). Text fields - JSONB (_i18n).
-Implement the GuildConfig model: id (PK, BIGINT - the Discord guild's ID itself), master_channel_id (BIGINT), system_channel_id (BIGINT), notification_channel_id (BIGINT, for moderation/conflict notifications), main_language (TEXT), supported_languages_json (JSONB, e.g. ["en", "ru"]).
-Configure ORM and migrations.
+💾 Task 0.2: DBMS Setup and Database Model Definition with Guild ID (A-Z Implementation Plan)
+
+**1. Technology Selection & Setup:**
+    *   **DBMS:** PostgreSQL (Chosen for scalability, JSONB support, robustness).
+    *   **ORM:** SQLAlchemy (Asynchronous with `asyncpg`).
+    *   **Migration Tool:** Alembic.
+    *   **Dependencies (add to `requirements.txt` if not already present):**
+        *   `sqlalchemy[asyncio]`
+        *   `asyncpg`
+        *   `alembic`
+        *   `psycopg2-binary` (often needed by Alembic even for async projects, or for initial sync DB operations)
+        *   `greenlet` (sometimes needed by Alembic with async SQLAlchemy)
+    *   **Environment Configuration (add to `.env`):**
+        *   `DATABASE_URL="postgresql+asyncpg://user:password@host:port/dbname"`
+        *   `SYNC_DATABASE_URL="postgresql+psycopg2://user:password@host:port/dbname"` (for Alembic)
+
+**2. Database Connection & Session Management (`src/core/database.py`):**
+    *   Define `async_engine` using `create_async_engine` from `sqlalchemy.ext.asyncio`.
+    *   Define `AsyncSessionLocal` using `sessionmaker` from `sqlalchemy.orm`, configured for asynchronous sessions.
+    *   Define `Base = declarative_base()` from `sqlalchemy.orm`.
+    *   Implement an asynchronous dependency for FastAPI-style session management (or a simple context manager if not using FastAPI yet):
+        ```python
+        # src/core/database.py
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker, declarative_base
+        from config.settings import settings # Assuming settings.DATABASE_URL
+
+        DATABASE_URL = settings.DATABASE_URL
+        async_engine = create_async_engine(DATABASE_URL, echo=settings.DB_ECHO) # Add DB_ECHO to settings
+
+        AsyncSessionLocal = sessionmaker(
+            bind=async_engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        Base = declarative_base()
+
+        async def get_db_session() -> AsyncSession:
+            async with AsyncSessionLocal() as session:
+                yield session
+        ```
+
+**3. Alembic Initialization & Configuration:**
+    *   Run `alembic init alembic` in the project root.
+    *   Modify `alembic/env.py`:
+        *   Import `Base` from `src.core.database`.
+        *   Set `target_metadata = Base.metadata`.
+        *   Configure `sqlalchemy.url` to use `settings.SYNC_DATABASE_URL`.
+    *   Modify `alembic.ini`:
+        *   Set `sqlalchemy.url = %(SYNC_DATABASE_URL)s` (or directly if not using env vars here).
+
+**4. Base Model Definition (`src/models/base.py` or within `src/core/database.py`):**
+    *   Define a base class for all models that includes common fields like `id` (PK, Integer, autoincrement) and potentially `created_at`, `updated_at` timestamps.
+        ```python
+        # src/models/base_model.py (or similar name)
+        from sqlalchemy import Column, Integer, DateTime, func
+        from sqlalchemy.orm import declared_attr
+        from core.database import Base # Assuming Base is in core.database
+
+        class BaseModel(Base):
+            __abstract__ = True
+
+            id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+
+            @declared_attr
+            def __tablename__(cls):
+                return cls.__name__.lower() + "s" # e.g., GuildConfig -> guildconfigs
+
+        class TimestampMixin: # Can be mixed into models needing timestamps
+            created_at = Column(DateTime, default=func.now(), nullable=False)
+            updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+        ```
+
+**5. `GuildConfig` Model Definition (`src/models/guild.py`):**
+    *   Implement the `GuildConfig` SQLAlchemy model inheriting from `BaseModel` (and `TimestampMixin` if used).
+    *   Fields:
+        *   `id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=False)` (Discord Guild ID itself)
+        *   `master_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)`
+        *   `system_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)`
+        *   `notification_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)`
+        *   `main_language: Mapped[str] = mapped_column(String(10), default="en", nullable=False)`
+        *   `supported_languages_json: Mapped[Optional[List[str]]] = mapped_column(JSONB, nullable=True)` (e.g., `["en", "ru"]`)
+        *   `is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)` (Useful for soft deletes or marking inactive guilds)
+    *   Relationships (placeholders for now, will be defined by other models):
+        *   `players: Mapped[List["Player"]] = relationship(back_populates="guild")` (Illustrative)
+        *   `locations: Mapped[List["Location"]] = relationship(back_populates="guild")` (Illustrative)
+        *   ... and so on for all guild-specific models.
+    ```python
+    # src/models/guild.py
+    from sqlalchemy import Column, BigInteger, String, JSON, Boolean
+    from sqlalchemy.orm import Mapped, mapped_column, relationship
+    from typing import List, Optional
+    # from .base_model import BaseModel, TimestampMixin # Assuming base_model.py
+    from core.database import Base # If BaseModel is not separate
+
+    # Assuming BaseModel and TimestampMixin are defined elsewhere or Base directly
+    class GuildConfig(Base): # Replace Base with BaseModel if using it
+        __tablename__ = "guild_configs" # Explicit table name
+
+        id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True, autoincrement=False)
+        master_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+        system_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+        notification_channel_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+        main_language: Mapped[str] = mapped_column(String(10), default="en", nullable=False)
+        supported_languages_json: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True) # JSONB for PostgreSQL in Alembic
+        is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+        # Example relationships (actual definitions will be in other models)
+        # players: Mapped[List["Player"]] = relationship(back_populates="guild_config")
+        # rule_configs: Mapped[List["RuleConfig"]] = relationship(back_populates="guild_config")
+        # ... other relationships
+
+        def __repr__(self):
+            return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"
+    ```
+    *Note: Use `JSON` type from `sqlalchemy.types` for general JSON. For PostgreSQL specific `JSONB`, you'd use `from sqlalchemy.dialects.postgresql import JSONB` in the model and migration.*
+
+**6. Placeholder Model Definitions (Initial Structure):**
+    *   For each model listed in the task description (Player, Location, WorldState (which might be `RuleConfig` entries), Party, etc.), create basic placeholder files in `src/models/` (e.g., `player.py`, `location.py`).
+    *   Each placeholder model should:
+        *   Inherit from `BaseModel` (or `Base`).
+        *   Include `guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False)`.
+        *   Include a relationship back to `GuildConfig`: `guild_config: Mapped["GuildConfig"] = relationship(back_populates="<plural_model_name>")`.
+        *   Include basic `id` (from `BaseModel`) and a `name_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSONB, nullable=True)` if applicable (as most text fields are i18n).
+        *   Include any other immediately obvious critical fields mentioned for specific models if easy.
+    *   **Example `src/models/player.py` (placeholder):**
+        ```python
+        from sqlalchemy import Column, BigInteger, String, ForeignKey, JSON
+        from sqlalchemy.orm import Mapped, mapped_column, relationship
+        from typing import TYPE_CHECKING, Optional, Dict
+        # from .base_model import BaseModel
+        from core.database import Base # If BaseModel is not separate
+
+        if TYPE_CHECKING:
+            from .guild import GuildConfig # Ensure GuildConfig is defined
+
+        class Player(Base): # Replace Base with BaseModel
+            __tablename__ = "players"
+
+            id: Mapped[int] # From BaseModel or define here
+            guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False)
+            discord_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False) # Assuming unique per bot
+            name: Mapped[str] = mapped_column(String(100), nullable=False)
+            # name_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True) # Placeholder for i18n name
+
+            # guild_config: Mapped["GuildConfig"] = relationship(back_populates="players")
+
+            def __repr__(self):
+                return f"<Player(id={self.id}, name='{self.name}', guild_id={self.guild_id})>"
+        ```
+        *Self-correction: `guild_config` relation in `Player` should match `back_populates` in `GuildConfig`. E.g., if `GuildConfig` has `players: Mapped[List["Player"]] = relationship(back_populates="guild_config")`, then `Player` has `guild_config: Mapped["GuildConfig"] = relationship(back_populates="players")`.*
+
+    *   **Key Models to create placeholders for (with `guild_id` and `_i18n` fields where text is involved):**
+        *   `Player`
+        *   `Location`
+        *   `RuleConfig` (Note: `key` and `value_json` are primary, `guild_id` links it)
+        *   `Party`
+        *   `GeneratedNpc`
+        *   `GeneratedFaction`
+        *   `GeneratedQuest`, `QuestStep`, `Questline`
+        *   `Item`, `InventoryItem`
+        *   `StoryLog`
+        *   `Relationship`
+        *   `PlayerNpcMemory` (and `PartyNpcMemory` if planned)
+        *   `Ability`, `Skill`, `StatusEffectDefinition` (statuses might be global or guild-specific)
+        *   `MobileGroup`, `CraftingRecipe`
+
+**7. Create Initial Alembic Migration:**
+    *   Ensure all new model files are imported in `src/models/__init__.py` so Alembic can detect them (e.g., `from .guild import GuildConfig`, `from .player import Player`, etc.).
+    *   Run `alembic revision -m "create_initial_game_models"` (or a more descriptive name).
+    *   Edit the generated migration file:
+        *   Verify that `op.create_table()` calls are generated for all new models.
+        *   Ensure `guild_id` columns have ForeignKeys to `guild_configs.id`.
+        *   Ensure `JSONB` is used for `_i18n` fields and other JSON fields on PostgreSQL (e.g., `sa.Column('name_i18n', postgresql.JSONB(astext_type=sa.Text()), nullable=True)`).
+        *   Add necessary indexes, especially on `guild_id` and any `static_id` or other frequently queried fields.
+    *   Run `alembic upgrade head` to apply the migration to the database.
+
+**8. Testing Considerations (Conceptual for this stage):**
+    *   **Unit Tests:**
+        *   Test creation of `GuildConfig` model instances.
+        *   Test creation of placeholder model instances, ensuring `guild_id` is present.
+    *   **Integration Tests (Manual for now):**
+        *   Verify database schema matches models after running migrations.
+        *   Connect to the DB and manually insert/query a `GuildConfig` record.
 Result: DB schema is ready for full data isolation by guild and storing all types of game data with multilingual support.
 
 
-🔧 0.3 Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware).
-Description: Implement low-level functions for working with the DB that always operate within the context of the specified guild.
-Implement utilities for managing ORM sessions (get_db_session). Implement decorators or context managers for managing ORM TRANSACTIONS (@transactional). These transactions MUST operate ONLY WITH DATA WITHIN THE SPECIFIED guild_id (enforced by CRUD methods).
-Implement generic CRUD utilities (e.g., in a CRUDBase class: get_entity_by_id, get_all, create_entity, update_entity, delete_entity) for ALL models. These utilities MUST accept guild_id as a mandatory parameter where applicable and AUTOMATICALLY add the condition WHERE guild_id = :guild_id to queries.
-Implement the `core.rules` module:
-    - `load_rules_config_for_guild(session, guild_id)`: Loads all RuleConfig records for the guild into an in-memory cache.
-    - `get_rule(session, guild_id, key, default)`: Retrieves a rule from cache, loading if necessary. Handles missing rules with defaults.
-    - `update_rule_config(session, guild_id, key, value)`: Updates RuleConfig in DB and refreshes cache.
-Ensure robust error handling and logging in all utility functions.
+🔧 Task 0.3: Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware) (A-Z Implementation Plan)
+
+**1. ORM Session Management (`src/core/database.py`):**
+    *   **`get_db_session()`:** This function (already defined in Task 0.2) serves as the primary utility for obtaining an `AsyncSession`.
+        ```python
+        # src/core/database.py - (Ensure this is as defined in Task 0.2)
+        # ...
+        # async def get_db_session() -> AsyncSession:
+        #     async with AsyncSessionLocal() as session:
+        #         yield session
+        ```
+    *   **Transactional Decorator/Context Manager (`src/core/database.py` or `src/utils/transaction.py`):**
+        *   Implement `@transactional` decorator for service layer functions that need atomic operations.
+        *   It should automatically handle `session.begin()`, `session.commit()`, and `session.rollback()` on exception.
+        *   It should inject the `AsyncSession` into the decorated function if not already provided or manage it internally.
+        *   **Crucial**: The decorator itself does not enforce `guild_id` filtering; this must be done by the CRUD methods called within the transaction.
+        ```python
+        # src/utils/transaction.py
+        import functools
+        import logging
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from core.database import AsyncSessionLocal # Or get_db_session if it returns a new session
+
+        logger = logging.getLogger(__name__)
+
+        def transactional(func):
+            @functools.wraps(func)
+            async def wrapper(*args, **kwargs):
+                # Attempt to find an existing session in kwargs or args
+                session_in_args = next((arg for arg in args if isinstance(arg, AsyncSession)), None)
+                session_in_kwargs = kwargs.get("session") # Assuming 'session' kwarg
+
+                db_session: Optional[AsyncSession] = session_in_kwargs or session_in_args
+
+                if db_session: # Session provided by caller, caller manages transaction
+                    return await func(*args, **kwargs)
+                else: # No session provided, manage transaction here
+                    async with AsyncSessionLocal() as new_session:
+                        async with new_session.begin(): # Begin transaction
+                            try:
+                                # Inject session if the function expects it
+                                if "session" in func.__code__.co_varnames:
+                                    kwargs["session"] = new_session
+                                result = await func(*args, **kwargs)
+                                # new_session.commit() is handled by 'async with new_session.begin()'
+                                return result
+                            except Exception as e:
+                                logger.error(f"Transaction rolled back due to error in {func.__name__}: {e}", exc_info=True)
+                                # await new_session.rollback() # Handled by 'async with new_session.begin()'
+                                raise
+            return wrapper
+        ```
+
+**2. Generic CRUD Utilities (`src/core/crud_base.py`):**
+    *   Define a `CRUDBase` class template for SQLAlchemy models.
+    *   **Constructor:** Takes a SQLAlchemy model class (`Type[ModelType]`).
+    *   **Methods (all asynchronous, taking `session: AsyncSession`):**
+        *   `async get(self, session: AsyncSession, id: Any) -> Optional[ModelType]`
+        *   `async get_by_guild(self, session: AsyncSession, *, id: Any, guild_id: int) -> Optional[ModelType]`:
+            *   Queries for an entity by its `id` AND `guild_id`. Only applicable if model has `guild_id`.
+        *   `async get_multi(self, session: AsyncSession, *, skip: int = 0, limit: int = 100) -> List[ModelType]`
+        *   `async get_multi_by_guild(self, session: AsyncSession, *, guild_id: int, skip: int = 0, limit: int = 100) -> List[ModelType]`:
+            *   Queries for multiple entities, filtered by `guild_id`.
+            *   Handles pagination (`skip`, `limit`).
+        *   `async create(self, session: AsyncSession, *, obj_in: CreateSchemaType) -> ModelType`:
+            *   Takes a Pydantic schema (`CreateSchemaType`) for input data.
+            *   Converts schema to dict, creates model instance, adds to session, commits (or relies on `@transactional`), refreshes.
+            *   **Crucial**: If `obj_in` contains `guild_id`, it must be used. If the model inherently requires `guild_id` but `obj_in` doesn't provide it (e.g. if `guild_id` comes from context), this method or its caller must ensure `guild_id` is set. For `CRUDBase`, it's safer to assume `guild_id` is part of `obj_in` if the model requires it.
+        *   `async update(self, session: AsyncSession, *, db_obj: ModelType, obj_in: Union[UpdateSchemaType, Dict[str, Any]]) -> ModelType`:
+            *   Takes existing DB object (`db_obj`) and Pydantic schema or dict for updates.
+            *   Updates fields, adds to session, commits, refreshes.
+            *   **Crucial**: `db_obj` should have been fetched in a guild-aware manner. This update method itself doesn't re-verify `guild_id` unless `obj_in` tries to change it (which should be disallowed or handled carefully).
+        *   `async remove(self, session: AsyncSession, *, id: Any) -> Optional[ModelType]`:
+            *   Gets object by `id`, deletes, commits.
+            *   **Crucial**: This is a generic remove. For guild-specific data, a `remove_by_guild` is needed.
+        *   `async remove_by_guild(self, session: AsyncSession, *, id: Any, guild_id: int) -> Optional[ModelType]`:
+            *   Gets object by `id` AND `guild_id`, then deletes.
+    *   **Implementation Details:**
+        *   Use `select()` statements with `session.execute()`.
+        *   For methods requiring `guild_id`, add `where(self.model.guild_id == guild_id)`.
+        *   Handle potential `NoResultFound` or other SQLAlchemy exceptions gracefully, returning `None` or raising custom exceptions.
+        *   Logging for all operations.
+
+    ```python
+    # src/core/crud_base.py
+    import logging
+    from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+    from pydantic import BaseModel as PydanticBaseModel
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.future import select
+    from sqlalchemy import delete, update
+    from core.database import Base as SQLAlchemyBase # Your SQLAlchemy Base
+
+    ModelType = TypeVar("ModelType", bound=SQLAlchemyBase)
+    CreateSchemaType = TypeVar("CreateSchemaType", bound=PydanticBaseModel)
+    UpdateSchemaType = TypeVar("UpdateSchemaType", bound=PydanticBaseModel)
+
+    logger = logging.getLogger(__name__)
+
+    class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
+        def __init__(self, model: Type[ModelType]):
+            self.model = model
+
+        async def get(self, session: AsyncSession, id: Any) -> Optional[ModelType]:
+            statement = select(self.model).where(self.model.id == id)
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
+
+        async def get_by_guild(self, session: AsyncSession, *, id: Any, guild_id: int) -> Optional[ModelType]:
+            if not hasattr(self.model, "guild_id"):
+                logger.warning(f"Model {self.model.__name__} does not have guild_id attribute for get_by_guild.")
+                return await self.get(session, id) # Fallback or raise error
+            statement = select(self.model).where(self.model.id == id, self.model.guild_id == guild_id)
+            result = await session.execute(statement)
+            return result.scalar_one_or_none()
+
+        async def get_multi(
+            self, session: AsyncSession, *, skip: int = 0, limit: int = 100
+        ) -> List[ModelType]:
+            statement = select(self.model).offset(skip).limit(limit)
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+        async def get_multi_by_guild(
+            self, session: AsyncSession, *, guild_id: int, skip: int = 0, limit: int = 100
+        ) -> List[ModelType]:
+            if not hasattr(self.model, "guild_id"):
+                logger.warning(f"Model {self.model.__name__} does not have guild_id attribute for get_multi_by_guild.")
+                return await self.get_multi(session, skip=skip, limit=limit) # Fallback or raise error
+            statement = select(self.model).where(self.model.guild_id == guild_id).offset(skip).limit(limit)
+            result = await session.execute(statement)
+            return result.scalars().all()
+
+        async def create(self, session: AsyncSession, *, obj_in: CreateSchemaType) -> ModelType:
+            obj_in_data = obj_in.model_dump()
+            db_obj = self.model(**obj_in_data)
+            session.add(db_obj)
+            await session.flush() # Use flush to get ID before commit if needed elsewhere in transaction
+            await session.refresh(db_obj)
+            logger.info(f"Created {self.model.__name__} with ID {db_obj.id}")
+            return db_obj
+
+        async def update(
+            self, session: AsyncSession, *, db_obj: ModelType, obj_in: Union[UpdateSchemaType, Dict[str, Any]]
+        ) -> ModelType:
+            obj_data = db_obj.__dict__
+            if isinstance(obj_in, dict):
+                update_data = obj_in
+            else:
+                update_data = obj_in.model_dump(exclude_unset=True)
+
+            for field in obj_data:
+                if field in update_data:
+                    setattr(db_obj, field, update_data[field])
+
+            session.add(db_obj)
+            await session.flush()
+            await session.refresh(db_obj)
+            logger.info(f"Updated {self.model.__name__} with ID {db_obj.id}")
+            return db_obj
+
+        async def remove(self, session: AsyncSession, *, id: Any) -> Optional[ModelType]:
+            obj = await self.get(session, id)
+            if obj:
+                await session.delete(obj)
+                await session.flush()
+                logger.info(f"Removed {self.model.__name__} with ID {id}")
+                return obj
+            return None
+
+        async def remove_by_guild(self, session: AsyncSession, *, id: Any, guild_id: int) -> Optional[ModelType]:
+            obj = await self.get_by_guild(session, id=id, guild_id=guild_id)
+            if obj:
+                await session.delete(obj)
+                await session.flush()
+                logger.info(f"Removed {self.model.__name__} with ID {id} for guild {guild_id}")
+                return obj
+            return None
+    ```
+    *   Create specific CRUD classes for each model, inheriting from `CRUDBase` (e.g., `CRUDGuildConfig(CRUDBase[GuildConfig, GuildConfigCreate, GuildConfigUpdate])`). These will be in `src/core/crud/crud_<modelname>.py`.
+
+**3. Rule Configuration Module (`src/core/rules.py`):**
+    *   **Model:** `RuleConfig` (defined in Task 0.2, has `guild_id`, `key`, `value_json`).
+    *   **CRUD:** Create `src/core/crud/crud_rule_config.py` with `CRUDRuleConfig` inheriting `CRUDBase`.
+        *   Add custom methods like `get_by_key_and_guild(session, key, guild_id)` and `get_all_by_guild(session, guild_id)`.
+    *   **Caching Mechanism (In-memory, guild-scoped):**
+        *   Use a dictionary for caching: `_rule_cache: Dict[int, Dict[str, Any]] = {}` (guild_id -> {key -> value}).
+        *   Consider using `cachetools.TTLCache` or `cachetools.LRUCache` for more advanced caching strategies if the number of rules becomes very large or if TTL is needed. For now, a simple dict is fine.
+    *   **`async load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> Dict[str, Any]`:**
+        *   Fetches all `RuleConfig` records for the `guild_id` using `CRUDRuleConfig`.
+        *   Populates `_rule_cache[guild_id]` with these rules.
+        *   Returns the loaded rules for the guild.
+        *   Logs the loading process.
+    *   **`async get_rule(session: AsyncSession, guild_id: int, key: str, default: Optional[Any] = None) -> Any`:**
+        *   Checks if `guild_id` is in `_rule_cache`. If not, calls `load_rules_config_for_guild`.
+        *   Retrieves the rule `value_json` from `_rule_cache[guild_id].get(key, default)`.
+        *   Logs cache hit/miss and rule retrieval.
+    *   **`async update_rule_config(session: AsyncSession, guild_id: int, key: str, value: Any) -> RuleConfig`:**
+        *   Uses `CRUDRuleConfig` to find an existing rule by `key` and `guild_id`.
+        *   If exists, updates its `value_json`.
+        *   If not, creates a new `RuleConfig` entry.
+        *   Refreshes `_rule_cache[guild_id]` for this key (or reloads all for simplicity initially).
+        *   Logs the update.
+        *   Returns the updated/created `RuleConfig` object.
+    *   **Cache Invalidation:**
+        *   For a single-instance bot, updating `_rule_cache` on `update_rule_config` is sufficient.
+        *   For multi-instance deployments (future consideration):
+            *   A proper distributed cache (like Redis) would be needed.
+            *   Or, a pub/sub mechanism for cache invalidation signals between instances.
+            *   For now, assume single instance or that cache staleness for a short period is acceptable.
+
+**4. Error Handling and Logging:**
+    *   Implement try-except blocks in all utility functions for database errors (e.g., `SQLAlchemyError`).
+    *   Log errors with detailed context (guild_id, operation, parameters).
+    *   Return meaningful values (e.g., `None`, empty list) or raise custom, more specific exceptions where appropriate.
+
+**5. Testing Considerations:**
+    *   **Unit Tests for `CRUDBase`:**
+        *   Mock `AsyncSession` and model methods.
+        *   Test each CRUD method for correct query construction (especially `guild_id` filtering) and interaction with the session.
+    *   **Unit Tests for `CRUDRuleConfig`:**
+        *   Test custom methods like `get_by_key_and_guild`.
+    *   **Unit Tests for `core.rules` module:**
+        *   Mock `CRUDRuleConfig` and `AsyncSession`.
+        *   Test `load_rules_config_for_guild` (cache population).
+        *   Test `get_rule` (cache hit, cache miss and load, default value).
+        *   Test `update_rule_config` (creation of new rule, update of existing rule, cache update).
+    *   **Unit Tests for `@transactional` decorator:**
+        *   Test successful commit.
+        *   Test rollback on exception.
+        *   Test session injection/management.
 Result: A set of utilities for reliable, secure (guild-isolated) DB data access and configurable rules with caching. Cache invalidation strategies considered for multi-instance deployments if applicable.
 
 
 🌍 Phase 1: Game World (Static & Generated)
-🌍 1.1 Location Model (i18n, Guild-Scoped). (0.2)
-Description: Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details.
-Implement the Location model (0.2) with fields: id (PK, INTEGER), guild_id (BIGINT, Indexed, FK to GuildConfig), parent_location_id (FK to locations.id, nullable), static_id (TEXT, unique within the guild), name_i18n (JSONB), descriptions_i18n (JSONB), type (LocationType ENUM), coordinates_json (JSONB), neighbor_locations_json (JSONB - list of {location_id: connection_type_i18n}), generated_details_json (JSONB), ai_metadata_json (JSONB).
-Populate the DB with initial static world lore and locations (if any) during on_guild_join (0.1), linked to the guild.
-Implement utilities `get_location(guild_id, location_id)`, `get_location_by_static_id(guild_id, static_id)`.
-Implement `get_localized_text(entity_with_i18n_fields, field_name, language, fallback_lang)` for retrieving localized text from any _i18n JSONB field.
+🌍 Task 1.1: Location Model (i18n, Guild-Scoped) (A-Z Implementation Plan)
+
+**Overall Context Reminder**: This model is part of a scalable backend for a Discord bot supporting independent RPG worlds per guild. Locations are fundamental to the game world, which is procedurally generated by AI and managed by game mechanics. Data must be guild-isolated and support multilingual content.
+
+**1. Model Definition (`src/models/location.py`):**
+    *   Ensure the `Location` SQLAlchemy model is fully defined, inheriting from `BaseModel` (or `Base`) and `TimestampMixin` (as established in Task 0.2).
+    *   **Fields**:
+        *   `id: Mapped[int]` (PK, from `BaseModel`).
+        *   `guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False)` (Ensures guild isolation).
+        *   `parent_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True, index=True)` (For hierarchical locations, e.g., a room within a building).
+        *   `static_id: Mapped[Optional[str]] = mapped_column(String(255), index=True, nullable=True)` (Unique identifier within the guild for pre-defined or key locations. Should have a `UniqueConstraint` with `guild_id`).
+        *   `name_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False)` (Localized names, e.g., `{"en": "Forest Path", "ru": "Лесная Тропа"}`).
+        *   `description_i18n: Mapped[Dict[str, str]] = mapped_column(JSONB, nullable=False)` (Localized descriptions).
+        *   `location_type: Mapped[Optional[str]] = mapped_column(String(50), index=True, nullable=True)` (e.g., "forest", "city_street", "dungeon_room", "shop". Consider an Enum later if types become fixed, but string allows flexibility for AI generation initially).
+        *   `coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)` (e.g., `{"x": 10, "y": 20, "z": 0, "map_id": "world_map"}`. Structure can be flexible).
+        *   `neighbor_locations_json: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSONB, nullable=True)`
+            *   Structure for each element in list: `{"target_location_id": int, "connection_type_i18n": {"en": "winding path", "ru": "извилистая тропа"}, "travel_time_minutes": Optional[int], "conditions_json": Optional[Dict], "is_one_way": Optional[bool]}`.
+            *   `conditions_json` could hold requirements like `{"requires_item_static_id": "rope", "requires_skill_check": {"skill": "climbing", "dc": 15}}`.
+        *   `generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)` (For AI-generated content like interactive elements, points of interest, ambient details, e.g., `{"interactive_elements": [{"id": "lever1", "name_i18n": ..., "description_i18n": ..., "actions": ["pull"]}]}`).
+        *   `ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)` (Metadata related to AI generation, e.g., prompt used, generation version, theme keywords).
+        *   `properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)` (For other dynamic properties, e.g., `{"has_light_source": true, "encounter_rate_modifier": -0.1}`).
+    *   **Relationships**:
+        *   `guild_config: Mapped["GuildConfig"] = relationship(back_populates="locations")` (Assuming `GuildConfig` has `locations: Mapped[List["Location"]] = relationship(back_populates="guild_config")`).
+        *   `parent_location: Mapped[Optional["Location"]] = relationship(back_populates="child_locations", remote_side=[id])`
+        *   `child_locations: Mapped[List["Location"]] = relationship(back_populates="parent_location")`
+    *   **Table Args**:
+        *   `UniqueConstraint('guild_id', 'static_id', name='uq_location_guild_static_id')` (if `static_id` is not globally unique but per guild). If `static_id` needs to be globally unique for some reason, this constraint changes. The task implies uniqueness *within the guild*.
+
+**2. Alembic Migration:**
+    *   After defining/updating the `Location` model and ensuring it's imported in `src/models/__init__.py`:
+    *   Generate a new migration: `alembic revision -m "add_location_model_and_relations"`
+    *   Review and edit the generated migration script:
+        *   Ensure `op.create_table('locations', ...)` includes all specified columns with correct types (e.g., `postgresql.JSONB` for JSON fields), constraints (PK, FKs, Unique).
+        *   Ensure indexes are created for `guild_id`, `parent_location_id`, `static_id`, and `location_type`.
+    *   Apply the migration: `alembic upgrade head`.
+
+**3. CRUD Operations (`src/core/crud/crud_location.py`):**
+    *   Create `CRUDLocation(CRUDBase[Location, LocationCreateSchema, LocationUpdateSchema])`.
+        *   (Pydantic schemas `LocationCreateSchema`, `LocationUpdateSchema` will need to be defined in `src/schemas/location.py`, mirroring the model fields intended for creation/update).
+    *   Implement specific query methods if needed beyond `CRUDBase`:
+        *   `async get_by_static_id(self, session: AsyncSession, *, guild_id: int, static_id: str) -> Optional[Location]:`
+            *   Query: `select(Location).where(Location.guild_id == guild_id, Location.static_id == static_id)`
+        *   `async get_children_of_location(self, session: AsyncSession, *, location_id: int, guild_id: int) -> List[Location]:`
+            *   Query: `select(Location).where(Location.guild_id == guild_id, Location.parent_location_id == location_id)`
+        *   `async get_locations_by_type(self, session: AsyncSession, *, guild_id: int, location_type: str) -> List[Location]:`
+            *   Query: `select(Location).where(Location.guild_id == guild_id, Location.location_type == location_type)`
+
+**4. Utility Functions (`src/core/locations_utils.py`):**
+    *   **`async get_location(session: AsyncSession, guild_id: int, location_id: int) -> Optional[Location]:`**
+        *   Uses `crud_location.get_by_guild(session, id=location_id, guild_id=guild_id)`.
+    *   **`async get_location_by_static_id(session: AsyncSession, guild_id: int, static_id: str) -> Optional[Location]:`**
+        *   Uses `crud_location.get_by_static_id(session, guild_id=guild_id, static_id=static_id)`.
+    *   **`get_localized_text(entity_with_i18n_fields: Any, field_name: str, language: str, fallback_lang: str = "en") -> str:`**
+        *   This function is generic and likely already exists or will be part of a broader localization utility module.
+        *   Retrieves text from a JSONB field (e.g., `name_i18n`).
+        *   Logic:
+            1. Access `json_field = getattr(entity_with_i18n_fields, field_name)`.
+            2. If `json_field` is a dict:
+                *   Try `json_field.get(language)`.
+                *   If not found, try `json_field.get(fallback_lang)`.
+                *   If still not found, return a placeholder like `f"{field_name}_undefined"` or the first available value.
+            3. Else, return a placeholder.
+        *   Ensure robust error handling (e.g., field doesn't exist, not a dict).
+
+**5. Initial Data Population (Conceptual - `on_guild_join`):**
+    *   The task mentions: "Populate the DB with initial static world lore and locations (if any) during on_guild_join (0.1), linked to the guild."
+    *   This implies that in `src/bot/events.py` (or wherever `on_guild_join_handler` is), after `GuildConfig` is created, there might be a call to a function like `async def populate_initial_guild_locations(session: AsyncSession, guild_id: int):`.
+    *   `populate_initial_guild_locations` would:
+        *   Read from a predefined data source (e.g., a JSON file, or hardcoded dicts) containing definitions for default/static locations.
+        *   For each static location definition:
+            *   Create a `LocationCreateSchema` Pydantic model.
+            *   Call `crud_location.create(session=session, obj_in=location_data_schema)`.
+        *   This ensures static locations are created with their `guild_id`.
+
+**6. Testing Considerations:**
+    *   **Unit Tests for `Location` model (`tests/models/test_location.py`):**
+        *   Test instance creation with all fields.
+        *   Test i18n field handling (setting/getting).
+        *   Test JSON field handling.
+        *   Test relationships (parent/child) if mock data allows.
+    *   **Unit Tests for `CRUDLocation` (`tests/core/crud/test_crud_location.py`):**
+        *   Test `get_by_static_id`.
+        *   Test `get_children_of_location`.
+        *   Test `get_locations_by_type`.
+        *   Ensure `guild_id` filtering is correctly applied in all relevant base and custom methods.
+    *   **Unit Tests for `locations_utils.py` (`tests/core/test_locations_utils.py`):**
+        *   Test `get_location` and `get_location_by_static_id` (mocking CRUD).
+        *   Thoroughly test `get_localized_text` with various scenarios: language found, fallback language used, no language found, field not i18n, field missing.
+    *   **Integration Tests (Conceptual for `on_guild_join`):**
+        *   Test the `on_guild_join` event flow to ensure `populate_initial_guild_locations` is called and successfully creates locations in a test DB.
 Result: Location model defined, static data accessible and isolated, localization utilities available.
 
 
