@@ -1,4 +1,46 @@
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_quest_master_commands.py] — 26 issue(s):
+  Line 123  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 124  [ERROR] Parameter "quest_id" is already assigned
+  Line 141  [ERROR] Operator "in" not supported for types "str" and "str | None"
+┬а┬аOperator "in" not supported for types "str" and "None"
+  Line 155  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 155  [ERROR] Parameter "quest_id" is already assigned
+  Line 174  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 174  [ERROR] Parameter "quest_id" is already assigned
+  Line 199  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 200  [ERROR] Parameter "quest_id" is already assigned
+  Line 225  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 226  [ERROR] Parameter "quest_id" is already assigned
+  Line 244  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 245  [ERROR] Parameter "quest_id" is already assigned
+  Line 261  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 262  [ERROR] Parameter "quest_id" is already assigned
+  Line 279  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 280  [ERROR] Parameter "quest_id" is already assigned
+  Line 312  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 313  [ERROR] Parameter "quest_id" is already assigned
+  Line 330  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 331  [ERROR] Parameter "quest_id" is already assigned
+  Line 357  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 358  [ERROR] Parameter "quest_id" is already assigned
+  Line 393  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 394  [ERROR] Parameter "quest_id" is already assigned
+  Line 407  [ERROR] Operator "in" not supported for types "str" and "str | None"
+┬а┬аOperator "in" not supported for types "str" and "None"
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 10 issue(s):
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
@@ -12,37 +54,41 @@
   Line 835  [ERROR] Argument missing for parameter "entity_type"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 8 issue(s):
-  Line 77   [ERROR] Expected 1 more positional argument
-  Line 77   [ERROR] Expected 2 more positional arguments
-  Line 107  [ERROR] Expected 1 more positional argument
-  Line 107  [ERROR] Expected 2 more positional arguments
-  Line 134  [ERROR] Expected 1 more positional argument
-  Line 134  [ERROR] Expected 2 more positional arguments
-  Line 189  [ERROR] Expected 1 more positional argument
-  Line 189  [ERROR] Expected 2 more positional arguments
+  Line 78   [ERROR] Expected 1 more positional argument
+  Line 78   [ERROR] No parameter named "interaction"
+  Line 109  [ERROR] Expected 1 more positional argument
+  Line 109  [ERROR] No parameter named "interaction"
+  Line 137  [ERROR] Expected 1 more positional argument
+  Line 137  [ERROR] No parameter named "interaction"
+  Line 193  [ERROR] Expected 1 more positional argument
+  Line 193  [ERROR] No parameter named "interaction"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_party_npc_memory.py] — 6 issue(s):
-  Line 38   [ERROR] Object of type "Connection" cannot be used with "async with" because it does not correctly implement __aenter__
+  Line 30   [ERROR] No overloads for "__init__" match the provided arguments
+  Line 31   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
+┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
+  Line 47   [ERROR] Object of type "SessionTransaction" cannot be used with "async with" because it does not correctly implement __aenter__
 ┬а┬аAttribute "__aenter__" is unknown
-  Line 38   [ERROR] Object of type "Connection" cannot be used with "with" because it does not correctly implement __aexit__
+  Line 47   [ERROR] Object of type "SessionTransaction" cannot be used with "with" because it does not correctly implement __aexit__
 ┬а┬аAttribute "__aexit__" is unknown
-  Line 48   [ERROR] Object of type "SessionTransaction" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 48   [ERROR] Object of type "SessionTransaction" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
-  Line 58   [ERROR] Return type of async generator function must be compatible with "AsyncGenerator[Session, Any]"
+  Line 57   [ERROR] Return type of async generator function must be compatible with "AsyncGenerator[Session, Any]"
 ┬а┬а"AsyncGenerator[Session, Unknown, Unknown]" is not assignable to "AsyncGenerator[AsyncSession, None]"
 ┬а┬а┬а┬аType parameter "_YieldT_co@AsyncGenerator" is covariant, but "Session" is not a subtype of "AsyncSession"
 ┬а┬а┬а┬а┬а┬а"Session" is not assignable to "AsyncSession"
-  Line 60   [ERROR] "None" is not awaitable
+  Line 59   [ERROR] "None" is not awaitable
 ┬а┬а"None" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
 ┬а┬а┬а┬а"__await__" is not present
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_party_npc_memory.py] — 6 issue(s):
-  Line 36   [ERROR] Object of type "Connection" cannot be used with "async with" because it does not correctly implement __aenter__
-┬а┬аAttribute "__aenter__" is unknown
-  Line 36   [ERROR] Object of type "Connection" cannot be used with "with" because it does not correctly implement __aexit__
-┬а┬аAttribute "__aexit__" is unknown
+  Line 29   [ERROR] No overloads for "__init__" match the provided arguments
+  Line 30   [ERROR] Argument of type "AsyncEngine" cannot be assigned to parameter "bind" of type "_SessionBind | None" in function "__init__"
+┬а┬аType "AsyncEngine" is not assignable to type "_SessionBind | None"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Engine"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "Connection"
+┬а┬а┬а┬а"AsyncEngine" is not assignable to "None"
   Line 46   [ERROR] Object of type "SessionTransaction" cannot be used with "async with" because it does not correctly implement __aenter__
 ┬а┬аAttribute "__aenter__" is unknown
   Line 46   [ERROR] Object of type "SessionTransaction" cannot be used with "with" because it does not correctly implement __aexit__
@@ -56,13 +102,13 @@
 ┬а┬а┬а┬а"__await__" is not present
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_npc_combat_strategy.py] — 5 issue(s):
-  Line 315  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Line 316  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
 ┬а┬аAttribute "id" is unknown
-  Line 319  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
+  Line 321  [ERROR] Cannot access attribute "id" for class "Dict[str, Any]"
 ┬а┬аAttribute "id" is unknown
-  Line 320  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
-  Line 320  [ERROR] "__getitem__" method not defined on type "Player"
-  Line 335  [ERROR] Object of type "None" cannot be used as iterable value
+  Line 322  [ERROR] "__getitem__" method not defined on type "GeneratedNpc"
+  Line 322  [ERROR] "__getitem__" method not defined on type "Player"
+  Line 337  [ERROR] Object of type "None" cannot be used as iterable value
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_dialogue_system.py] — 4 issue(s):
   Line 72   [ERROR] Object of type "None" is not subscriptable
@@ -83,14 +129,6 @@
   Line 4    [WARNING] Import "jose" could not be resolved from source
   Line 4    [WARNING] Import "jose.jwt" could not be resolved from source
   Line 5    [WARNING] Import "passlib.context" could not be resolved from source
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_prompt_builder.py] — 3 issue(s):
-  Line 133  [ERROR] Cannot access attribute "properties_json" for class "GuildConfig"
-┬а┬аAttribute "properties_json" is unknown
-  Line 134  [ERROR] Cannot assign to attribute "properties_json" for class "GuildConfig"
-┬а┬аAttribute "properties_json" is unknown
-  Line 135  [ERROR] Cannot access attribute "properties_json" for class "GuildConfig"
-┬а┬аAttribute "properties_json" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_simulation_tools_cog.py] — 2 issue(s):
   Line 350  [ERROR] "get" is not a known attribute of "None"
@@ -123,11 +161,17 @@
 ┬а┬аType "str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
 
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\api\routers\test_auth.py] — 1 issue(s):
+  Line 43   [ERROR] Expression of type "Literal['DEFAULT_GUILDS_PLACEHOLDER']" cannot be assigned to parameter of type "List[Dict[str, str]] | None"
+┬а┬аType "Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to type "List[Dict[str, str]] | None"
+┬а┬а┬а┬а"Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to "List[Dict[str, str]]"
+┬а┬а┬а┬а"Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to "None"
+
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
   Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 1 issue(s):
-  Line 715  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+  Line 721  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
 ┬а┬аType "str | None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
 ┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
