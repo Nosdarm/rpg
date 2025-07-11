@@ -1,0 +1,381 @@
+## Analysis Report & Deviations from Tasks.txt (Summary)
+
+This document summarizes findings from comparing the project codebase against `Tasks.txt`.
+
+**Overall Project State:** The project is significantly advanced. Many core systems are in place. The main source code is under `backend/` (not `src/`).
+
+---
+
+### Phase 0: Architecture and Initialization (Foundation MVP)
+
+**Task 0.1: Discord Bot Project Initialization**
+*   **Project Structure**: Mostly Implemented. `utils/` not top-level in `backend/`.
+*   **Dependencies**: Fully Implemented (and extended with FastAPI, OpenAI client, etc.).
+*   **Environment Config (.env)**: Fully Implemented.
+*   **Configuration System (`settings.py`)**: Partially Implemented.
+    *   Loads from env.
+    *   **Deviation**: Does **not** use Pydantic `BaseSettings` (Task 0.2). Uses `os.getenv`.
+*   **Logging Setup (`main.py`)**: Mostly Implemented. Minor format differences.
+*   **Bot Core (`main.py`, `bot/core.py`)**: Fully Implemented.
+*   **Event Handlers (`bot/core.py`, `bot/events.py`)**: Mostly Implemented.
+    *   `on_ready`, `on_guild_join`, `on_guild_remove` are robust.
+    *   `on_message` integrates NLU, advanced beyond basic logging.
+*   **Utility Commands (`general_commands.py`)**: `/ping` Fully Implemented (hardcoded Russian response).
+*   **Language System (Basic)**: Partially Implemented. Some early commands use hardcoded Russian. Advanced i18n system exists elsewhere.
+
+**Task 0.2: DBMS Setup and Database Model Definition**
+*   **Technology & Setup**: Fully Implemented (PostgreSQL, SQLAlchemy Async, Alembic).
+*   **DB Connection & Session Management (`database.py`)**: Fully Implemented (`async_engine`, `AsyncSessionLocal`, `get_db_session` context manager).
+*   **Alembic Config (`alembic/`)**: Fully Implemented.
+*   **Base Model (`models/base.py`)**: Mostly Implemented. `Base` and `TimestampMixin` provided. Differs slightly from `BaseModel` spec (no auto `id` in `Base`).
+*   **`GuildConfig` Model (`models/guild.py`)**: Partially Implemented.
+    *   Core fields present.
+    *   **Missing**: `supported_languages_json`, `is_active`.
+*   **Placeholder Models**: Fully Implemented (all listed models exist and are mature).
+*   **Initial Alembic Migration**: Unconfirmed / Likely Not Implemented as a single comprehensive initial migration visible in the current state. Schema exists, but its initial Alembic creation path is unclear.
+
+**Task 0.3: Basic DB Interaction Utilities & Rule Configuration**
+*   **ORM Session Management (`database.py`)**: Fully Implemented (`get_db_session`, `@transactional` decorator).
+*   **Generic CRUD Utilities (`crud_base_definitions.py`)**: Fully Implemented. `CRUDBase` is robust. Minor signature differences (uses `Dict` not Pydantic schema for `obj_in`).
+*   **Rule Configuration Module (`rules.py`, `crud/crud_rule_config.py`)**: Fully Implemented (CRUD, caching, get/update functions).
+
+---
+
+### Phase 1: Game World (Static & Generated)
+
+**Task 1.1: Location Model**
+*   **Model (`models/location.py`)**: Mostly Implemented.
+    *   `guild_id`, i18n fields, most specified fields present.
+    *   **Missing**: Explicit `properties_json` (may be covered by `generated_details_json`). Relationships to `GuildConfig`, `parent_location`/`child_locations`.
+*   **CRUD (`crud/crud_location.py`)**: Mostly Implemented.
+    *   **Missing**: `get_children_of_location` specific method.
+*   **Utils (`locations_utils.py`)**: Fully Implemented.
+*   **Initial Data Population (`bot/events.py`)**: Implemented (uses hardcoded defaults).
+
+**Task 1.2: Player and Party System**
+*   **Models (`models/player.py`, `models/party.py`)**: Fully Implemented. Comprehensive.
+*   **Player Creation (`/start` in `general_commands.py`)**: Partially Implemented.
+    *   **Deviation**: Starting location from hardcoded list, not `RuleConfig`. `RuleConfig` use for stats needs deeper check into `player_crud.create_with_defaults`. Feedback hardcoded Russian.
+*   **Party Management Commands (`party_commands.py`)**: Partially Implemented.
+    *   Core commands (`create`, `leave`, `disband`, `join`) exist.
+    *   **Gaps**: Limited `RuleConfig` use (size, naming, join conditions, leader policies). Missing `invite/kick/promote`. Leader management incomplete. Feedback hardcoded Russian.
+*   **Utilities**: Implemented via CRUD layers.
+
+**Task 1.3: Movement Logic (`movement_logic.py`, `action_processor.py`)**
+*   **Core Logic**: Implemented (target resolution, basic neighbor check, some party rules, transactional updates, event logging, post-movement hook).
+*   **Status**: Partially Implemented.
+    *   **Gaps**: Player status check (e.g., not in combat) before move. Conditional connection logic (items, quests). Movement costs/skill checks. Advanced party movement policies. Localized feedback.
+
+---
+
+### Phase 2: AI Integration - Generation Core (Partial Review)
+
+**Task 2.1: Finalize Definition of ALL DB Schemas**
+*   **Status**: Fully Implemented. All reviewed models consistently use `guild_id` and `_i18n` JSON fields. Definitions are mature.
+
+**Task 2.2: AI Prompt Preparation Module (`ai_prompt_builder.py`)**
+*   **Status**: Mostly Implemented.
+    *   Implemented via specialized functions (e.g., `prepare_dialogue_generation_prompt`, `prepare_quest_generation_prompt`) rather than one dispatching function based on `generation_type`.
+    *   Excellent context aggregation, structured prompts, i18n handling, `RuleConfig` use.
+
+**Task 2.3: AI Response Parsing and Validation Module (`ai_response_parser.py`)**
+*   **Status**: Partially Implemented.
+    *   Strong Pydantic-based parsing and schema validation. Discriminated unions used effectively.
+    *   **Gaps**: Advanced semantic validation (balance, `RuleConfig` constraints) is basic. Contextual validation against game state is missing. Auto-correction not implemented. i18n lang check hardcoded to 'en'.
+
+**Task 2.6: AI Generation, Moderation, and Saving Logic (`ai_orchestrator.py`, `pending_generation_master_commands.py`)**
+*   **Status**: Mostly Implemented.
+    *   Pipeline (trigger, pend, moderate, save) exists. `PendingGeneration` model used well.
+    *   Master moderation commands are good. Saving logic handles multiple entity types.
+    *   **Gaps/Deviations**:
+        *   `trigger_ai_generation_flow` needs refactor for generic `generation_type` and context handling.
+        *   Auto-approval via `RuleConfig` not implemented.
+        *   Saving for specific sub-features (e.g., trader inventory via this generic flow) might need adding.
+        *   Post-save game event hooks are placeholders.
+
+---
+
+### Phase 3: Abilities and Checks Mechanics (Review)
+
+**Task 20 (3.1): Ability Model (`models/ability.py`)**
+*   **Status**: Fully Implemented. Model supports `guild_id` (nullable for global), `static_id`, i18n fields, `type`, and flexible `properties_json`.
+
+**Task 21 (3.2): Entity Status Model (`models/status_effect.py`)**
+*   **`StatusEffectDefinition` (as `StatusEffect` in code)**: Mostly Implemented. `guild_id` (nullable), `static_id`, i18n, `category` (enum), `properties_json` are present. `max_stacks`, `is_permanent` expected in `properties_json`.
+*   **`ActiveStatusEffect`**: Mostly Implemented. Contains necessary fields. `current_stacks` not explicit (could be in `custom_properties_json` or handled by multiple instances).
+*   **Status**: Mostly Implemented.
+
+**Task 22 (3.3): API for Activating Abilities and Applying Statuses (`core/ability_system.py`)**
+*   **Status**: Partially Implemented.
+    *   Functional APIs `activate_ability`, `apply_status`, `remove_status`. Basic cost checks and effects (damage, heal, apply_status) handled. Event logging good.
+    *   **Gaps**: Many pre-activation checks (cooldowns, complex requirements like items/statuses, LoS, range, casting skill checks) missing. Complex targeting rules missing. Limited effect types; basic effect magnitude calculation (no formulas, resistances, saving throws). Status stacking logic not implemented. Status Tick System not implemented.
+
+---
+
+### Phase 4: World and Location Model (Review)
+
+**Task 23 (4.1): Location Model (`models/location.py`)**
+*   **Status**: Mostly Implemented (Identical to Task 1.1 analysis).
+    *   **Missing**: Explicit `properties_json`, some specific relationships (to `GuildConfig`, `parent_location`/`child_locations`).
+
+**Task 24 (4.2): Guild Map Generation and Editing**
+*   **AI Location Generation (`world_generation.py::generate_location`)**: Partially Implemented.
+    *   Generates location and basic neighbor links.
+    *   **Deviations/Gaps**: Bypasses standard AI moderation flow (Task 2.6). Does not populate initial entities (NPCs/items) for the new location. `prepare_ai_prompt` call might not be specific enough for detailed location features.
+*   **Master Map Editing Commands (`master_map_commands.py`)**: Partially Implemented.
+    *   Core commands for manual add (`add_manual_location_cmd`), remove (`remove_location_cmd`), connect (`connect_locations_cmd`), disconnect (`disconnect_locations_cmd`) exist.
+    *   AI generation trigger (`generate_ai_location_cmd`) exists.
+    *   **Missing Commands**: `update_location`, `set_coordinates`, `manage_interactive_element`.
+    *   `connect_locations_cmd` missing `conditions_json` parameter.
+    *   Robustness of location deletion (handling entities/connections) and detailed StoryLog logging for all manual map commands needs verification in underlying `map_management.py` functions.
+*   **Status**: Partially Implemented.
+
+**Task 25 (4.3): Location Transitions (`movement_logic.py`)**
+*   **Status**: Partially Implemented (Identical to Task 1.3 analysis).
+    *   **Gaps**: Player status check before move, conditional connection logic, movement costs/skill checks, advanced party policies, localized feedback.
+
+---
+
+### Phase 5: Combat System (Review)
+
+**Task 26 (5.1): Combat and Participant Model (`models/combat_encounter.py`)**
+*   **Status**: Mostly Implemented.
+    *   `CombatEncounter` model is well-defined with `TimestampMixin`.
+    *   Covers most fields like `guild_id`, `status`, `turn_order_json`, `participants_json`, `combat_log_json`.
+    *   `start_time` is `created_at`. `end_time` not explicit. `current_turn_number`/`round_number` not explicit fields (likely managed via `turn_order_json`).
+
+**Task 27 (5.2): Combat Engine Module (`core/combat_engine.py`)**
+*   **Status**: Partially Implemented.
+    *   Solid implementation for "attack" action (integrates `RuleConfig`, `CheckResolver`, `DiceRoller`). Good logging.
+    *   **Gaps**: Does not implement handlers for "cast_ability", "use_item", "defend", "flee".
+
+**Task 28 (5.3): NPC Combat Strategy Module (AI) (`core/npc_combat_strategy.py`)**
+*   **Status**: Mostly Implemented.
+    *   Sophisticated framework: comprehensive rule loading, context gathering, multi-factor target selection (including complex relationships), action choice logic.
+    *   **Gaps**: `_simulate_action_outcome` is very basic, limiting effectiveness evaluation. NPC item usage not handled.
+
+**Task 29 (5.4): Combat Cycle Refactoring (`core/combat_cycle_manager.py`)**
+*   **Status**: Mostly Implemented.
+    *   Robust state machine: `start_combat` (good), `process_combat_turn` (good for NPC turns/advancement), `_handle_combat_end_consequences` (structure present).
+    *   **Gaps**: Initial participant stats in `start_combat` are simplified. Consequence application (XP, loot, etc.) relies on placeholder classes/functions.
+
+---
+
+### Phase 6: Action Resolution Systems (Core Mechanics) (Partial Review)
+
+**Task 6.3.1: Dice Roller Module (`dice_roller.py`)**
+*   **Status**: Partially Implemented.
+    *   Functional roller for NdX+/-M format.
+    *   **Gaps**: Does not return `normalized_dice_string_used`. Does not support "drop lowest/highest" mechanics.
+
+**Task 6.3.2: Check Resolver Module (`check_resolver.py`)**
+*   **Status**: Mostly Implemented.
+    *   Sophisticated resolver with `RuleConfig` integration, attribute modifiers, contextual bonuses, relationship influences. Returns detailed `CheckResult`.
+    *   **Gaps**: Does not directly handle opposed checks. Full "Effective Stats Calculation" (including statuses, item bonuses prior to check modifiers) not explicit. Degrees of success/failure are basic.
+
+**Task 6.10: Action Parsing and Recognition Module (NLU) (`nlu_service.py`)**
+*   **Status**: Partially Implemented (very basic functionality).
+    *   Uses simple regex, not a full NLU library.
+    *   **Gaps**: Missing `current_game_context` parameter. No guild-scoped entity dictionary. No coreference resolution. Limited multi-language support. No ambiguity handling.
+
+**Task 6.12: Turn Queue System / Turn Controller (`turn_controller.py`)**
+*   **Status**: Partially Implemented.
+    *   Functional controller using entity statuses and per-guild locks. Triggers action processor asynchronously.
+    *   **Gaps**: Readiness check processes available entities, doesn't wait for all active. No `RuleConfig` for max turn wait. No explicit handling of `IN_COMBAT` entities. No global event ticks.
+
+**Task 6.11: Central Collected Actions Processing Module (`action_processor.py`)**
+*   **Status**: Mostly Implemented.
+    *   Robust framework for loading actions, executing via dispatch table in individual transactions. Integrates with combat, movement, interaction, dialogue, trade, quests.
+    *   **Gaps**: Pre-execution conflict analysis for the *current batch* of actions is missing. Mechanism for quest system to get `StoryLog` ID of the action is potentially fragile. Aggregated feedback/report generation is a TODO.
+
+**Task 6.1.1: Intra-Location Interaction Handler Module (`interaction_handlers.py`)**
+*   **Status**: Partially Implemented.
+    *   Good structure for handling interactions with objects in location data, integrates `RuleConfig` and `CheckResolver`. Event logging present.
+    *   **Gaps**: Does not handle all specified interaction intents. Critical: Application of consequences from `RuleConfig` is **not implemented** (TODOs exist). Prerequisite checks missing. Feedback not localized via main i18n system.
+
+---
+
+### Phase 7: Narrative Generation and Event Log (Review)
+
+**Task 17 (7.1): Event Log Model (`StoryLog`) and `log_event` API**
+*   **`StoryLog` Model (`models/story_log.py`)**: Fully Implemented. Matches spec.
+*   **`log_event` API (`core/game_events.py`)**: Fully Implemented. Enhancements like `dry_run` and returning `StoryLog` object are present.
+*   **Status**: Fully Implemented.
+
+**Task 18 (7.2): AI Narrative Generation (Multilang) (`ai_orchestrator.py`)**
+*   **API**: Implemented as `generate_narrative(session, guild_id, context: Dict)`.
+    *   **Deviations**: Signature differs (no `context_event_log`, `generation_type`, `target_language` direct params). Language determination is internal.
+*   **Prompt Engineering**: Basic prompt construction within `generate_narrative`.
+    *   **Gap**: Does not use main AI Prompt Prep Module (Task 2.2). Does not use `RuleConfig` for style/tone/forbidden themes.
+*   **LLM Interaction**: Uses mock, but `make_real_ai_call` exists.
+*   **Output Processing**: Returns string; caller handles storage.
+*   **Configurability**: `RuleConfig` to enable/disable generation is **missing**.
+*   **Status**: Partially Implemented.
+
+**Task 19 (7.3) / Task 54: Turn and Report Formatting (`report_formatter.py`)**
+*   **API**: `format_turn_report` matches. `format_log_entry_for_display` is internal (`_format_log_entry_with_names_cache`). `format_master_event_summary` not distinct.
+*   **Localization**: Fully Implemented (uses `localization_utils`, `RuleConfig` for templates/terms, batch name fetching).
+*   **Template Engine**: Achieved via `RuleConfig` templates.
+*   **Data Extraction/Formatting**: Well-implemented for many event types.
+*   **Information Hiding (Perspective)**: Parameter `perspective_player_id` exists.
+    *   **Gap**: Actual logic to filter details based on `RuleConfig` visibility rules is not implemented in the formatter.
+*   **Status**: Mostly Implemented.
+
+---
+
+### Phase 8: Factions, Relationships, and Social Mechanics (Review)
+
+**Task 33 (8.1): Factions Model (`models/generated_faction.py`)**
+*   **Status**: Fully Implemented. Model is comprehensive with `guild_id`, i18n fields, and relationships.
+
+**Task 34 (8.2): Relationships Model (`models/relationship.py`)**
+*   **Status**: Fully Implemented. Model includes `guild_id`, entity links, type, value, and `source_log_id`.
+
+**Task 35 (8.3): AI Generation of Factions and Relationships (`world_generation.py`, `ai_prompt_builder.py`)**
+*   **Status**: Partially Implemented.
+    *   Prompt preparation (`prepare_faction_relationship_generation_prompt`) and saving logic (2-pass) are well-structured.
+    *   **Gaps**: Uses **mock AI response**. Bypasses standard AI moderation flow (Task 2.6).
+
+**Task 36 (8.4): Relationship Changes Through Actions (`relationship_system.py`)**
+*   **Status**: Partially Implemented.
+    *   Core `update_relationship` API exists, loads rules from `RuleConfig`, logs changes.
+    *   **Gaps**: "Faction relationship cascade" logic missing. Integration with several key systems (Combat, Dialogue, World Events, Ability System) is incomplete or missing. Use of `eval()` for formulas is a potential security concern.
+
+**Task 37 (8.5): Relationship Influence**
+*   **Check Resolver (`check_resolver.py`)**: Implemented.
+*   **NPC Combat Strategy (`npc_combat_strategy.py`)**: Implemented.
+*   **Dialogue System (`ai_prompt_builder.py`)**: Partially Implemented (tone hint implemented; option availability based on relationships is missing).
+*   **Trade System (`trade_system.py`)**: Implemented.
+*   **Quest System Integration**: Likely Not Implemented / Unclear.
+*   **Status Overall**: Mostly Implemented.
+
+**Task 38 (8.6): Complex Internal Faction Relationships**
+*   **Storage**: `Relationship` model supports this.
+*   **Influence on NPC Behavior**:
+    *   NPC Combat Strategy: Implemented (uses hidden relationship rules).
+    *   Dialogue System: Implemented (includes hidden relationship context in prompts).
+*   **Status**: Partially Implemented.
+    *   **Gaps**: AI *generation* of these nuanced internal relationships is not part of current faction gen flow. Mechanisms for *revealing* hidden relationships to players are not implemented.
+
+---
+
+### Phase 9: Detailed Quest System with Consequences (Review)
+
+**Task 39 (9.1): Quest and Step Structure (`models/quest.py`)**
+*   **`Questline`**: Fully Implemented.
+*   **`GeneratedQuest`**: Mostly Implemented (missing `cooldown_hours_on_completion` field).
+*   **`QuestStep`**: Fully Implemented.
+*   **`PlayerQuestProgress`**: Mostly Implemented (missing `failed_at` field).
+*   **Status**: Mostly Implemented.
+
+**Task 40 (9.2): AI Quest Generation (`world_generation.py`, `ai_prompt_builder.py`)**
+*   **Status**: Partially Implemented.
+    *   Framework for prompt prep (`prepare_quest_generation_prompt`) and saving quests/steps is present.
+    *   **Gaps**: Uses **mock AI response**. Bypasses standard AI moderation flow (Task 2.6).
+
+**Task 41 (9.3): Quest Tracking and Completion System (`quest_system.py`)**
+*   **Status**: Partially Implemented.
+    *   Structure for tracking progress via events and advancing steps/quests is present. XP/Relationship consequences integrated.
+    *   **Gaps**: Detailed mechanic matching via `RuleConfig` not implemented. Abstract goal evaluation logic (LLM/rule-based) is placeholder. Item/WorldState consequence application is placeholder. Quest failure/abandonment handling missing. Triggering next quest in questline is TODO.
+
+---
+
+### Phase 10: Economy, Items, and Trade (Review)
+
+**Task 42 (10.1): Data Structure (Economy - Models & RuleConfig)**
+*   **`Item` Model**: Fully Implemented.
+*   **`InventoryItem` Model**: Fully Implemented.
+*   **`RuleConfig` for Economy**: Structures conceptually defined and documented in `AGENTS.md` (during Tasks 43, 44).
+*   **Status**: Fully Implemented.
+
+**Task 43 (10.2): AI Economic Entity Generation (`world_generation.py`, `ai_prompt_builder.py`)**
+*   **Status**: Partially Implemented.
+    *   Framework for prompt prep (`prepare_economic_entity_generation_prompt`) and saving items/traders (including initial inventory) is present.
+    *   **Gaps**: Uses **mock AI response**. Bypasses standard AI moderation flow (Task 2.6).
+
+**Task 44 (10.3): Trade System (`trade_system.py`)**
+*   **Status**: Mostly Implemented.
+    *   Comprehensive system with dynamic, rule-based pricing (skills, relationships), inventory management, event logging.
+    *   **Minor Gaps**: No explicit trade session management (item locking). NPC gold not tracked/limited. Player carrying capacity not checked.
+
+---
+
+### Phase 11: Dynamic Dialogue and NPC Memory (Review)
+
+**Task 50 (11.1): Dialogue Generation Module (`dialogue_system.py`, `ai_prompt_builder.py`)**
+*   **Status**: Partially Implemented.
+    *   Prompt preparation (`prepare_dialogue_generation_prompt`) is comprehensive and rule-driven.
+    *   **Gap**: Actual LLM interaction for dialogue generation is via unsuitable mocks or basic random choice; does not use `make_real_ai_call`.
+
+**Task 51 (11.2): Dialogue Context and Status (`dialogue_system.py`)**
+*   **Status**: Partially Implemented.
+    *   Core session management (start, input handling, end), history tracking, player status updates are implemented.
+    *   **Gaps**: NPC opening line not part of `start_dialogue`. Storing `current_dialogue_options_presented_ids` or `dialogue_state_flags_json` missing. Explicit rule-driven consequence application missing. Handling of NLU intents within dialogue (beyond passing to LLM) or structured choices not detailed. Party dialogue specifics not implemented.
+
+**Task 52 (11.3): NPC Memory Management (`npc_memory_system.py`, `models/player_npc_memory.py`, `models/party_npc_memory.py`)**
+*   **Models**: Fully Implemented.
+*   **API `add_to_npc_memory`**: Mostly Implemented (missing `importance_score` parameter).
+*   **API `get_npc_memory`**: Partially Implemented (missing advanced filtering by importance/keywords).
+*   **Status**: Partially Implemented.
+    *   **Gaps**: Setting/using `importance_score`. Advanced retrieval filtering. Memory pruning/summarization. Crucially, widespread **integration for *adding* memories** from key game systems (Dialogue, Quests, Combat, etc.) is missing. Dialogue system uses a stub for memory.
+
+**Task 53 (11.4): NLU and Intent Recognition in Dialogue (`action_processor.py`)**
+*   **Status**: Fully Implemented. NLU result (`ParsedAction`) is correctly passed to `dialogue_system.handle_dialogue_input` when player is in dialogue state. (Effectiveness of NLU itself is covered in Task 6.10).
+
+---
+
+### Phase 13: Experience and Character Development System (Review)
+
+**Task 30 (13.1): Experience System Structure (Rules)**
+*   **Status**: Fully Implemented (structures defined in documentation/`AGENTS.md`).
+
+**Task 31 (13.2): XP Awarding and Progress (`experience_system.py`)**
+*   **Status**: Partially Implemented.
+    *   Core XP addition and level up check (`_check_for_level_up` grants `unspent_xp`) are implemented.
+    *   **Gaps**: `award_xp` expects pre-calculated XP amount, doesn't use `RuleConfig:experience_system:xp_gain_rules`. Party XP distribution is basic even split. Level up rewards limited to `unspent_xp` (no direct skill/ability grants). Player notifications for level up are TODOs.
+
+**Task 32 (13.3): Applying Level Up (`experience_system.py`, `character_commands.py`)**
+*   **Status**: Partially Implemented.
+    *   Spending `unspent_xp` on attributes via `/levelup attribute` command is implemented with i18n feedback.
+    *   **Gaps**: No support for spending points on skills or choices for other rewards (abilities). Cost per attribute point hardcoded. No explicit effective stats cache invalidation.
+
+---
+
+### Phase 14: Global Entities and Dynamic World (Review)
+
+**Task 45 (14.1): Global Entity Models**
+*   **`GlobalNpc` Model (`models/global_npc.py`)**: Mostly Implemented. **Missing**: `npc_template_id` FK to `GeneratedNpc`.
+*   **`MobileGroup` Model (`models/mobile_group.py`)**: Fully Implemented.
+*   **`GlobalEvent` Model (`models/global_event.py`)**: Partially Implemented. Core fields exist. Relies on `properties_json` for many details. **Missing**: `duration_seconds`, `affected_faction_ids_json`. `target_location_ids_json` is a single `location_id`.
+*   **Status Overall**: Partially Implemented.
+
+**Task 46 (14.2): Global Entity Management (`global_entity_manager.py`)**
+*   **Status**: Partially Implemented.
+    *   Good foundation for `GlobalNpc`/`MobileGroup` movement & basic interactions (detection, reaction choice via `RuleConfig`).
+    *   **Gaps**: Periodic multi-guild worker mechanism not in this module. `GlobalEvent` lifecycle management missing. Movement simulation is basic (no pathfinding/speed/time). Goal update logic basic. Complex interaction outcomes (quests, full dialogue) are placeholders. `MobileGroup` member handling in combat/interactions is TODO.
+
+---
+
+### Phase 15: Management and Monitoring Tools (Review)
+
+**Task 47 (15.1): Master Command System**
+*   **Status**: Mostly Implemented.
+    *   Extensive CRUD command coverage via separate cogs. Localization and guild-scoping are consistent. Conflict resolution signaling implemented.
+    *   **Gaps/Areas for Confirmation**: Full CRUD coverage for *every* single model not exhaustively verified. Some specific gameplay management commands (e.g., `trigger_event`, `teleport_entity`) not found in reviewed selection.
+
+**Task 48 (15.2): Balance and Testing Tools (`master_simulation_tools_cog.py`, `ai_analysis_system.py`)**
+*   **Status**: Mostly Implemented.
+    *   Simulation commands for checks, combat actions, conflicts are functional. AI Generation Analyzer is comprehensive.
+    *   **Gaps**: `/master_simulate ability_outcome` command missing. Analysis depends heavily on detailed `RuleConfig` definitions for balance parameters.
+
+**Task 49 (15.3): Monitoring Tools (`monitoring_master_commands.py`)**
+*   **Status**: Partially Implemented.
+    *   Good coverage for viewing individual entities (Player, NPC, Party, Location, Global Entities, StoryLog, WorldState/RuleConfig).
+    *   **Gaps**: `/master_monitor map who_is_at` missing. Entire `/master_monitor statistics` subgroup missing.
+
+---
+
+**General Notes & Next Steps:**
+*   The project is substantially developed, often exceeding the basic requirements of early tasks in `Tasks.txt`.
+*   Key areas for attention based on this analysis would be to address the "Deviations" and "Gaps" noted.
+*   This concludes the iterative analysis (Step 5) based on the provided file contents and task list.
