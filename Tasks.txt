@@ -1070,4 +1070,109 @@ Description: **A to Z Implementation**: Develop a comprehensive module that tran
 Result: A comprehensive and flexible logging and feedback formatting system capable of generating clear, detailed, and localized reports for players and GMs from any game event.
 
 Task Block: Phase UI (User Interface)
+Task 55: 🖥️ UI.1 UI Technology Stack Selection and Basic Structure.
+Description: Select a framework/library for developing the client UI application (e.g., React, Vue, Svelte, Angular). Define the basic architecture of the UI application, including folder structure, state management approach (e.g., Redux, Zustand, Context API), routing, and API interaction layer. Set up the initial project with necessary build tools and linters. This task is foundational for all subsequent UI development.
+Result: Chosen UI technology stack, initialized project structure, basic architectural guidelines.
+
+Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development.
+Description: **Backend**: Implement Discord OAuth2 login flow. Create API endpoints for `/auth/discord` (redirect to Discord), `/auth/discord/callback` (handle token exchange, create/update `MasterUser` (DB model: discord_id, username, avatar_url, accessible_guilds_json, last_login_at), generate JWT). Implement JWT middleware for securing UI-specific APIs. API `/auth/me/guilds` to list Master's accessible guilds (those where they are admin AND bot is present). API `/auth/session/active-guild` (POST to set, GET to retrieve active_guild_id in JWT session). **UI**: Create basic app layout (sidebar, header, content area). Implement login page redirecting to backend OAuth. Handle callback, store JWT securely (e.g., HttpOnly cookie or localStorage). Implement a guild selection page/dropdown using `/auth/me/guilds`. Store selected `active_guild_id` by calling `/auth/session/active-guild`. UI should send `active_guild_id` with all subsequent requests to guild-scoped API endpoints.
+Result: Backend authentication is complete. UI has basic structure, login, and guild selection. All subsequent UI API calls can be authorized and scoped to the active guild.
+
+Task 57: 🖥️ UI.3 UI for Player and Character Management.
+Description: Create UI pages for viewing lists of Players and GeneratedNpcs for the selected guild (data via respective `/master_player list` and `/master_npc list` API calls, Task 47). Implement forms for creating, viewing details of, editing, and deleting Player and GeneratedNpc records (using `/master_player create/view/update/delete` and `/master_npc create/view/update/delete` APIs). Ensure UI correctly handles i18n fields for display and input (e.g., providing multiple text boxes for `name_i18n`).
+Result: UI for managing players and NPCs.
+
+Task 59: 🖥️ UI.5 UI for AI Generation and Moderation.
+Description: **Full UI Implementation**: Create a comprehensive UI page/dashboard for managing AI content generation and moderation.
+    - **Trigger Generation**: Form to call `/master_pending_generation trigger` (Task 2.6 / 47). Inputs: `entity_type` (dropdown: location, npc, item, quest, faction), `generation_context_json` (textarea, with client-side JSON validation), `location_id_context` (optional number input), `player_id_context` (optional number input). Display loading state and success/error notifications.
+    - **List Pending Requests**: Table/list to display `PendingGeneration` records from `/master_pending_generation list`. Columns: ID, Requested Entity Type, Status (color-coded), Created At. Implement pagination and filtering by `status_filter`. Allow selection of a request to view details.
+    - **View/Edit Details**: Modal or separate page to display full details of a selected `PendingGeneration` from `/master_pending_generation view`. Show: Trigger Context, Full AI Prompt, Raw AI Response, Parsed & Validated Data (nicely formatted JSON, perhaps in an editable tree view or form if schema is known for common types), Validation Issues (if any), Master Notes.
+        - Allow editing `parsed_validated_data_json` (via textarea with JSON validation or structured form if feasible for known types) and `master_notes` (textarea). Saving these calls `/master_pending_generation update` and should set status to `EDITED_PENDING_APPROVAL`.
+    - **Moderation Actions**: Buttons for "Approve" (`/master_pending_generation approve`), "Reject" (`/master_pending_generation update` with `new_status='REJECTED'`), and "Update/Save Edits" (already covered by edit logic for `/master_pending_generation update`).
+    - Handle all loading states and provide clear user feedback (notifications for success/error).
+Result: A fully functional UI for triggering, reviewing, editing, and approving/rejecting AI-generated content.
+
+Task 60: 🖥️ UI.6 UI for Inventory and Item Management.
+Description: **Full UI Implementation**: Create comprehensive UI pages for managing item definitions (`Item`) and entity inventories (`InventoryItem` for Players/NPCs).
+    - **Item Definitions Management**:
+        - List Page (`ItemListPage.tsx`): Display `Item` definitions (from `/master_item list`) with pagination. Columns: ID, Static ID, Name (primary lang), Type (primary lang), Base Value. Buttons to "Create New Item" and "Edit" existing.
+        - Form (`ItemForm.tsx`): For creating/editing `Item` definitions (via `/master_item create/update`). Fields for `static_id`, `name_i18n_json` (e.g., textareas for each lang in `GuildConfig.supported_languages_json`), `description_i18n_json`, `item_type_i18n_json`, `item_category_i18n_json`, `base_value`, `is_stackable` (checkbox), `slot_type` (dropdown), `properties_json` (textarea with JSON validation). On edit, load data via `/master_item view`.
+    - **Entity Inventory Management**:
+        - Component to select entity: Dropdowns to select Player (from `/master_player list`) or NPC (from `/master_npc list`) to manage their inventory.
+        - View Inventory (`EntityInventoryView.tsx`): Display `InventoryItem` list (from `/master_player view include_inventory=true` or `/master_npc view include_inventory=true`). Columns: Item Name (primary lang, from enriched data), Quantity, Equipped Status, custom properties preview. Buttons for "Edit Instance", "Delete Instance", "Equip/Unequip".
+        - Add Item to Inventory Form (`AddItemToInventoryForm.tsx`): Select an `Item` definition (dropdown populated from `/master_item list`), input quantity, `instance_specific_properties_json` (opt. textarea). Calls `/master_inventory_item create`.
+        - Edit Inventory Item Form (`EditInventoryItemForm.tsx`): For selected `InventoryItem`. Edit `quantity`, `instance_specific_properties_json`. Calls `/master_inventory_item update`.
+        - Equip/Unequip logic calls `/master_inventory_item update` to change `equipped_status`.
+    - **Dashboard (`ItemManagementDashboard.tsx`)**: Main page to navigate between Item Definition list/forms and Entity Inventory management sections.
+    - Handle loading states and user feedback.
+Result: UI for full CRUD of item definitions and management of items within player/NPC inventories.
+
+Task 61: 🖥️ UI.7 UI for Faction and Relationship Management.
+Description: **Full UI Implementation**: Create UI pages for managing Factions (`GeneratedFaction`) and Relationships (`Relationship`).
+    - **Faction Management**:
+        - List Page: Display Factions (from `/master_faction list`) with pagination. Columns: ID, Static ID, Name (primary lang), Leader NPC Name (if available). Buttons for "Create New Faction", "Edit".
+        - Form: For creating/editing Factions (via `/master_faction create/update`). Fields for `static_id`, `name_i18n_json`, `description_i18n_json`, `ideology_i18n_json`, `leader_npc_static_id` (can be dropdown from NPCs), `resources_json`, `ai_metadata_json`. On edit, load from `/master_faction view`.
+    - **Relationship Management**:
+        - List Page: Display Relationships (from `/master_relationship list`) with pagination and filters (by entity1_id/type, entity2_id/type, relationship_type). Columns: ID, Entity1 (Name/Type), Entity2 (Name/Type), Relationship Type, Value. Buttons for "Create New Relationship", "Edit".
+        - Form: For creating/editing Relationships (via `/master_relationship create/update`). Fields for `entity1_id`, `entity1_type` (dropdown), `entity2_id`, `entity2_type` (dropdown), `relationship_type` (dropdown or text), `value` (number input). On edit, load from `/master_relationship view`. Entity ID inputs could be enhanced with search/selection components.
+    - Handle loading states and user feedback.
+Result: UI for managing factions and inter-entity relationships.
+
+Task 62: 🖥️ UI.8 UI for Quest Management.
+Description: **Full UI Implementation**: Create UI pages for comprehensive management of Questlines, GeneratedQuests, QuestSteps, and PlayerQuestProgress.
+    - **Questline Management**: List, Create, Edit, Delete Questlines (using `/master_quest questline_*` commands). Form fields: `static_id`, `title_i18n_json`, `description_i18n_json`, `starting_quest_static_id`, `is_main_storyline`, `required_previous_questline_static_id`, `properties_json`.
+    - **GeneratedQuest Management**: List (filterable by Questline), Create, Edit, Delete GeneratedQuests (using `/master_quest generated_quest_*` commands). Form fields: `static_id`, `title_i18n_json`, `description_i18n_json`, `questline_id` (selector), `giver_entity_type/id`, `min_level`, `is_repeatable`, `rewards_json`, `properties_json`, `ai_metadata_json`.
+    - **QuestStep Management (within a Quest context)**: List (for a selected GeneratedQuest), Create, Edit, Delete QuestSteps (using `/master_quest quest_step_*` commands). Form fields: `step_order`, `title_i18n_json`, `description_i18n_json`, `required_mechanics_json`, `abstract_goal_json`, `consequences_json`, `next_step_order`, `properties_json`.
+    - **PlayerQuestProgress Management**: List (filterable by Player, Party, Quest, Status), View details, Create (manually assign quest), Edit (status, current_step_id, progress_data_json), Delete progress entries (using `/master_quest progress_*` commands).
+    - Implement clear navigation between these entities (e.g., view Questline -> view its Quests -> view a Quest's Steps).
+Result: UI for detailed management of all aspects of the quest system.
+
+Task 63: 🖥️ UI.9 UI for Global Entity Management.
+Description: **Full UI Implementation**: Create UI pages for managing GlobalNpcs and MobileGroups.
+    - **GlobalNpc Management**: List, Create, Edit, Delete GlobalNpcs (using `/master_global_npc *` commands). Form fields: `static_id`, `name_i18n_json`, `description_i18n_json`, `npc_template_id` (selector from GeneratedNpcs), `current_location_id` (selector), `mobile_group_id` (selector), `route_json`, `properties_json`, `ai_metadata_json`.
+    - **MobileGroup Management**: List, Create, Edit, Delete MobileGroups (using `/master_mobile_group *` commands). Form fields: `static_id`, `name_i18n_json`, `description_i18n_json`, `current_location_id`, `leader_global_npc_id` (selector), `members_definition_json` (complex field, possibly table input or JSON textarea), `behavior_type_i18n_json`, `route_json`, `properties_json`.
+Result: UI for managing global NPCs and mobile groups.
+
+Task 64: 🖥️ UI.10 UI for Monitoring and Logging.
+Description: **Full UI Implementation**: Create UI pages for monitoring game state and logs.
+    - **WorldState Viewer**: Page to list (`/master_monitor worldstate list` with prefix filter) and view (`/master_monitor worldstate get`) `RuleConfig` entries typically prefixed with "worldstate:". Display key, value (formatted JSON), description. (Essentially a filtered view of Task 58 UI).
+    - **StoryLog Viewer**: Page to list (`/master_monitor log list` with filters for event_type, entity_ids_json, pagination) and view details (`/master_monitor log view`) of `StoryLog` entries. Display timestamp, event type, involved entities (names if possible by fetching from other services), formatted details.
+    - **Map Viewer**: Page to display game locations visually (e.g., a grid or graph).
+        - Fetch all locations (`/master_monitor map list_locations`).
+        - Display location names, types. Click to view details (`/master_monitor map view_location`).
+        - Optionally, overlay Players, NPCs, Global Entities by fetching their `current_location_id` (from `/master_player list`, `/master_npc list`, `/master_global_npc list`, `/master_mobile_group list`).
+Result: UI for monitoring game state, viewing event logs, and visualizing the game map with entity locations.
+
+Task 65: 🖥️ UI.11 UI for Balance Tools.
+Description: **Full UI Implementation**: Create UI pages to interact with balance and testing tools.
+    - **Main Page with Tabs**: "Simulate Check", "Simulate Combat Action", "Simulate Conflict", "Analyze AI Generation".
+    - **Simulate Check Tab**: Form with inputs for `/master_simulate check` parameters (`check_type`, `actor_id/type`, `target_id/type`, `difficulty_dc`, `json_context`). Display detailed `IUICheckResult`.
+    - **Simulate Combat Action Tab**: Form for `/master_simulate combat_action` (`combat_encounter_id`, `actor_id/type`, `action_json_data`, `dry_run` checkbox). Display `UICombatActionResult` and updated participant states if returned.
+    - **Simulate Conflict Tab**: Form for `/master_simulate conflict_detection` (`actions_json` textarea). Display list of `UIPydanticConflictForSim`.
+    - **Analyze AI Generation Tab**: Form for `/master_analyze ai_generation` (`entity_type` dropdown, `generation_context_json`, `target_count`, `use_real_ai` checkbox). Display `UIAiAnalysisResult`, particularly the list of `UIEntityAnalysisReport` with issues and scores.
+Result: UI for accessing and interpreting results from backend balance and testing simulation tools.
+
+Task 66: 🖥️ UI.12 UI for Conflict Resolution.
+Description: **Full UI Implementation**: Create UI pages for manually resolving action conflicts.
+    - **Conflict List Page (`ConflictListPage.tsx`)**: Display `PendingConflict` items (from `/master_conflict list` with status filter, pagination). Columns: ID, Status, Created At, Involved Entities Summary. Allow selection to view details.
+    - **Conflict Detail Page (`ConflictDetailPage.tsx`)**: For a selected conflict (from `/master_conflict view`). Display full `UIConflictDetails`: involved entities actions (formatted `ParsedAction`), conflicting actions, current status, resolution notes.
+        - Provide controls to resolve: Dropdown for `outcome_status` (populated from `UIConflictStatus` values like `RESOLVED_BY_MASTER_FAVOR_ACTION1`, etc., with localized names). Textarea for `notes`. Submit button calls `/master_conflict resolve`.
+    - **Dashboard (`ConflictResolutionPage.tsx`)**: Orchestrates list and detail views.
+Result: UI for Masters to review and manually resolve pending action conflicts.
+
+Task 67: 🖥️ UI.13 Backend API for Command List.
+Description: Develop a backend API endpoint that provides structured information about bot commands. This API will be used by the UI (Task 68) to display a helpful command list or guide.
+The API should return: Command name (including group/subgroup), description, parameters (name, description, type, required). Support localization if command descriptions are localized.
+API Endpoint: `GET /api/v1/command-list/`
+Response Model: `CommandListResponse` (contains list of `CommandInfo`). `CommandInfo` contains `name`, `description`, list of `CommandParameterInfo`.
+Result: Backend API providing structured bot command information.
+
+Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide).
+Description: **Full UI Implementation**: Create a UI section/page to display the list of available bot commands, using the API from Task 67.
+    - Fetch command data from `/api/v1/command-list/` (optionally with language parameter).
+    - Display commands grouped by category (if discernible from command names or an added field).
+    - For each command, show: Name, Description, Parameters (Name, Type, Required, Description).
+    - Allow searching/filtering commands by name or keyword.
+    - Ensure clear and user-friendly presentation.
+Result: A helpful UI guide listing all bot commands for users and Masters.
 ... (UI Tasks 55-68 Descriptions will remain as is, as they describe UI work based on backend capabilities. The "A to Z" focus is on the backend tasks that enable these UIs.)
