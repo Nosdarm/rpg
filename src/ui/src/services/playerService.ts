@@ -101,22 +101,39 @@ export const playerService = {
       selected_language: payload.language || "en",
       current_location_id: payload.current_location_id || null,
       current_party_id: payload.current_party_id || null,
-      attributes_json: payload.attributes_json || {},
+      attributes_json: payload.attributes_json || {}, // This is for the mock Player object
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    return apiClient.post<Player, PlayerPayload>(`${BASE_PATH(guildId)}`, payload, mockCreatedPlayer);
+
+    // Prepare payload for actual API call (master command expects JSON string for attributes_json)
+    const apiPayload = { ...payload };
+    if (payload.attributes_json && typeof payload.attributes_json === 'object') {
+      apiPayload.attributes_json = JSON.stringify(payload.attributes_json) as any; // Cast because TS expects Record
+    }
+
+    // Assuming apiClient.post is a wrapper that will eventually call the master command
+    // The conceptual /guilds/{guildId}/players endpoint might be a direct REST API
+    // If it's a pass-through to master commands, then stringified JSON is correct.
+    return apiClient.post<Player, PlayerPayload>(`${BASE_PATH(guildId)}`, apiPayload, mockCreatedPlayer);
   },
 
   async updatePlayer(guildId: number, playerId: number, payload: Partial<PlayerPayload>): Promise<Player> {
-    // A real PATCH API would take a partial payload.
-    // The current master command is field-by-field.
-    // This stub assumes a PATCH API.
-    const mockUpdatedPlayer: Player = { // This should ideally be the state of player after update
+    // Prepare payload for actual API call
+    const apiPayload = { ...payload };
+    if (payload.attributes_json && typeof payload.attributes_json === 'object') {
+      apiPayload.attributes_json = JSON.stringify(payload.attributes_json) as any; // Cast for the API call
+    }
+
+    // This stub assumes a PATCH API. If it's calling a field-by-field master_player update,
+    // this service would need to make multiple calls or be redesigned.
+    // For now, proceeding with assumption that a single call with partial payload is possible
+    // OR that the attributes_json is the only JSON field being updated this way.
+    const mockUpdatedPlayer: Player = {
         id: playerId,
         guild_id: guildId,
         discord_id: `discord_user_${playerId}`,
-        name: payload.name || `Player Name ${playerId}`, // Example update
+        name: payload.name || `Player Name ${playerId}`,
         level: payload.level || 5,
         xp: payload.xp || 500,
         unspent_xp: payload.unspent_xp || 50,
@@ -127,11 +144,11 @@ export const playerService = {
         selected_language: payload.language || "en",
         current_location_id: payload.current_location_id || 2,
         current_party_id: payload.current_party_id || 1,
-        attributes_json: payload.attributes_json || { strength: 12, intelligence: 8 },
-        created_at: new Date(Date.now() - 100000).toISOString(), // Older created_at
+        attributes_json: typeof apiPayload.attributes_json === 'string' ? JSON.parse(apiPayload.attributes_json) : apiPayload.attributes_json || { strength: 12, intelligence: 8 },
+        created_at: new Date(Date.now() - 100000).toISOString(),
         updated_at: new Date().toISOString(),
       };
-    return apiClient.patch<Player, Partial<PlayerPayload>>(`${BASE_PATH(guildId)}/${playerId}`, payload, mockUpdatedPlayer);
+    return apiClient.patch<Player, Partial<PlayerPayload>>(`${BASE_PATH(guildId)}/${playerId}`, apiPayload, mockUpdatedPlayer);
   },
 
   async deletePlayer(guildId: number, playerId: number): Promise<void> {

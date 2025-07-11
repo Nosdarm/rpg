@@ -131,3 +131,74 @@
     - Documented the relevant API endpoints and data structures for the UI team in `AGENTS.MD`.
     - Detailed UI component implementation (forms, tables, state management) is pending further UI-specific tasks.
 ---
+
+**Task 67: 🖥️ UI.13 Backend API for Command List**
+- **Completed**: [Текущая дата]
+- **Description**: Developed a backend API endpoint (`GET /api/v1/command-list/`) that provides a structured list of all available Discord bot slash commands. This includes command names (handling groups and subcommands), descriptions, and parameter details (name, description, type, required status). The API supports optional language localization for descriptions if provided by the command definitions.
+- **Result**:
+    - Implemented the API endpoint in `src/api/routers/command_list_api.py` using FastAPI.
+    - Leveraged the existing `get_bot_commands` function from `src/core/command_utils.py` for collecting and structuring command data.
+    - Ensured the response uses Pydantic models from `src/models/command_info.py` (`CommandListResponse`, `CommandInfo`, `CommandParameterInfo`).
+    - Added unit tests in `tests/api/routers/test_command_list_api.py` covering successful responses, language parameter handling, and error scenarios (bot unavailable, internal errors).
+    - Documented the new API endpoint in `AGENTS.md`.
+    - Task 67 has been moved from `Tasks.txt` to this log.
+---
+
+**Task 65: 🖥️ UI.11 UI for Balance Tools (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: All backend and UI contract preparations for "UI for Balance Tools" are complete. This includes:
+    - Definition of TypeScript interfaces in `src/ui/src/types/simulation.ts`.
+    - Creation of API service stubs in `src/ui/src/services/balanceToolsService.ts`.
+    - Addition of API documentation for relevant master commands (`/master_simulate`, `/master_analyze`) to `AGENTS.md`.
+    - Creation of placeholder UI component files and their test files in `src/ui/src/pages/BalanceToolsPage/` and for the service.
+- **Result**: Task 65 preparatory work is finalized. The task is ready for full UI implementation by UI developers. Details of the preparation were logged previously in `AGENTS.md` under the "Task 65" log entry.
+---
+
+**Task 66: 🖥️ UI.12 UI for Conflict Resolution (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: All backend and UI contract preparations for "UI for Conflict Resolution" are complete. This includes:
+    - Definition of TypeScript interfaces in `src/ui/src/types/conflict.ts`.
+    - Creation of API service stubs in `src/ui/src/services/conflictService.ts`.
+    - Addition of API documentation for relevant master commands (`/master_conflict`) to `AGENTS.md`.
+    - Creation of placeholder UI component files and their test files in `src/ui/src/pages/ConflictResolutionPage/` and for the service.
+- **Result**: Task 66 preparatory work is finalized. The task is ready for full UI implementation by UI developers. Details of the preparation were logged previously in `AGENTS.md` under the "Task 66" log entry.
+---
+
+**Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide) (Backend Preparation & UI Stubs)**
+- **Completed**: [Текущая дата]
+- **Description**: All backend and UI contract preparations for "UI Command List Section" are complete. This includes:
+    - Verification of the backend API `GET /api/v1/command-list/` (from Task 67) and its Pydantic models.
+    - Creation of TypeScript interfaces (`UICommandParameterInfo`, `UICommandInfo`, `UICommandListResponse`) in `src/ui/src/types/commands.ts`.
+    - Creation of a UI service stub (`src/ui/src/services/commandListService.ts`) with a mock `fetchCommandList` function.
+    - Creation of placeholder UI component files (`CommandHelpPage.tsx`, `CommandHelpPage.test.tsx`) in `src/ui/src/pages/CommandHelpPage/`.
+    - Creation of a placeholder test file for the command list service (`commandListService.test.ts`).
+- **Result**: Task 68 preparatory work is finalized. The task is ready for full UI implementation by UI developers. Details of the preparation were logged previously in `AGENTS.md` under the "Task 68" log entry.
+---
+
+**Task 59: 🖥️ UI.5 UI for AI Generation and Moderation (Full UI Implementation)**
+- **Completed**: [Текущая дата]
+- **Description**: Completed the full UI implementation for managing AI content generation and moderation. This involved:
+    - Documenting backend API commands from `pending_generation_master_commands.py`.
+    - Verifying and utilizing TypeScript interfaces in `src/ui/src/types/pending_generation.ts` and service stubs in `src/ui/src/services/pendingGenerationService.ts`.
+    - Implementing the `TriggerAiGenerationForm.tsx` component with form handling, client-side JSON validation, and service calls.
+    - Implementing the `PendingGenerationListPage.tsx` component with data fetching, status filtering, pagination, and item selection.
+    - Implementing the `PendingGenerationDetailPage.tsx` component to display full details of a pending generation, allow editing of parsed data and master notes, and handle approve/reject/update actions.
+    - Integrating these components into `AiModerationDashboardPage.tsx` with view management and feedback display.
+    - Updating/creating corresponding unit tests for all implemented components and services.
+- **Result**: UI for AI Generation and Moderation is functionally complete (pending detailed styling and advanced UX refinements by UI specialists). Task 59 is moved from `Tasks.txt` to this log.
+---
+
+**Task 60: 🖥️ UI.6 UI for Inventory and Item Management (Full UI Implementation)**
+- **Completed**: [Текущая дата]
+- **Description**: Completed the full UI implementation for managing inventory and item definitions. This involved:
+    - Analyzing and refining TypeScript types (`items.ts`, `entities.ts`) and service stubs (`itemService.ts`, `inventoryService.ts`, `playerService.ts`, `npcService.ts`).
+    - Implementing `ItemListPage.tsx` for listing `ItemDefinition` with pagination and navigation to create/edit forms.
+    - Implementing `ItemForm.tsx` for creating and editing `ItemDefinition`, handling i18n and JSON fields.
+    - Implementing `EntityInventoryView.tsx` component to display an entity's `EnrichedInventoryItem` list with equip/unequip/edit/delete actions.
+    - Implementing `AddItemToInventoryForm.tsx` for adding items to an entity's inventory.
+    - Implementing `EditInventoryItemForm.tsx` for editing `quantity` and `instance_specific_properties_json` of an `InventoryItem`.
+    - Implementing `ManageEntityInventory.tsx` to host `EntityInventoryView`, `AddItemToInventoryForm`, and `EditInventoryItemForm`, handling data loading for a specific entity, item addition/editing/deletion, and equip/unequip logic.
+    - Integrating all item and inventory management components into `ItemManagementDashboard.tsx` for unified access.
+    - Creating/updating corresponding unit tests for all implemented components and services.
+- **Result**: UI for Inventory and Item Management is functionally complete (pending detailed styling and advanced UX refinements by UI specialists). Task 60 is moved from `Tasks.txt` to this log.
+---

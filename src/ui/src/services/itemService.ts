@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
-import { ItemDefinition, ItemPayload, PaginatedResponse } from '../types/items'; // Assuming PaginatedResponse is now in items.ts
+import { ItemDefinition, ItemPayload } from '../types/items';
+import { PaginatedResponse } from '../types/entities'; // Corrected import
 
 const GUILD_ID_PLACEHOLDER = 1; // Replace with actual guild_id management in UI
 
@@ -17,12 +18,13 @@ export const itemService = {
         });
         // Adapt mock/real response to PaginatedResponse<ItemDefinition>
         // This is a simplified mock structure based on typical list command output
+        // Ensure this matches the PaginatedResponse structure from entities.ts
         return {
-            items: response.items || [], // Assuming the command cog returns an 'items' array
-            total: response.total_items || response.items?.length || 0,
-            page: response.current_page || page,
-            limit: response.limit_per_page || limit,
-            // total_pages: response.total_pages, // If backend provides it
+            items: response.items || [],
+            total_items: response.total_items || response.items?.length || 0,
+            current_page: response.current_page || page,
+            limit_per_page: response.limit_per_page || limit,
+            total_pages: response.total_pages || Math.ceil((response.total_items || response.items?.length || 0) / (response.limit_per_page || limit)),
         } as PaginatedResponse<ItemDefinition>;
     },
 

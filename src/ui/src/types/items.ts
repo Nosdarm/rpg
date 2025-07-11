@@ -59,11 +59,11 @@ export interface EnrichedInventoryItem {
     updated_at: string; // from ItemDefinition
 }
 
-// Общий тип для пагинированных ответов, если еще не определен глобально
-export interface PaginatedResponse<T> {
-    items: T[];
-    total: number;
-    page: number;
-    limit: number;
-    // pages?: number; // опционально, если бэк вычисляет
-}
+// PaginatedResponse is now typically imported from a shared types file like 'entities.ts'
+// or a global types definition if available.
+// For example: import { PaginatedResponse } from './entities';
+// If it's specific to items and different, it can remain.
+// Assuming for now it's intended to be shared, so this local one might be redundant.
+// Keeping it here for now if item-specific pagination differs, but likely should be centralized.
+// Based on analysis, it's better to use the one from entities.ts or a global one.
+// This local definition will be removed.

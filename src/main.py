@@ -17,6 +17,7 @@ from src.config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL, API_HOST, API_PORT
 from src.core.database import init_db
 from src.bot.api.commands_api import router as commands_api_router
 from src.api.routers.auth import router as auth_router # Импортируем новый роутер аутентификации
+from src.api.routers.command_list_api import router as command_list_router # Импортируем новый роутер для списка команд
 
 # Настройка логирования
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -29,6 +30,7 @@ app = FastAPI(title="Text RPG Bot API", version="0.1.0")
 # Включаем роутеры API
 app.include_router(commands_api_router, prefix="/api/v1", tags=["Bot Commands"])
 app.include_router(auth_router) # Регистрируем роутер аутентификации
+app.include_router(command_list_router, prefix="/api/v1/command-list", tags=["Command List"]) # Регистрируем новый роутер
 
 # Глобальный экземпляр бота, чтобы FastAPI мог его использовать
 # Это упрощенный подход; в более сложных сценариях можно использовать DI или другие методы.
