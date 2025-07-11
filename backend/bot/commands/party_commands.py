@@ -26,8 +26,19 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
     async def party_group(self, ctx: commands.Context):
         """Основная команда для управления группами. Вызовите без подкоманд для помощи."""
         if ctx.invoked_subcommand is None:
-            # TODO: Implement a more detailed help message for party commands
-            await ctx.send("Доступные команды для party: `create <название>`, `leave`, `disband`, `join <название_партии_или_ID>` (пока не реализовано), `info` (пока не реализовано).")
+            help_text = (
+                "**Команды для управления группой:**\n"
+                f"`{ctx.prefix}party create <название>` - Создать новую группу.\n"
+                f"`{ctx.prefix}party join <ID или название группы>` - Присоединиться к группе.\n"
+                f"`{ctx.prefix}party leave` - Покинуть текущую группу.\n"
+                f"`{ctx.prefix}party disband` - Распустить вашу группу (только лидер).\n"
+                f"`{ctx.prefix}party invite <@пользователь>` - Пригласить игрока в вашу группу.\n"
+                f"`{ctx.prefix}party kick <@пользователь>` - Исключить игрока из вашей группы (только лидер).\n"
+                f"`{ctx.prefix}party promote <@пользователь>` - Назначить нового лидера группы (только текущий лидер).\n"
+                f"`{ctx.prefix}party view [ID или название группы]` - Посмотреть информацию о группе (о вашей, если не указан идентификатор)."
+            )
+            # TODO: Consider using discord.Embed for better formatting of help.
+            await ctx.send(help_text)
 
     @party_group.command(name="create", help="Создать новую группу. Пример: /party create Искатели приключений") # type: ignore[attr-defined]
     async def party_create(self, ctx: commands.Context, *, party_name: str):

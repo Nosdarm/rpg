@@ -180,7 +180,8 @@ async def handle_move_action(
             is_neighbor = False
             if isinstance(current_location.neighbor_locations_json, list):
                 for neighbor_info in current_location.neighbor_locations_json:
-                    if isinstance(neighbor_info, dict) and neighbor_info.get("location_id") == target_location.id:
+                    # Corrected to use "target_location_id" to match model spec and execute_move_for_player_action
+                    if isinstance(neighbor_info, dict) and neighbor_info.get("target_location_id") == target_location.id:
                         is_neighbor = True
                         break
 
@@ -352,13 +353,27 @@ async def execute_move_for_player_action(
 
         # Player Status Check
         allowed_statuses_rule = await get_rule(session, guild_id, "movement:allowed_player_statuses", default=["IDLE", "EXPLORING"])
-        # Ensure allowed_statuses_rule is a list, as get_rule might return complex objects if the rule is misconfigured
-        if not isinstance(allowed_statuses_rule, list):
-            logger.warning(f"Rule 'movement:allowed_player_statuses' for guild {guild_id} is not a list: {allowed_statuses_rule}. Defaulting.")
-            allowed_statuses_rule = ["IDLE", "EXPLORING"]
+        # Ensure allowed_statuses_rule is a list of strings
+        if not isinstance(allowed_statuses_rule, list) or not all(isinstance(s, str) for s in allowed_statuses_rule): # Corrected variable name
+            logger.warning(f"Rule 'movement:allowed_player_statuses' for guild {guild_id} is not a list of strings: {allowed_statuses_rule}. Defaulting to ['IDLE', 'EXPLORING'].")
+            allowed_statuses_list = ["IDLE", "EXPLORING"]
+        else:
+            allowed_statuses_list = [status.upper() for status in allowed_statuses_rule] # Corrected variable name
 
-        if player.current_status.value not in allowed_statuses_rule:
-            raise MovementError(_localize_movement_error("invalid_status_for_movement", "Cannot move while in status: {current_status}. Allowed statuses: {allowed_statuses_list}", current_status=player.current_status.value, allowed_statuses_list=', '.join(allowed_statuses_rule)))
+        player_status_upper = player.current_status.value.upper()
+        logger.debug(f"Player status for move check: '{player_status_upper}' (type: {type(player_status_upper)})")
+        logger.debug(f"Allowed statuses for move: {allowed_statuses_list} (type: {type(allowed_statuses_list)})")
+        for i, s_item in enumerate(allowed_statuses_list): # Renamed s to s_item to avoid conflict if logger was a global s
+            logger.debug(f"Allowed status item {i}: '{s_item}' (type: {type(s_item)})")
+
+        if player_status_upper not in allowed_statuses_list:
+            logger.error(f"Movement denied: Player status '{player_status_upper}' not in allowed list {allowed_statuses_list}.")
+            raise MovementError(_localize_movement_error(
+                "invalid_status_for_movement",
+                "Cannot move while in status: {current_status}. Allowed statuses: {allowed_statuses_list_str}",
+                current_status=player.current_status.value,
+                allowed_statuses_list_str=', '.join(allowed_statuses_list)
+            ))
 
         if player.current_location_id is None:
             raise MovementError(_localize_movement_error("no_current_location", "Player {player_name} (ID: {player_id}) has no current location set.", player_name=player.name, player_id=player.id))
@@ -401,15 +416,29 @@ async def execute_move_for_player_action(
 
         # Check for connectivity and get connection details
         connection_details: Optional[Dict[str, Any]] = None
+        logger.debug(f"Checking connectivity from {current_location.id} ({current_location.static_id}) to {target_location.id} ({target_location.static_id})")
+        logger.debug(f"Current location neighbors: {current_location.neighbor_locations_json}")
         if isinstance(current_location.neighbor_locations_json, list):
-            for neighbor_info_item in current_location.neighbor_locations_json:
-                if isinstance(neighbor_info_item, dict) and neighbor_info_item.get("target_location_id") == target_location.id:
-                    connection_details = neighbor_info_item
-                    break
+            for i, neighbor_info_item in enumerate(current_location.neighbor_locations_json):
+                logger.debug(f"Neighbor {i}: {neighbor_info_item}")
+                if isinstance(neighbor_info_item, dict):
+                    logger.debug(f"Neighbor dict keys: {list(neighbor_info_item.keys())}") # Log keys
+                    neighbor_target_id = neighbor_info_item.get("target_location_id")
+                    logger.debug(f"Comparing neighbor target_id {neighbor_target_id} (type: {type(neighbor_target_id)}) with target_location.id {target_location.id} (type: {type(target_location.id)})")
+                    if neighbor_target_id == target_location.id:
+                        connection_details = neighbor_info_item
+                        logger.debug(f"Connection found: {connection_details}")
+                        break
+                else:
+                    logger.warning(f"Neighbor item {neighbor_info_item} is not a dict.")
+        else:
+            logger.warning(f"current_location.neighbor_locations_json is not a list: {type(current_location.neighbor_locations_json)}")
+
 
         if not connection_details:
             curr_loc_name = current_location.name_i18n.get(player.selected_language or guild_main_lang, current_location.static_id or "current location")
             target_loc_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or "target location")
+            logger.error(f"No direct connection found from {current_location.id} to {target_location.id}. Raising MovementError.")
             raise MovementError(_localize_movement_error("no_direct_connection", "You cannot move directly from '{current_location_name}' to '{target_location_name}'. No valid connection found.", current_location_name=curr_loc_name, target_location_name=target_loc_name))
 
         # Connection Conditions Check

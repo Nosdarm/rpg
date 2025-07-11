@@ -60,23 +60,90 @@ async def on_enter_location(
             f"entered location '{loc_display_name}' (ID: {location_id})."
         )
 
-        # TODO: Send location name and description to the player/party via Discord.
-        # This requires access to the bot instance or a messaging queue/utility.
-        # Example: await bot.send_message_to_player_or_party_channel(guild_id, entity_id, entity_type, f"**{loc_display_name}**\n{loc_description}")
-        logger.info(f"Location Description for {entity_name} ({language_code}): **{loc_display_name}**\n{loc_description}")
+        # 1. Send location description (simulated by logging for now)
+        # In a real bot, this would use a messaging system to send to the relevant Discord channel/user.
+        # For example:
+        # from backend.bot.messaging import send_message_to_entity
+        # await send_message_to_entity(guild_id, entity_id, entity_type, f"**{loc_display_name}**\n{loc_description}")
+        logger.info(f"[ACTION REQUIRED] Send to {entity_type} {entity_id} (Guild: {guild_id}, Lang: {language_code}):\n**{loc_display_name}**\n{loc_description}")
 
-        # Placeholder for advanced triggers:
-        logger.info(f"TODO: Check for encounters in location {location_id} for entity {entity_id} ({entity_type}).")
-        logger.info(f"TODO: Trigger AI for dynamic details/events in location {location_id} for entity {entity_id} ({entity_type}).")
+        # 2. Trigger encounters (placeholder)
+        # This would involve checking rules, location properties, entity states, etc.
+        # from .encounter_system import check_and_trigger_encounter
+        # await check_and_trigger_encounter(session, guild_id, entity_id, entity_type, location)
+        logger.info(f"Placeholder: Check for encounters in location {loc_display_name} (ID: {location_id}) for {entity_name}.")
 
-        # Placeholder for quest system update
-        # from .quest_system import handle_player_event_for_quest
-        # event_details = {"event_subtype": "entered_location", "location_id": location_id, "location_static_id": location.static_id}
-        # if entity_type == "player":
-        #    asyncio.create_task(handle_player_event_for_quest(session_factory=get_db_session, guild_id=guild_id, event_type="LOCATION_ENTERED", details_json=event_details, player_id=entity_id))
-        # elif entity_type == "party" and party:
-        #    asyncio.create_task(handle_player_event_for_quest(session_factory=get_db_session, guild_id=guild_id, event_type="LOCATION_ENTERED", details_json=event_details, party_id=entity_id))
-        logger.info(f"TODO: Call quest system for 'entered_location' event for entity {entity_id} ({entity_type}) at location {location_id}.")
+        # 3. Trigger AI for dynamic details/events (placeholder)
+        # from .ai_orchestrator import trigger_location_event_generation
+        # await trigger_location_event_generation(session, guild_id, location_id, entity_id, entity_type)
+        logger.info(f"Placeholder: Trigger AI for dynamic details/events in {loc_display_name} (ID: {location_id}) for {entity_name}.")
+
+        # 4. Call quest system for 'LOCATION_ENTERED' event
+        # This requires the StoryLog entry for the movement to have been committed.
+        # The movement action should log an event, get its ID, and pass it to on_enter_location,
+        # or on_enter_location queries the latest movement log.
+        # For now, we assume the StoryLog entry is available or the quest system can handle it.
+        from .quest_system import handle_player_event_for_quest
+        from backend.models.enums import EventType as GameEventType # Renamed to avoid conflict
+
+        event_details_for_quest = {
+            "event_subtype": "entered_location",
+            "location_id": location_id,
+            "location_static_id": location.static_id,
+            "location_name_i18n": location_name_i18n # Pass full i18n name for context
+        }
+        # We need a StoryLog entry to link. Since on_enter_location is fire-and-forget,
+        # it doesn't have the StoryLog object from the movement action directly.
+        # A better design might be for the movement action to create a task for on_enter_location
+        # and pass the created StoryLog object or its ID.
+        # For now, we'll simulate by calling handle_player_event_for_quest without a specific StoryLog entry,
+        # or the quest system needs to be robust to this.
+        # Let's assume for now that Quest System might query recent logs or not strictly require it for all event types.
+
+        # Create a placeholder StoryLog-like object for the quest system if it needs one.
+        # This is a temporary workaround.
+        from backend.models.story_log import StoryLog
+        from datetime import datetime, timezone
+
+        # The movement event should have already been logged by _update_entities_location
+        # We need to find that log entry to pass its ID to handle_player_event_for_quest.
+        # This is tricky because on_enter_location is fire-and-forget.
+        # A more robust solution would be to pass the StoryLog object or ID from the caller.
+        # For now, we'll log a TODO and proceed without a real StoryLog link for the quest system.
+        logger.warning("TODO: on_enter_location needs a mechanism to get the StoryLog ID of the preceding movement event for robust quest integration.")
+
+        # Simulate a minimal StoryLog-like structure for the quest system if it's essential
+        # and the real one cannot be easily passed.
+        # However, it's better if handle_player_event_for_quest can operate without a source_log_id
+        # for certain event types or has a way to find it.
+        # For now, let's call it, and the quest system will have to be robust.
+
+        if entity_type == "player":
+            asyncio.create_task(handle_player_event_for_quest(
+                session_factory=get_db_session, # Pass the session factory
+                guild_id=guild_id,
+                event_type=GameEventType.LOCATION_ENTERED,
+                details_json=event_details_for_quest,
+                player_id=entity_id,
+                source_log_id=None # Placeholder, see warning above
+            ))
+            logger.info(f"Quest system notified: Player {entity_id} entered location {location_id}.")
+        elif entity_type == "party": # Assuming party is not None if entity_type is "party"
+            party_obj = await party_crud.get(session, id=entity_id) # Re-fetch party to get member list if needed by quest system
+            if party_obj:
+                asyncio.create_task(handle_player_event_for_quest(
+                    session_factory=get_db_session,
+                    guild_id=guild_id,
+                    event_type=GameEventType.LOCATION_ENTERED,
+                    details_json=event_details_for_quest,
+                    party_id=entity_id,
+                    source_log_id=None # Placeholder
+                ))
+                logger.info(f"Quest system notified: Party {entity_id} entered location {location_id}.")
+            else:
+                logger.error(f"on_enter_location: Party {entity_id} not found when trying to notify quest system.")
+        else:
+            logger.warning(f"Unknown entity_type '{entity_type}' in on_enter_location for quest system notification.")
 
 
 from sqlalchemy.ext.asyncio import AsyncSession

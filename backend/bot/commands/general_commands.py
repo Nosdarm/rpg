@@ -112,10 +112,32 @@ class GeneralCog(commands.Cog, name="General Commands"): # type: ignore[call-arg
         existing_player = await player_crud.get_by_discord_id(session=session, guild_id=guild_id, discord_id=discord_id)
 
         if existing_player:
-            await interaction.followup.send(
-                f"Привет, {player_name}! Ты уже в игре. Твой персонаж уровня {existing_player.level}.",
-                ephemeral=True
-            )
+            # Address TODO: Вывести более подробную информацию об игроке, если он уже существует
+            player_info_parts = [
+                f"Привет, {existing_player.name}! Ты уже в игре.",
+                f"Уровень: {existing_player.level}, XP: {existing_player.xp}, Золото: {existing_player.gold}.",
+            ]
+            if existing_player.current_location_id:
+                location = await location_crud.get(session=session, id=existing_player.current_location_id)
+                if location:
+                    loc_name_i18n = location.name_i18n or {}
+                    loc_name = loc_name_i18n.get(player_locale, loc_name_i18n.get('en', f"ID: {location.id}"))
+                    player_info_parts.append(f"Текущая локация: {loc_name}.")
+                else:
+                    player_info_parts.append("Текущая локация: Неизвестно (ID: {existing_player.current_location_id}).")
+            else:
+                player_info_parts.append("Текущая локация: Не определена.")
+
+            if existing_player.current_party_id:
+                # To display party name, we would need a party_crud.get(...) here
+                # For now, just indicate presence in a party.
+                player_info_parts.append(f"Состоит в группе (ID: {existing_player.current_party_id}).")
+            else:
+                player_info_parts.append("Не состоит в группе.")
+
+            player_info_parts.append(f"Статус: {existing_player.current_status.value}.")
+
+            await interaction.followup.send("\n".join(player_info_parts), ephemeral=True)
             return
 
         starting_location_id: Optional[int] = None

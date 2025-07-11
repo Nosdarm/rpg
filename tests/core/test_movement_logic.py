@@ -72,7 +72,7 @@ def mock_start_location() -> Location:
         name_i18n={"en": "Start Zone"},
         type=LocationType.TOWN,
         neighbor_locations_json=[
-            {"location_id": TARGET_LOCATION_ID, "connection_type_i18n": {"en": "path"}}
+            {"target_location_id": TARGET_LOCATION_ID, "connection_type_i18n": {"en": "path"}}
         ]
     )
 
@@ -548,10 +548,32 @@ async def test_execute_move_successful_solo_player(
     mock_scalar_result_rules = MagicMock() # Result of execution_result.scalars()
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
 
-    mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found, get_rule returns default
+    # mock_scalar_result_rules.all needs to be configured based on what get_rule is looking for
+    # For this test, get_rule is called for:
+    # 1. movement:allowed_player_statuses
+    # 2. guild_main_language (by _find_location_by_identifier)
+    # 3. potentially others if conditions were more complex
+    # Let's make get_rule return specific defaults for these.
 
-    from backend.core.movement_logic import execute_move_for_player_action # Import here
-    result = await execute_move_for_player_action(
+    # This patch is for the get_rule used inside movement_logic
+    with patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock) as mock_get_rule_in_logic:
+        def get_rule_side_effect(session, guild_id, key, default):
+            if key == "movement:allowed_player_statuses":
+                return ["IDLE", "EXPLORING"] # Allow movement
+            if key == "guild_main_language":
+                return "en"
+            # Add other specific keys if needed by the test, otherwise return default
+            return default
+        mock_get_rule_in_logic.side_effect = get_rule_side_effect
+
+        # Ensure that the session.execute mock is correctly set up for any *other* RuleConfig access
+        # that might happen if get_rule was to actually query the DB (e.g. if a rule was set).
+        # For this test, we rely on defaults from get_rule_side_effect.
+        mock_scalar_result_rules.all = MagicMock(return_value=[])
+
+
+        from backend.core.movement_logic import execute_move_for_player_action # Import here
+        result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
 
@@ -613,10 +635,22 @@ async def test_execute_move_successful_party_move(
     mock_session.execute.return_value = mock_execution_result_rules
     mock_scalar_result_rules = MagicMock()
     mock_execution_result_rules.scalars.return_value = mock_scalar_result_rules
-    mock_scalar_result_rules.all = MagicMock(return_value=[]) # Corrected: No rules found
 
-    from backend.core.movement_logic import execute_move_for_player_action
-    result = await execute_move_for_player_action(
+    # Patch get_rule for this test
+    with patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock) as mock_get_rule_in_logic:
+        def get_rule_side_effect_party(session, guild_id, key, default):
+            if key == "movement:allowed_player_statuses":
+                return ["IDLE", "EXPLORING"]
+            if key == "guild_main_language":
+                return "en"
+            if key == "party:movement:policy": # For party movement
+                return "any_member" # Assume any member can move for this test
+            return default
+        mock_get_rule_in_logic.side_effect = get_rule_side_effect_party
+        mock_scalar_result_rules.all = MagicMock(return_value=[]) # Ensure DB query for rules (if any) finds nothing
+
+        from backend.core.movement_logic import execute_move_for_player_action
+        result = await execute_move_for_player_action(
         mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, TARGET_LOCATION_STATIC_ID
     )
 
@@ -716,10 +750,20 @@ async def test_execute_move_target_location_not_found_by_static_id(
         mock_exec_name_search_result  # For name search lang 3 (en fallback)
     ]
 
-    from backend.core.movement_logic import execute_move_for_player_action
-    result = await execute_move_for_player_action(
-        mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, NON_EXISTENT_LOCATION_STATIC_ID
-    )
+    # Patch get_rule for this test (specifically for movement:allowed_player_statuses and guild_main_language)
+    with patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock) as mock_get_rule_in_logic:
+        def get_rule_side_effect_loc_not_found(session, guild_id, key, default):
+            if key == "movement:allowed_player_statuses":
+                return ["IDLE", "EXPLORING"]
+            if key == "guild_main_language":
+                return "en" # Player language for _find_location_by_identifier
+            return default
+        mock_get_rule_in_logic.side_effect = get_rule_side_effect_loc_not_found
+
+        from backend.core.movement_logic import execute_move_for_player_action
+        result = await execute_move_for_player_action(
+            mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, NON_EXISTENT_LOCATION_STATIC_ID
+        )
     assert result["status"] == "error"
     assert f"Location '{NON_EXISTENT_LOCATION_STATIC_ID}' could not be found" in result["message"]
     # TODO: Add test for name search once implemented
@@ -750,13 +794,23 @@ async def test_execute_move_not_connected(
 
     # Ensure start_location does not list unconnected_location as a neighbor
     mock_start_location.neighbor_locations_json = [
-        {"location_id": TARGET_LOCATION_ID, "connection_type_i18n": {"en": "path"}}
+        {"target_location_id": TARGET_LOCATION_ID, "connection_type_i18n": {"en": "path"}}
     ]
 
-    from backend.core.movement_logic import execute_move_for_player_action
-    result = await execute_move_for_player_action(
-        mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, UNCONNECTED_LOCATION_STATIC_ID
-    )
+    # Patch get_rule for this test
+    with patch("backend.core.movement_logic.get_rule", new_callable=AsyncMock) as mock_get_rule_in_logic:
+        def get_rule_side_effect_not_connected(session, guild_id, key, default):
+            if key == "movement:allowed_player_statuses":
+                return ["IDLE", "EXPLORING"]
+            if key == "guild_main_language":
+                return "en"
+            return default
+        mock_get_rule_in_logic.side_effect = get_rule_side_effect_not_connected
+
+        from backend.core.movement_logic import execute_move_for_player_action
+        result = await execute_move_for_player_action(
+            mock_session, DEFAULT_GUILD_ID, DEFAULT_PLAYER_DB_ID, UNCONNECTED_LOCATION_STATIC_ID
+        )
     assert result["status"] == "error"
     assert f"You cannot move directly from '{mock_start_location.name_i18n['en']}' to '{mock_unconnected_location.name_i18n['en']}'" in result["message"]
 
@@ -1061,8 +1115,14 @@ async def test_execute_move_uses_find_location_helper_success(
     # Simulate _find_location_by_identifier finding the target
     mock_find_loc_helper.return_value = mock_target_location
 
-    # Mock get_rule for guild_main_language to return the language string directly
-    mock_get_rule.return_value = "en" # Assume guild lang is 'en'
+    # Mock get_rule for guild_main_language and movement_allowed_statuses
+    def get_rule_side_effect_helper_success(session, guild_id, key, default):
+        if key == "movement:allowed_player_statuses":
+            return ["IDLE", "EXPLORING"]
+        if key == "guild_main_language":
+            return "en"
+        return default
+    mock_get_rule.side_effect = get_rule_side_effect_helper_success
 
     # We need to patch location_crud.get inside execute_move_for_player_action for current_location
     with patch("backend.core.movement_logic.location_crud", mock_location_crud):
@@ -1101,8 +1161,16 @@ async def test_execute_move_when_find_location_helper_returns_none(
 
     mock_find_loc_helper.return_value = None # Target location not found by helper
 
-    mock_rule_obj = MagicMock(spec=RuleConfig); mock_rule_obj.value_json = "en"
-    mock_get_rule.return_value = mock_rule_obj
+    def get_rule_side_effect_helper_none(session, guild_id, key, default):
+        if key == "movement:allowed_player_statuses":
+            return ["IDLE", "EXPLORING"]
+        if key == "guild_main_language":
+            # Simulate RuleConfig object if the code expects to access attributes like .value_json
+            mock_rule_obj = MagicMock(spec=RuleConfig)
+            mock_rule_obj.value_json = "en" # Or just return "en" directly if that's simpler for the mock
+            return "en" # Simpler: directly return the expected language code
+        return default
+    mock_get_rule.side_effect = get_rule_side_effect_helper_none
 
     with patch("backend.core.movement_logic.location_crud", mock_location_crud_instance):
         from backend.core.movement_logic import execute_move_for_player_action

@@ -79,8 +79,8 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.patcher_default_locs = patch('backend.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
         self.mock_default_locs = self.patcher_default_locs.start()
 
-        # Патчим get_rule
-        self.patcher_get_rule = patch('backend.bot.commands.general_commands.get_rule', new_callable=AsyncMock)
+        # Патчим get_rule - Corrected target
+        self.patcher_get_rule = patch('backend.bot.commands.general_commands.rules.get_rule', new_callable=AsyncMock)
         self.mock_get_rule = self.patcher_get_rule.start()
 
     def _create_mock_interaction(self, user: MockUser, guild: Optional[MockGuild] = None) -> AsyncMock:
@@ -175,7 +175,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_interaction.followup = AsyncMock(spec=discord.Webhook)
         mock_interaction.followup.send = AsyncMock()
 
-        existing_player = Player(id=2, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.name, level=5)
+        existing_player = Player(id=2, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.name, level=5, current_status=PlayerStatus.EXPLORING, gold=50, xp=1000) # Added status, gold, xp
         self.mock_player_crud.get_by_discord_id.return_value = existing_player
 
         # Мокируем существующий GuildConfig
@@ -186,8 +186,18 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
 
         self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
         self.mock_player_crud.create_with_defaults.assert_not_called()
-        mock_interaction.followup.send.assert_called_once_with( # Changed to followup
-            f"Привет, {mock_user.name}! Ты уже в игре. Твой персонаж уровня 5.",
+
+        expected_message_parts = [
+            f"Привет, {existing_player.name}! Ты уже в игре.",
+            f"Уровень: {existing_player.level}, XP: {existing_player.xp}, Золото: {existing_player.gold}.",
+            "Текущая локация: Не определена.", # Assuming no location for this mocked player
+            "Не состоит в группе.", # Assuming no party for this mocked player
+            f"Статус: {existing_player.current_status.value}."
+        ]
+        expected_full_message = "\n".join(expected_message_parts)
+
+        mock_interaction.followup.send.assert_called_once_with(
+            expected_full_message,
             ephemeral=True
         )
 

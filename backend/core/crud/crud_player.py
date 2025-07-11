@@ -72,20 +72,42 @@ class CRUDPlayer(CRUDBase[Player]):
             "current_location_id": current_location_id,
             "selected_language": selected_language,
             "xp": 0,
-            "level": 1,
+            "level": 1, # Default, can be overridden by starting_stats
             "unspent_xp": 0,
-            "gold": 0, # Or some starting gold if desired by game rules
-            "current_status": PlayerStatus.IDLE, # Or EXPLORING
+            "gold": 0, # Default, can be overridden by starting_stats
+            "hp": 100, # Default, can be overridden by starting_stats
+            "current_status": PlayerStatus.EXPLORING, # As per Task 1.2 plan for /start
             # attributes_json will be populated from rules
         }
 
+        # Get starting stats from RuleConfig
+        starting_stats = await get_rule(
+            session,
+            guild_id=guild_id,
+            key="player:starting_stats",
+            default={"hp": 100, "xp": 0, "level": 1, "gold": 10, "unspent_xp": 0} # Fallback default
+        )
+        if starting_stats and isinstance(starting_stats, dict):
+            player_data["xp"] = starting_stats.get("xp", player_data["xp"])
+            player_data["level"] = starting_stats.get("level", player_data["level"])
+            player_data["unspent_xp"] = starting_stats.get("unspent_xp", player_data["unspent_xp"])
+            player_data["gold"] = starting_stats.get("gold", player_data["gold"])
+            # 'hp' from starting_stats should set both current_hp and max_hp for a new player
+            initial_hp = starting_stats.get("hp", player_data["hp"]) # player_data["hp"] has the default 100
+            player_data["current_hp"] = initial_hp
+            player_data["max_hp"] = initial_hp
+            if "hp" in player_data: # remove the generic 'hp' key if it was set from default
+                del player_data["hp"]
+
+        # Get base attributes from RuleConfig
         base_attributes = await get_rule(
             session,
             guild_id=guild_id,
             key="character_attributes:base_values",
-            default={}
+            default={} # Fallback default
         )
-        player_data["attributes_json"] = base_attributes if base_attributes is not None else {}
+        player_data["attributes_json"] = base_attributes if isinstance(base_attributes, dict) else {}
+
 
         return await super().create(session, obj_in=player_data) # guild_id is in player_data, CRUDBase.create will use it.
 

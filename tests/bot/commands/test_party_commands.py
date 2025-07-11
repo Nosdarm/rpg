@@ -122,6 +122,22 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         self.player_location = Location(id=10, guild_id=self.guild.id, name_i18n={"en": "Player's Spot"}, descriptions_i18n={}, type=LocationType.GENERIC)
 
+        # Initialize self.player with essential attributes that might be accessed
+        self.player = Player(
+            id=self.author.id, # Assuming author is the player for many tests
+            guild_id=self.guild.id,
+            discord_id=self.author.id,
+            name=self.author.name,
+            current_location_id=self.player_location.id, # Default location
+            current_party_id=None,
+            selected_language="en",
+            level=1, # Crucial for level checks
+            gold=0,
+            xp=0,
+            current_status=PlayerStatus.IDLE # Default status
+        )
+        # Default mock for get_by_discord_id to return this player
+        self.mock_player_crud.get_by_discord_id.return_value = self.player
 
     def tearDown(self):
         self.patcher_get_db_session.stop()
@@ -187,15 +203,18 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.mock_party_crud.create.assert_not_called()
 
     async def test_party_create_name_too_long(self):
-        player_in_db = Player(id=1, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None)
+        player_in_db = Player(id=1, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, level=1) # Added level
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
-        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: {
-            "party:name_validation_regex": "^[a-zA-Z0-9\\s'-_]{3,10}$",
-            "party:name_max_length": 10
-        }.get(key, default)
-        self.mock_party_crud.get_by_name.return_value = None
 
-        await self.cog.party_create.callback(self.cog, self.ctx, party_name="This Name Is Way Too Long") # type: ignore
+        # Mock RuleConfig values: regex allows up to 20, but max_length is 10
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: {
+            "party:name_validation_regex": "^[a-zA-Z]{3,20}$", # Allows names longer than 10 (e.g., "ElevenCharsOk")
+            "party:name_max_length": 10 # Max length rule
+        }.get(key, default)
+
+        self.mock_party_crud.get_by_name.return_value = None # Ensure name uniqueness check passes
+
+        await self.cog.party_create.callback(self.cog, self.ctx, party_name="ElevenCharsOk") # Length 13, valid for regex, but > 10
 
         self.ctx.send.assert_called_once_with(f"{self.author.mention}, название группы слишком длинное (максимум 10 символов).")
         self.mock_party_crud.create.assert_not_called()
@@ -373,7 +392,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.ctx.send.assert_called_once_with(f"{self.author.mention}, только лидер группы может ее распустить.")
 
     async def test_party_join_success_by_name(self):
-        player_in_db = Player(id=3, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, current_location_id=self.player_location.id, selected_language="en")
+        player_in_db = Player(id=3, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, current_location_id=self.player_location.id, selected_language="en", level=1, gold=0, xp=0, current_status=PlayerStatus.IDLE)
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
 
         target_party = Party(id=104, guild_id=self.guild.id, name="Joinable Party", player_ids_json=[], current_location_id=self.player_location.id)
@@ -399,7 +418,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
     async def test_party_join_moves_player_location(self):
         different_loc = Location(id=11, guild_id=self.guild.id, name_i18n={"en": "Party's Hideout"}, descriptions_i18n={}, type=LocationType.CAVE)
-        player_in_db = Player(id=4, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, current_location_id=self.player_location.id, selected_language="en")
+        player_in_db = Player(id=4, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, current_location_id=self.player_location.id, selected_language="en", level=1, gold=0, xp=0, current_status=PlayerStatus.IDLE)
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
 
         target_party = Party(id=105, guild_id=self.guild.id, name="FarAwayParty", player_ids_json=[], current_location_id=different_loc.id)
@@ -419,11 +438,14 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
         await self.cog.party_join.callback(self.cog, self.ctx, party_identifier="FarAwayParty") # type: ignore
 
-        self.assertEqual(player_in_db.current_location_id, different_loc.id) # Player moved
+        # Re-fetch player from mock DB to check updated state
+        updated_player_in_db = await self.mock_player_crud.get_by_discord_id(self.session_mock, guild_id=self.guild.id, discord_id=self.author.id)
+
+        self.assertEqual(updated_player_in_db.current_location_id, different_loc.id) # Player moved
         self.ctx.send.assert_called_once_with(f"{self.author.mention} успешно присоединился к группе 'FarAwayParty'! Текущая локация группы: Party's Hideout.")
 
     async def test_party_join_fails_party_full(self):
-        player_in_db = Player(id=5, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None)
+        player_in_db = Player(id=5, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, level=1, gold=0, xp=0, current_status=PlayerStatus.IDLE)
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
 
         # Party is already full (e.g., 1 member, max size 1)
@@ -441,7 +463,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.ctx.send.assert_called_once_with(f"{self.author.mention}, группа 'Full Party' уже заполнена (максимум 1 участников).")
 
     async def test_party_join_fails_invite_only(self):
-        player_in_db = Player(id=6, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None)
+        player_in_db = Player(id=6, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None, level=1, gold=0, xp=0, current_status=PlayerStatus.IDLE)
         self.mock_player_crud.get_by_discord_id.return_value = player_in_db
 
         target_party = Party(id=107, guild_id=self.guild.id, name="Exclusive Club", player_ids_json=[], properties_json={"invite_policy": "invite_only"})

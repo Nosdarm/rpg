@@ -117,10 +117,10 @@ class TestCRUDPlayer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(player.name, "Default Player")
             self.assertEqual(player.guild_id, self.test_guild_id)
             self.assertEqual(player.discord_id, 201)
-            self.assertEqual(player.level, 1)
-            self.assertEqual(player.xp, 0)
-            self.assertEqual(player.gold, 0)
-            self.assertEqual(player.current_status, PlayerStatus.IDLE)
+            self.assertEqual(player.level, 1) # Default from get_rule fallback for starting_stats
+            self.assertEqual(player.xp, 0) # Default from get_rule fallback for starting_stats
+            self.assertEqual(player.gold, 10) # Default from get_rule fallback for starting_stats
+            self.assertEqual(player.current_status, PlayerStatus.EXPLORING) # Updated default
             self.assertEqual(player.current_location_id, self.test_loc_id)
             # This specific check for empty attributes_json when no rule is set will be more explicitly
             # covered in test_create_player_with_defaults_no_base_attributes_rule.
