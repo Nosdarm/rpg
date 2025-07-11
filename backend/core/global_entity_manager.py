@@ -141,14 +141,81 @@ async def _determine_next_location_id(session: AsyncSession, guild_id: int, enti
             if target_location.id == entity.current_location_id:
                 new_props = props.copy()
                 new_props.pop("goal_location_static_id", None)
+                # Update properties before calling _handle_goal_reached so it sees the goal as 'completed'
                 entity.properties_json = new_props
+                await session.flush([entity]) # Ensure properties_json change is in session data if _handle_goal_reached queries
+
                 logger.info(f"Entity {entity.static_id} reached goal location {goal_static_id}.")
-                # TODO: Trigger goal reached logic (e.g., set new goal, go idle)
+                await _handle_goal_reached(session, guild_id, entity)
+                # After handling goal, the entity might have a new goal or route,
+                # so _determine_next_location_id might be called again in a subsequent tick,
+                # or _handle_goal_reached might set a new immediate target_location_id.
+                # For now, _handle_goal_reached modifies entity.properties_json, and we return None for *this current* movement decision.
                 return None
             # Simplified: Assume direct move if not at goal. Real pathfinding needed for non-adjacent.
             # For now, only return if it's a valid different location.
             return target_location.id
     return None
+
+async def _handle_goal_reached(session: AsyncSession, guild_id: int, entity: Union[GlobalNpc, MobileGroup]):
+    """
+    Handles logic when an entity reaches its goal_location_static_id.
+    This can involve setting a new goal, going idle, or other behaviors based on entity properties.
+    """
+    props = entity.properties_json or {}
+    behavior = props.get("on_goal_reached_behavior", "idle") # Default to idle
+    entity_type_str = entity.__class__.__name__
+    logger.info(f"Entity {entity.static_id} ({entity_type_str}) reached goal. Behavior: {behavior}")
+
+    new_props = props.copy() # Work on a copy to update at the end
+
+    if behavior == "idle":
+        # No specific properties change for "idle", just means no active goal.
+        # Potentially log an event that entity is now idle at location.
+        logger.info(f"Entity {entity.static_id} is now idle at location {entity.current_location_id}.")
+        pass # No property changes needed for simple idle.
+
+    elif behavior == "set_new_goal":
+        next_goal_static_id = new_props.pop("next_goal_static_id", None) # Consume it
+        if next_goal_static_id:
+            new_props["goal_location_static_id"] = next_goal_static_id
+            # Optionally, set a new "on_goal_reached_behavior" for the *next* goal if defined
+            new_props["on_goal_reached_behavior"] = new_props.get("after_next_goal_behavior", "idle")
+            new_props.pop("after_next_goal_behavior", None)
+            logger.info(f"Entity {entity.static_id} reached goal, setting new goal: {next_goal_static_id}.")
+        else:
+            logger.info(f"Entity {entity.static_id} reached goal, behavior 'set_new_goal' but no 'next_goal_static_id' found. Going idle.")
+            # Fallback to idle if no next goal is specified
+            new_props.pop("on_goal_reached_behavior", None) # Remove behavior if it can't be fulfilled
+
+    elif behavior == "start_new_route":
+        next_route_json = new_props.pop("next_route_json", None)
+        if next_route_json and isinstance(next_route_json, dict) and next_route_json.get("location_static_ids"):
+            new_props["route_json"] = next_route_json
+            new_props["current_route_index"] = 0 # Start at the beginning of the new route
+            # Clear old goal-related properties if any
+            new_props.pop("goal_location_static_id", None)
+            logger.info(f"Entity {entity.static_id} reached goal, starting new route: {next_route_json.get('location_static_ids')}.")
+        else:
+            logger.info(f"Entity {entity.static_id} reached goal, behavior 'start_new_route' but no valid 'next_route_json' found. Going idle.")
+            new_props.pop("on_goal_reached_behavior", None)
+            new_props.pop("route_json", None) # Ensure any old route is also cleared
+
+    # Add other behaviors like "despawn", "trigger_event", etc. here
+    # Example:
+    # elif behavior == "despawn":
+    #     logger.info(f"Entity {entity.static_id} reached goal and will despawn.")
+    #     # This would require deleting the entity from the DB.
+    #     # await session.delete(entity) # Be careful with @transactional context if this is called from within another transaction.
+    #     # For now, just log. Deletion might need a separate mechanism or flag.
+    #     new_props["status"] = "to_be_despawned" # Mark for cleanup by another system
+
+    if new_props != props: # Only update if changes were made
+        entity.properties_json = new_props
+        session.add(entity) # Mark for update
+        await session.flush([entity]) # Flush changes immediately if other logic depends on it
+        logger.debug(f"Updated properties_json for {entity.static_id} after goal reached: {entity.properties_json}")
+
 
 async def _simulate_entity_movement(session: AsyncSession, guild_id: int, entity: Union[GlobalNpc, MobileGroup]):
     entity_name_en = entity.name_i18n.get("en", entity.static_id)
@@ -374,56 +441,66 @@ async def _simulate_entity_interactions(session: AsyncSession, guild_id: int, en
                     "reaction_rule_key": reaction_rule_key, "relationship_value_at_action": relationship_val
                 }
                 if chosen_action_key == "initiate_combat":
-                    if actor_rel_type_enum and target_rel_type_enum:
-                        try:
-                            actual_combatants: List[Union[Player, GeneratedNpc]] = []
-                            actor_combatant_entity: Optional[Union[Player, GeneratedNpc]] = None
-                            target_combatant_entity: Optional[Union[Player, GeneratedNpc]] = None
+                    final_combat_participants: List[Union[Player, GeneratedNpc]] = []
+                    processed_entity_ids_for_combat = set()
 
-                            # Determine actor combatant
-                            if isinstance(entity, GlobalNpc):
-                                if not entity.base_npc_id: # Ensure base_npc is loaded if using entity.base_npc
-                                    await session.refresh(entity, attribute_names=['base_npc'])
-                                actor_combatant_entity = entity.base_npc
-                                if not actor_combatant_entity:
-                                    logger.warning(f"GlobalNpc {entity.static_id} tried to initiate combat but has no base_npc.")
-                            elif isinstance(entity, (Player, GeneratedNpc)): # Should not happen based on current entity types
-                                actor_combatant_entity = entity
-                            else: # MobileGroup
-                                logger.warning(f"MobileGroup {entity.static_id} cannot directly initiate combat as an actor. Member expansion needed.")
+                    async def add_entity_to_combatants(entity_to_add: Any, is_actor: bool):
+                        nonlocal final_combat_participants
+                        nonlocal processed_entity_ids_for_combat
 
-                            # Determine target combatant
-                            if isinstance(target_entity, (Player, GeneratedNpc)):
-                                target_combatant_entity = target_entity
-                            elif isinstance(target_entity, GlobalNpc):
-                                if not target_entity.base_npc_id: # Ensure base_npc is loaded
-                                    await session.refresh(target_entity, attribute_names=['base_npc'])
-                                target_combatant_entity = target_entity.base_npc
-                                if not target_combatant_entity:
-                                    logger.warning(f"GlobalNpc target {target_entity.static_id} has no base_npc for combat.")
-                            else: # MobileGroup target
-                                logger.warning(f"Targeting MobileGroup {target_entity.static_id} for combat is not yet supported. Member expansion needed.")
+                        if isinstance(entity_to_add, (Player, GeneratedNpc)):
+                            # Ensure ID is int for the set
+                            entity_to_add_id = getattr(entity_to_add, 'id', None)
+                            if entity_to_add_id is not None and entity_to_add_id not in processed_entity_ids_for_combat:
+                                final_combat_participants.append(entity_to_add)
+                                processed_entity_ids_for_combat.add(entity_to_add_id)
+                        elif isinstance(entity_to_add, GlobalNpc):
+                            # Refresh if base_npc relationship is not loaded or base_npc_id is present but base_npc is None
+                            if entity_to_add.base_npc_id and not entity_to_add.base_npc: # Check if base_npc is already loaded
+                                 await session.refresh(entity_to_add, attribute_names=['base_npc'])
 
-                            if actor_combatant_entity:
-                                actual_combatants.append(actor_combatant_entity)
-                            if target_combatant_entity and target_combatant_entity not in actual_combatants: # Avoid duplicates if actor targets self's base
-                                actual_combatants.append(target_combatant_entity)
-
-                            if len(actual_combatants) >= 2: # Need at least two distinct combatants
-                                # TODO: Expand MobileGroup members into participants list if one of the entities was a MobileGroup
-                                # This part is still a placeholder if MobileGroups are involved.
-                                # For now, it only works if actor/target resolve to Player or GeneratedNpc.
-                                await start_combat(session, guild_id, entity.current_location_id, actual_combatants)
-                                action_log_details["combat_initiated"] = True
+                            base_npc = entity_to_add.base_npc
+                            if base_npc:
+                                if base_npc.id not in processed_entity_ids_for_combat:
+                                    final_combat_participants.append(base_npc)
+                                    processed_entity_ids_for_combat.add(base_npc.id)
                             else:
-                                logger.warning(f"Combat not initiated between {entity.static_id} and {target_id_for_log} due to insufficient valid combatants.")
-                                action_log_details["combat_initiation_skipped"] = "Insufficient valid combatants"
+                                logger.warning(f"GlobalNpc {entity_to_add.static_id} (actor: {is_actor}) has no base_npc for combat.")
+                        elif isinstance(entity_to_add, MobileGroup):
+                            logger.info(f"Expanding MobileGroup {entity_to_add.static_id} (actor: {is_actor}) for combat.")
+                            if entity_to_add.member_npc_ids_json:
+                                for member_id in entity_to_add.member_npc_ids_json:
+                                    if member_id not in processed_entity_ids_for_combat:
+                                        # Use generated_npc_crud for local NPCs
+                                        member_npc = await generated_npc_crud.get(session, id=member_id)
+                                        if member_npc:
+                                            final_combat_participants.append(member_npc)
+                                            processed_entity_ids_for_combat.add(member_npc.id)
+                                        else:
+                                            logger.warning(f"MobileGroup {entity_to_add.static_id} member NPC ID {member_id} not found.")
+                            else:
+                                logger.info(f"MobileGroup {entity_to_add.static_id} has no members to add to combat.")
+                        else:
+                            logger.warning(f"Unsupported entity type for combatant expansion: {type(entity_to_add)}")
 
-                        except Exception as e:
-                            logger.error(f"Error processing entities for combat: GE {entity.static_id} vs {target_id_for_log}: {e}", exc_info=True)
-                            action_log_details["combat_initiation_error"] = str(e)
+                    # Process actor (entity) and target (target_entity)
+                    await add_entity_to_combatants(entity, is_actor=True)
+                    await add_entity_to_combatants(target_entity, is_actor=False)
+
+                    if len(final_combat_participants) >= 2:
+                        # Check if actor and target resulted in the same single entity (e.g. GlobalNPC targeting its own base_npc if logic was flawed)
+                        # This is less likely with processed_entity_ids_for_combat set.
+                        # A simple check: if all participants are the same ID (only if len is > 0)
+                        if len(set(p.id for p in final_combat_participants)) < 2 and len(final_combat_participants) >=2 :
+                             logger.warning(f"Combat initiation between {entity.static_id} and {getattr(target_entity, 'static_id', 'unknown_target')} resulted in effectively one unique combatant. Skipping combat.")
+                             action_log_details["combat_initiation_skipped"] = "Effective self-combat or single unique entity"
+                        else:
+                            logger.info(f"Initiating combat at location {entity.current_location_id} with participants IDs: {[p.id for p in final_combat_participants]}")
+                            await start_combat(session, guild_id, entity.current_location_id, final_combat_participants)
+                            action_log_details["combat_initiated"] = True
                     else:
-                        logger.error(f"Cannot initiate combat due to unknown RelationshipEntityType for {entity.static_id} or {target_id_for_log}")
+                        logger.warning(f"Combat not initiated between {entity.static_id} and {getattr(target_entity, 'static_id', 'unknown_target')} due to insufficient distinct combatants after expansion. Final count: {len(final_combat_participants)}")
+                        action_log_details["combat_initiation_skipped"] = f"Insufficient distinct combatants ({len(final_combat_participants)})"
 
                 elif chosen_action_key.startswith("initiate_dialogue_"):
                     dialogue_type = chosen_action_key.split("_")[-1]

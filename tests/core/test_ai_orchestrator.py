@@ -331,10 +331,12 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
 @patch("backend.core.ai_orchestrator.crud_relationship.get_relationship_between_entities", autospec=True)
 @patch("backend.core.ai_orchestrator.crud_relationship.create", autospec=True) # For create
 @patch("backend.core.ai_orchestrator.crud_relationship.update", autospec=True) # For update
+@patch("backend.core.crud.crud_pending_generation.pending_generation_crud.count_other_active_pending_for_user", new_callable=AsyncMock) # Added mock for pending_gen_crud
 @patch("backend.core.database.transactional")
 async def test_save_approved_generation_updates_existing_relationship(
     mock_transactional_deco: MagicMock,
-    mock_crud_relationship_update: AsyncMock, # Renamed for clarity
+    mock_count_other_pending_rel_test: AsyncMock, # Added new mock to params
+    mock_crud_relationship_update: AsyncMock,
     mock_crud_relationship_create: AsyncMock,
     mock_crud_relationship_get_between: AsyncMock,
     mock_actual_npc_crud_get_static: AsyncMock,
@@ -349,6 +351,7 @@ async def test_save_approved_generation_updates_existing_relationship(
         async def wrapper(*args, **kwargs): return await func(args[0], *args[1:], **kwargs)
         return wrapper
     mock_transactional_deco.side_effect = passthrough
+    mock_count_other_pending_rel_test.return_value = 0 # Ensure player status update is attempted
 
     from backend.core.ai_response_parser import ParsedNpcData, ParsedRelationshipData # RelationshipEntityType comes from models.enums
     from backend.models.enums import RelationshipEntityType, PlayerStatus # Import PlayerStatus
@@ -889,3 +892,124 @@ async def test_save_approved_generation_with_npc_relationships(
             break
     assert update_pending_gen_call is not None
     assert update_pending_gen_call.args[2]["status"] == ModerationStatus.SAVED # type: ignore[reportCallIssue]
+
+
+@pytest.mark.asyncio
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock) # For entities within pending_gen
+@patch("backend.core.crud.crud_pending_generation.pending_generation_crud.count_other_active_pending_for_user", new_callable=AsyncMock) # Corrected path
+@patch("backend.core.database.transactional")
+async def test_save_approved_generation_player_status_no_other_pending(
+    mock_transactional_deco: MagicMock,
+    mock_count_other_pending: AsyncMock,
+    mock_create_entity_sa: AsyncMock, # Renamed to avoid clash
+    mock_update_entity_sa: AsyncMock, # Renamed
+    mock_get_entity_by_id_sa: AsyncMock, # Renamed
+    mock_session: AsyncSession,
+    mock_player: Player # Player fixture
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(*args, **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    mock_player.current_status = PlayerStatus.AWAITING_MODERATION # Player is waiting
+
+    # Minimal ParsedAiData for the test to pass through entity creation loop
+    parsed_data = ParsedAiData(generated_entities=[], raw_ai_output="raw")
+    mock_pending_gen = PendingGeneration(
+        id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID,
+        status=ModerationStatus.APPROVED,
+        parsed_validated_data_json=parsed_data.model_dump(),
+        triggered_by_user_id=mock_player.id
+    )
+
+    # get_entity_by_id will be called for PendingGeneration, then for Player
+    mock_get_entity_by_id_sa.side_effect = [mock_pending_gen, mock_player]
+    mock_count_other_pending.return_value = 0 # NO other pending generations
+
+    success = await save_approved_generation( # type: ignore[reportCallIssue]
+        session=mock_session,
+        pending_generation_id=PENDING_GEN_ID,
+        guild_id=DEFAULT_GUILD_ID
+    )
+    assert success is True
+
+    # Check player status update call
+    update_player_call = None
+    for call_obj in mock_update_entity_sa.call_args_list: # type: ignore[reportCallIssue]
+        if call_obj.args[1] == mock_player:
+            update_player_call = call_obj
+            break
+
+    assert update_player_call is not None, "update_entity not called for player"
+    assert update_player_call.args[2] == {"current_status": PlayerStatus.EXPLORING} # type: ignore[reportCallIssue]
+    mock_count_other_pending.assert_called_once_with(
+        session=mock_session,
+        guild_id=DEFAULT_GUILD_ID,
+        user_id=mock_player.id,
+        exclude_pending_generation_id=PENDING_GEN_ID,
+        statuses=[ModerationStatus.PENDING_MODERATION, ModerationStatus.VALIDATION_FAILED]
+    )
+
+@pytest.mark.asyncio
+@patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.update_entity", new_callable=AsyncMock)
+@patch("backend.core.ai_orchestrator.create_entity", new_callable=AsyncMock)
+@patch("backend.core.crud.crud_pending_generation.pending_generation_crud.count_other_active_pending_for_user", new_callable=AsyncMock) # Corrected path
+@patch("backend.core.database.transactional")
+async def test_save_approved_generation_player_status_other_pending_exists(
+    mock_transactional_deco: MagicMock,
+    mock_count_other_pending: AsyncMock,
+    mock_create_entity_sa: AsyncMock,
+    mock_update_entity_sa: AsyncMock,
+    mock_get_entity_by_id_sa: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player: Player
+):
+    def passthrough(func):
+        async def wrapper(*args, **kwargs): return await func(*args, **kwargs)
+        return wrapper
+    mock_transactional_deco.side_effect = passthrough
+
+    mock_player.current_status = PlayerStatus.AWAITING_MODERATION
+
+    parsed_data = ParsedAiData(generated_entities=[], raw_ai_output="raw")
+    mock_pending_gen = PendingGeneration(
+        id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID,
+        status=ModerationStatus.APPROVED,
+        parsed_validated_data_json=parsed_data.model_dump(),
+        triggered_by_user_id=mock_player.id
+    )
+
+    mock_get_entity_by_id_sa.side_effect = [mock_pending_gen, mock_player]
+    mock_count_other_pending.return_value = 1 # Other pending generations EXIST
+
+    success = await save_approved_generation( # type: ignore[reportCallIssue]
+        session=mock_session,
+        pending_generation_id=PENDING_GEN_ID,
+        guild_id=DEFAULT_GUILD_ID
+    )
+    assert success is True # Saving the current pending_gen is still successful
+
+    # Check that player status was NOT updated
+    player_update_call_found = False
+    for call_obj in mock_update_entity_sa.call_args_list: # type: ignore[reportCallIssue]
+        if call_obj.args[1] == mock_player:
+            # If it was called for the player, it should NOT be to change status to EXPLORING
+            assert call_obj.args[2].get("current_status") != PlayerStatus.EXPLORING, "Player status should not have been changed to EXPLORING"
+            player_update_call_found = True # It might be called for other reasons, but not status change to EXPLORING
+            # For this test, we expect NO call to update_entity for the player regarding status.
+            # However, the structure of the test might mean update_entity is called for the PendingGeneration.
+            # The most direct check is that no call to update_entity changed the player's status.
+
+    # A more precise check: ensure update_entity for player with status EXPLORING was NOT made
+    status_update_to_exploring_call = None
+    for call_obj in mock_update_entity_sa.call_args_list: # type: ignore[reportCallIssue]
+        if call_obj.args[1] == mock_player and call_obj.args[2].get("current_status") == PlayerStatus.EXPLORING:
+            status_update_to_exploring_call = call_obj
+            break
+    assert status_update_to_exploring_call is None, "Player status should NOT have been updated to EXPLORING"
+
+    mock_count_other_pending.assert_called_once()

@@ -13,7 +13,8 @@ from backend.models import (
     StatusEffect,
     ActiveStatusEffect,
     GuildConfig,
-    RuleConfig
+    RuleConfig,
+    Location # Added for distance checks
 )
 from backend.models.ability_outcomes import AbilityOutcomeDetails, AppliedStatusDetail, DamageDetail, HealingDetail, CasterUpdateDetail
 from backend.models.enums import RelationshipEntityType, EventType, PlayerStatus
@@ -26,8 +27,198 @@ from backend.core.game_events import log_event
 from backend.core.rules import get_rule
 from backend.core.entity_stats_utils import get_entity_hp, set_entity_hp, change_entity_hp, get_entity_stat, set_entity_stat, change_entity_stat # Added
 from sqlalchemy.sql import func # Added
+import math # Added for distance calculation
 
 logger = logging.getLogger(__name__)
+
+# --- Helper Functions for Checks ---
+
+async def _check_ability_availability(
+    caster: Union[Player, GeneratedNpc],
+    db_ability: Ability
+) -> tuple[bool, str]:
+    """
+    Checks if the caster knows the ability.
+    Placeholder: Assumes all entities know all abilities for now.
+    Future: Implement a system for learned abilities (e.g., CharacterAbilities table).
+    """
+    # Example: if isinstance(caster, Player):
+    #   known = await session.execute(select(PlayerLearnedAbility).where(PlayerLearnedAbility.player_id == caster.id, PlayerLearnedAbility.ability_id == db_ability.id))
+    #   if not known.scalar_one_or_none():
+    #       return False, f"Caster does not know ability '{db_ability.static_id}'."
+    logger.debug(f"Placeholder: Ability '{db_ability.static_id}' availability check passed for caster {caster.id}.")
+    return True, ""
+
+async def _check_cooldowns(
+    session: AsyncSession, # Added session for potential DB access
+    guild_id: int, # Added guild_id
+    caster: Union[Player, GeneratedNpc],
+    db_ability: Ability
+) -> tuple[bool, str]:
+    """
+    Checks if the ability is off cooldown for the caster.
+    Placeholder: Assumes abilities have no cooldowns or cooldowns are always met.
+    Future: Implement a system for tracking ability cooldowns per entity
+            (e.g., EntityAbilityCooldowns table with ability_id, entity_id, last_used_timestamp).
+            Cooldown duration could be stored in Ability.properties_json or RuleConfig.
+    """
+    cooldown_duration_seconds = db_ability.properties_json.get("cooldown_seconds")
+    if cooldown_duration_seconds:
+        # This is where you'd fetch the last used time for this caster and ability
+        # last_used_time = await get_last_used_time(session, caster.id, caster_type, db_ability.id)
+        # if last_used_time and (datetime.datetime.utcnow() - last_used_time).total_seconds() < cooldown_duration_seconds:
+        #     remaining_cooldown = cooldown_duration_seconds - (datetime.datetime.utcnow() - last_used_time).total_seconds()
+        #     return False, f"Ability '{db_ability.static_id}' is on cooldown. {remaining_cooldown:.1f}s remaining."
+        pass # Placeholder logic
+    logger.debug(f"Placeholder: Cooldown check passed for ability '{db_ability.static_id}' for caster {caster.id}.")
+    return True, ""
+
+
+async def _check_prerequisites(
+    session: AsyncSession, # Added session
+    guild_id: int, # Added guild_id
+    caster: Union[Player, GeneratedNpc],
+    db_ability: Ability
+) -> tuple[bool, str]:
+    """
+    Checks for caster state or equipment prerequisites.
+    Reads from db_ability.properties_json["prerequisites"]
+    Example: {"status": "not_stunned", "equipment_slot": "main_hand", "required_item_type": "sword"}
+    """
+    prerequisites = db_ability.properties_json.get("prerequisites", {})
+    if not prerequisites:
+        return True, ""
+
+    # Check caster status prerequisites
+    required_status = prerequisites.get("status")
+    if required_status:
+        caster_current_status = get_entity_stat(caster, "status") # Assumes 'status' is a stat like 'stunned', 'normal'
+        # This needs to be more robust: check ActiveStatusEffects for "stunned" etc.
+        # For example, if required_status is "not_stunned":
+        #   active_stuns = await session.execute(select(ActiveStatusEffect).join(StatusEffect).where(StatusEffect.static_id == "stunned", ActiveStatusEffect.entity_id == caster.id ...))
+        #   if active_stuns.scalars().first():
+        #       return False, f"Caster cannot use '{db_ability.static_id}' while stunned."
+        if required_status == "in_combat" and isinstance(caster, Player):
+            if caster.current_status != PlayerStatus.COMBAT.value:
+                 return False, f"Caster must be in combat to use '{db_ability.static_id}'."
+        elif required_status == "in_combat" and isinstance(caster, GeneratedNpc):
+            if get_entity_stat(caster, "status") != "in_combat": # Assuming 'in_combat' is a possible value for NPC status stat
+                 return False, f"Caster must be in combat to use '{db_ability.static_id}'."
+        # Add more specific status checks here
+
+    # Check equipment prerequisites
+    # This would require access to the caster's inventory/equipment.
+    # required_equipment_type = prerequisites.get("required_item_type")
+    # if required_equipment_type:
+    #   equipped_item_in_slot = await get_equipped_item(session, caster, prerequisites.get("equipment_slot", "any"))
+    #   if not equipped_item_in_slot or equipped_item_in_slot.item_type != required_item_type:
+    #       return False, f"Caster requires a '{required_item_type}' equipped to use '{db_ability.static_id}'."
+
+    logger.debug(f"Placeholder/Partial: Prerequisite check passed for ability '{db_ability.static_id}' for caster {caster.id}.")
+    return True, ""
+
+async def _get_entity_location(session: AsyncSession, entity: Union[Player, GeneratedNpc]) -> Optional[Location]:
+    """Helper to get the current location of an entity."""
+    if not hasattr(entity, 'current_location_id') or not entity.current_location_id:
+        return None
+    return await session.get(Location, entity.current_location_id)
+
+def _calculate_distance(loc1: Location, loc2: Location) -> float:
+    """Calculates Euclidean distance between two locations if they have x, y, z coordinates."""
+    if loc1.x is None or loc1.y is None or loc2.x is None or loc2.y is None:
+        # Consider locations without coordinates to be infinitely far for targeting,
+        # unless they are the same location_id (handled by range 0 check)
+        return float('inf')
+
+    # Use z=0 if not present for 2D distance
+    z1 = loc1.z if loc1.z is not None else 0
+    z2 = loc2.z if loc2.z is not None else 0
+
+    return math.sqrt((loc1.x - loc2.x)**2 + (loc1.y - loc2.y)**2 + (z1 - z2)**2)
+
+
+async def _validate_targets(
+    session: AsyncSession,
+    guild_id: int,
+    caster: Union[Player, GeneratedNpc],
+    targets: List[Union[Player, GeneratedNpc]],
+    db_ability: Ability
+) -> tuple[bool, str, List[Union[Player, GeneratedNpc]]]:
+    """
+    Validates targets based on range, LoS (placeholder), and type.
+    Reads from db_ability.properties_json["targeting_rules"]
+    Example: {"max_range": 30, "requires_los": true, "allowed_target_types": ["enemy", "hostile_npc"]}
+    Returns: (isValid, message, valid_targets_list)
+    """
+    targeting_rules = db_ability.properties_json.get("targeting_rules", {})
+    if not targeting_rules: # No specific rules, all targets are considered valid initially
+        return True, "", targets
+
+    max_range = targeting_rules.get("max_range") # e.g., in meters or units
+    # requires_los = targeting_rules.get("requires_los", False) # Line of Sight
+    # allowed_target_types = targeting_rules.get("allowed_target_types", []) # e.g., ["enemy", "self", "ally_player", "any_npc"]
+
+    caster_location = await _get_entity_location(session, caster)
+    valid_targets_for_ability: List[Union[Player, GeneratedNpc]] = []
+
+    for target_candidate in targets:
+        if target_candidate == caster and targeting_rules.get("can_target_self", True) is False: # Explicitly cannot target self
+            logger.debug(f"Target validation failed for '{db_ability.static_id}': Cannot target self.")
+            continue # Skip self if not allowed
+
+        if target_candidate == caster and targeting_rules.get("can_target_self", True) is True:
+            # Self is always in range and LoS of self. Check other type rules if necessary.
+            pass # Will be added to valid_targets_for_ability if other checks pass or are not present
+
+        # Range Check
+        if max_range is not None and target_candidate != caster:
+            if not caster_location:
+                return False, f"Caster location unknown, cannot check range for '{db_ability.static_id}'.", []
+
+            target_location = await _get_entity_location(session, target_candidate)
+            if not target_location:
+                logger.warning(f"Target {target_candidate.id} location unknown for ability '{db_ability.static_id}'. Skipping target.")
+                continue
+
+            # If entities are in the same location node, and range is 0, it's a valid "touch" range.
+            if max_range == 0 and caster_location.id == target_location.id:
+                 pass # Valid touch range
+            elif caster_location.id == target_location.id and caster_location.x is None: # Same abstract location, no coords
+                pass # Assume in range
+            else: # Calculate distance if coordinates exist
+                distance = _calculate_distance(caster_location, target_location)
+                if distance > max_range:
+                    logger.debug(f"Target validation failed for '{db_ability.static_id}': Target {target_candidate.id} out of range ({distance:.1f} > {max_range}).")
+                    continue # Skip this target
+
+        # Line of Sight (LoS) Check - Placeholder
+        # if requires_los and target_candidate != caster:
+        #   has_los = await check_line_of_sight(session, caster_location, target_location) # Complex function, placeholder
+        #   if not has_los:
+        #       logger.debug(f"Target validation failed for '{db_ability.static_id}': Target {target_candidate.id} not in line of sight.")
+        #       continue
+
+        # Target Type Check (e.g., enemy, ally, specific faction) - Placeholder
+        # This would require a relationship/faction system to determine if a target is "enemy" or "ally".
+        # For now, we assume any provided target is of an acceptable type if it passes range/LoS.
+        # Example:
+        # target_relation = await get_relationship_status(session, caster, target_candidate)
+        # if "enemy" in allowed_target_types and target_relation != "enemy":
+        #    continue
+        # if "ally" in allowed_target_types and target_relation != "ally":
+        #    continue
+
+        valid_targets_for_ability.append(target_candidate)
+
+    if not targets and db_ability.properties_json.get("requires_target", False): # Ability requires target(s) but none were valid or provided
+        return False, f"Ability '{db_ability.static_id}' requires at least one valid target.", []
+
+    if not valid_targets_for_ability and targets: # Had targets, but none were valid
+        return False, f"No valid targets found for ability '{db_ability.static_id}' after validation.", []
+
+    logger.debug(f"Target validation passed for ability '{db_ability.static_id}'. Valid targets: {[t.id for t in valid_targets_for_ability]}.")
+    return True, "", valid_targets_for_ability
+
 
 # Helper to get entity - Placeholder, needs refinement for actual stat access
 async def _get_entity(session: AsyncSession, guild_id: int, entity_id: int, entity_type: str) -> Optional[Union[Player, GeneratedNpc]]:
@@ -158,6 +349,26 @@ async def activate_ability( # Signature updated to use ability_identifier
         outcome.message = f"{entity_type.capitalize()} (caster) not found."
         return outcome
 
+    # --- Initial Checks ---
+    # 1. Ability Availability (Learned? Class-specific?)
+    available, msg = await _check_ability_availability(caster, db_ability)
+    if not available:
+        outcome.message = msg
+        return outcome
+
+    # 2. Cooldowns
+    off_cooldown, msg = await _check_cooldowns(session, guild_id, caster, db_ability)
+    if not off_cooldown:
+        outcome.message = msg
+        return outcome
+
+    # 3. Caster Prerequisites (Status, Equipment)
+    prereqs_met, msg = await _check_prerequisites(session, guild_id, caster, db_ability)
+    if not prereqs_met:
+        outcome.message = msg
+        return outcome
+
+    # --- Target Acquisition and Validation ---
     targets: List[Union[Player, GeneratedNpc]] = []
     if target_entity_ids and target_entity_types and len(target_entity_ids) == len(target_entity_types):
         for i, target_id in enumerate(target_entity_ids):
@@ -165,20 +376,31 @@ async def activate_ability( # Signature updated to use ability_identifier
             target_entity = await _get_entity(session, guild_id, target_id, target_type)
             if target_entity: targets.append(target_entity)
 
-    logger.info(f"Ability '{db_ability.static_id}' (ID: {db_ability.id}) activated by {entity_type} ID {entity_id} on {len(targets)} targets.")
+    # If ability requires targets but none provided (and not self-targetting by default)
+    if not targets and db_ability.properties_json.get("requires_target", False) and \
+       not (db_ability.properties_json.get("effects") and \
+            any(eff.get("target_scope") == "self" for eff in db_ability.properties_json["effects"])):
+        outcome.message = f"Ability '{db_ability.static_id}' requires target(s), but none were provided."
+        return outcome
 
-    # --- Start of MVP Ability Logic ---
-    # For MVP, we'll assume properties_json might have:
-    # "cost": {"resource": "mana", "amount": 10}
-    # "effects": [
-    #   {"type": "damage", "amount": 15, "damage_type": "fire", "target": "first"},
-    #   {"type": "apply_status", "status_static_id": "burning", "duration": 3, "target": "first"}
-    # ]
+    # 4. Target Validation (Range, LoS, Type)
+    # Note: If an ability can be self-targeted and no targets are provided, it should be handled here or by target_scope logic.
+    # If targets list is empty AND the ability is not purely self-targeting, validation might be skipped or might fail.
+    # For now, if `targets` is empty, `_validate_targets` will handle it based on ability properties.
+    targets_valid, msg, validated_targets = await _validate_targets(session, guild_id, caster, targets, db_ability)
+    if not targets_valid:
+        outcome.message = msg
+        return outcome
 
-    # TODO: Implement check for ability availability for the caster (e.g., learned abilities)
-    # TODO: Implement cooldown checks
+    targets = validated_targets # Use the list of targets that passed validation
 
-    # 1. Check and apply costs
+    logger.info(f"Ability '{db_ability.static_id}' (ID: {db_ability.id}) activated by {entity_type} ID {entity_id} on {len(targets)} validated targets.")
+
+    # --- Resource Costs ---
+    # This is effectively the final check before applying effects.
+    # If this fails, previous checks (like cooldowns) should ideally not be triggered yet,
+    # or their effects (like starting a cooldown) should be reverted if costs can't be paid.
+    # For simplicity, resource check is done here. A more complex system might pre-validate resources.
     if db_ability.properties_json and "cost" in db_ability.properties_json:
         cost_info = db_ability.properties_json["cost"]
         resource_type = cost_info.get("resource")
@@ -188,52 +410,34 @@ async def activate_ability( # Signature updated to use ability_identifier
             current_resource_value = get_entity_stat(caster, resource_type)
             if not isinstance(current_resource_value, int) or current_resource_value < amount_required:
                 outcome.message = f"Not enough {resource_type} to use ability '{db_ability.static_id}'. Required: {amount_required}, Available: {current_resource_value if isinstance(current_resource_value, int) else 0}."
-                outcome.success = False
-                # No log_event here as the ability wasn't successfully used.
-                # Consider a different type of log entry if "failed attempts" should be logged.
+                # No success=False here yet, as it's set by default.
                 return outcome
 
-            # Deduct resource
             if not change_entity_stat(caster, resource_type, -amount_required):
                 logger.error(f"Failed to deduct {resource_type} from {entity_type} ID {entity_id} for ability {db_ability.static_id}.")
-                # This case should ideally not happen if get_entity_stat and current_resource_value check passed.
-                # But as a safeguard:
                 outcome.message = f"Error processing resource cost for ability '{db_ability.static_id}'."
-                outcome.success = False
                 return outcome
-
             logger.info(f"Caster {entity_type} ID {entity_id} paid {amount_required} of {resource_type} for ability '{db_ability.static_id}'.")
             outcome.caster_updates.append(CasterUpdateDetail(resource_type=resource_type, change= -amount_required))
-        elif amount_required == 0: # No cost
+        elif amount_required == 0:
              logger.info(f"Ability '{db_ability.static_id}' has no resource cost.")
-        else:
-            logger.warning(f"Invalid cost_info for ability '{db_ability.static_id}': {cost_info}")
+        # else: logger.warning for malformed cost_info could be added.
 
-    # 2. Check Activation Conditions from RuleConfig (Example)
-    activation_conditions_key = f"ability_rules:{db_ability.static_id}:activation_conditions"
-    activation_conditions = await get_rule(session, guild_id, activation_conditions_key) # activation_conditions might be a list or dict
+    # --- RuleConfig Based Activation Conditions (Additional general conditions) ---
+    # These are more abstract conditions from RuleConfig, checked after specific prerequisites and costs.
+    # Example: "caster_must_be_in_combat" was moved to _check_prerequisites for more specific handling,
+    # but other general RuleConfig conditions could be checked here.
+    # activation_conditions_key = f"ability_rules:{db_ability.static_id}:activation_conditions"
+    # activation_conditions = await get_rule(session, guild_id, activation_conditions_key)
+    # if activation_conditions:
+    #     # Process these conditions. If any fail:
+    #     # outcome.message = "Failed RuleConfig activation condition for '{db_ability.static_id}'."
+    #     # return outcome
+    #     pass
 
-    if activation_conditions and isinstance(activation_conditions, list): # Assuming conditions are a list of strings
-        if "caster_must_be_in_combat" in activation_conditions:
-            caster_combat_status = None
-            if isinstance(caster, Player):
-                # Assuming PlayerStatus.COMBAT enum member exists and is comparable
-                caster_combat_status = caster.current_status == PlayerStatus.COMBAT.value # Compare with the enum's value
-            elif isinstance(caster, GeneratedNpc):
-                # Assuming NPC status is stored in properties_json['stats']['status']
-                npc_status_str = get_entity_stat(caster, "status")
-                caster_combat_status = npc_status_str == "in_combat" # Or use an enum/constant
 
-            if not caster_combat_status:
-                outcome.message = f"Ability '{db_ability.static_id}' can only be used while in combat."
-                outcome.success = False
-                return outcome
-
-        # Add more condition checks here as needed based on RuleConfig structure
-        # e.g., "requires_specific_status_on_caster": "status_xyz_static_id"
-        # e.g., "target_must_be_enemy": true
-
-    # 3. Apply effects
+    # --- Apply Effects ---
+    # If all checks passed and costs paid, proceed to apply effects.
     if db_ability.properties_json and "effects" in db_ability.properties_json:
         for effect_data in db_ability.properties_json.get("effects", []): # type: ignore
             effect_type = effect_data.get("type")
@@ -267,40 +471,68 @@ async def activate_ability( # Signature updated to use ability_identifier
                 target_individual_type_str = "player" if isinstance(target_individual, Player) else "npc"
 
                 if effect_type == "damage":
-                    # TODO: Get damage amount from RuleConfig if formula-based
-                    damage_amount = effect_data.get("amount", 0)
-                    # TODO: Apply damage to target_individual.current_hp or target_individual.properties_json['stats']['hp']
-                    # For now, just log and add to outcome
-                    # Use new utility function to change HP
-                    damage_applied = change_entity_hp(target_individual, -damage_amount) # Negative amount for damage
-                    if damage_applied:
-                        logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
-                        outcome.damage_dealt.append(DamageDetail(
-                            target_entity_id=target_individual.id,
-                            target_entity_type=target_individual_type_str,
-                            amount=damage_amount, # Report positive damage amount
-                            damage_type=effect_data.get("damage_type")
-                        ))
-                    else:
-                        logger.warning(f"Failed to apply damage to {target_individual_type_str} ID {target_individual.id} using change_entity_hp.")
-                    # else: logger.warning for unhandled hp update
+                    raw_amount = effect_data.get("amount", 0)
+                    damage_amount = raw_amount
+                    # If raw_amount is a string, try to fetch it from RuleConfig
+                    if isinstance(raw_amount, str):
+                        rule_val = await get_rule(session, guild_id, raw_amount)
+                        if isinstance(rule_val, int):
+                            damage_amount = rule_val
+                        else:
+                            logger.warning(f"RuleConfig key '{raw_amount}' for damage amount did not return an integer. Using default from properties_json or 0.")
+                            # Attempt to parse original raw_amount as int if it was a string but not a valid rule key
+                            try: damage_amount = int(raw_amount)
+                            except ValueError: damage_amount = 0
 
-                    # logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
-                    # outcome.damage_dealt.append(DamageDetail( # This is now handled above
-                    #     target_entity_id=target_individual.id,
-                    #     target_entity_type=target_individual_type_str,
-                    #     amount=damage_amount,
-                    #     damage_type=effect_data.get("damage_type")
-                    # )) # Removed extra parenthesis if the block is commented
+                    if not isinstance(damage_amount, int) or damage_amount < 0: # Damage should be positive or zero
+                        logger.warning(f"Invalid damage_amount '{damage_amount}' (resolved from '{raw_amount}') for ability '{db_ability.static_id}'. Skipping damage effect.")
+                        continue
+
+                    # TODO: Implement advanced damage calculation using formulas from RuleConfig,
+                    # involving caster stats (e.g., caster.strength, caster.spell_power)
+                    # and target stats (e.g., target.armor, target.fire_resistance).
+                    # Example: damage_formula_key = effect_data.get("damage_formula_key")
+                    # if damage_formula_key: damage_amount = calculate_value_from_formula(session, guild_id, damage_formula_key, caster, target_individual)
+
+                    if damage_amount > 0: # Only apply if there's actual damage
+                        damage_applied = change_entity_hp(target_individual, -damage_amount)
+                        if damage_applied:
+                            logger.info(f"Dealt {damage_amount} {effect_data.get('damage_type','physical')} damage to {target_individual_type_str} ID {target_individual.id}")
+                            outcome.damage_dealt.append(DamageDetail(
+                                target_entity_id=target_individual.id,
+                                target_entity_type=target_individual_type_str,
+                                amount=damage_amount,
+                                damage_type=effect_data.get("damage_type")
+                            ))
+                        else:
+                            logger.warning(f"Failed to apply damage to {target_individual_type_str} ID {target_individual.id} using change_entity_hp.")
 
                 elif effect_type == "apply_status":
                     status_to_apply_static_id = effect_data.get("status_static_id")
-                    status_duration = effect_data.get("duration")
+                    raw_duration = effect_data.get("duration") # Can be int or string (RuleConfig key)
+                    status_duration = raw_duration
+
+                    if isinstance(raw_duration, str):
+                        rule_val = await get_rule(session, guild_id, raw_duration)
+                        if isinstance(rule_val, int):
+                            status_duration = rule_val
+                        else:
+                            logger.warning(f"RuleConfig key '{raw_duration}' for status duration did not return an integer. Using default from properties_json.")
+                            try: status_duration = int(raw_duration) # Attempt to parse original
+                            except ValueError: status_duration = None # Or some default like 1 if parsing fails
+
+                    if status_duration is not None and (not isinstance(status_duration, int) or status_duration < 0):
+                        logger.warning(f"Invalid status_duration '{status_duration}' (resolved from '{raw_duration}') for ability '{db_ability.static_id}'. Status may not apply correctly.")
+                        status_duration = None # Or a default valid duration like 1 turn
+
+                    # TODO: Implement success chance for status application based on RuleConfig or stats.
+                    # Example: success_chance_key = effect_data.get("success_chance_key") -> calculate success...
+
                     if status_to_apply_static_id:
                         applied_successfully = await apply_status(
                             session, guild_id,
                             target_individual.id, target_individual_type_str,
-                            status_to_apply_static_id, status_duration,
+                            status_to_apply_static_id, status_duration, # Pass potentially resolved duration
                             source_ability_id=db_ability.id,
                             source_entity_id=caster.id,
                             source_entity_type=entity_type
@@ -310,32 +542,46 @@ async def activate_ability( # Signature updated to use ability_identifier
                                  status_static_id=status_to_apply_static_id,
                                  target_entity_id=target_individual.id,
                                  target_entity_type=target_individual_type_str,
-                                 duration=status_duration
+                                 duration=status_duration # Log the duration that was used
                              ))
                         else:
                             logger.warning(f"Failed to apply status {status_to_apply_static_id} from ability {db_ability.static_id} to {target_individual_type_str} ID {target_individual.id}")
 
                 elif effect_type == "healing":
-                    healing_amount = effect_data.get("amount", 0)
+                    raw_amount = effect_data.get("amount", 0)
+                    healing_amount = raw_amount
+                    if isinstance(raw_amount, str):
+                        rule_val = await get_rule(session, guild_id, raw_amount)
+                        if isinstance(rule_val, int):
+                            healing_amount = rule_val
+                        else:
+                            logger.warning(f"RuleConfig key '{raw_amount}' for healing amount did not return an integer. Using default from properties_json or 0.")
+                            try: healing_amount = int(raw_amount)
+                            except ValueError: healing_amount = 0
+
                     if not isinstance(healing_amount, int) or healing_amount <= 0:
-                        logger.warning(f"Invalid healing_amount '{healing_amount}' for ability '{db_ability.static_id}'. Skipping healing effect.")
+                        logger.warning(f"Invalid healing_amount '{healing_amount}' (resolved from '{raw_amount}') for ability '{db_ability.static_id}'. Skipping healing effect.")
                         continue
 
-                    # TODO: Get healing amount/formula from RuleConfig, consider caster stats, target max HP
-                    healed_successfully = change_entity_hp(target_individual, healing_amount) # Positive amount for healing
+                    # TODO: Implement advanced healing calculation using formulas from RuleConfig,
+                    # involving caster stats (e.g., caster.wisdom, caster.healing_power)
+                    # and potentially target's max HP for percentage-based heals.
+                    # Example: healing_formula_key = effect_data.get("healing_formula_key") ...
 
-                    if healed_successfully:
-                        actual_hp_after_heal = get_entity_hp(target_individual)
-                        logger.info(f"Healed {target_individual_type_str} ID {target_individual.id} for {healing_amount} HP. Current HP: {actual_hp_after_heal}")
-                        outcome.healing_done.append(HealingDetail(
-                            target_entity_id=target_individual.id,
-                            target_entity_type=target_individual_type_str,
-                            amount=healing_amount # Report positive healing amount
-                        ))
-                    else:
-                        logger.warning(f"Failed to apply healing to {target_individual_type_str} ID {target_individual.id} using change_entity_hp.")
+                    if healing_amount > 0: # Only apply if there's actual healing
+                        healed_successfully = change_entity_hp(target_individual, healing_amount)
+                        if healed_successfully:
+                            actual_hp_after_heal = get_entity_hp(target_individual)
+                            logger.info(f"Healed {target_individual_type_str} ID {target_individual.id} for {healing_amount} HP. Current HP: {actual_hp_after_heal}")
+                            outcome.healing_done.append(HealingDetail(
+                                target_entity_id=target_individual.id,
+                                target_entity_type=target_individual_type_str,
+                                amount=healing_amount
+                            ))
+                        else:
+                            logger.warning(f"Failed to apply healing to {target_individual_type_str} ID {target_individual.id} using change_entity_hp.")
 
-    # --- End of MVP Ability Logic ---
+    # --- End of Effects Application ---
 
     outcome.success = True
     outcome.message = f"Ability '{db_ability.static_id}' processed (MVP)."
@@ -427,38 +673,96 @@ async def apply_status(
     existing_statuses_result = await session.execute(existing_active_status_stmt)
     existing_status_instance = existing_statuses_result.scalars().first()
 
-    can_refresh_duration = db_status_effect.properties_json.get("duration_refresh", False)
-    # TODO: Add stackable logic here if db_status_effect.properties_json.get("stackable", False)
+    is_stackable = db_status_effect.properties_json.get("stackable", False)
+    max_stacks = db_status_effect.properties_json.get("max_stacks", 1 if is_stackable else 1)
+    can_refresh_duration_non_stackable = db_status_effect.properties_json.get("duration_refresh", False) # For non-stackable
+
+    action_taken = False # Flag to track if any change was made that warrants logging success
 
     if existing_status_instance:
-        if can_refresh_duration:
-            existing_status_instance.duration_turns = duration # Update to new full duration
-            existing_status_instance.remaining_turns = duration # Reset remaining turns
-            existing_status_instance.applied_at = func.now() # type: ignore[assignment] # Use SQLAlchemy func.now
-            existing_status_instance.source_ability_id = source_ability_id # Update source if it changed
+        existing_custom_props = existing_status_instance.custom_properties_json or {}
+        current_stacks = existing_custom_props.get("current_stacks", 1)
+
+        if is_stackable:
+            if current_stacks < max_stacks:
+                current_stacks += 1
+                existing_custom_props["current_stacks"] = current_stacks
+                existing_status_instance.custom_properties_json = existing_custom_props
+
+                if db_status_effect.properties_json.get("refresh_duration_on_stack_gain", True):
+                    existing_status_instance.duration_turns = duration
+                    existing_status_instance.remaining_turns = duration
+                existing_status_instance.applied_at = func.now() # type: ignore[assignment]
+                existing_status_instance.source_ability_id = source_ability_id # Update source
+                existing_status_instance.source_entity_id = source_entity_id
+                if source_entity_type:
+                    try: existing_status_instance.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
+                    except ValueError: existing_status_instance.source_entity_type = None
+                else: existing_status_instance.source_entity_type = None
+
+                session.add(existing_status_instance)
+                logger.info(f"Incremented stack for status '{db_status_effect.static_id}' to {current_stacks}/{max_stacks} on {entity_type} ID {entity_id}.")
+                action_taken = True
+            elif db_status_effect.properties_json.get("refresh_duration_at_max_stacks", True): # At max stacks, check if refresh is allowed
+                existing_status_instance.duration_turns = duration
+                existing_status_instance.remaining_turns = duration
+                existing_status_instance.applied_at = func.now() # type: ignore[assignment]
+                existing_status_instance.source_ability_id = source_ability_id # Update source
+                existing_status_instance.source_entity_id = source_entity_id
+                if source_entity_type:
+                    try: existing_status_instance.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
+                    except ValueError: existing_status_instance.source_entity_type = None
+                else: existing_status_instance.source_entity_type = None
+
+                # Ensure custom_properties_json has current_stacks if somehow missing
+                if "current_stacks" not in existing_custom_props:
+                    existing_custom_props["current_stacks"] = max_stacks
+                    existing_status_instance.custom_properties_json = existing_custom_props
+
+                session.add(existing_status_instance)
+                logger.info(f"Refreshed duration for status '{db_status_effect.static_id}' at max stacks ({current_stacks}/{max_stacks}) on {entity_type} ID {entity_id}.")
+                action_taken = True
+            else:
+                logger.info(f"Status '{db_status_effect.static_id}' at max stacks ({current_stacks}/{max_stacks}) on {entity_type} ID {entity_id}. No duration refresh configured at max.")
+                # No action_taken, return False later if this is the only path
+        elif can_refresh_duration_non_stackable: # Not stackable, but can refresh duration
+            existing_status_instance.duration_turns = duration
+            existing_status_instance.remaining_turns = duration
+            existing_status_instance.applied_at = func.now() # type: ignore[assignment]
+            existing_status_instance.source_ability_id = source_ability_id
             existing_status_instance.source_entity_id = source_entity_id
             if source_entity_type:
                  try: existing_status_instance.source_entity_type = RelationshipEntityType(source_entity_type.lower()).value
                  except ValueError: existing_status_instance.source_entity_type = None
             else: existing_status_instance.source_entity_type = None
-
             session.add(existing_status_instance)
-            await session.flush()
-            logger.info(f"Refreshed duration for status '{db_status_effect.static_id}' (ActiveID: {existing_status_instance.id}) on {entity_type} ID {entity_id}.")
-            # Update log_details to reflect refresh? Or is the general STATUS_APPLIED fine?
-            # For now, the existing log_event after this block will log the "application" or "refresh".
-            # To be more specific, we might need a STATUS_REFRESHED event type.
-            active_status = existing_status_instance # Use the existing instance for logging details
-        else:
-            # Status exists, but cannot be refreshed. Do nothing.
-            logger.info(f"Status '{db_status_effect.static_id}' already active on {entity_type} ID {entity_id} and cannot be refreshed. No action taken.")
-            return False # Indicate that no new status was effectively applied or old one changed in a way that needs re-logging as "new"
-    else:
-        # No existing status, add the new one
-        session.add(active_status)
-        await session.flush() # To get active_status.id for logging if needed immediately
+            logger.info(f"Refreshed duration for non-stackable status '{db_status_effect.static_id}' (ActiveID: {existing_status_instance.id}) on {entity_type} ID {entity_id}.")
+            action_taken = True
+        else: # Not stackable and cannot refresh
+            logger.info(f"Status '{db_status_effect.static_id}' already active on {entity_type} ID {entity_id} and cannot be refreshed or stacked. No action taken.")
 
-    logger.info(f"Status '{db_status_effect.static_id}' (ID: {db_status_effect.id}, ActiveID: {active_status.id}) applied/refreshed on {entity_type} ID {entity_id}.")
+        if action_taken:
+            active_status = existing_status_instance # Use the updated instance for logging
+        else:
+            return False # No change made to existing status
+
+    else: # No existing_status_instance, create a new one
+        active_status.custom_properties_json = active_status.custom_properties_json or {}
+        if is_stackable:
+            active_status.custom_properties_json["current_stacks"] = 1
+
+        session.add(active_status)
+        # await session.flush() # Flushed later or before logging if active_status.id is needed by then
+        action_taken = True
+        logger.info(f"Applied new instance of status '{db_status_effect.static_id}' on {entity_type} ID {entity_id}" + (f" with 1/{max_stacks} stacks." if is_stackable else "."))
+
+    if not action_taken: # Should have been caught by return False earlier, but as a safeguard
+        return False
+
+    await session.flush() # Ensure ID is available for logging, and all changes are persisted before log.
+
+    log_payload_custom_props = active_status.custom_properties_json or {}
+    logger.info(f"Status '{db_status_effect.static_id}' (ID: {db_status_effect.id}, ActiveID: {active_status.id}) applied/updated on {entity_type} ID {entity_id}. Stacks: {log_payload_custom_props.get('current_stacks', 'N/A') if is_stackable else 'Non-stackable'}.")
 
     event_player_id = target_entity.id if isinstance(target_entity, Player) else None
     if not event_player_id and source_entity_id and source_entity_type and source_entity_type.lower() == "player":

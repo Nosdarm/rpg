@@ -23,6 +23,34 @@ class CRUDNpc(CRUDBase[GeneratedNpc]):
         """
         return await self.get(session, id=id, guild_id=guild_id)
 
+    async def get_npcs_by_name_in_location(
+        self, session: AsyncSession, *, guild_id: int, location_id: int, npc_name: str
+    ) -> list[GeneratedNpc]:
+        """
+        Get NPCs by name (case-insensitive search on name_i18n['en']) in a specific location.
+        """
+        # Using func.lower for case-insensitive comparison on JSON field.
+        # This might be database-specific in its efficiency or exact syntax for JSON path.
+        # For PostgreSQL, this should work with name_i18n ->> 'en' to get the text value.
+        # For SQLite, JSON functions might need to be enabled or handled differently if not using JSONB.
+        # Assuming name_i18n is a JSON column that can be queried this way.
+        # The model uses JsonBForSQLite which should handle this.
+        from sqlalchemy import func as sql_func # Explicit import for clarity
+        from sqlalchemy.future import select
+
+        # Case-insensitive comparison for the 'en' key in name_i18n JSON field
+        # The ->> operator extracts a JSON object field as text.
+        stmt = (
+            select(self.model)
+            .where(
+                self.model.guild_id == guild_id,
+                self.model.current_location_id == location_id,
+                sql_func.lower(self.model.name_i18n.op("->>")("en")) == npc_name.lower()
+            )
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
 
 # Placeholder for the actual get_npc function if it needs more complex logic than generic get
 async def get_npc(session: AsyncSession, npc_id: int, guild_id: int) -> Optional[GeneratedNpc]:

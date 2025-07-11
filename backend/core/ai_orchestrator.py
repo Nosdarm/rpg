@@ -570,11 +570,21 @@ async def save_approved_generation(
         if pending_gen.triggered_by_user_id:
             player = await get_entity_by_id(session, Player, entity_id=pending_gen.triggered_by_user_id, guild_id=guild_id)
             if player and player.current_status == PlayerStatus.AWAITING_MODERATION:
-                # TODO: More robust logic: check if there are OTHER pending_generations for this player.
-                # For now, assume this resolves the await for this specific player action.
-                # This might require linking player action ID to pending_generation ID.
-                await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING}) # Or IDLE, or previous status
-                logger.info(f"Player {player.id} status updated from {PlayerStatus.AWAITING_MODERATION.name} to {PlayerStatus.EXPLORING.name} after generation ID {pending_generation_id} saved.")
+                from .crud.crud_pending_generation import pending_generation_crud # Local import
+
+                other_pending_count = await pending_generation_crud.count_other_active_pending_for_user(
+                    session=session,
+                    guild_id=guild_id,
+                    user_id=player.id,
+                    exclude_pending_generation_id=pending_generation_id,
+                    statuses=[ModerationStatus.PENDING_MODERATION, ModerationStatus.VALIDATION_FAILED] # Statuses that keep player waiting
+                )
+
+                if other_pending_count == 0:
+                    await update_entity(session, player, {"current_status": PlayerStatus.EXPLORING})
+                    logger.info(f"Player {player.id} status updated from {PlayerStatus.AWAITING_MODERATION.name} to {PlayerStatus.EXPLORING.name} after generation ID {pending_generation_id} saved, as no other active pending generations were found.")
+                else:
+                    logger.info(f"Player {player.id} (status: {PlayerStatus.AWAITING_MODERATION.name}) still has {other_pending_count} other active pending generations. Status not changed after saving generation ID {pending_generation_id}.")
             elif player:
                 logger.info(f"Player {player.id} was trigger for generation ID {pending_generation_id}, but status was {player.current_status.name} (not AWAITING_MODERATION). No status change.")
 

@@ -17,7 +17,7 @@ from backend.models import (
     GlobalNpc,
     MobileGroup,
     Player,
-    # GeneratedNpc, # If local NPCs are involved in interactions
+    GeneratedNpc, # If local NPCs are involved in interactions, uncommented
     Location,
     GuildConfig,
     Relationship, # For mocking relationship values
@@ -271,6 +271,245 @@ class TestGlobalEntityManager(unittest.IsolatedAsyncioTestCase):
     #   - Triggering quest updates (mock handle_player_event_for_quest)
     #   - Creating GlobalEvents
     # - Test error handling (e.g., CheckError from resolve_check)
+
+
+# --- Tests for _determine_next_location_id and _handle_goal_reached ---
+
+class TestDetermineNextLocationAndGoalReached(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.mock_session = AsyncMock(spec=AsyncSession)
+        self.guild_id = 1
+        self.entity_id = 1
+        self.location_id_current = 10
+        self.location_id_goal = 11
+        self.location_id_next_goal = 12
+
+        self.mock_entity = MagicMock(spec=GlobalNpc) # Can be GlobalNpc or MobileGroup
+        self.mock_entity.id = self.entity_id
+        self.mock_entity.static_id = "test_entity"
+        self.mock_entity.current_location_id = self.location_id_current
+        self.mock_entity.properties_json = {}
+        self.mock_entity.name_i18n = {"en": "Test Entity"}
+        self.mock_entity.__class__.__name__ = "GlobalNpc" # For logging/rules
+
+        self.mock_goal_location = MagicMock(spec=Location)
+        self.mock_goal_location.id = self.location_id_goal
+        self.mock_goal_location.static_id = "goal_loc_static"
+
+        self.mock_next_goal_location = MagicMock(spec=Location)
+        self.mock_next_goal_location.id = self.location_id_next_goal
+        self.mock_next_goal_location.static_id = "next_goal_loc_static"
+
+        # Patch location_crud used by _determine_next_location_id and _handle_goal_reached
+        self.patcher_location_crud = patch.object(backend.core.global_entity_manager, "location_crud")
+        self.mock_location_crud = self.patcher_location_crud.start()
+        # Ensure methods expected to be async are AsyncMock
+        self.mock_location_crud.get_by_static_id = AsyncMock(return_value=self.mock_goal_location) # Default
+        self.mock_location_crud.get = AsyncMock() # Also ensure .get is AsyncMock if used by SUT
+
+    async def asyncTearDown(self):
+        self.patcher_location_crud.stop()
+
+    async def test_goal_reached_behavior_idle(self):
+        self.mock_entity.current_location_id = self.location_id_goal # Entity is at the goal
+        self.mock_entity.properties_json = {
+            "goal_location_static_id": "goal_loc_static",
+            "on_goal_reached_behavior": "idle"
+        }
+        # _determine_next_location_id calls _handle_goal_reached internally
+        next_loc_id = await backend.core.global_entity_manager._determine_next_location_id(
+            self.mock_session, self.guild_id, self.mock_entity
+        )
+        self.assertIsNone(next_loc_id) # Should not move immediately
+        self.assertNotIn("goal_location_static_id", self.mock_entity.properties_json)
+        # on_goal_reached_behavior might be removed or kept depending on exact logic,
+        # for "idle", it might be kept or removed. Current code removes it if it was set_new_goal and failed.
+        # For "idle", it's not explicitly removed.
+
+    async def test_goal_reached_behavior_set_new_goal(self):
+        self.mock_entity.current_location_id = self.location_id_goal
+        self.mock_entity.properties_json = {
+            "goal_location_static_id": "goal_loc_static",
+            "on_goal_reached_behavior": "set_new_goal",
+            "next_goal_static_id": "next_goal_loc_static",
+            "after_next_goal_behavior": "idle_after_next"
+        }
+
+        # Mock get_by_static_id to return the next goal when asked
+        async def get_loc_side_effect(session, guild_id, static_id):
+            if static_id == "goal_loc_static": return self.mock_goal_location
+            if static_id == "next_goal_loc_static": return self.mock_next_goal_location
+            return None
+        self.mock_location_crud.get_by_static_id.side_effect = get_loc_side_effect
+
+        next_loc_id = await backend.core.global_entity_manager._determine_next_location_id(
+            self.mock_session, self.guild_id, self.mock_entity
+        )
+        self.assertIsNone(next_loc_id) # _determine_next_location_id returns None after goal reached logic
+        self.assertEqual(self.mock_entity.properties_json.get("goal_location_static_id"), "next_goal_loc_static")
+        self.assertEqual(self.mock_entity.properties_json.get("on_goal_reached_behavior"), "idle_after_next")
+        self.assertNotIn("next_goal_static_id", self.mock_entity.properties_json) # Consumed
+        self.assertNotIn("after_next_goal_behavior", self.mock_entity.properties_json) # Consumed indirectly
+
+
+    async def test_goal_reached_behavior_start_new_route(self):
+        self.mock_entity.current_location_id = self.location_id_goal
+        new_route_json = {"location_static_ids": ["route_loc_1", "route_loc_2"], "type": "sequential"}
+        self.mock_entity.properties_json = {
+            "goal_location_static_id": "goal_loc_static",
+            "on_goal_reached_behavior": "start_new_route",
+            "next_route_json": new_route_json
+        }
+        self.mock_location_crud.get_by_static_id.return_value = self.mock_goal_location
+
+        next_loc_id = await backend.core.global_entity_manager._determine_next_location_id(
+            self.mock_session, self.guild_id, self.mock_entity
+        )
+        self.assertIsNone(next_loc_id)
+        self.assertEqual(self.mock_entity.properties_json.get("route_json"), new_route_json)
+        self.assertEqual(self.mock_entity.properties_json.get("current_route_index"), 0)
+        self.assertNotIn("goal_location_static_id", self.mock_entity.properties_json)
+        self.assertNotIn("next_route_json", self.mock_entity.properties_json) # Consumed
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+# --- Tests for MobileGroup expansion in combat ---
+
+class TestMobileGroupCombatExpansion(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.mock_session = AsyncMock(spec=AsyncSession)
+        self.guild_id = 1
+        self.location_id = 50
+
+        # Patches for dependencies of _simulate_entity_interactions and its callees
+        self.patchers = [
+            patch.object(backend.core.global_entity_manager, "get_rule"),
+            patch.object(backend.core.global_entity_manager, "resolve_check"),
+            patch.object(backend.core.global_entity_manager, "start_combat"),
+            patch.object(backend.core.global_entity_manager, "log_event"),
+            patch.object(backend.core.global_entity_manager, "crud_relationship"),
+            patch.object(backend.core.global_entity_manager, "generated_npc_crud"),
+            patch.object(backend.core.global_entity_manager, "_get_entities_in_location"), # Mock this helper too
+            patch.object(backend.core.global_entity_manager, "_choose_reaction_action")
+        ]
+        self.mocked_objects = {}
+        for p in self.patchers:
+            mock_obj = p.start()
+            # Ensure async functions are AsyncMock
+            if asyncio.iscoroutinefunction(p.temp_original):
+                 # If p.start() didn't already make it AsyncMock, re-patch with AsyncMock
+                 # This is tricky; usually patch handles it. Let's assume it does for now.
+                 # If issues arise, we might need to ensure they are AsyncMock.
+                 pass
+            self.mocked_objects[p.attribute] = mock_obj
+
+        # Default behaviors
+        self.mocked_objects["get_rule"].return_value = {"enabled": True, "check_type": "perception", "base_dc": 0} # Auto-detect
+        self.mock_resolve_check_result = MagicMock(spec=CheckResultModel)
+        self.mock_resolve_check_result.outcome = MagicMock(spec=CheckOutcome, status="success")
+        self.mocked_objects["resolve_check"].return_value = self.mock_resolve_check_result
+        self.mocked_objects["_choose_reaction_action"].return_value = "initiate_combat"
+        self.mocked_objects["crud_relationship"].get_relationship_between_entities.return_value = None
+
+
+    async def asyncTearDown(self):
+        for p in self.patchers:
+            p.stop()
+
+    async def test_mobile_group_actor_expands_members_into_combat(self):
+        actor_group = MobileGroup(id=100, static_id="mg_attackers", name_i18n={"en":"Attackers"}, current_location_id=self.location_id, guild_id=self.guild_id)
+        actor_group.member_npc_ids_json = [101, 102]
+        actor_group.__class__.__name__ = "MobileGroup"
+
+
+        member_npc1 = GeneratedNpc(
+            id=101, name_i18n={"en":"Bandit1"}, guild_id=self.guild_id,
+            properties_json={"stats": {"current_hp": 30, "hp": 30}}
+        )
+        member_npc2 = GeneratedNpc(
+            id=102, name_i18n={"en":"Bandit2"}, guild_id=self.guild_id,
+            properties_json={"stats": {"current_hp": 30, "hp": 30}}
+        )
+
+        target_player = Player(id=200, name="HeroPlayer", current_hp=100, guild_id=self.guild_id)
+        target_player.__class__.__name__ = "Player" # For _get_entity_type_for_rules
+
+        self.mocked_objects["_get_entities_in_location"].return_value = [target_player]
+
+        async def get_npc_side_effect(session, id):
+            if id == 101: return member_npc1
+            if id == 102: return member_npc2
+            return None
+        self.mocked_objects["generated_npc_crud"].get = AsyncMock(side_effect=get_npc_side_effect)
+
+
+        await backend.core.global_entity_manager._simulate_entity_interactions(
+            self.mock_session, self.guild_id, actor_group
+        )
+
+        self.mocked_objects["start_combat"].assert_called_once()
+        call_args = self.mocked_objects["start_combat"].call_args
+        # args[3] is participant_entities list
+        passed_combatants = call_args.args[3]
+
+        self.assertIn(member_npc1, passed_combatants)
+        self.assertIn(member_npc2, passed_combatants)
+        self.assertIn(target_player, passed_combatants)
+        self.assertEqual(len(passed_combatants), 3)
+
+
+    async def test_mobile_group_target_expands_members_into_combat(self):
+        actor_npc_global = GlobalNpc(id=300, static_id="gnpc_hero", name_i18n={"en":"Hero NPC"}, current_location_id=self.location_id, guild_id=self.guild_id)
+        actor_npc_global.base_npc_id = 301 # Link to a GeneratedNpc
+        actor_npc_global.__class__.__name__ = "GlobalNpc"
+
+        base_actor_npc = GeneratedNpc(
+            id=301, name_i18n={"en":"Base Hero"}, guild_id=self.guild_id,
+            properties_json={"stats": {"current_hp": 100, "hp": 100}}
+        )
+        # Mock the session.get for GlobalNpc's base_npc if it's fetched via refresh
+        # For this test, we can also mock the base_npc attribute directly if refresh is not easily mocked
+        actor_npc_global.base_npc = base_actor_npc # Pre-set it
+
+        target_group = MobileGroup(id=400, static_id="mg_targets", name_i18n={"en":"Target Group"}, current_location_id=self.location_id, guild_id=self.guild_id)
+        target_group.member_npc_ids_json = [401, 402]
+        target_group.__class__.__name__ = "MobileGroup"
+
+        member_target_npc1 = GeneratedNpc(
+            id=401, name_i18n={"en":"Target1"}, guild_id=self.guild_id,
+            properties_json={"stats": {"current_hp": 20, "hp": 20}}
+        )
+        member_target_npc2 = GeneratedNpc(
+            id=402, name_i18n={"en":"Target2"}, guild_id=self.guild_id,
+            properties_json={"stats": {"current_hp": 20, "hp": 20}}
+        )
+
+        self.mocked_objects["_get_entities_in_location"].return_value = [target_group]
+
+        async def get_npc_side_effect(session, id):
+            if id == 401: return member_target_npc1
+            if id == 402: return member_target_npc2
+            if id == 301: return base_actor_npc # For base_npc of GlobalNpc if fetched
+            return None
+        self.mocked_objects["generated_npc_crud"].get = AsyncMock(side_effect=get_npc_side_effect)
+        # If GlobalNpc.base_npc is accessed via relationship, ensure session.refresh is handled or attribute is pre-set
+        self.mock_session.refresh = AsyncMock() # Ensure refresh doesn't break things
+
+        await backend.core.global_entity_manager._simulate_entity_interactions(
+            self.mock_session, self.guild_id, actor_npc_global
+        )
+
+        self.mocked_objects["start_combat"].assert_called_once()
+        passed_combatants = self.mocked_objects["start_combat"].call_args.args[3]
+
+        self.assertIn(base_actor_npc, passed_combatants)
+        self.assertIn(member_target_npc1, passed_combatants)
+        self.assertIn(member_target_npc2, passed_combatants)
+        self.assertEqual(len(passed_combatants), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

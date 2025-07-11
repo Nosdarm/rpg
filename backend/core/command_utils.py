@@ -14,8 +14,8 @@ from discord.ext import commands as ext_commands
 # However, for simplicity with the current setup, we'll rely on hasattr checks.
 
 from backend.models.command_info import CommandInfo, CommandParameterInfo
-# from backend.core.localization_utils import get_localized_text # TODO: For localization
-# from backend.core.rules import get_rule # TODO: For localization context
+from backend.core.localization_utils import get_localized_text # TODO: For localization
+from backend.core.rules import get_rule # TODO: For localization context
 
 logger = logging.getLogger(__name__)
 
@@ -65,20 +65,20 @@ def _extract_parameter_details(
     if param_description and param_description.strip() == "-": # Handle placeholder descriptions
         param_description = None
 
-    # TODO: Обработать choices, если они есть (param.choices)
-    # choices_info = []
-    # if param.choices:
-    #     for choice in param.choices:
-    #         # choice.name can also be locale_str
-    #         choice_name = _get_localized_string(choice.name, language, str(choice.name))
-    #         choices_info.append({"name": choice_name, "value": choice.value})
+    choices_info: Optional[List[Dict[str, Any]]] = None
+    if param.choices:
+        choices_info = []
+        for choice in param.choices:
+            # choice.name can also be locale_str or str
+            choice_name = _get_localized_string(choice.name, language, str(choice.name))
+            choices_info.append({"name": choice_name, "value": choice.value})
 
     return CommandParameterInfo(
         name=param.name,
         description=param_description,
         type=param_type_str,
         required=param.required,
-        # choices=choices_info # TODO: Add to CommandParameterInfo model if needed
+        choices=choices_info
     )
 
 def _extract_command_details(
@@ -122,10 +122,32 @@ def _extract_command_details(
         extracted_commands.append(CommandInfo(
             name=current_qualified_name,
             description=description,
-            parameters=param_infos
+            parameters=param_infos,
+            guild_only=app_cmd.guild_only,
+            nsfw=app_cmd.nsfw(), # nsfw is a method
+            dm_permission=app_cmd.dm_permission
+            # default_member_permissions is more complex, could be str(app_cmd.default_member_permissions)
         ))
     elif isinstance(app_cmd, dc_app_commands.Group): # Ensuring this is correct
         # logger.debug(f"Processing command group: {current_qualified_name} with description: {description}")
+        # For groups, these properties might also be relevant if they apply to all subcommands by default,
+        # or the group itself has these settings. discord.py's Group object has these attributes.
+        # However, CommandInfo is currently flat. If a group itself should be a CommandInfo,
+        # this logic would change. For now, properties apply to individual commands.
+        # If a group has these flags, they are not directly represented on a "group" entry in CommandInfo list.
+        # They would be reflected if subcommands inherit them, but app_cmd here is the group itself.
+        # For now, we don't create a CommandInfo for the group itself, only its subcommands.
+        # If we were to create a CommandInfo for the Group, it would be:
+        # group_command_info = CommandInfo(
+        #     name=current_qualified_name,
+        #     description=description,
+        #     parameters=[], # Groups don't have parameters in this context
+        #     guild_only=app_cmd.guild_only,
+        #     nsfw=app_cmd.nsfw(),
+        #     dm_permission=app_cmd.dm_permission
+        # )
+        # extracted_commands.append(group_command_info) # If groups should be listed
+
         # Группа может иметь свое описание, но сама не является исполняемой командой с параметрами в том же смысле.
         # UI может захотеть отобразить описание группы. Пока мы его извлекаем, но не создаем CommandInfo для самой группы.
         # Вместо этого мы рекурсивно обрабатываем ее подкоманды.

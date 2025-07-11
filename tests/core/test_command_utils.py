@@ -85,6 +85,42 @@ async def test_extract_parameter_details_with_locale_str_description():
     param_info_fr = _extract_parameter_details(mock_param, "fr")
     assert param_info_fr.description == "Default desc" # Fallback
 
+@pytest.mark.asyncio
+async def test_extract_parameter_details_with_choices():
+    mock_choice_name_1 = MockLocaleStr("Choice One", {"ru": "Выбор Один"})
+    mock_choice_1 = MagicMock(spec=discord.app_commands.Choice)
+    mock_choice_1.name = mock_choice_name_1
+    mock_choice_1.value = "choice1_val"
+
+    mock_choice_2 = MagicMock(spec=discord.app_commands.Choice)
+    mock_choice_2.name = "Choice Two" # Plain string
+    mock_choice_2.value = 2
+
+    mock_param = MagicMock(spec=discord.app_commands.Parameter)
+    mock_param.name = "selection"
+    mock_param.description = "Select an option"
+    mock_param.type = Mock()
+    mock_param.type.name = 'string'
+    mock_param.required = True
+    mock_param.choices = [mock_choice_1, mock_choice_2]
+
+    # Test with Russian language
+    param_info_ru = _extract_parameter_details(mock_param, "ru")
+    assert param_info_ru.choices is not None
+    assert len(param_info_ru.choices) == 2
+    assert param_info_ru.choices[0]["name"] == "Выбор Один"
+    assert param_info_ru.choices[0]["value"] == "choice1_val"
+    assert param_info_ru.choices[1]["name"] == "Choice Two"
+    assert param_info_ru.choices[1]["value"] == 2
+
+    # Test with English language (or fallback)
+    param_info_en = _extract_parameter_details(mock_param, "en")
+    assert param_info_en.choices is not None
+    assert len(param_info_en.choices) == 2
+    assert param_info_en.choices[0]["name"] == "Choice One" # Fallback from MockLocaleStr
+    assert param_info_en.choices[1]["name"] == "Choice Two"
+
+
 # Tests for _extract_command_details (Simplified, focusing on single command)
 @pytest.mark.asyncio
 async def test_extract_command_details_single_command():
@@ -92,6 +128,9 @@ async def test_extract_command_details_single_command():
     mock_cmd.name = "ping"
     mock_cmd.description = "Checks latency"
     mock_cmd.parameters = []
+    mock_cmd.guild_only = False
+    mock_cmd.nsfw = MagicMock(return_value=False)
+    mock_cmd.dm_permission = True
 
     cmd_infos = _extract_command_details(mock_cmd, "en")
     assert len(cmd_infos) == 1
@@ -99,6 +138,9 @@ async def test_extract_command_details_single_command():
     assert cmd_info.name == "ping"
     assert cmd_info.description == "Checks latency"
     assert cmd_info.parameters == []
+    assert cmd_info.guild_only is False
+    assert cmd_info.nsfw is False
+    assert cmd_info.dm_permission is True
 
 @pytest.mark.asyncio
 async def test_extract_command_details_command_with_params_and_locale_desc():
@@ -117,6 +159,9 @@ async def test_extract_command_details_command_with_params_and_locale_desc():
     mock_cmd.name = "greet"
     mock_cmd.description = mock_desc
     mock_cmd.parameters = [mock_param1]
+    mock_cmd.guild_only = False
+    mock_cmd.nsfw = MagicMock(return_value=False)
+    mock_cmd.dm_permission = True
 
     cmd_infos_ru = _extract_command_details(mock_cmd, "ru")
     assert len(cmd_infos_ru) == 1
@@ -126,6 +171,24 @@ async def test_extract_command_details_command_with_params_and_locale_desc():
     assert len(cmd_info_ru.parameters) == 1
     assert cmd_info_ru.parameters[0].name == "user"
     assert cmd_info_ru.parameters[0].description == "Пользователь для пинга"
+
+@pytest.mark.asyncio
+async def test_extract_command_details_with_metadata():
+    mock_cmd = MagicMock(spec=discord.app_commands.Command)
+    mock_cmd.name = "admincmd"
+    mock_cmd.description = "Admin only command"
+    mock_cmd.parameters = []
+    mock_cmd.guild_only = True
+    mock_cmd.nsfw = MagicMock(return_value=True) # nsfw is a method
+    mock_cmd.dm_permission = False
+
+    cmd_infos = _extract_command_details(mock_cmd, "en")
+    assert len(cmd_infos) == 1
+    cmd_info = cmd_infos[0]
+    assert cmd_info.name == "admincmd"
+    assert cmd_info.guild_only is True
+    assert cmd_info.nsfw is True
+    assert cmd_info.dm_permission is False
 
 # Tests for get_bot_commands (More complex, involves mocking bot.tree)
 @pytest.mark.asyncio
@@ -143,6 +206,9 @@ async def test_get_bot_commands_with_simple_command():
     mock_cmd_obj.name = "testcmd"
     mock_cmd_obj.description = "A test command"
     mock_cmd_obj.parameters = []
+    mock_cmd_obj.guild_only = False
+    mock_cmd_obj.nsfw = MagicMock(return_value=False)
+    mock_cmd_obj.dm_permission = True
 
     mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
@@ -160,12 +226,19 @@ async def test_get_bot_commands_with_group():
     mock_sub_cmd.name = "sub"
     mock_sub_cmd.description = "A subcommand"
     mock_sub_cmd.parameters = []
+    mock_sub_cmd.guild_only = False
+    mock_sub_cmd.nsfw = MagicMock(return_value=False)
+    mock_sub_cmd.dm_permission = True
 
     # Group
     mock_group = MagicMock(spec=discord.app_commands.Group)
     mock_group.name = "grp"
     mock_group.description = "A group"
     mock_group.commands = [mock_sub_cmd] # commands is a list of Command or Group
+    mock_group.guild_only = False # Groups can also have these
+    mock_group.nsfw = MagicMock(return_value=False)
+    mock_group.dm_permission = True
+
 
     mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)
@@ -188,21 +261,33 @@ async def test_get_bot_commands_mixed_commands_and_groups_and_sorting():
     mock_cmd_ping.name = "ping"
     mock_cmd_ping.description = "Ping command"
     mock_cmd_ping.parameters = []
+    mock_cmd_ping.guild_only = False
+    mock_cmd_ping.nsfw = MagicMock(return_value=False)
+    mock_cmd_ping.dm_permission = True
 
     mock_sub_alpha = MagicMock(spec=discord.app_commands.Command)
     mock_sub_alpha.name = "alpha"
     mock_sub_alpha.description = "Alpha sub"
     mock_sub_alpha.parameters = []
+    mock_sub_alpha.guild_only = False
+    mock_sub_alpha.nsfw = MagicMock(return_value=False)
+    mock_sub_alpha.dm_permission = True
 
     mock_group_config = MagicMock(spec=discord.app_commands.Group)
     mock_group_config.name = "config"
     mock_group_config.description = "Config group"
     mock_group_config.commands = [mock_sub_alpha]
+    mock_group_config.guild_only = False
+    mock_group_config.nsfw = MagicMock(return_value=False)
+    mock_group_config.dm_permission = True
 
     mock_cmd_zeta = MagicMock(spec=discord.app_commands.Command)
     mock_cmd_zeta.name = "zeta"
     mock_cmd_zeta.description = "Zeta command"
     mock_cmd_zeta.parameters = []
+    mock_cmd_zeta.guild_only = True
+    mock_cmd_zeta.nsfw = MagicMock(return_value=True)
+    mock_cmd_zeta.dm_permission = False
 
     mock_bot = AsyncMock(spec=discord.ext.commands.Bot) # type: ignore
     mock_bot.tree = AsyncMock(spec=discord.app_commands.CommandTree)

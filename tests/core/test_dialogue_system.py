@@ -151,6 +151,49 @@ class TestDialogueSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(msg_key, "dialogue_error_player_busy_other_npc")
         self.assertEqual(context["npc_name"], "OtherNPC")
 
+    @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
+    @patch('backend.core.dialogue_system.npc_crud', spec=CRUDNpc)
+    async def test_start_dialogue_npc_busy_with_other_player(self, mock_npc_crud, mock_player_crud):
+        other_player_id = self.player_id + 1 # A different player
+        other_player = Player(id=other_player_id, name="OtherPlayer", guild_id=self.guild_id)
+
+        # Mock player_crud for the current player and the "other player"
+        def get_player_side_effect(session, id, guild_id):
+            if id == self.player_id:
+                return self.player
+            if id == other_player_id:
+                return other_player
+            return None
+        mock_player_crud.get_by_id_and_guild.side_effect = get_player_side_effect
+
+        mock_npc_crud.get_by_id_and_guild.return_value = self.npc # For the current attempt
+
+        # Setup: self.npc (ID: self.npc_id) is busy with other_player
+        active_dialogues[(self.guild_id, other_player_id)] = {
+            "npc_id": self.npc_id,
+            "npc_name": "TestNPCWithOther",
+            "dialogue_history": []
+        }
+
+        # self.player (ID: self.player_id) attempts to talk to self.npc
+        success, msg_key, context = await start_dialogue(
+            self.mock_session, self.guild_id, self.player_id, self.npc_id
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(msg_key, "dialogue_error_npc_busy")
+        self.assertIn("npc_name", context)
+        self.assertEqual(context["npc_name"], self.npc.name_i18n.get(self.player.selected_language, self.npc.name_i18n.get("en")))
+        self.assertIn("other_player_name", context)
+        self.assertEqual(context["other_player_name"], other_player.name)
+
+        # Ensure current player did not enter dialogue state
+        self.assertEqual(self.player.current_status, PlayerStatus.EXPLORING)
+        # Ensure current player's dialogue was not added to active_dialogues
+        self.assertNotIn((self.guild_id, self.player_id), active_dialogues)
+        # Ensure the other player's dialogue is still active
+        self.assertIn((self.guild_id, other_player_id), active_dialogues)
+
 
     @patch('backend.core.dialogue_system.player_crud', spec=CRUDPlayer)
     @patch('backend.core.dialogue_system.generate_npc_dialogue', new_callable=AsyncMock) # Patched here

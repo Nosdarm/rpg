@@ -477,11 +477,20 @@ async def _advance_turn(session: AsyncSession, combat_encounter: CombatEncounter
     # Loop to find the next non-defeated participant
     for i in range(len(order_list)): # Max iterations = length of order list
         current_idx = (current_idx + 1) % len(order_list)
-        if i > 0 and current_idx == 0: # Completed a full round (ensure i > 0 to correctly count first round)
+        # A new round starts if the current_idx wraps around to 0.
+        # The current_turn_number is already 1 at the start of combat.
+        # This condition means: if the *next* entity to act is the one at index 0,
+        # then we have completed a full cycle of turns through the order list.
+        if current_idx == 0:
             current_turn_number += 1
             logger.info(f"Combat {combat_encounter.id}: Starting new round, turn number {current_turn_number}.")
-            # TODO: Here, process round-based effects (e.g., status effect durations, cooldowns decrement)
-            # This would involve iterating through participants_json and updating their status_effects, cooldowns.
+            # Process round-based effects (status durations, ticks)
+            await _process_round_based_status_effects(session, combat_encounter.guild_id, combat_encounter)
+            # After processing effects, some entities might have been defeated.
+            # Re-check combat end condition before proceeding with next turn.
+            # This requires _check_combat_end to be callable here and potentially modifying combat_encounter.status
+            # For now, this is a complex interaction. Let's assume _advance_turn continues and relies on subsequent checks.
+            # A more robust system might re-evaluate combat end here.
 
         next_entity_ref = order_list[current_idx]
         next_entity_id = next_entity_ref.get("id")
@@ -513,6 +522,122 @@ async def _advance_turn(session: AsyncSession, combat_encounter: CombatEncounter
     # _check_combat_end should ideally prevent this. If it happens, set to error or re-evaluate end.
     # For now, if this is reached, it's likely an issue.
     # combat_encounter.status = CombatStatus.ERROR
+
+
+async def _process_round_based_status_effects(
+    session: AsyncSession, guild_id: int, combat_encounter: CombatEncounter
+):
+    """
+    Processes round-based effects for all participants, primarily status effect durations and ticks.
+    """
+    logger.info(f"Combat {combat_encounter.id}: Processing round-based status effects for turn {combat_encounter.turn_order_json.get('current_turn_number', 'N/A') if combat_encounter.turn_order_json else 'N/A'}.")
+
+    from backend.models import ActiveStatusEffect, StatusEffect # Local import
+    from backend.core.ability_system import remove_status # Local import
+    from backend.core.entity_stats_utils import change_entity_hp # For tick effects
+    from backend.core.crud.crud_status_effect import active_status_effect_crud # Assuming this exists for querying
+    from sqlalchemy.future import select
+
+
+    participant_entities_list = []
+    if combat_encounter.participants_json and "entities" in combat_encounter.participants_json:
+        participant_entities_list = combat_encounter.participants_json.get("entities", [])
+
+    for p_data in participant_entities_list:
+        entity_id = p_data.get("id")
+        entity_type_str = p_data.get("type")
+
+        if not entity_id or not entity_type_str:
+            logger.warning(f"Combat {combat_encounter.id}: Skipping participant with missing ID or type in round processing: {p_data}")
+            continue
+
+        if p_data.get("current_hp", 0) <= 0: # Skip defeated entities
+            continue
+
+        # Fetch active status effects for this entity
+        # Using a direct query as active_status_effect_crud might not have a specific method for this exact filter.
+        stmt = select(ActiveStatusEffect).where(
+            ActiveStatusEffect.entity_id == entity_id,
+            ActiveStatusEffect.entity_type == entity_type_str,
+            ActiveStatusEffect.guild_id == guild_id
+        ).join(StatusEffect) # Join to access StatusEffect.properties_json for tick effects
+
+        active_effects_result = await session.execute(stmt)
+        active_effects_for_entity: List[ActiveStatusEffect] = list(active_effects_result.scalars().all())
+
+        for active_effect in active_effects_for_entity:
+            status_def = active_effect.status_effect # Joined StatusEffect model instance
+            status_static_id = status_def.static_id if status_def else "unknown_status"
+
+            # Decrement duration
+            if active_effect.remaining_turns is not None:
+                active_effect.remaining_turns -= 1
+                logger.info(f"Combat {combat_encounter.id}: Status '{status_static_id}' on {entity_type_str} {entity_id} remaining turns: {active_effect.remaining_turns}.")
+                session.add(active_effect) # Mark for update
+
+                if active_effect.remaining_turns <= 0:
+                    logger.info(f"Combat {combat_encounter.id}: Status '{status_static_id}' on {entity_type_str} {entity_id} expired.")
+                    await remove_status(session, guild_id, active_effect.id) # This handles logging and deletion
+                    # remove_status will commit if it's @transactional, or flush.
+                    # If remove_status flushes, then the main transaction will commit it.
+                    # If it commits, it's a nested transaction.
+                    # For now, assume remove_status is compatible.
+                    continue # Status removed, skip tick effect for this iteration
+
+            # Process tick effects (if status is still active)
+            if status_def and status_def.properties_json:
+                tick_effect_data = status_def.properties_json.get("tick_effect")
+                if tick_effect_data and isinstance(tick_effect_data, dict):
+                    effect_type = tick_effect_data.get("type")
+                    # Load the actual entity model to apply effects
+                    target_entity_model: Optional[Union[Player, GeneratedNpc]] = None
+                    if entity_type_str == "player":
+                        target_entity_model = await session.get(Player, entity_id)
+                    elif entity_type_str == "npc":
+                        target_entity_model = await session.get(GeneratedNpc, entity_id)
+
+                    if not target_entity_model:
+                        logger.warning(f"Combat {combat_encounter.id}: Could not load entity {entity_type_str} {entity_id} for tick effect of '{status_static_id}'.")
+                        continue
+
+                    logger.info(f"Combat {combat_encounter.id}: Applying tick effect '{effect_type}' from status '{status_static_id}' to {entity_type_str} {entity_id}.")
+                    if effect_type == "damage":
+                        amount = tick_effect_data.get("amount", 0)
+                        damage_type = tick_effect_data.get("damage_type", "unknown")
+                        if isinstance(amount, int) and amount > 0:
+                            change_entity_hp(target_entity_model, -amount) # Util handles logging HP change
+                            # Also log the source of this tick damage
+                            await game_events.log_event(
+                                session, guild_id, EventType.STATUS_TICK_EFFECT.name,
+                                details_json={
+                                    "combat_id": combat_encounter.id,
+                                    "entity_id": entity_id, "entity_type": entity_type_str,
+                                    "status_static_id": status_static_id, "active_status_id": active_effect.id,
+                                    "effect_type": "damage", "amount": amount, "damage_type": damage_type
+                                },
+                                entity_ids_json={"target_entity_id": entity_id, "target_entity_type": entity_type_str, "status_effect_id": status_def.id if status_def else None},
+                                location_id=combat_encounter.location_id
+                            )
+                            logger.info(f"Combat {combat_encounter.id}: {entity_type_str} {entity_id} took {amount} {damage_type} tick damage from '{status_static_id}'.")
+                    # Add other tick effect types like "healing", "stat_change" here
+                    # Make sure to update participant_json if hp changes
+                    # The change_entity_hp utility should handle the actual stat update on the model.
+                    # We need to reflect this back into combat_encounter.participants_json[entity_idx]["current_hp"]
+                    # Find the participant in participants_json and update their current_hp
+                    for p_json_data in participant_entities_list:
+                        if p_json_data.get("id") == entity_id and p_json_data.get("type") == entity_type_str:
+                            # Re-fetch HP from the model after change_entity_hp, as that function might cap it.
+                            from backend.core.entity_stats_utils import get_entity_hp as get_current_hp_util
+                            updated_hp = get_current_hp_util(target_entity_model)
+                            if updated_hp is not None:
+                                p_json_data["current_hp"] = updated_hp
+                                logger.debug(f"Combat {combat_encounter.id}: Updated participants_json for {entity_type_str} {entity_id} HP to {updated_hp} after tick.")
+                                combat_encounter.participants_json = {"entities": participant_entities_list} # Mark as modified
+                            break
+
+    # Note: Cooldown decrements are not handled here yet. That would require tracking active ability cooldowns per entity.
+    # For now, this function focuses on status effects.
+    await session.flush() # Ensure all updates to ActiveStatusEffects and combat_encounter.participants_json are flushed
 
 
 async def _handle_combat_end_consequences(

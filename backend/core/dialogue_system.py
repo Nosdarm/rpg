@@ -161,15 +161,29 @@ async def start_dialogue(
         logger.warning(f"Player {player_id} is in COMBAT state. Cannot start dialogue.")
         return False, "dialogue_error_player_in_combat", {"player_name": player.name}
 
-    # TODO: Проверка, не занят ли NPC другим диалогом (если NPC могут говорить только с одним)
-    # for key, ongoing_dialogue in active_dialogues.items():
-    #     if key[0] == guild_id and ongoing_dialogue["npc_id"] == target_npc_id:
-    #         # NPC уже говорит с другим игроком key[1]
-    #         logger.warning(f"NPC {target_npc_id} is already in dialogue with player {key[1]}.")
-    #         other_player = await player_crud.get_by_id_and_guild(session=session, id=key[1], guild_id=guild_id)
-    #         other_player_name = other_player.name if other_player else "another player"
-    #         return False, "dialogue_error_npc_busy", {"npc_name": npc.name_i18n.get(player.selected_language, npc.name_i18n.get("en")), "other_player_name": other_player_name}
+    # Check if the NPC is busy with another player
+    # This rule is game-specific; some games might allow multiple players to talk to an NPC.
+    # Assuming RuleConfig could control this: e.g., get_rule("dialogue:npc_exclusive_dialogue", default=True)
+    npc_exclusive_dialogue = True # For now, assume NPCs can only talk to one player.
+    if npc_exclusive_dialogue:
+        for key, ongoing_dialogue in active_dialogues.items():
+            # key is (guild_id, player_id_talking_to_npc)
+            # ongoing_dialogue is {"npc_id": int, "npc_name": str, ...}
+            if key[0] == guild_id and \
+               ongoing_dialogue["npc_id"] == target_npc_id and \
+               key[1] != player_id: # Check if it's a *different* player
 
+                # NPC is busy with player key[1]
+                other_player_id_talking = key[1]
+                logger.warning(f"NPC {target_npc_id} ({npc.name_i18n.get(player.selected_language, npc.name_i18n.get('en'))}) is already in dialogue with player {other_player_id_talking}.")
+
+                other_player_object = await player_crud.get_by_id_and_guild(session=session, id=other_player_id_talking, guild_id=guild_id)
+                other_player_name = other_player_object.name if other_player_object else "another player"
+
+                # Get NPC name for the current player's language
+                npc_display_name_for_feedback = npc.name_i18n.get(player.selected_language, npc.name_i18n.get("en", "the NPC"))
+
+                return False, "dialogue_error_npc_busy", {"npc_name": npc_display_name_for_feedback, "other_player_name": other_player_name}
 
     # Установка статуса и создание записи о диалоге
     player.current_status = PlayerStatus.DIALOGUE
