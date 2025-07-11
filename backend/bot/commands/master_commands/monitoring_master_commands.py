@@ -14,7 +14,7 @@ from backend.core.crud.crud_mobile_group import mobile_group_crud
 from backend.core.localization_utils import get_localized_text, get_localized_master_message
 from backend.core.report_formatter import format_story_log_entry_for_master_display
 from backend.models import Player, GeneratedNpc, Party, Location, StoryLog, RuleConfig, GlobalNpc, MobileGroup, EventType, RelationshipEntityType
-from backend.config.settings import BOT_PREFIX
+from backend.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

@@ -31,16 +31,16 @@ import sys
 # а импорты должны быть относительно src.
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backend.config.settings import DATABASE_URL # Импортируем URL базы данных
+from backend.config.settings import settings # Импортируем инстанс настроек Pydantic
 from backend.models import Base # Импортируем базовую модель из backend.models.__init__
 
 # --- Add this print statement ---
-print(f"DEBUG: alembic/env.py: DATABASE_URL from backend.config.settings: {DATABASE_URL}")
+print(f"DEBUG: alembic/env.py: settings.PROCESSED_DATABASE_URL from backend.config.settings: {settings.PROCESSED_DATABASE_URL}")
 # --- End of added print statement ---
 
 # Устанавливаем URL базы данных из настроек проекта
 # Это переопределит sqlalchemy.url из alembic.ini
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.PROCESSED_DATABASE_URL)
 
 # --- Add this print statement ---
 print(f"DEBUG: alembic/env.py: Final sqlalchemy.url set for Alembic: {config.get_main_option('sqlalchemy.url')}")

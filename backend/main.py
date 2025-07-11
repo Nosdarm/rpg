@@ -7,20 +7,27 @@ if PROJECT_ROOT not in sys.path:
 
 import asyncio
 import logging
+from typing import Optional # Added for bot_instance type hint
 import discord
 from discord.ext import commands
 from fastapi import FastAPI
 import uvicorn
 
 from backend.bot.core import BotCore
-from backend.config.settings import DISCORD_BOT_TOKEN, LOG_LEVEL, API_HOST, API_PORT
+from backend.config.settings import settings # Changed import
 from backend.core.database import init_db
 from backend.bot.api.commands_api import router as commands_api_router
 from backend.api.routers.auth import router as auth_router # Импортируем новый роутер аутентификации
-from backend.bot.api.commands_api import router as command_list_router # Импортируем новый роутер для списка команд
+# Assuming command_list_router is distinct or handled by commands_api_router.
+# If it's the same as commands_api_router for /api/v1/command-list, one import is fine.
+# If it's a different router for that specific path, ensure it's defined and imported.
+# For now, assuming commands_api_router covers command listing or it's a typo.
+# If command_list_router was meant to be different:
+# from backend.api.routers.command_list_api import router as command_list_router
 
 # Настройка логирования
-logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO),
+# Ensure LOG_LEVEL is valid for getattr, or use settings.LOG_LEVEL directly if it's already processed
+logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
                     format='%(asctime)s:%(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -28,21 +35,16 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Text RPG Bot API", version="0.1.0")
 
 # Включаем роутеры API
-app.include_router(commands_api_router, prefix="/api/v1", tags=["Bot Commands"])
-app.include_router(auth_router) # Регистрируем роутер аутентификации
-app.include_router(command_list_router, prefix="/api/v1/command-list", tags=["Command List"]) # Регистрируем новый роутер
+app.include_router(commands_api_router, prefix="/api/v1", tags=["Bot Commands"]) # Covers general command listing as per its file
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"]) # Added prefix for consistency
 
-# Глобальный экземпляр бота, чтобы FastAPI мог его использовать
-# Это упрощенный подход; в более сложных сценариях можно использовать DI или другие методы.
-# Важно, чтобы бот был инициализирован до того, как FastAPI попытается его использовать.
-# bot_instance_global: Optional[BotCore] = None
 
 async def run_bot(bot_instance: BotCore):
     """Запускает Discord бота."""
-    assert DISCORD_BOT_TOKEN is not None, "DISCORD_BOT_TOKEN cannot be None when run_bot is called"
+    assert settings.DISCORD_TOKEN is not None, "DISCORD_TOKEN cannot be None when run_bot is called"
     try:
         logger.info(f"Запуск бота с префиксом: {bot_instance.command_prefix}")
-        await bot_instance.start(DISCORD_BOT_TOKEN)
+        await bot_instance.start(settings.DISCORD_TOKEN)
     except discord.LoginFailure:
         logger.error("Ошибка входа: неверный токен Discord.")
     except Exception as e:
@@ -54,13 +56,11 @@ async def run_bot(bot_instance: BotCore):
 
 async def run_api_server(bot_instance: BotCore):
     """Запускает FastAPI сервер с Uvicorn."""
-    # Сохраняем экземпляр бота в состоянии FastAPI приложения
-    # Это позволит зависимостям FastAPI получать доступ к боту.
     app.state.bot = bot_instance
 
-    config = uvicorn.Config(app, host=API_HOST, port=API_PORT, log_level=LOG_LEVEL.lower())
+    config = uvicorn.Config(app, host=settings.API_HOST, port=settings.API_PORT, log_level=settings.LOG_LEVEL.lower())
     server = uvicorn.Server(config)
-    logger.info(f"Запуск FastAPI сервера на http://{API_HOST}:{API_PORT}")
+    logger.info(f"Запуск FastAPI сервера на http://{settings.API_HOST}:{settings.API_PORT}")
     try:
         await server.serve()
     except asyncio.CancelledError:
@@ -75,8 +75,8 @@ async def main():
     """
     Главная функция для запуска Discord бота и FastAPI сервера.
     """
-    if not DISCORD_BOT_TOKEN:
-        logger.error("Токен бота Discord не найден. Пожалуйста, установите переменную окружения DISCORD_BOT_TOKEN.")
+    if not settings.DISCORD_TOKEN:
+        logger.error("Токен бота Discord не найден. Пожалуйста, установите переменную окружения DISCORD_TOKEN.")
         return
 
     try:
@@ -93,18 +93,11 @@ async def main():
     intents.guilds = True
     intents.message_content = True
 
-    from backend.config.settings import BOT_PREFIX
-    bot = BotCore(command_prefix=commands.when_mentioned_or(BOT_PREFIX), intents=intents)
+    bot = BotCore(command_prefix=commands.when_mentioned_or(settings.BOT_PREFIX), intents=intents)
 
-    # bot_instance_global = bot # Присваиваем глобальной переменной
-
-    # Задачи для асинхронного выполнения
     discord_bot_task = asyncio.create_task(run_bot(bot))
-    api_server_task = asyncio.create_task(run_api_server(bot)) # Передаем бота в API
+    api_server_task = asyncio.create_task(run_api_server(bot))
 
-    # Ожидаем завершения обеих задач
-    # Если одна из задач завершится (например, из-за ошибки или штатного завершения),
-    # мы должны попытаться остановить и другую.
     done, pending = await asyncio.wait(
         [discord_bot_task, api_server_task],
         return_when=asyncio.FIRST_COMPLETED,
@@ -114,9 +107,8 @@ async def main():
         logger.info(f"Одна из основных задач завершилась, отменяем ожидающие задачи: {task.get_name()}")
         task.cancel()
 
-    # Даем возможность отмененным задачам завершиться
     if pending:
-        await asyncio.wait(pending, timeout=5.0) # Ждем не более 5 секунд
+        await asyncio.wait(pending, timeout=5.0)
 
 
 if __name__ == "__main__":

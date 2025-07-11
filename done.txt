@@ -212,3 +212,30 @@
     - Unit tests for service and components created and passing.
     - Task 58 moved from `Tasks.txt` to `done.txt`.
 ---
+
+**Task 0.1: Discord Bot Project Initialization and Basic Guild Integration**
+- **Completed**: [Current Date]
+- **Description**: Initialized project structure, dependencies, configuration system (refactored to Pydantic BaseSettings), logging, bot core, basic event handlers, and utility commands. Addressed deviations noted in `updates.txt` and `AGENTS.md`.
+- **Result**: Foundational bot architecture established. `backend/config/settings.py` now uses Pydantic. Importers updated.
+
+---
+
+**Task 0.2: DBMS Setup and Database Model Definition with Guild ID**
+- **Completed**: [Current Date]
+- **Description**: Set up DBMS (PostgreSQL assumed), ORM (SQLAlchemy Async), Alembic. Defined `GuildConfig` model, adding missing `is_active` and `supported_languages_json` fields. Handled Alembic migration generation for these changes.
+- **Result**: `GuildConfig` model updated. Database schema changes prepared via migration.
+
+---
+
+**Task 0.3: Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware)**
+- **Completed**: [Current Date]
+- **Description**: Ensured ORM session management (`get_db_session`, `@transactional`) and generic CRUD utilities (`CRUDBase`) are in place. Updated `RuleConfig` model to use `TimestampMixin`. Handled Alembic migration for timestamp columns. Ensured `crud_rule_config.py` correctly handles automated timestamps.
+- **Result**: `RuleConfig` model now includes timestamps. CRUD logic for `updated_at` confirmed/simplified.
+
+---
+
+**Task 1.1: Location Model (i18n, Guild-Scoped)**
+- **Completed**: [Current Date]
+- **Description**: Updated `Location` model to include `properties_json` and relationships for `guild` (to `GuildConfig`), `parent_location`, and `child_locations`. Updated `GuildConfig` to include back-populating `locations` relationship. Handled Alembic migration for `properties_json`. Added `get_children_of_location` to `CRUDLocation`.
+- **Result**: `Location` and `GuildConfig` models updated with new fields/relationships. CRUD for locations enhanced. Database schema changes prepared.
+---

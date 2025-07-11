@@ -1,9 +1,8 @@
-from sqlalchemy import BigInteger, Text, Column
+from sqlalchemy import BigInteger, Text, Column, JSON, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, List
 from .base import Base
 
-from typing import List
 
 if TYPE_CHECKING:
     from .pending_conflict import PendingConflict # type: ignore
@@ -14,6 +13,7 @@ if TYPE_CHECKING:
     from .global_npc import GlobalNpc # Added for GlobalNpc relationship
     from .mobile_group import MobileGroup # Added for MobileGroup relationship
     from .global_event import GlobalEvent # Added for GlobalEvent relationship
+    from .location import Location # For locations relationship
 
 
 class GuildConfig(Base):
@@ -33,6 +33,9 @@ class GuildConfig(Base):
 
     main_language: Mapped[str] = mapped_column(Text, default="en", nullable=False)
     name: Mapped[str | None] = mapped_column(Text, nullable=True) # Added guild name
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False, server_default='true')
+    supported_languages_json: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+
 
     # Relationships
     # Ensure "PendingConflict" is imported or use forward reference if needed.
@@ -47,6 +50,7 @@ class GuildConfig(Base):
     global_npcs: Mapped[List["GlobalNpc"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     mobile_groups: Mapped[List["MobileGroup"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
     global_events: Mapped[List["GlobalEvent"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    locations: Mapped[List["Location"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"

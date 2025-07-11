@@ -1,145 +1,163 @@
 import os
-from dotenv import load_dotenv
+import logging
+from typing import Optional, List, Any
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, model_validator, Field
+from urllib.parse import urlparse, parse_qs, urlunparse
 
-# Загрузка переменных окружения из файла .env
-# Это особенно полезно для локальной разработки.
-# В продакшене переменные окружения обычно устанавливаются на уровне системы или хостинг-платформы.
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env') # Путь к .env в корне проекта
-load_dotenv(dotenv_path=dotenv_path)
+logger = logging.getLogger(__name__)
 
-# Токен вашего Discord бота
-# Получите его с Discord Developer Portal (https://discord.com/developers/applications)
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_TOKEN") # Changed from DISCORD_BOT_TOKEN
+class Settings(BaseSettings):
+    # Pydantic V2: model_config replaces Config class
+    model_config = SettingsConfigDict(
+        env_file=os.path.join(os.path.dirname(__file__), '..', '..', '.env'),
+        env_file_encoding='utf-8',
+        extra='ignore'  # Ignore extra fields from .env that are not in the model
+    )
 
-# Настройки логирования (можно расширить)
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-import logging # Added for logging
-logger = logging.getLogger(__name__) # Added for logging
+    # Discord Bot Token
+    DISCORD_TOKEN: Optional[str] = None # Renamed from DISCORD_BOT_TOKEN to match .env example
 
-# Настройки базы данных
-# Приоритет отдается DATABASE_URL из .env файла
-DATABASE_URL_ENV = os.getenv("DATABASE_URL")
-DB_SSL_MODE = None
-DB_SSL_CERT_PATH = os.getenv("DB_SSL_CERT_PATH")
-DB_SSL_KEY_PATH = os.getenv("DB_SSL_KEY_PATH")
-DB_SSL_ROOT_CERT_PATH = os.getenv("DB_SSL_ROOT_CERT_PATH")
+    # Logging Settings
+    LOG_LEVEL: str = "INFO"
 
+    # Database Settings
+    DATABASE_URL: Optional[str] = None
+    DB_TYPE: str = "postgresql"
+    DB_USER: Optional[str] = Field(default="postgres", alias="USER") # Alias to match .env
+    DB_PASSWORD: Optional[str] = Field(default="postgres", alias="PASSWORD") # Alias to match .env
+    DB_HOST: Optional[str] = Field(default="localhost", alias="HOST") # Alias to match .env
+    DB_PORT: Optional[str] = Field(default="5432", alias="PORT") # Alias to match .env
+    DB_NAME: Optional[str] = Field(default="rpg_bot_db", alias="DATABASE") # Alias to match .env
 
-if DATABASE_URL_ENV:
-    DATABASE_URL = DATABASE_URL_ENV
-    # Парсинг sslmode из DATABASE_URL для asyncpg
-    if "asyncpg" in DATABASE_URL:
-        from urllib.parse import urlparse, parse_qs, urlunparse
-        parsed_url = urlparse(DATABASE_URL)
-        query_params = parse_qs(parsed_url.query)
+    DB_SSL_MODE: Optional[str] = None
+    DB_SSL_CERT_PATH: Optional[str] = None
+    DB_SSL_KEY_PATH: Optional[str] = None
+    DB_SSL_ROOT_CERT_PATH: Optional[str] = None
 
-        if 'sslmode' in query_params:
-            DB_SSL_MODE = query_params['sslmode'][0]
-            logger.info(f"Найден 'sslmode={DB_SSL_MODE}' в DATABASE_URL. Он будет удален из URL и обработан отдельно для asyncpg.")
-            # Удаляем sslmode из query_params для asyncpg, так как он передается через connect_args
-            del query_params['sslmode']
-            # Собираем URL обратно без sslmode
-            # urlunparse требует кортеж из 6 элементов: scheme, netloc, path, params, query, fragment
-            # Нам нужно обновить только query. parse_qs возвращает значения как списки.
-            # Мы должны преобразовать их обратно в строку запроса.
-            new_query_string = "&".join([f"{k}={v[0]}" for k_list in query_params.values() for k in k_list for v in query_params.get(k, [])])
-            # Corrected new_query_string construction to handle multiple values for a key if that edge case arose, though unlikely for sslmode.
-            # A more standard way for typical query strings (key=value&key2=value2):
-            new_query_string = "&".join(f"{k}={v[0]}" for k, v in query_params.items())
+    # Processed database URL and SSL mode
+    PROCESSED_DATABASE_URL: str = "" # Will be set by model_validator
+    EFFECTIVE_DB_SSL_MODE: Optional[str] = None # Will be set by model_validator
 
+    # OpenAI API Key
+    OPENAI_API_KEY: Optional[str] = None
 
-            # Update the actual DATABASE_URL first (without sslmode in query)
-            DATABASE_URL = urlunparse(parsed_url._replace(query=new_query_string))
+    # Bot config
+    BOT_PREFIX: str = "!"
+    BOT_LANGUAGE: str = "en"
 
-            # Now, create a version for logging with masked password
-            # Re-parse the *original* URL to get all parts, especially netloc with password
-            original_parsed_url = urlparse(DATABASE_URL_ENV) # Use the original URL from env
+    # Secret Key for JWT and security
+    SECRET_KEY: Optional[str] = None
 
-            safe_netloc_for_log = original_parsed_url.netloc
-            if original_parsed_url.password:
-                if original_parsed_url.username:
-                    safe_netloc_for_log = f"{original_parsed_url.username}:*****@{original_parsed_url.hostname}"
-                else: # Only password, no username (e.g. postgresql://:password@host/db)
-                    safe_netloc_for_log = f":*****@{original_parsed_url.hostname}"
-                if original_parsed_url.port:
-                    safe_netloc_for_log += f":{original_parsed_url.port}"
+    # API Server settings
+    API_HOST: str = "127.0.0.1"
+    API_PORT: int = 8000
 
-            # Construct the logged URL using parts from original_parsed_url, but with new_query_string (sslmode removed)
-            # and safe_netloc_for_log.
-            logged_url = urlunparse(
-                (original_parsed_url.scheme,
-                 safe_netloc_for_log,
-                 original_parsed_url.path,
-                 original_parsed_url.params,
-                 new_query_string, # Query string without sslmode
-                 original_parsed_url.fragment)
-            )
-            logger.info(f"DATABASE_URL (после обработки sslmode, если был): {logged_url}")
+    # Discord OAuth2 Configuration
+    DISCORD_CLIENT_ID: Optional[str] = None
+    DISCORD_CLIENT_SECRET: Optional[str] = None
+    DISCORD_REDIRECT_URI: Optional[str] = None
+    UI_APP_REDIRECT_URL_AFTER_LOGIN: str = "http://localhost:3000/auth-callback"
 
-else:
-    DB_TYPE = os.getenv("DB_TYPE", "postgresql")
-    DB_USER = os.getenv("USER", "postgres") # Changed from DB_USER to USER to match .env
-    DB_PASSWORD = os.getenv("PASSWORD", "postgres") # Changed from DB_PASSWORD to PASSWORD to match .env
-    DB_HOST = os.getenv("HOST", "localhost") # Changed from DB_HOST to HOST to match .env
-    DB_PORT = os.getenv("PORT", "5432") # Changed from DB_PORT to PORT to match .env
-    DB_NAME = os.getenv("DATABASE", "rpg_bot_db") # Changed from DB_NAME to DATABASE to match .env
-    DATABASE_URL = f"{DB_TYPE}+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-    # Если DATABASE_URL не задан, но есть переменные для SSL, их можно использовать
-    # Например, DB_SSL_MODE может быть установлен напрямую через переменную окружения
-    if os.getenv("DB_SSL_MODE"):
-        DB_SSL_MODE = os.getenv("DB_SSL_MODE")
-        logger.info(f"DB_SSL_MODE установлен из переменной окружения: {DB_SSL_MODE}")
+    # Master User IDs
+    MASTER_IDS_STR: str = Field(default="", alias="MASTER_IDS")
+    MASTER_IDS_LIST: List[str] = []
 
+    @model_validator(mode='after')
+    def _process_database_settings(self) -> 'Settings':
+        db_url_to_process = self.DATABASE_URL
+        effective_ssl_mode = self.DB_SSL_MODE
 
-# OpenAI API Key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        if db_url_to_process:
+            self.PROCESSED_DATABASE_URL = db_url_to_process
+            if "asyncpg" in self.PROCESSED_DATABASE_URL:
+                parsed_url = urlparse(self.PROCESSED_DATABASE_URL)
+                query_params = parse_qs(parsed_url.query)
 
-# Bot config
-BOT_PREFIX = os.getenv("BOT_PREFIX", "!")
-BOT_LANGUAGE = os.getenv("BOT_LANGUAGE", "en")
+                if 'sslmode' in query_params:
+                    effective_ssl_mode = query_params['sslmode'][0]
+                    logger.info(f"Found 'sslmode={effective_ssl_mode}' in DATABASE_URL. It will be removed from URL and processed separately.")
+                    del query_params['sslmode']
+                    new_query_string = "&".join(f"{k}={v[0]}" for k, v in query_params.items())
+                    self.PROCESSED_DATABASE_URL = urlunparse(parsed_url._replace(query=new_query_string))
 
-# Secret Key
-SECRET_KEY = os.getenv("SECRET_KEY") # Используется для подписи JWT и других нужд безопасности
+                    # For logging purposes, mask password in the original URL
+                    original_parsed_url = urlparse(db_url_to_process)
+                    safe_netloc_for_log = original_parsed_url.netloc
+                    if original_parsed_url.password:
+                        safe_netloc_for_log = f"{original_parsed_url.username or ''}:*****@{original_parsed_url.hostname}"
+                        if original_parsed_url.port:
+                            safe_netloc_for_log += f":{original_parsed_url.port}"
+                    logged_url = urlunparse(
+                        (original_parsed_url.scheme, safe_netloc_for_log, original_parsed_url.path,
+                         original_parsed_url.params, new_query_string, original_parsed_url.fragment)
+                    )
+                    logger.info(f"DATABASE_URL (after processing sslmode, if any): {logged_url}")
+        else:
+            # Construct DATABASE_URL from components if DATABASE_URL is not set
+            self.PROCESSED_DATABASE_URL = f"{self.DB_TYPE}+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            if self.DB_SSL_MODE: # If DB_SSL_MODE is set directly via env var
+                 effective_ssl_mode = self.DB_SSL_MODE
+                 logger.info(f"DB_SSL_MODE set from environment variable: {effective_ssl_mode}")
 
-# API Server settings
-API_HOST = os.getenv("API_HOST", "127.0.0.1")
-API_PORT = int(os.getenv("API_PORT", "8000"))
+        self.EFFECTIVE_DB_SSL_MODE = effective_ssl_mode
+        return self
 
-# Discord OAuth2 Configuration (для UI аутентификации)
-DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID") # ID вашего Discord приложения
-DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET") # Секрет вашего Discord приложения
-# URL, куда Discord перенаправит пользователя после авторизации. Должен совпадать с указанным на Discord Developer Portal.
-# Пример: http://localhost:8000/api/auth/discord/callback или https://yourdomain.com/api/auth/discord/callback
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
+    @field_validator('LOG_LEVEL')
+    @classmethod
+    def uppercase_log_level(cls, value: str) -> str:
+        return value.upper()
 
-# URL для редиректа на UI приложение после успешной OAuth2 аутентификации
-# Пример: http://localhost:3000/auth/callback или https://youruifrontend.com/auth/callback
-UI_APP_REDIRECT_URL_AFTER_LOGIN = os.getenv("UI_APP_REDIRECT_URL_AFTER_LOGIN", "http://localhost:3000/auth-callback") # Default for local dev
+    @field_validator('MASTER_IDS_LIST', mode='before')
+    @classmethod
+    def parse_master_ids(cls, value: Any, values: Any) -> List[str]:
+        # This validator is a bit tricky with 'values' context in Pydantic v2
+        # We'll access MASTER_IDS_STR from the raw dict 'values.data'
+        master_ids_str_val = values.data.get("MASTER_IDS_STR", "") # Use alias "MASTER_IDS" if reading directly from env
+        if not master_ids_str_val and "MASTER_IDS" in values.data: # Fallback to original name if alias not picked up yet
+            master_ids_str_val = values.data.get("MASTER_IDS", "")
 
+        parsed_ids = [uid.strip() for uid in master_ids_str_val.split(',') if uid.strip()]
 
-# Проверка наличия токена и URL базы данных при импорте модуля
-if not DISCORD_BOT_TOKEN:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_TOKEN не установлена.") # Changed from DISCORD_BOT_TOKEN
-    print("Пожалуйста, создайте файл .env в корне проекта и добавьте DISCORD_TOKEN=ваш_токен")
-    print("Или установите переменную окружения DISCORD_TOKEN системно.")
+        if not master_ids_str_val:
+            logger.info("MASTER_IDS environment variable is not set. Master command authorization might be limited.")
+        elif not parsed_ids:
+            logger.warning("MASTER_IDS environment variable was set but resulted in an empty list.")
+        else:
+            logger.info(f"Loaded MASTER_IDS: {parsed_ids}")
+        return parsed_ids
 
-if not DATABASE_URL_ENV and "USER" not in os.environ and "DATABASE_URL" not in os.environ: # Check if database config is missing
-    print("ИНФОРМАЦИЯ: Переменные окружения для подключения к БД (DATABASE_URL или USER, PASSWORD, HOST, PORT, DATABASE) не установлены.")
-    print(f"Будут использованы значения по умолчанию для сборки DATABASE_URL, ведущие к: {DATABASE_URL}")
-    print("Для изменения создайте файл .env в корне проекта или установите переменные окружения системно.")
+# Create a single settings instance
+settings = Settings()
 
-if not OPENAI_API_KEY:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения OPENAI_API_KEY не установлена.")
+# Perform initial checks and print warnings
+if not settings.DISCORD_TOKEN:
+    print("WARNING: Environment variable DISCORD_TOKEN is not set.")
+if not settings.PROCESSED_DATABASE_URL: # Check the processed URL
+    print("WARNING: Database URL is not configured.")
+elif not settings.DATABASE_URL and not settings.DB_USER: # Heuristic: if neither full URL nor components were set
+    print("INFO: Database connection variables (DATABASE_URL or USER, PASSWORD, etc.) not set. Defaulting.")
+    print(f"Default PROCESSED_DATABASE_URL: {settings.PROCESSED_DATABASE_URL}")
 
-if not SECRET_KEY:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения SECRET_KEY не установлена. Это критично для безопасности JWT.")
+if not settings.OPENAI_API_KEY:
+    print("WARNING: Environment variable OPENAI_API_KEY is not set.")
+if not settings.SECRET_KEY:
+    print("WARNING: Environment variable SECRET_KEY is not set. This is critical for JWT security.")
+if not settings.DISCORD_CLIENT_ID:
+    print("WARNING: Environment variable DISCORD_CLIENT_ID is not set (required for OAuth2).")
+if not settings.DISCORD_CLIENT_SECRET:
+    print("WARNING: Environment variable DISCORD_CLIENT_SECRET is not set (required for OAuth2).")
+if not settings.DISCORD_REDIRECT_URI:
+    print("WARNING: Environment variable DISCORD_REDIRECT_URI is not set (required for OAuth2).")
 
-if not DISCORD_CLIENT_ID:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_CLIENT_ID не установлена (необходима для OAuth2).")
-if not DISCORD_CLIENT_SECRET:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_CLIENT_SECRET не установлена (необходима для OAuth2).")
-if not DISCORD_REDIRECT_URI:
-    print("ПРЕДУПРЕЖДЕНИЕ: Переменная окружения DISCORD_REDIRECT_URI не установлена (необходима для OAuth2).")
+# For direct access if needed elsewhere, though 'settings.PROCESSED_DATABASE_URL' and 'settings.EFFECTIVE_DB_SSL_MODE' are preferred
+DATABASE_URL = settings.PROCESSED_DATABASE_URL
+DB_SSL_MODE = settings.EFFECTIVE_DB_SSL_MODE
+DB_SSL_CERT_PATH = settings.DB_SSL_CERT_PATH
+DB_SSL_KEY_PATH = settings.DB_SSL_KEY_PATH
+DB_SSL_ROOT_CERT_PATH = settings.DB_SSL_ROOT_CERT_PATH
+LOG_LEVEL = settings.LOG_LEVEL
+MASTER_IDS = settings.MASTER_IDS_LIST
 
 
 # Пример .env файла (создайте его в корне проекта, НЕ добавляйте в Git, если он содержит секреты):
@@ -230,16 +248,7 @@ BOT_COGS = [
     "backend.bot.commands.master_commands.pending_generation_master_commands", # Cog for Task 59
 ]
 
-# Master User IDs - comma-separated string in .env, parsed into a list here
-MASTER_IDS_STR = os.getenv("MASTER_IDS", "")
-MASTER_IDS = [uid.strip() for uid in MASTER_IDS_STR.split(',') if uid.strip()]
-if not MASTER_IDS_STR: # Проверяем исходную строку, чтобы не логировать пустоту, если переменная вообще не задана
-    logger.info("MASTER_IDS environment variable is not set. Master command authorization might be limited to server admins/bot owners.")
-elif not MASTER_IDS: # Если строка была, но оказалась пустой после split/strip
-    logger.warning("MASTER_IDS environment variable was set but resulted in an empty list (e.g., just commas or whitespace). Master command authorization might be limited.")
-else:
-    logger.info(f"Loaded MASTER_IDS: {MASTER_IDS}")
-
+# Redundant MASTER_IDS parsing logic removed as it's handled by Settings.MASTER_IDS_LIST
 
 # Константы для команды /start и создания игрока по умолчанию
 DEFAULT_STARTING_LOCATION_STATIC_ID = "town_square" # Пример ID стартовой локации

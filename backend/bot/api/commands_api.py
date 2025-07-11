@@ -76,8 +76,8 @@ async def list_bot_commands(
     if not final_lang_to_use:
         # Доступ к настройкам бота может быть разным, например, bot.settings.DEFAULT_LANGUAGE
         # Или можно использовать константу из backend.config.settings
-        from backend.config.settings import BOT_LANGUAGE as DEFAULT_BOT_LANGUAGE
-        final_lang_to_use = DEFAULT_BOT_LANGUAGE
+        from backend.config.settings import settings
+        final_lang_to_use = settings.BOT_LANGUAGE
         logger.debug(f"Using default bot language: {final_lang_to_use}")
 
     logger.info(f"API /commands/ - effective language for command details: {final_lang_to_use}")

@@ -317,6 +317,17 @@ async def execute_move_for_player_action(
             # Security check
             raise MovementError(f"Player {player_id} does not belong to guild {guild_id}.")
 
+        # Player Status Check
+        allowed_statuses_rule = await get_rule(session, guild_id, "movement:allowed_player_statuses", default=["IDLE", "EXPLORING"])
+        # Ensure allowed_statuses_rule is a list, as get_rule might return complex objects if the rule is misconfigured
+        if not isinstance(allowed_statuses_rule, list):
+            logger.warning(f"Rule 'movement:allowed_player_statuses' for guild {guild_id} is not a list: {allowed_statuses_rule}. Defaulting.")
+            allowed_statuses_rule = ["IDLE", "EXPLORING"]
+
+        if player.current_status.value not in allowed_statuses_rule:
+            # TODO: Localize this message
+            raise MovementError(f"Cannot move while in status: {player.current_status.value}. Allowed statuses: {', '.join(allowed_statuses_rule)}")
+
         if player.current_location_id is None:
             raise MovementError(f"Player {player.id} (Guild: {guild_id}) has no current location set.")
 
@@ -355,18 +366,128 @@ async def execute_move_for_player_action(
             loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
             return {"status": "error", "message": f"You are already at '{loc_name}'."}
 
-        # Check for connectivity
-        is_neighbor = False
+        # Check for connectivity and get connection details
+        connection_details: Optional[Dict[str, Any]] = None
         if isinstance(current_location.neighbor_locations_json, list):
-            for neighbor_info in current_location.neighbor_locations_json:
-                if isinstance(neighbor_info, dict) and neighbor_info.get("location_id") == target_location.id:
-                    is_neighbor = True
+            for neighbor_info_item in current_location.neighbor_locations_json:
+                if isinstance(neighbor_info_item, dict) and neighbor_info_item.get("target_location_id") == target_location.id:
+                    connection_details = neighbor_info_item
                     break
 
-        if not is_neighbor:
+        if not connection_details:
             curr_loc_name = current_location.name_i18n.get(player.selected_language or 'en', current_location.static_id)
             target_loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
-            return {"status": "error", "message": f"You cannot move directly from '{curr_loc_name}' to '{target_loc_name}'."}
+            # TODO: Localize this message
+            raise MovementError(f"You cannot move directly from '{curr_loc_name}' to '{target_loc_name}'. No valid connection found.")
+
+        # Connection Conditions Check
+        conditions = connection_details.get("conditions_json")
+        if isinstance(conditions, dict):
+            # World Flag Check
+            required_world_flag = conditions.get("requires_world_flag")
+            if isinstance(required_world_flag, dict): # e.g. {"flag_name": "bridge_repaired", "expected_value": True}
+                flag_name = required_world_flag.get("flag_name")
+                expected_value = required_world_flag.get("expected_value", True) # Default to True if not specified
+                if flag_name:
+                    actual_flag_value = await get_rule(session, guild_id, f"worldstate:{flag_name}", default=not expected_value)
+                    if actual_flag_value != expected_value:
+                        # TODO: Localize this message. Maybe provide a more descriptive failure reason from conditions_json?
+                        denial_message_key = conditions.get("denial_message_key", "movement_denied_world_flag")
+                        denial_message_default = f"Cannot move: A condition ('{flag_name}') is not met."
+                        # This message structure needs to be standardized or fetched via get_localized_text
+                        raise MovementError(denial_message_default)
+
+            # Placeholder for Item Check
+            required_item_static_id = conditions.get("requires_item_static_id")
+            if required_item_static_id:
+                # TODO: Implement inventory check for player/party.
+                # For now, let's assume this check passes if we don't implement it.
+                logger.info(f"Movement condition: requires item '{required_item_static_id}'. Check not yet implemented.")
+                pass # Placeholder: raise MovementError("Missing required item: {required_item_static_id}")
+
+            # Placeholder for Quest Status Check
+            required_quest_status = conditions.get("requires_quest_status")
+            if isinstance(required_quest_status, dict): # e.g. {"quest_static_id": "main_quest_01", "status": "COMPLETED"}
+                # TODO: Implement quest progress check.
+                logger.info(f"Movement condition: requires quest status '{required_quest_status}'. Check not yet implemented.")
+                pass # Placeholder: raise MovementError("Quest condition not met.")
+
+            # Skill Check
+            skill_check_info = conditions.get("requires_skill_check") # e.g. {"skill": "climbing", "dc": 15, "attribute": "strength"}
+            if isinstance(skill_check_info, dict):
+                check_type = skill_check_info.get("check_type", f"movement:{skill_check_info.get('skill', 'generic')}")
+                base_attribute_for_check = skill_check_info.get("attribute")
+                skill_for_check = skill_check_info.get("skill")
+                dc_for_check = skill_check_info.get("dc")
+
+                if dc_for_check is not None: # Only perform check if DC is specified
+                    from backend.core.check_resolver import resolve_check, CheckError
+                    from backend.models.enums import RelationshipEntityType
+
+                    # Determine who performs the check
+                    # TODO: Make this configurable via RuleConfig (party:movement_skill_check_performer)
+                    actor_for_check_id = player.id
+                    actor_for_check_type = RelationshipEntityType.PLAYER
+                    actor_model_for_check = player
+
+                    if party:
+                        # Basic: leader checks. Advanced: best skill in party, average, etc.
+                        # For now, assume player initiating the move (who is checked for status) performs it.
+                        # If party leader should check:
+                        # party_skill_check_performer = await get_rule(session, guild_id, "party:movement_skill_check_performer", default="initiator")
+                        # if party_skill_check_performer == "leader" and party.leader_player_id:
+                        # actor_for_check_id = party.leader_player_id
+                        # actor_model_for_check = await player_crud.get(session, id=party.leader_player_id) # Fetch leader model
+                        pass
+
+
+                    check_context_for_resolve = {
+                        "base_attribute_override": base_attribute_for_check, # Allow check_resolver to use this
+                        "skill_override": skill_for_check, # Allow check_resolver to use this
+                        "lang": player.selected_language or guild_main_lang
+                    }
+
+                    try:
+                        logger.info(f"Performing movement skill check: type='{check_type}', dc={dc_for_check}, actor={actor_for_check_id}")
+                        check_result = await resolve_check(
+                            session=session,
+                            guild_id=guild_id,
+                            check_type=check_type,
+                            actor_entity_id=actor_for_check_id,
+                            actor_entity_type=actor_for_check_type,
+                            actor_entity_model=actor_model_for_check,
+                            difficulty_dc=dc_for_check,
+                            check_context=check_context_for_resolve
+                        )
+                        # Log the check result (e.g., to StoryLog or movement event details)
+                        # For now, just log to debug
+                        logger.debug(f"Movement skill check result: {check_result.outcome.status} (Value: {check_result.final_value} vs DC: {dc_for_check})")
+
+                        # Check RuleConfig for what outcomes mean failure for movement
+                        fail_on_outcomes = await get_rule(session, guild_id, "movement:fail_on_check_outcome", default=["CRITICAL_FAILURE", "FAILURE"])
+                        if not isinstance(fail_on_outcomes, list): fail_on_outcomes = ["CRITICAL_FAILURE", "FAILURE"]
+
+                        if check_result.outcome.status.upper() in fail_on_outcomes:
+                            # TODO: Localize this message. Include check_result.outcome.description?
+                            raise MovementError(f"Skill check for movement failed: {check_result.outcome.description}")
+
+                    except CheckError as ce:
+                        logger.error(f"Error during movement skill check: {ce}")
+                        raise MovementError(f"Could not perform required skill check: {ce}")
+                    except Exception as e: # Catch other potential errors from resolve_check
+                        logger.exception(f"Unexpected error during resolve_check for movement: {e}")
+                        raise MovementError("An unexpected error occurred during a required skill check.")
+                else:
+                    logger.debug(f"Skill check defined in connection_details for {target_location.id} but no DC specified. Skipping check.")
+
+
+        # Placeholder for Costs
+        travel_time_minutes = connection_details.get("travel_time_minutes")
+        if travel_time_minutes:
+            logger.info(f"Movement implies travel time: {travel_time_minutes} minutes. (Effect not yet implemented)")
+            # TODO: Add to event log, potentially affect game time or entity resources.
+
+        # TODO: Resource costs (stamina, food) from connection_details or RuleConfig
 
         party: Optional[Party] = None
         if player.current_party_id:
@@ -379,35 +500,37 @@ async def execute_move_for_player_action(
 
             if party:
                 # Check party movement rules
-                party_movement_policy_key = "rules:party:movement:policy"
-                # Default to "any_member" if rule not set, allowing current behavior.
-                movement_policy = await get_rule(session, guild_id, party_movement_policy_key, default="any_member") # Changed default_value to default
+                party_movement_policy_key = "party:movement:policy" # Corrected key format based on Tasks.txt
+                movement_policy = await get_rule(session, guild_id, party_movement_policy_key, default="any_member")
 
                 if movement_policy == "leader_only":
-                    # Player model needs a way to determine if they are the leader of their current party.
-                    # Assuming Party model has a leader_id field.
-                    if not hasattr(party, 'leader_player_id') or party.leader_player_id != player.id:
-                        # Try to get party leader name for message
+                    if party.leader_player_id != player.id:
                         leader_name_msg = "the party leader"
-                        if hasattr(party, 'leader_player_id') and party.leader_player_id:
-                            try:
-                                leader_player = await player_crud.get(session, id=party.leader_player_id)
-                                if leader_player:
-                                    leader_name_msg = leader_player.name
-                            except Exception: # pragma: no cover
-                                logger.warning(f"Could not fetch leader name for party {party.id}")
-
-                        return {
-                            "status": "error",
-                            "message": f"Only {leader_name_msg} can move the party. You are not the leader."
-                        }
+                        if party.leader_player_id: # Check if leader_player_id is not None
+                            leader_player = await player_crud.get(session, id=party.leader_player_id)
+                            if leader_player:
+                                leader_name_msg = leader_player.name
+                        # TODO: Localize this message
+                        raise MovementError(f"Only {leader_name_msg} can move the party. You are not the leader.")
+                elif movement_policy == "all_members_ready":
+                    # This policy implies all members must have an allowed status.
+                    # The initiating player's status was already checked.
+                    # We need to fetch all party members (excluding the initiator if already checked, or just check all).
+                    member_ids = party.player_ids_json or []
+                    for member_id in member_ids:
+                        if member_id == player.id: # Initiator already checked
+                            continue
+                        member_player = await player_crud.get(session, id=member_id)
+                        if not member_player:
+                            logger.warning(f"Party {party.id} references non-existent player ID {member_id}. Skipping status check for this member.")
+                            continue
+                        if member_player.current_status.value not in allowed_statuses_rule: # Use same allowed_statuses_rule as for initiator
+                            # TODO: Localize this message
+                            raise MovementError(f"Party cannot move. Member {member_player.name} (ID: {member_id}) is not ready (status: {member_player.current_status.value}).")
                 elif movement_policy == "any_member":
-                    # Any member can move the party, current behavior.
-                    pass
-                # Add other policies like "all_must_be_present" or "vote_based" in the future.
-                else: # pragma: no cover
+                    pass # Any member can move the party, current behavior. Initiator's status already checked.
+                else:
                     logger.warning(f"Unknown party movement policy '{movement_policy}' for guild {guild_id}. Defaulting to 'any_member'.")
-
 
         await _update_entities_location(
             guild_id=guild_id,

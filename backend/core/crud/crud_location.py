@@ -54,5 +54,18 @@ class CRUDLocation(CRUDBase[Location]):
     # get from CRUDBase can be used for get_location_by_id (PK) and guild_id:
     # await location_crud.get(session, id=location_pk_id, guild_id=guild_id)
 
+    async def get_children_of_location(
+        self, session: AsyncSession, *, location_id: int, guild_id: int
+    ) -> List[Location]:
+        """
+        Get all child locations for a given parent location_id and guild_id.
+        """
+        statement = (
+            select(self.model)
+            .where(self.model.guild_id == guild_id, self.model.parent_location_id == location_id)
+            .order_by(self.model.id) # Optional: order by name or ID
+        )
+        result = await session.execute(statement)
+        return list(result.scalars().all())
 
 location_crud = CRUDLocation(Location)

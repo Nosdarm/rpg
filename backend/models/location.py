@@ -7,9 +7,9 @@ from typing import Optional, Dict, List, Any, Union, TYPE_CHECKING # Added TYPE_
 
 from .base import Base
 from .custom_types import JsonBForSQLite # Import custom type
-# from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
 
 if TYPE_CHECKING:
+    from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
     from .player import Player # For players_present relationship
     from .generated_npc import GeneratedNpc # For npcs_present relationship
     # Add imports for new global entities if not already present
@@ -43,7 +43,7 @@ class Location(Base):
     )
 
     # Optional: Link to GuildConfig object, if direct access is often needed.
-    # guild: Mapped["GuildConfig"] = relationship(back_populates="locations") # Assuming GuildConfig has a 'locations' backref
+    guild: Mapped["GuildConfig"] = relationship(back_populates="locations")
 
     parent_location_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("locations.id", name="fk_location_parent_id", use_alter=True), nullable=True, index=True
@@ -60,6 +60,15 @@ class Location(Base):
     neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JsonBForSQLite, nullable=True)
     generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
     ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+
+    # Hierarchical relationships
+    parent_location: Mapped[Optional["Location"]] = relationship(
+        back_populates="child_locations", remote_side="Location.id" # Use string for remote_side
+    )
+    child_locations: Mapped[List["Location"]] = relationship(
+        back_populates="parent_location", cascade="all, delete-orphan"
+    )
 
     # Relationships for entities present in the location
     players_present: Mapped[List["Player"]] = relationship(back_populates="location") # Corrected from current_location to location
