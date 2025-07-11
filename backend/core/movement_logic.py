@@ -19,6 +19,18 @@ class MovementError(Exception):
     """Custom exception for movement errors."""
     pass
 
+# Placeholder for a proper localization utility for player feedback
+def _localize_movement_error(message_key: str, default_format_string: str, **kwargs) -> str:
+    # In a real system, this would look up `message_key` in a localization file/system
+    # for the player's language and format it with kwargs.
+    # For now, it just uses the default_format_string.
+    # This helper is to mark strings that need localization.
+    try:
+        return default_format_string.format(**kwargs)
+    except KeyError as e:
+        logger.error(f"Localization key error for key '{message_key}': Missing key {e} in provided kwargs {kwargs}. Default string: '{default_format_string}'")
+        return default_format_string # Return unformatted string if a kwarg is missing
+
 @transactional
 async def _update_entities_location(
     # session: AsyncSession, # Session is injected by @transactional as a keyword argument
@@ -26,19 +38,40 @@ async def _update_entities_location(
     player: Player,
     target_location: Location,
     party: Optional[Party] = None,
+    resource_deductions: Optional[Dict[str, int]] = None, # New parameter for deductions
     *, # Make session a keyword-only argument
     session: AsyncSession
 ) -> None:
     """
-    Helper function to update player and optionally party location in DB
-    and log the event. Runs within a transaction. Session is injected.
+    Helper function to update player/party location and deduct resources in DB.
+    Runs within a transaction. Session is injected.
     """
     player_original_location_id = player.current_location_id
     player.current_location_id = target_location.id
+
+    # Apply resource deductions to the player
+    if resource_deductions:
+        if player.properties_json is None:
+            player.properties_json = {} # Ensure properties_json exists
+        if "resources" not in player.properties_json:
+            player.properties_json["resources"] = {}
+
+        for resource_name, amount_to_deduct in resource_deductions.items():
+            current_amount = player.properties_json["resources"].get(resource_name, 0)
+            player.properties_json["resources"][resource_name] = current_amount - amount_to_deduct
+            logger.info(f"Deducted {amount_to_deduct} of {resource_name} from player {player.id}. New amount: {player.properties_json['resources'][resource_name]}")
+        # Mark properties_json as modified if it's a JSON/JSONB type to ensure SQLAlchemy picks up changes
+        # This is often needed for mutable JSON types.
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(player, "properties_json")
+
+
     session.add(player)
     logger.info(f"Player {player.id} (Guild: {guild_id}) moving from {player_original_location_id} to {target_location.id}")
 
     if party:
+        # TODO: Party resource deduction logic if party has its own resource pool or if costs are shared.
+        # For now, costs are only applied to the initiating player.
         party_original_location_id = party.current_location_id
         party.current_location_id = target_location.id
         session.add(party)
@@ -312,8 +345,7 @@ async def execute_move_for_player_action(
         player = await player_crud.get(session, id=player_id)
         if not player:
             # This should ideally not happen if player_id comes from a validated context
-            # TODO: Localize this message
-            raise MovementError(f"Player with ID {player_id} not found.")
+            raise MovementError(_localize_movement_error("player_not_found", "Player with ID {player_id} not found.", player_id=player_id))
         if player.guild_id != guild_id:
             # Security check - internal error, less critical for player localization
             raise MovementError(f"Player {player_id} does not belong to guild {guild_id}.")
@@ -326,12 +358,10 @@ async def execute_move_for_player_action(
             allowed_statuses_rule = ["IDLE", "EXPLORING"]
 
         if player.current_status.value not in allowed_statuses_rule:
-            # TODO: Localize this message
-            raise MovementError(f"Cannot move while in status: {player.current_status.value}. Allowed statuses: {', '.join(allowed_statuses_rule)}")
+            raise MovementError(_localize_movement_error("invalid_status_for_movement", "Cannot move while in status: {current_status}. Allowed statuses: {allowed_statuses_list}", current_status=player.current_status.value, allowed_statuses_list=', '.join(allowed_statuses_rule)))
 
         if player.current_location_id is None:
-            # TODO: Localize this message
-            raise MovementError(f"Player {player.id} has no current location set.")
+            raise MovementError(_localize_movement_error("no_current_location", "Player {player_name} (ID: {player_id}) has no current location set.", player_name=player.name, player_id=player.id))
 
         current_location = await location_crud.get(session, id=player.current_location_id)
         if not current_location:
@@ -362,14 +392,12 @@ async def execute_move_for_player_action(
 
         if not target_location:
             logger.info(f"Player {player.id} tried to move to '{target_location_identifier}', but it was not found (guild: {guild_id}).")
-            # TODO: Localize this message
-            return {"status": "error", "message": f"Location '{target_location_identifier}' could not be found."}
+            return {"status": "error", "message": _localize_movement_error("target_location_not_found", "Location '{identifier}' could not be found.", identifier=target_location_identifier)}
 
         if target_location.id == current_location.id:
             # Using name_i18n.get for user-facing messages
             loc_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or target_location_identifier)
-            # TODO: Localize this message
-            return {"status": "error", "message": f"You are already at '{loc_name}'."}
+            return {"status": "error", "message": _localize_movement_error("already_at_location", "You are already at '{location_name}'.", location_name=loc_name)}
 
         # Check for connectivity and get connection details
         connection_details: Optional[Dict[str, Any]] = None
@@ -380,10 +408,9 @@ async def execute_move_for_player_action(
                     break
 
         if not connection_details:
-            curr_loc_name = current_location.name_i18n.get(player.selected_language or 'en', current_location.static_id)
-            target_loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
-            # TODO: Localize this message
-            raise MovementError(f"You cannot move directly from '{curr_loc_name}' to '{target_loc_name}'. No valid connection found.")
+            curr_loc_name = current_location.name_i18n.get(player.selected_language or guild_main_lang, current_location.static_id or "current location")
+            target_loc_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or "target location")
+            raise MovementError(_localize_movement_error("no_direct_connection", "You cannot move directly from '{current_location_name}' to '{target_location_name}'. No valid connection found.", current_location_name=curr_loc_name, target_location_name=target_loc_name))
 
         # Connection Conditions Check
         conditions = connection_details.get("conditions_json")
@@ -396,11 +423,16 @@ async def execute_move_for_player_action(
                 if flag_name:
                     actual_flag_value = await get_rule(session, guild_id, f"worldstate:{flag_name}", default=not expected_value)
                     if actual_flag_value != expected_value:
-                        # TODO: Localize this message. Maybe provide a more descriptive failure reason from conditions_json?
                         denial_message_key = conditions.get("denial_message_key", "movement_denied_world_flag")
-                        denial_message_default = f"Cannot move: A condition ('{flag_name}') is not met."
-                        # This message structure needs to be standardized or fetched via get_localized_text
-                        raise MovementError(denial_message_default)
+                        # Attempt to get a more specific message from i18n if available in conditions
+                        denial_message_i18n = conditions.get("denial_message_i18n")
+                        default_denial_str = f"Cannot move: A condition ('{flag_name}') is not met."
+
+                        final_denial_message = default_denial_str
+                        if isinstance(denial_message_i18n, dict):
+                            final_denial_message = get_localized_text(denial_message_i18n, player.selected_language or guild_main_lang, default_denial_str)
+
+                        raise MovementError(_localize_movement_error(denial_message_key, final_denial_message, flag_name=flag_name))
 
             # Placeholder for Item Check
             required_item_static_id = conditions.get("requires_item_static_id")
@@ -411,8 +443,7 @@ async def execute_move_for_player_action(
                 item_definition = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=required_item_static_id)
                 if not item_definition:
                     logger.error(f"Movement condition references unknown item static_id: {required_item_static_id}")
-                    # TODO: Localize this message
-                    raise MovementError(f"Internal error: Movement requirement misconfigured (item {required_item_static_id}).")
+                    raise MovementError(_localize_movement_error("internal_item_misconfigured", "Internal error: Movement requirement misconfigured (item {item_static_id}).", item_static_id=required_item_static_id))
 
                 item_found_in_inventory = False
                 # Check player's inventory
@@ -442,8 +473,7 @@ async def execute_move_for_player_action(
 
                 if not item_found_in_inventory:
                     item_name_for_message = item_definition.name_i18n.get(player.selected_language or guild_main_lang, required_item_static_id)
-                    # TODO: Localize this message
-                    raise MovementError(f"Missing required item to pass: {item_name_for_message}")
+                    raise MovementError(_localize_movement_error("missing_required_item_movement", "Missing required item to pass: {item_name}.", item_name=item_name_for_message))
 
             # Quest Status Check
             required_quest_status_condition = conditions.get("requires_quest_status")
@@ -458,15 +488,13 @@ async def execute_move_for_player_action(
                     quest_def = await generated_quest_crud.get_by_static_id(session, static_id=quest_static_id, guild_id=guild_id)
                     if not quest_def:
                         logger.error(f"Movement condition references unknown quest static_id: {quest_static_id}")
-                        # TODO: Localize this message
-                        raise MovementError(f"Internal error: Movement requirement misconfigured (quest {quest_static_id}).")
+                        raise MovementError(_localize_movement_error("internal_quest_misconfigured_sid", "Internal error: Movement requirement misconfigured (quest static_id {quest_static_id}).", quest_static_id=quest_static_id))
 
                     try:
                         expected_status_enum = QuestStatus[expected_status_str.upper()]
                     except KeyError:
                         logger.error(f"Movement condition references invalid quest status: {expected_status_str} for quest {quest_static_id}")
-                        # TODO: Localize this message
-                        raise MovementError(f"Internal error: Movement requirement misconfigured (quest status {expected_status_str}).")
+                        raise MovementError(_localize_movement_error("internal_quest_misconfigured_status", "Internal error: Movement requirement misconfigured (quest status {expected_status}).", expected_status=expected_status_str))
 
                     quest_condition_met = False
                     # Check player's quest progress
@@ -492,10 +520,28 @@ async def execute_move_for_player_action(
 
                     if not quest_condition_met:
                         quest_name_for_message = quest_def.title_i18n.get(player.selected_language or guild_main_lang, quest_static_id)
-                        # TODO: Localize this message
-                        raise MovementError(f"Cannot move: Quest '{quest_name_for_message}' status is not '{expected_status_str}'.")
+                        raise MovementError(_localize_movement_error("quest_condition_not_met_movement", "Cannot move: Quest '{quest_name}' status is not '{expected_status}'.", quest_name=quest_name_for_message, expected_status=expected_status_str))
                 else:
                     logger.warning(f"Invalid 'requires_quest_status' condition in movement: {required_quest_status_condition}")
+
+            # Location properties based movement modification
+            # Current location outgoing effects
+            current_loc_props = current_location.properties_json if isinstance(current_location.properties_json, dict) else {}
+            if "blocked_movement_reason_key" in current_loc_props:
+                reason_key = current_loc_props["blocked_movement_reason_key"]
+                reason_text = get_localized_text(current_loc_props.get('blocked_movement_reason_i18n'), player.selected_language or guild_main_lang, reason_key)
+                raise MovementError(_localize_movement_error("movement_blocked_from_current", "Movement from {location_name} is currently blocked: {reason}", location_name=current_loc_name, reason=reason_text))
+
+            # Target location incoming effects
+            target_loc_props = target_location.properties_json if isinstance(target_location.properties_json, dict) else {}
+            if "blocked_movement_reason_key" in target_loc_props:
+                reason_key = target_loc_props["blocked_movement_reason_key"]
+                reason_text = get_localized_text(target_loc_props.get('blocked_movement_reason_i18n'), player.selected_language or guild_main_lang, reason_key)
+                raise MovementError(_localize_movement_error("movement_blocked_to_target", "Movement to {location_name} is currently blocked: {reason}", location_name=target_loc_name, reason=reason_text))
+
+            movement_dc_modifier_from_loc = current_loc_props.get("movement_dc_modifier", 0) + target_loc_props.get("movement_dc_modifier", 0)
+            movement_cost_multiplier_from_loc = current_loc_props.get("movement_cost_multiplier", 1.0) * target_loc_props.get("movement_cost_multiplier", 1.0)
+
 
             # Skill Check
             skill_check_info = conditions.get("requires_skill_check") # e.g. {"skill": "climbing", "dc": 15, "attribute": "strength"}
@@ -505,26 +551,40 @@ async def execute_move_for_player_action(
                 skill_for_check = skill_check_info.get("skill")
                 dc_for_check = skill_check_info.get("dc")
 
+                if isinstance(dc_for_check, int): # Ensure dc_for_check is an int before modifying
+                    dc_for_check += movement_dc_modifier_from_loc
+                    logger.info(f"Applied location DC modifier {movement_dc_modifier_from_loc}. New DC: {dc_for_check}")
+
+
                 if dc_for_check is not None: # Only perform check if DC is specified
                     from backend.core.check_resolver import resolve_check, CheckError
                     from backend.models.enums import RelationshipEntityType
 
                     # Determine who performs the check
-                    # TODO: Make this configurable via RuleConfig (party:movement_skill_check_performer)
                     actor_for_check_id = player.id
-                    actor_for_check_type = RelationshipEntityType.PLAYER
-                    actor_model_for_check = player
+                    actor_for_check_type = RelationshipEntityType.PLAYER # Default to player
+                    actor_model_for_check = player # Default to player model
 
                     if party:
-                        # Basic: leader checks. Advanced: best skill in party, average, etc.
-                        # For now, assume player initiating the move (who is checked for status) performs it.
-                        # If party leader should check:
-                        # party_skill_check_performer = await get_rule(session, guild_id, "party:movement_skill_check_performer", default="initiator")
-                        # if party_skill_check_performer == "leader" and party.leader_player_id:
-                        # actor_for_check_id = party.leader_player_id
-                        # actor_model_for_check = await player_crud.get(session, id=party.leader_player_id) # Fetch leader model
-                        pass
-
+                        performer_policy = await get_rule(session, guild_id, "party:movement_skill_check_performer", default="initiator")
+                        if performer_policy == "leader":
+                            if party.leader_player_id:
+                                leader_player_model = await player_crud.get(session, id=party.leader_player_id)
+                                if leader_player_model:
+                                    actor_for_check_id = leader_player_model.id
+                                    actor_model_for_check = leader_player_model
+                                    # actor_for_check_type remains PLAYER
+                                    logger.info(f"Party movement skill check to be performed by leader: {leader_player_model.name} (ID: {leader_player_model.id})")
+                                else:
+                                    logger.warning(f"Party leader (ID: {party.leader_player_id}) for party {party.id} not found. Defaulting check performer to initiator {player.name}.")
+                            else:
+                                logger.warning(f"Party {party.id} has no leader_player_id set. Defaulting check performer to initiator {player.name}.")
+                        elif performer_policy == "initiator":
+                            logger.info(f"Party movement skill check to be performed by initiator: {player.name} (ID: {player.id})")
+                            pass # Defaults are already set to initiator
+                        # TODO: Implement "highest_member_skill", "average_party_skill" policies
+                        else:
+                            logger.warning(f"Unknown party:movement_skill_check_performer policy '{performer_policy}'. Defaulting to initiator.")
 
                     check_context_for_resolve = {
                         "base_attribute_override": base_attribute_for_check, # Allow check_resolver to use this
@@ -553,15 +613,14 @@ async def execute_move_for_player_action(
                         if not isinstance(fail_on_outcomes, list): fail_on_outcomes = ["CRITICAL_FAILURE", "FAILURE"]
 
                         if check_result.outcome.status.upper() in fail_on_outcomes:
-                            # TODO: Localize this message. Include check_result.outcome.description?
-                            raise MovementError(f"Skill check for movement failed: {check_result.outcome.description}")
+                            raise MovementError(_localize_movement_error("skill_check_failed_movement", "Skill check for movement failed: {outcome_description}", outcome_description=check_result.outcome.description))
 
                     except CheckError as ce:
                         logger.error(f"Error during movement skill check: {ce}")
-                        raise MovementError(f"Could not perform required skill check: {ce}")
+                        raise MovementError(_localize_movement_error("skill_check_error_movement", "Could not perform required skill check: {error_message}", error_message=str(ce)))
                     except Exception as e: # Catch other potential errors from resolve_check
                         logger.exception(f"Unexpected error during resolve_check for movement: {e}")
-                        raise MovementError("An unexpected error occurred during a required skill check.")
+                        raise MovementError(_localize_movement_error("skill_check_unexpected_error_movement", "An unexpected error occurred during a required skill check."))
                 else:
                     logger.debug(f"Skill check defined in connection_details for {target_location.id} but no DC specified. Skipping check.")
 
@@ -572,7 +631,38 @@ async def execute_move_for_player_action(
             logger.info(f"Movement implies travel time: {travel_time_minutes} minutes. (Effect not yet implemented)")
             # TODO: Add to event log, potentially affect game time or entity resources.
 
-        # TODO: Resource costs (stamina, food) from connection_details or RuleConfig
+        # Resource Costs Check & Preparation
+        resource_costs_to_apply: Dict[str, int] = {}
+        defined_resource_costs = connection_details.get("resource_costs_json") # e.g. {"stamina": 5, "rations": 1}
+        if isinstance(defined_resource_costs, dict):
+            player_resources = player.properties_json.get("resources", {}) if player.properties_json else {}
+            for resource_name, cost_amount in defined_resource_costs.items():
+                if not isinstance(cost_amount, int) or cost_amount <= 0:
+                    logger.warning(f"Invalid cost amount {cost_amount} for resource '{resource_name}' in movement connection. Skipping this cost.")
+                    continue
+
+                current_player_amount = player_resources.get(resource_name, 0)
+                if current_player_amount < cost_amount:
+                    raise MovementError(_localize_movement_error("insufficient_resource_movement", "Not enough {resource_name} to move. Required: {required_amount}, You have: {current_amount}.", resource_name=resource_name, required_amount=cost_amount, current_amount=current_player_amount))
+                resource_costs_to_apply[resource_name] = cost_amount
+
+            if resource_costs_to_apply and movement_cost_multiplier_from_loc != 1.0:
+                logger.info(f"Applying location cost multiplier {movement_cost_multiplier_from_loc} to resource costs.")
+                for resource_name in resource_costs_to_apply:
+                    original_cost = resource_costs_to_apply[resource_name]
+                    multiplied_cost = int(original_cost * movement_cost_multiplier_from_loc)
+                    if multiplied_cost < 0 : multiplied_cost = 0 # Cost cannot be negative
+
+                    # Re-check if player can afford the multiplied cost
+                    current_player_amount = player_resources.get(resource_name, 0) # Re-fetch in case of multiple costs
+                    if current_player_amount < multiplied_cost:
+                        raise MovementError(_localize_movement_error("insufficient_resource_modified_movement", "Not enough {resource_name} after location cost modification. Required: {required_amount}, You have: {current_amount}.", resource_name=resource_name, required_amount=multiplied_cost, current_amount=current_player_amount))
+                    resource_costs_to_apply[resource_name] = multiplied_cost
+                logger.info(f"Player {player.id} final resource costs after location multiplier: {resource_costs_to_apply}")
+
+            if resource_costs_to_apply:
+                logger.info(f"Player {player.id} will incur resource costs for movement: {resource_costs_to_apply}")
+        # TODO: Implement fallback to RuleConfig for costs if not in connection_details
 
         party: Optional[Party] = None
         if player.current_party_id:
@@ -595,8 +685,7 @@ async def execute_move_for_player_action(
                             leader_player = await player_crud.get(session, id=party.leader_player_id)
                             if leader_player:
                                 leader_name_msg = leader_player.name
-                        # TODO: Localize this message
-                        raise MovementError(f"Only {leader_name_msg} can move the party. You are not the leader.")
+                        raise MovementError(_localize_movement_error("party_leader_only_movement", "Only {leader_name} can move the party. You are not the leader.", leader_name=leader_name_msg))
                 elif movement_policy == "all_members_ready":
                     # This policy implies all members must have an allowed status.
                     # The initiating player's status was already checked.
@@ -610,8 +699,7 @@ async def execute_move_for_player_action(
                             logger.warning(f"Party {party.id} references non-existent player ID {member_id}. Skipping status check for this member.")
                             continue
                         if member_player.current_status.value not in allowed_statuses_rule: # Use same allowed_statuses_rule as for initiator
-                            # TODO: Localize this message
-                            raise MovementError(f"Party cannot move. Member {member_player.name} (ID: {member_id}) is not ready (status: {member_player.current_status.value}).")
+                            raise MovementError(_localize_movement_error("party_member_not_ready_movement", "Party cannot move. Member {member_name} (ID: {member_id}) is not ready (status: {status}).", member_name=member_player.name, member_id=member_id, status=member_player.current_status.value))
                 elif movement_policy == "any_member":
                     pass # Any member can move the party, current behavior. Initiator's status already checked.
                 else:
@@ -622,6 +710,7 @@ async def execute_move_for_player_action(
             player=player,
             target_location=target_location,
             party=party,
+            resource_deductions=resource_costs_to_apply if resource_costs_to_apply else None,
             session=session # Explicitly pass session to the transactional function
         )
 
@@ -642,20 +731,18 @@ async def execute_move_for_player_action(
 
         target_loc_display_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or target_location_identifier)
         moved_entity_message_key = "movement_success_party" if party else "movement_success_solo"
-        # TODO: Localize this message (using the keys above)
-        # Default templates: "You and your party have moved to '{location_name}'." or "You have moved to '{location_name}'."
-        success_message_template = "You and your party have moved to '{location_name}'." if party else "You have moved to '{location_name}'."
-        return {"status": "success", "message": success_message_template.format(location_name=target_loc_display_name)}
+        success_default_template = "You and your party have moved to '{location_name}'." if party else "You have moved to '{location_name}'."
+
+        success_message = _localize_movement_error(moved_entity_message_key, success_default_template, location_name=target_loc_display_name)
+        return {"status": "success", "message": success_message}
 
     except MovementError as e:
         logger.warning(f"MovementError for player {player_id} in guild {guild_id} targeting '{target_location_identifier}': {e}")
-        # Specific MovementError messages are already constructed to be somewhat user-friendly,
-        # but should ideally be keys for localization. For now, pass them through.
+        # Messages from MovementError are already wrapped with _localize_movement_error or are internal.
         return {"status": "error", "message": str(e)}
     except Exception as e:
         logger.exception(
             f"Unexpected error in execute_move_for_player_action for player {player_id} in guild {guild_id} "
             f"targeting '{target_location_identifier}': {e}"
         )
-        # TODO: Localize this generic error message
-        return {"status": "error", "message": "An unexpected internal error occurred while trying to move."}
+        return {"status": "error", "message": _localize_movement_error("generic_movement_error", "An unexpected internal error occurred while trying to move.")}

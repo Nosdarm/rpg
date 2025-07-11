@@ -119,24 +119,33 @@ class GeneralCog(commands.Cog, name="General Commands"): # type: ignore[call-arg
             return
 
         starting_location_id: Optional[int] = None
-        starting_location_name: str = "неизвестной локации (пожалуйста, сообщите Мастеру)" # Default string
-        if DEFAULT_STATIC_LOCATIONS:
-            first_default_loc_static_id_optional: Optional[Any] = DEFAULT_STATIC_LOCATIONS[0].get("static_id")
-            if isinstance(first_default_loc_static_id_optional, str) and first_default_loc_static_id_optional:
-                first_default_loc_static_id: str = first_default_loc_static_id_optional # Now clearly a string
-                start_loc = await location_crud.get_by_static_id(session=session, guild_id=guild_id, static_id=first_default_loc_static_id) # FIX: db to session
-                if start_loc:
-                    starting_location_id = start_loc.id
-                    loc_name_i18n = start_loc.name_i18n or {} # Location.name_i18n defaults to {}
-                    name_candidate = loc_name_i18n.get(player_locale, loc_name_i18n.get('en', first_default_loc_static_id))
-                    # name_candidate is guaranteed to be str because first_default_loc_static_id is str.
-                    starting_location_name = name_candidate
-                else:
-                    logger.warning(f"Не удалось найти стартовую локацию по static_id '{first_default_loc_static_id}' для гильдии {guild_id} при создании игрока {discord_id}.")
-            else:
-                logger.warning(f"В DEFAULT_STATIC_LOCATIONS первая локация не имеет static_id.")
+        starting_location_name: str = "an undefined starting location (Master should configure 'player:starting_location_static_id')" # Default fallback name
+
+        # Get starting location static_id from RuleConfig
+        # Using a fallback static_id like "town_square" or an ID known to be in DEFAULT_STATIC_LOCATIONS
+        fallback_start_loc_static_id = DEFAULT_STATIC_LOCATIONS[0].get("static_id") if DEFAULT_STATIC_LOCATIONS and DEFAULT_STATIC_LOCATIONS[0].get("static_id") else "default_start_loc"
+
+        rule_start_loc_static_id = await get_rule(
+            session,
+            guild_id=guild_id,
+            key="player:starting_location_static_id",
+            default=fallback_start_loc_static_id
+        )
+
+        if not isinstance(rule_start_loc_static_id, str):
+            logger.error(f"Rule 'player:starting_location_static_id' for guild {guild_id} returned non-string: {rule_start_loc_static_id}. Using fallback: {fallback_start_loc_static_id}")
+            rule_start_loc_static_id = fallback_start_loc_static_id
+
+        start_loc = await location_crud.get_by_static_id(session=session, guild_id=guild_id, static_id=rule_start_loc_static_id)
+
+        if start_loc:
+            starting_location_id = start_loc.id
+            loc_name_i18n = start_loc.name_i18n or {}
+            starting_location_name = loc_name_i18n.get(player_locale, loc_name_i18n.get('en', rule_start_loc_static_id))
         else:
-            logger.warning(f"Список DEFAULT_STATIC_LOCATIONS пуст для гильдии {guild_id}. Невозможно назначить стартовую локацию для игрока {discord_id}.")
+            logger.warning(f"Could not find starting location by static_id '{rule_start_loc_static_id}' (from RuleConfig or fallback) for guild {guild_id} when creating player {discord_id}. Player will start without a location.")
+            # Player starting without a location is problematic, might need a more robust fallback or error to user.
+            # For now, they will have current_location_id = None.
 
         try:
             new_player = await player_crud.create_with_defaults(

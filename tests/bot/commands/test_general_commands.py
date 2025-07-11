@@ -79,6 +79,10 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.patcher_default_locs = patch('backend.bot.commands.general_commands.DEFAULT_STATIC_LOCATIONS', [])
         self.mock_default_locs = self.patcher_default_locs.start()
 
+        # Патчим get_rule
+        self.patcher_get_rule = patch('backend.bot.commands.general_commands.get_rule', new_callable=AsyncMock)
+        self.mock_get_rule = self.patcher_get_rule.start()
+
     def _create_mock_interaction(self, user: MockUser, guild: Optional[MockGuild] = None) -> AsyncMock:
         interaction = AsyncMock(spec=discord.Interaction)
         interaction.user = user
@@ -111,6 +115,7 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.patcher_location_crud.stop()
         self.patcher_guild_crud.stop()
         self.patcher_default_locs.stop()
+        self.patcher_get_rule.stop()
 
     async def test_start_command_new_player(self):
         mock_user = MockUser(id=123, name="TestUser", display_name="Test User Display", locale_str="ru")
@@ -123,10 +128,17 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_created_guild_config = GuildConfig(id=mock_guild.id, name=mock_guild.name, main_language="ru")
         self.mock_guild_crud.create.return_value = mock_created_guild_config
 
+        # Configure get_rule to return a specific static_id
+        test_start_loc_static_id = "configured_start_zone"
+        self.mock_get_rule.return_value = test_start_loc_static_id
 
-        mock_start_loc = Location(id=1, guild_id=mock_guild.id, static_id="start", name_i18n={"en": "Start Zone", "ru": "Стартовая Зона"}, descriptions_i18n={}, type=LocationType.TOWN)
+        # Configure location_crud to find this location
+        mock_start_loc = Location(id=1, guild_id=mock_guild.id, static_id=test_start_loc_static_id, name_i18n={"en": "Configured Start Zone", "ru": "Конфиг. Стартовая Зона"}, descriptions_i18n={}, type=LocationType.TOWN)
         self.mock_location_crud.get_by_static_id.return_value = mock_start_loc
-        self.mock_default_locs.append({"static_id": "start"}) # Устанавливаем мок для DEFAULT_STATIC_LOCATIONS
+
+        # DEFAULT_STATIC_LOCATIONS is now only a fallback for get_rule's default, so less direct impact here
+        # but ensure it's set if the rule isn't found and fallback_start_loc_static_id is used by get_rule mock.
+        # For this test, get_rule is explicitly returning test_start_loc_static_id.
 
         created_player = Player(id=1, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name, current_location_id=mock_start_loc.id, selected_language="ru", level=1)
         self.mock_player_crud.create_with_defaults.return_value = created_player
@@ -135,7 +147,10 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
         self.mock_player_crud.get_by_discord_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id)
-        self.mock_location_crud.get_by_static_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, static_id="start")
+        # If self.mock_default_locs (which is DEFAULT_STATIC_LOCATIONS in the SUT) is [], the fallback is "default_start_loc"
+        expected_fallback_static_id = self.mock_default_locs[0].get("static_id") if self.mock_default_locs else "default_start_loc"
+        self.mock_get_rule.assert_called_once_with(self.session_mock, guild_id=mock_guild.id, key="player:starting_location_static_id", default=expected_fallback_static_id)
+        self.mock_location_crud.get_by_static_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, static_id=test_start_loc_static_id)
         self.mock_player_crud.create_with_defaults.assert_called_once_with(
             session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=mock_start_loc.id, selected_language="ru"
@@ -144,10 +159,10 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session_mock.add.call_count, 2) # Ожидаем два вызова add: RuleConfig и Player
         self.assertEqual(created_player.current_status, PlayerStatus.EXPLORING)
 
-        mock_interaction.followup.send.assert_called_once() # Changed from response.send_message
-        args, kwargs = mock_interaction.followup.send.call_args # Changed from response.send_message
+        mock_interaction.followup.send.assert_called_once()
+        args, kwargs = mock_interaction.followup.send.call_args
         self.assertIn(f"Добро пожаловать в игру, {mock_user.display_name}!", args[0])
-        self.assertIn(f"Стартовая Зона", args[0]) # Проверка имени локации
+        self.assertIn(f"Конфиг. Стартовая Зона", args[0]) # Check localized location name
         self.assertIn(f"язык установлен на ru", args[0])
         self.assertEqual(kwargs.get("ephemeral"), True)
 
@@ -200,21 +215,30 @@ class TestGeneralCommands(unittest.IsolatedAsyncioTestCase):
         mock_created_guild_config = GuildConfig(id=mock_guild.id, name=mock_guild.name, main_language="de")
         self.mock_guild_crud.create.return_value = mock_created_guild_config
 
-        self.mock_location_crud.get_by_static_id.return_value = None # Локация не найдена
-        self.mock_default_locs.append({"static_id": "non_existent_start"})
+        # Configure get_rule to return a specific static_id that won't be found
+        configured_unfindable_static_id = "configured_but_missing_start_zone"
+        self.mock_get_rule.return_value = configured_unfindable_static_id
+
+        self.mock_location_crud.get_by_static_id.return_value = None # Simulate location not found for this static_id
+
+        # self.mock_default_locs can be empty or have some value, get_rule mock above overrides it.
 
         created_player = Player(id=3, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name, current_location_id=None, selected_language="de", level=1)
         self.mock_player_crud.create_with_defaults.return_value = created_player
 
         await self.cog._start_command_internal(mock_interaction, session=self.session_mock)
 
+        expected_fallback_static_id = self.mock_default_locs[0].get("static_id") if self.mock_default_locs else "default_start_loc"
+        self.mock_get_rule.assert_called_once_with(self.session_mock, guild_id=mock_guild.id, key="player:starting_location_static_id", default=expected_fallback_static_id)
+        self.mock_location_crud.get_by_static_id.assert_called_once_with(session=self.session_mock, guild_id=mock_guild.id, static_id=configured_unfindable_static_id)
+
         self.mock_player_crud.create_with_defaults.assert_called_once_with(
             session=self.session_mock, guild_id=mock_guild.id, discord_id=mock_user.id, name=mock_user.display_name,
             current_location_id=None, selected_language="de"
         )
-        mock_interaction.followup.send.assert_called_once() # Changed to followup
-        args, kwargs = mock_interaction.followup.send.call_args # Changed to followup
-        self.assertIn("находится в локации: неизвестной локации", args[0])
+        mock_interaction.followup.send.assert_called_once()
+        args, kwargs = mock_interaction.followup.send.call_args
+        self.assertIn("находится в локации: an undefined starting location", args[0])
 
 
 if __name__ == '__main__':
