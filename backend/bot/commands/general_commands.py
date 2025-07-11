@@ -13,7 +13,7 @@ from backend.core.crud.crud_guild import guild_crud
 from backend.models.guild import GuildConfig
 from backend.models.player import PlayerStatus
 from backend.models.location import LocationType # Needed for _populate_default_locations
-from backend.core.rules import update_rule_config # For setting default language
+from backend.core import rules # Changed import for rules
 from backend.bot.events import DEFAULT_STATIC_LOCATIONS # Используем список дефолтных локаций
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +32,7 @@ async def _ensure_guild_config_in_command(session: AsyncSession, guild_id: int, 
         guild_config_data = {"id": guild_id, "main_language": 'en', "name": guild_name} # Ensure name is passed
         guild_config = await guild_crud.create(session=session, obj_in=guild_config_data)
 
-        await update_rule_config(
+        await rules.update_rule_config( # Changed to rules.update_rule_config
             session=session,
             guild_id=guild_id,
             key="guild_main_language",
@@ -125,7 +125,7 @@ class GeneralCog(commands.Cog, name="General Commands"): # type: ignore[call-arg
         # Using a fallback static_id like "town_square" or an ID known to be in DEFAULT_STATIC_LOCATIONS
         fallback_start_loc_static_id = DEFAULT_STATIC_LOCATIONS[0].get("static_id") if DEFAULT_STATIC_LOCATIONS and DEFAULT_STATIC_LOCATIONS[0].get("static_id") else "default_start_loc"
 
-        rule_start_loc_static_id = await get_rule(
+        rule_start_loc_static_id = await rules.get_rule( # Changed to rules.get_rule
             session,
             guild_id=guild_id,
             key="player:starting_location_static_id",

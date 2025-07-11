@@ -1258,11 +1258,11 @@ TypeError: '<' not supported between instances of 'NoneType' and 'int'
 ___________________ test_apply_consequences_teleport_player ____________________
 tests/core/test_interaction_handlers.py:1104: in test_apply_consequences_teleport_player
     assert movement_log_found, f"PLAYER_MOVED event for teleport not logged. Log calls: {mock_log_event.call_args_list}"
-E   AssertionError: PLAYER_MOVED event for teleport not logged. Log calls: [call(<EventType.CONSEQUENCE_EFFECT_ERROR: 'consequence_effect_error'>, <AsyncMock spec='AsyncSession' id='140508141227760'>, guild_id=1, details_json={'player_id': 1, 'location_id': 1, 'rule_key': 'consequences:portal_teleports_player', 'effect_index': 0, 'failed_effect_rule': {'type': 'teleport_player', 'target_location_static_id': 'secret_chamber', 'feedback_message_key': 'player_teleported'}, 'error': "type object 'EventType' has no attribute 'PLAYER_MOVED'"}),
-E      call(session=<AsyncMock spec='AsyncSession' id='140508141227760'>, guild_id=1, event_type='player_interact', details_json={'player_id': 1, 'target': 'Mystic Portal', 'location_id': 1, 'sublocation': None, 'interaction_rules_key': 'portal_activation', 'rule_found': True, 'rule_content': {'direct_consequences_key': 'portal_teleports_player'}, 'check_required': False, 'applied_consequences_key': 'portal_teleports_player'}, player_id=1, location_id=1)]
+E   AssertionError: PLAYER_MOVED event for teleport not logged. Log calls: [call(<EventType.CONSEQUENCE_EFFECT_ERROR: 'consequence_effect_error'>, <AsyncMock spec='AsyncSession' id='140599451914352'>, guild_id=1, details_json={'player_id': 1, 'location_id': 1, 'rule_key': 'consequences:portal_teleports_player', 'effect_index': 0, 'failed_effect_rule': {'type': 'teleport_player', 'target_location_static_id': 'secret_chamber', 'feedback_message_key': 'player_teleported'}, 'error': "type object 'EventType' has no attribute 'PLAYER_MOVED'"}),
+E      call(session=<AsyncMock spec='AsyncSession' id='140599451914352'>, guild_id=1, event_type='player_interact', details_json={'player_id': 1, 'target': 'Mystic Portal', 'location_id': 1, 'sublocation': None, 'interaction_rules_key': 'portal_activation', 'rule_found': True, 'rule_content': {'direct_consequences_key': 'portal_teleports_player'}, 'check_required': False, 'applied_consequences_key': 'portal_teleports_player'}, player_id=1, location_id=1)]
 E   assert False
 ----------------------------- Captured stdout call -----------------------------
-DEBUG TELEPORT: Using PristineEventType for assertions. ID: 93992196200288
+DEBUG TELEPORT: Using PristineEventType for assertions. ID: 94443206658416
 DEBUG TELEPORT: PristineEventType.PLAYER_MOVED DOES NOT EXIST. Dir: ['ABILITY_USED', 'AI_CONTENT_APPROVED', 'AI_CONTENT_EDITED', 'AI_CONTENT_REJECTED', 'AI_CONTENT_SAVED', 'AI_CONTENT_VALIDATION_FAILED', 'AI_CONTENT_VALIDATION_SUCCESS', 'AI_GENERATION_TRIGGERED', 'AI_RESPONSE_RECEIVED', 'ATTRIBUTE_POINTS_SPENT', 'COMBAT_ACTION', 'COMBAT_END', 'COMBAT_START', 'CONSEQUENCE_EFFECT_APPLIED', 'CONSEQUENCE_EFFECT_ERROR', 'DIALOGUE_END', 'DIALOGUE_LINE', 'DIALOGUE_START', 'ERROR_EVENT', 'FACTION_CHANGE', 'GE_TRIGGERED_DIALOGUE_PLACEHOLDER', 'GLOBAL_ENTITY_ACTION', 'GLOBAL_ENTITY_DETECTED_ENTITY', 'GLOBAL_ENTITY_MOVED', 'ITEM_ACQUIRED', 'ITEM_DROPPED', 'ITEM_LOST', 'ITEM_USED', 'LEVEL_UP', 'MASTER_ACTION_LOCATIONS_CONNECTED', 'MASTER_ACTION_LOCATIONS_DISCONNECTED', 'MASTER_ACTION_LOCATION_ADDED', 'MASTER_ACTION_LOCATION_REMOVED', 'MASTER_COMMAND', 'MOVEMENT', 'NPC_ACTION', 'PLAYER_ACTION', 'QUEST_ACCEPTED', 'QUEST_COMPLETED', 'QUEST_FAILED', 'QUEST_STEP_COMPLETED', 'RELATIONSHIP_CHANGE', 'STATUS_APPLIED', 'STATUS_REMOVED', 'STATUS_TICK_EFFECT', 'SYSTEM_EVENT', 'TRADE_COMPLETED', 'TRADE_INITIATED', 'TRADE_ITEM_BOUGHT', 'TRADE_ITEM_SOLD', 'TURN_END', 'TURN_START', 'WORLD_EVENT_ECONOMIC_ENTITIES_GENERATED', 'WORLD_EVENT_FACTIONS_GENERATED', 'WORLD_EVENT_LOCATION_GENERATED', 'WORLD_EVENT_QUESTS_GENERATED', 'WORLD_STATE_CHANGE', 'XP_GAINED', '__class__', '__contains__', '__doc__', '__getitem__', '__init_subclass__', '__iter__', '__len__', '__members__', '__module__', '__name__', '__qualname__']
 DEBUG TELEPORT: PristineEventType.CONSEQUENCE_EFFECT_APPLIED exists. Value: 'consequence_effect_applied'
 DEBUG TELEPORT: Log call 0 - Extracted event type: 'EventType.CONSEQUENCE_EFFECT_ERROR', Type: <enum 'EventType'>
@@ -1323,7 +1323,7 @@ tests/core/test_movement_logic.py:1114: in test_execute_move_when_find_location_
     assert "Location 'some_unknown_place' could not be found" in result["message"]
 E   assert "Location 'some_unknown_place' could not be found" in 'Cannot move while in status: exploring. Allowed statuses: IDLE, EXPLORING'
 ------------------------------ Captured log call -------------------------------
-WARNING  backend.core.movement_logic:movement_logic.py:357 Rule 'movement:allowed_player_statuses' for guild 1 is not a list: <MagicMock name='get_rule()' spec='RuleConfig' id='140508172235360'>. Defaulting.
+WARNING  backend.core.movement_logic:movement_logic.py:357 Rule 'movement:allowed_player_statuses' for guild 1 is not a list: <MagicMock name='get_rule()' spec='RuleConfig' id='140599377689392'>. Defaulting.
 WARNING  backend.core.movement_logic:movement_logic.py:788 MovementError for player 1 in guild 1 targeting 'some_unknown_place': Cannot move while in status: exploring. Allowed statuses: IDLE, EXPLORING
 =============================== warnings summary ===============================
 ../home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/player.py:29
@@ -1338,8 +1338,7 @@ WARNING  backend.core.movement_logic:movement_logic.py:788 MovementError for pla
   /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
     from crypt import crypt as _crypt
 
-tests/bot/commands/test_party_commands.py::TestPartyCommands::test_party_create_name_not_unique
-tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
+tests/bot/commands/master_commands/test_master_conflict_commands.py::test_resolve_conflict_does_not_trigger_reprocessing_if_others_remain
   /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2217: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
     def __init__(self, name, parent):
   Enable tracemalloc to get traceback where the object was allocated.
@@ -1357,9 +1356,9 @@ tests/core/test_ai_orchestrator.py::test_save_approved_generation_success
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
-tests/core/test_turn_controller.py::test_process_guild_turn_releases_lock_on_exception
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:2564: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
-    return tuple.__new__(cls, (args, kwargs))
+tests/core/test_turn_controller.py::test_process_guild_turn_one_party_pending_with_member
+  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/unittest/mock.py:404: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(self, /, *args, **kwargs):
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
@@ -1370,8 +1369,8 @@ tests/core/test_turn_controller.py::test_process_guild_turn_releases_lock_on_exc
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
 tests/core/test_world_generation.py::TestWorldGeneration::test_generate_factions_and_relationships_existing_static_id
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/linecache.py:66: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
-    continue
+  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/traceback.py:265: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    def __init__(self, filename, lineno, name, *, lookup_line=True,
   Enable tracemalloc to get traceback where the object was allocated.
   See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
 
@@ -1420,4 +1419,4 @@ ERROR tests/test_main.py::test_main_generic_start_exception - AttributeError:...
 ERROR tests/test_main.py::test_main_keyboard_interrupt_handling - AttributeEr...
 ERROR tests/test_main.py::test_main_no_token_fixed - AttributeError: <module ...
 ERROR tests/test_main.py::test_main_success_with_bot_args_check - AttributeEr...
-= 34 failed, 840 passed, 14 xfailed, 10 warnings, 9 errors in 107.47s (0:01:47) =
+= 34 failed, 840 passed, 14 xfailed, 9 warnings, 9 errors in 100.72s (0:01:40) =
