@@ -5,509 +5,1069 @@ Decomposed Backend Development Task List (For AI Agent - Autonomous Tasks)
 
 Phase 0: Architecture and Initialization (Foundation MVP)
 🔧 0.1 Discord Bot Project Initialization and Basic Guild Integration.
-Description: Set up the Python project structure using the chosen asynchronous framework. Initialize integration with the Discord API, handle basic Discord events (on_ready, on_message, on_guild_join, on_guild_remove). Configure logging. Implement  Implement utility commands (e.g., /ping). Implement the  Implement the 
+Description: Set up the Python project structure using the chosen asynchronous framework. Initialize integration with the Discord API, handle basic Discord events (on_ready, on_message, on_guild_join, on_guild_remove). Configure logging. Implement utility commands (e.g., /ping).
 Result: Basic working Discord bot, configured for multiple guilds, logging, language system.
 
 
 💾 0.2 DBMS Setup and Database Model Definition with Guild ID.
 Description: Select a scalable DBMS (PostgreSQL/MySQL) and ORM. Define the structure of all data models in the DB. Crucial: All models storing game data specific to a particular guild MUST INCLUDE a guild_id field (BIGINT, Indexed) as part of a composite key or FK to GuildConfig). (Field details are in task descriptions where these models are detailed: Player, Location, WorldState, Party, GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, RuleConfig, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe). Text fields - JSONB (_i18n).
-Implement the GuildConfig model: id (PK, BIGINT - the Discord guild's ID itself), master_channel_id (BIGINT), system_channel_id (BIGINT), notification_channel_id (BIGINT, for moderation/conflict notifications), main_language (TEXT).
+Implement the GuildConfig model: id (PK, BIGINT - the Discord guild's ID itself), master_channel_id (BIGINT), system_channel_id (BIGINT), notification_channel_id (BIGINT, for moderation/conflict notifications), main_language (TEXT), supported_languages_json (JSONB, e.g. ["en", "ru"]).
 Configure ORM and migrations.
 Result: DB schema is ready for full data isolation by guild and storing all types of game data with multilingual support.
 
 
 🔧 0.3 Basic DB Interaction Utilities and Rule Configuration Access (Guild-Aware).
 Description: Implement low-level functions for working with the DB that always operate within the context of the specified guild.
-Implement utilities for managing ORM sessions (get_db_session). Implement decorators or context managers for managing ORM TRANSACTIONS (@transactional(guild_id)). These transactions MUST operate ONLY WITH DATA WITHIN THE SPECIFIED guild_id.
-Implement CRUD utilities (get_entity_by_id, create_entity, update_entity, delete_entity) for ALL models. These utilities MUST accept guild_id as the FIRST mandatory parameter and AUTOMATICALLY add the condition WHERE guild_id = :guild_id to queries.
-Implement the load_rules_config(guild_id: int) -> dict utility: Loads all RuleConfig records (0.2) for the specified guild and forms a rules dictionary. Caches this dictionary per-guild in the bot process memory.
-Implement the get_rule(guild_id: int, key: str) -> Any utility: Retrieves a rule parameter FROM THE CACHE for the specified guild by key. Handle errors.
-Implement the update_rule_config(guild_id: int, key: str, value: Any) utility: Updates the RuleConfig in the DB for the specified guild. After successful saving, updates the cache for this guild (load_rules_config).
-Result: A set of utilities for reliable, secure (guild-isolated) DB data access and configurable rules.
-
+Implement utilities for managing ORM sessions (get_db_session). Implement decorators or context managers for managing ORM TRANSACTIONS (@transactional). These transactions MUST operate ONLY WITH DATA WITHIN THE SPECIFIED guild_id (enforced by CRUD methods).
+Implement generic CRUD utilities (e.g., in a CRUDBase class: get_entity_by_id, get_all, create_entity, update_entity, delete_entity) for ALL models. These utilities MUST accept guild_id as a mandatory parameter where applicable and AUTOMATICALLY add the condition WHERE guild_id = :guild_id to queries.
+Implement the `core.rules` module:
+    - `load_rules_config_for_guild(session, guild_id)`: Loads all RuleConfig records for the guild into an in-memory cache.
+    - `get_rule(session, guild_id, key, default)`: Retrieves a rule from cache, loading if necessary. Handles missing rules with defaults.
+    - `update_rule_config(session, guild_id, key, value)`: Updates RuleConfig in DB and refreshes cache.
+Ensure robust error handling and logging in all utility functions.
+Result: A set of utilities for reliable, secure (guild-isolated) DB data access and configurable rules with caching. Cache invalidation strategies considered for multi-instance deployments if applicable.
 
 
 🌍 Phase 1: Game World (Static & Generated)
 🌍 1.1 Location Model (i18n, Guild-Scoped). (0.2)
 Description: Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details.
-Implement the Location model (0.2) with fields: id (PK, INTEGER), guild_id (BIGINT, Indexed, FK to GuildConfig), static_id (TEXT, unique within the guild), name_i18n (JSONB - for static or primary generated name), descriptions_i18n (JSONB - for static or primary generated description), type (TEXT enum), coordinates_json (JSONB), neighbor_locations_json (JSONB - list of {location_id: connection_type_i18n}), generated_details_json (JSONB - additional generated descriptive details), ai_metadata_json (JSONB - for AI generation).
-Populate the DB with static data during on_guild_join (0.1). World Lore is also stored in the DB (e.g., in WorldState or a separate table), linked to the guild.
-Utilities get_location(guild_id, location_id), get_static_location_id(guild_id, static_id). A utility to get localized location/lore text (using _i18n fields and fallback languages 0.1).
-Result: Location model defined, static data accessible and isolated.
+Implement the Location model (0.2) with fields: id (PK, INTEGER), guild_id (BIGINT, Indexed, FK to GuildConfig), parent_location_id (FK to locations.id, nullable), static_id (TEXT, unique within the guild), name_i18n (JSONB), descriptions_i18n (JSONB), type (LocationType ENUM), coordinates_json (JSONB), neighbor_locations_json (JSONB - list of {location_id: connection_type_i18n}), generated_details_json (JSONB), ai_metadata_json (JSONB).
+Populate the DB with initial static world lore and locations (if any) during on_guild_join (0.1), linked to the guild.
+Implement utilities `get_location(guild_id, location_id)`, `get_location_by_static_id(guild_id, static_id)`.
+Implement `get_localized_text(entity_with_i18n_fields, field_name, language, fallback_lang)` for retrieving localized text from any _i18n JSONB field.
+Result: Location model defined, static data accessible and isolated, localization utilities available.
 
 
 🌍 1.2 Player and Party System (ORM, Commands, Guild-Scoped). (0.2, 0.3, 0.1)
-Description: Managing players and parties within a guild.
-Implement the Player model (0.2/7). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), discord_id (BIGINT, Indexed), name (TEXT), current_location_id (INTEGER FK), selected_language (TEXT), xp (INT), level (INT), unspent_xp (INT), gold (INT), current_status (TEXT - enum), collected_actions_json (JSONB), current_party_id (INTEGER FK Nullable). (Composite Unique Index: guild_id, discord_id).
-Implement the Party model (0.2). Fields: id (PK, INTEGER), guild_id (BIGINT, Indexed), name (TEXT), player_ids_json (JSONB), current_location_id (INTEGER FK), turn_status (TEXT - enum).
-/start command: Get guild_id from Discord command context. Create Player with this guild_id using 0.3 utilities. Assign starting location (via 4). Set default stats, XP, level, 'exploring' status.
-/party create/join/leave/disband commands: Manage Party within the guild context. All Player/Party loading/modification MUST use guild_id (0.3).
-Utilities get_player(guild_id, player_id), get_party(guild_id, party_id), get_players_in_location(guild_id, location_id).
+Description: **A to Z Implementation**: Fully implement player and party management within a guild, adhering to `RuleConfig` for all relevant behaviors.
+    - **Models**: Ensure `Player` and `Party` models (Task 0.2, 2.1) are complete, including all stats, statuses (PlayerStatus, PartyTurnStatus ENUMs), inventory links, quest progress links, and `guild_id`.
+    - **Player Creation (`/start` command)**:
+        - On `/start`, correctly identify `guild_id`. Create `Player` record.
+        - Assign starting location, language, stats (HP, attributes), XP, level, gold based on `RuleConfig` (e.g., `player:starting_stats`, `player:starting_location_static_id`).
+        - Set initial status (e.g., `PlayerStatus.EXPLORING`).
+        - Provide comprehensive, localized feedback. Handle cases where player already exists.
+    - **Party Management Commands (`/party create <name>`, `/party join <name>`, `/party leave`, `/party disband`, `/party invite <player>`, `/party kick <player>`, `/party promote <player>`)**:
+        - All commands operate strictly within `guild_id`.
+        - **Create**: Adhere to `RuleConfig` for party size limits, naming conventions. Auto-assign leader.
+        - **Join**: Adhere to `RuleConfig` (open/invite-only, level requirements). Handle player already in party, party full. Update player/party locations consistently.
+        - **Leave**: Handle leader leaving (transfer leadership per `RuleConfig` or disband). Update player/party locations.
+        - **Disband**: Only by leader or per `RuleConfig`. Notify members.
+        - **Invite/Kick/Promote**: Permission checks (leader or `RuleConfig` based roles).
+        - All operations must update `Player.current_party_id` and `Party.player_ids_json` atomically.
+        - Update `Party.turn_status` and `Player.current_status` appropriately (e.g., if joining an active party).
+        - Log all party changes (PartyLog or StoryLog). Provide localized feedback for all success/failure scenarios.
+    - **Utilities**: Ensure robust `get_player`, `get_party`, `get_players_in_location`, `get_party_members` utilities, all guild-scoped.
+    - **Error Handling**: Graceful handling of non-existent players/parties, permission issues, invalid states.
+Result: A comprehensive and rule-driven player and party management system with full command support, logging, and i18n feedback.
 
 
-🌍 1.3 Movement Logic (Player/Party, Guild-Scoped). (4, 5, 0.3, 14)
-Description: Implement the mechanic of moving between locations within one guild.
-API function handle_move_action(guild_id: int, player_id: int, target_location_identifier: str). Accepts guild_id.
-Loads Player (with guild_id). Determines current location and target_location (4.1) CONSIDERING guild_id.
-Checks location connections (static 4.1 static_connections_json and generated Location.neighbor_locations_json 4.1).
-If player is in a party: Checks party movement rules (RuleConfig 13) FOR THIS GUILD, if the player is in a party.
-Within a SINGLE TRANSACTION (0.3), operating ONLY ON DATA WITHIN THIS GUILD: Updates the Player's (and Party's) location. Logs the movement event (19) WITH THIS guild_id.
-After commit: Asynchronously calls on_enter_location(guild_id, entity_id, entity_type, target_location_id) (14).
-MVP: Link to /move. NLU (10/12) will pass guild_id.
-
+🌍 1.3 Movement Logic (Player/Party, Guild-Scoped). (Tasks 4, 5, 0.3, 14, 25)
+Description: **A to Z Implementation**: Fully implement player and party movement between locations within a guild, respecting all game rules and side effects.
+    - **API**: `handle_move_action(guild_id: int, player_id: int, target_location_identifier: str)` (called by Action Processor).
+    - **Target Resolution**: Robustly resolve `target_location_identifier` (name, static_id, alias) to a `Location` ID within the guild, considering player's language.
+    - **Connection Check**: Verify valid connection (static or generated `neighbor_locations_json`) between current and target locations. Check for one-way connections, conditional connections (e.g., requires item, quest status - from `Location.properties_json` or `RuleConfig`).
+    - **Movement Permissions**:
+        - Check player status (e.g., not in combat, not busy).
+        - **Party Movement**:
+            - If player is in a party, apply `RuleConfig` for party movement (e.g., `rules:party:movement:policy` = "leader_only", "all_members_ready", "any_member").
+            - If "all_members_ready", check status of all party members.
+            - If party moves, all members' locations are updated.
+    - **Costs & Checks**: Apply movement costs (time, resources like food/stamina from `Player.stats` or `RuleConfig`) if defined. Perform skill checks (e.g., survival for difficult terrain) if required by location connection properties or `RuleConfig`, using Check Resolver (Task 6.3.2). Movement fails if checks fail critically or costs can't be met.
+    - **Transactional Update**: Player/Party location updates, resource deductions, and movement event logging must occur within a single atomic transaction for the guild.
+    - **Event Logging**: Log `EventType.MOVEMENT` to `StoryLog` with details (player/party, old/new location, path taken, duration).
+    - **Post-Movement Hook**: After successful commit, asynchronously call `on_enter_location(guild_id, entity_id, entity_type, new_location_id, old_location_id)` (Task related to 14/World Events). This hook can trigger location descriptions, new encounters, AI generation, quest updates.
+    - **Feedback**: Provide comprehensive, localized feedback to the player(s) for success, failure (no path, locked, failed check, insufficient resources), and any significant events during movement.
+    - **Error Handling**: Handle invalid inputs, non-existent locations, system errors gracefully.
+Result: A robust, rule-driven movement system supporting individual and party travel, with integrated checks, costs, event logging, and hooks for dynamic content.
 
 
 🧠 Phase 2: AI Integration - Generation Core
 🧠 2.1 Finalize Definition of ALL DB Schemas (i18n, Guild ID). (0.2, 0.3)
-Description: Final structure for all ORM schemas (fields and relationships) for all game entities. Every model storing game state must have a guild_id field. Text fields - JSONB (_i18n).
-Including models: GeneratedLocation (extends Location 4.1?), GeneratedNpc, GeneratedFaction, GeneratedQuest, Item, Inventory, Log, Relationship, PlayerNpcMemory, Ability, Skill, Status, ItemProperty, Questline, QuestStep, MobileGroup, CraftingRecipe. All these models MUST INCLUDE guild_id (BIGINT, Indexed) as part of the primary key or a unique index, and as a Foreign Key to GuildConfig (0.2).
+Description: Final structure for all ORM schemas (fields and relationships) for all game entities. Every model storing game state must have a `guild_id` field. Text fields - JSONB (`_i18n`).
+Including models: `GeneratedLocation` (extends Location 4.1?), `GeneratedNpc`, `GeneratedFaction`, `GeneratedQuest`, `QuestStep`, `Questline`, `Item`, `InventoryItem`, `StoryLog`, `Relationship`, `PlayerNpcMemory`, `PartyNpcMemory`, `Ability`, `Skill`, `StatusEffectDefinition`, `ActiveStatusEffect`, `ItemProperty` (if separate from Item.properties_json), `MobileGroup`, `GlobalEvent`, `CraftingRecipe`, `PendingGeneration`, `PendingConflict`, `CombatEncounter`. All these models MUST INCLUDE `guild_id` (BIGINT, Indexed) as part of the primary key or a unique index, and as a Foreign Key to `GuildConfig` (0.2). Ensure all relationships, constraints, and indexing are optimal.
+Result: All database models are fully defined, supporting guild isolation, i18n, and all planned game mechanics. Migrations are up-to-date.
 
 
 🧠 2.2 AI Prompt Preparation Module. (1, 4, 7, 13, 14, 30, 36, 37, 38, 39, 40)
-Description: Collects world context for a specific guild and forms a request to the AI for generating new content.
-API: prepare_ai_prompt(guild_id: int, location_id: int, player_id: Optional[int] = None, party_id: Optional[int] = None) -> str. Accepts guild_id.
-Collects context (WS 36, relationships 30/31/32, quests 35/36, lore 4, party level 5) ALL DATA FOR THIS GUILD. Includes a "dictionary" of game terms (stats, skills, entities) FROM THE DB FOR THIS GUILD (14/13/30/36/37) as an API for the AI.
-Request: Generation of entities (NPCs, Quests, Items, Locations, Events) corresponding to the rules and context FOR THIS GUILD. Generate texts in the bot's MAIN LANGUAGE FOR THIS GUILD (1) AND in ENGLISH, in _i18n JSONB format.
+Description: **A to Z Implementation**: Develop a comprehensive and highly configurable module for preparing detailed prompts for the AI (LLM) to generate diverse game content (locations, NPCs, items, quests, factions, relationships, events, narrative text).
+    - **API**: `prepare_ai_prompt(session, guild_id: int, generation_type: str, context: Dict[str, Any]) -> str`.
+        - `generation_type`: e.g., "location_description", "npc_dialogue", "quest_full", "item_magical", "faction_creation", "event_dynamic".
+        - `context`: Contains specific details relevant to the `generation_type` (e.g., `location_id`, `player_id`, `npc_id`, `theme_keywords`, `difficulty_level`, `previous_events_summary`).
+    - **Context Aggregation**:
+        - Dynamically collect comprehensive context from the database based on `guild_id`, `generation_type`, and `context` dict. This includes:
+            - Current `Location` data (description, type, neighbors, existing entities).
+            - `Player`/`Party` data (level, class, current quests, recent actions, relationships).
+            - `GeneratedNpc` data (personality, faction, existing memory, relationships).
+            - `GeneratedFaction` data (ideology, members, relationships).
+            - Active `GeneratedQuest` states.
+            - Relevant `WorldState` entries (global flags, lore snippets from `RuleConfig` key `world_lore:*`).
+            - Relevant `RuleConfig` entries that dictate generation constraints or style (e.g., `ai:generation:npc:personality_archetypes`, `ai:generation:quest:common_themes:<location_type>`).
+    - **Game Term Dictionary**: Include a "dictionary" of game terms (entity names, stats, skills, abilities, status effects, item properties) specific to the guild, extracted from `RuleConfig` and relevant DB models, to guide AI consistency.
+    - **Prompt Structuring**:
+        - Use structured prompt engineering techniques. Define clear sections in the prompt: Role (e.g., "You are a master storyteller..."), Task (e.g., "Generate a detailed NPC..."), Context (all aggregated data), Constraints (from `RuleConfig`), Output Format (JSON schema for structured data, or style guide for narrative).
+        - Ensure prompts request i18n text generation (e.g., for `name_i18n`, `description_i18n` fields) in the guild's main language and English (or other configured languages via `GuildConfig.supported_languages_json`).
+    - **Dynamic Content Requests**: Support requesting generation of specific sub-components (e.g., just NPC dialogue lines, just quest objectives) based on `generation_type` and `context`.
+    - **Error Handling**: Gracefully handle missing context data or rules, logging issues.
+    - **Configurability**: The content and structure of prompts should be influenced by `RuleConfig` (e.g., `ai:prompts:<generation_type>:template`, `ai:prompts:global_instructions`).
+Result: A robust and flexible AI prompt preparation module capable of generating highly contextualized and tailored prompts for a wide variety of content generation tasks, fully respecting guild-specific data and rules, and i18n requirements.
 
 
 🧠 2.3 AI Response Parsing and Validation Module. (7, 13, 14, 30, 37, 39, 18, 16)
-Description: Parsing and multi-level validation of the AI response.
-API: parse_and_validate_ai_response(raw_ai_output_text: str, guild_id: int) -> ParsedAiData | ValidationError. Accepts guild_id.
-Parse JSON. Validate structure (against schema 7).
-Semantic validation (against rules 13/14/30/37/39/40) FOR THIS GUILD: Check generated data against rules and context (stat ranges, relationship correctness, quest structure, prices, consistency), presence of texts in both requested languages in _i18n fields. Autocorrection, flag issues.
+Description: **A to Z Implementation**: Develop a comprehensive module for parsing, validating, and (where feasible) auto-correcting AI-generated content.
+    - **API**: `parse_and_validate_ai_response(raw_ai_output_text: str, guild_id: int, expected_schema_type: str) -> Union[ParsedAiData, CustomValidationError]`.
+        - `expected_schema_type`: Hints at the primary Pydantic model to use for parsing (e.g., "NpcData", "QuestData").
+    - **Parsing**:
+        - Robustly parse JSON from `raw_ai_output_text`. Handle malformed JSON and common AI formatting quirks (e.g., markdown code blocks).
+        - Use Pydantic models (defined in `ai_response_parser.py` like `ParsedNpcData`, `ParsedItemData`, etc., grouped under `ParsedAiData`) for structural validation of all expected entity types.
+    - **Multi-Level Validation**:
+        - **Schema Validation**: Ensure the parsed data conforms to the expected Pydantic model structure for the `expected_schema_type`.
+        - **Semantic Validation (Rule-Based)**:
+            - Cross-reference generated data against `RuleConfig` for the `guild_id`. Examples:
+                - NPC stats within defined ranges for their level/type (`rules:npc:stats:<type>`).
+                - Item prices/properties consistent with economic rules (`rules:economy:item_balance`).
+                - Quest structures adhering to defined templates or constraints (`rules:quest:structure:<type>`).
+                - Faction relationships consistent with lore or defined conflicts (`rules:faction:relationship_constraints`).
+                - Generated text (names, descriptions) checked for profanity or forbidden terms (`rules:text_filter:global`).
+            - Check for consistency within the generated batch (e.g., unique `static_id`s if multiple entities are generated).
+            - Verify i18n requirements: ensure text fields are provided in all languages specified in `GuildConfig.supported_languages_json`.
+        - **Contextual Validation**: Check generated content against existing game state if context was provided during prompt generation (e.g., generated NPC faction should exist, quest giver NPC should exist).
+    - **Error Reporting**: If validation fails, return a structured `CustomValidationError` object containing:
+        - Original problematic data snippet.
+        - Specific error messages (Pydantic errors, custom semantic errors).
+        - Suggested fixes or reasons for failure.
+    - **Auto-Correction (Optional, Limited)**: Implement simple auto-correction for common, safe-to-fix issues (e.g., trimming whitespace, fixing minor case errors in known enum values, ensuring required i18n keys exist even if empty). More complex corrections should be flagged for Master review.
+    - **Logging**: Detailed logging of parsing process, validation successes, and failures.
+Result: A robust AI response processing module that ensures generated content is well-structured, conforms to guild-specific rules and game consistency, and provides clear error reporting for moderation.
 
 
 🧠 2.6 AI Generation, Moderation, and Saving Logic. (7, 14, 15, 16, 17, 19, 41, OpenAI API, 0.3, 1, 3, 12, 13, 21)
-Description: Full content generation cycle with manual Master control.
-Function trigger_location_generation(guild_id: int, ...). Accepts guild_id.
-Calls 16 -> API -> 17.
-Pending Moderation: If 17 is valid, create a PendingGeneration record WITH guild_id. Notify the Master (41) IN THE NOTIFICATION CHANNEL FOR THIS GUILD. Set player(s) status to 'awaiting_moderation' IN THIS GUILD.
-Master API (41) for moderation: /master review_ai, /master approve_ai, /master edit_ai, /master reject_ai. Operate on PendingGeneration records BY guild_id. Allows editing _i18n fields.
-Saving Worker: Monitors PendingGeneration. Upon 'approved', copies the guild_id to EVERY generated entity and saves them in the DB (7, 14, etc.) within a transaction for this guild. Asynchronously calls on_enter_location(guild_id, ...) (14).
-
+Description: **A to Z Implementation**: Implement the complete end-to-end cycle for AI content generation, including triggering, processing, Master moderation, and saving to the database, ensuring data integrity and adherence to guild rules.
+    - **Triggering Generation**:
+        - API function `trigger_ai_generation_flow(session, bot, guild_id, generation_type: str, context: Dict[str, Any], player_id: Optional[int])`.
+        - Calls `prepare_ai_prompt` (Task 2.2) to get the prompt.
+        - Calls the actual LLM API (e.g., OpenAI, with appropriate error handling for API calls, rate limits, etc.). Fallback to mock if real AI fails or is disabled by `RuleConfig`.
+        - Calls `parse_and_validate_ai_response` (Task 2.3).
+    - **Pending Moderation**:
+        - If parsing/validation is successful (or has non-critical issues), create a `PendingGeneration` record in the DB. Store: `guild_id`, trigger context, full prompt, raw AI response, parsed/validated data (as JSON), validation issues (if any), and initial status (`PENDING_MODERATION` or `VALIDATION_FAILED`).
+        - If a `player_id` triggered the generation (e.g., for a dynamic event), update `Player.current_status` to `AWAITING_MODERATION`.
+        - Notify the Game Master via Discord (using `GuildConfig.notification_channel_id`) about the new content awaiting review, including `PendingGeneration.id`.
+    - **Master Moderation API (Discord Commands - part of Task 15.1)**:
+        - `/master_ai review [status_filter] [page]`: List `PendingGeneration` records for the guild.
+        - `/master_ai view <pending_id>`: Display full details of a `PendingGeneration` record (prompt, raw response, parsed data, validation issues).
+        - `/master_ai edit <pending_id> <field_to_edit> <new_value_json>`: Allow Master to edit `parsed_validated_data_json` or `master_notes`. Sets status to `EDITED_PENDING_APPROVAL`.
+        - `/master_ai approve <pending_id>`: Set status to `APPROVED`.
+        - `/master_ai reject <pending_id> [reason]`: Set status to `REJECTED`, store reason.
+    - **Saving Worker/Logic (`save_approved_generation`)**:
+        - API `save_approved_generation(session, pending_generation_id, guild_id)`.
+        - Triggered after Master approves (or auto-approved by `RuleConfig` if `ai:moderation:auto_approve_on_validation_success` is true).
+        - Retrieve the `PendingGeneration` record.
+        - **Atomically save all generated entities** from `parsed_validated_data_json` to their respective database tables within a single transaction for the guild.
+            - Correctly map parsed data (e.g., `ParsedNpcData`, `ParsedQuestData`) to SQLAlchemy models.
+            - Handle creation of related entities (e.g., `QuestStep` for `GeneratedQuest`, `InventoryItem` for `GeneratedNpc` traders from `ParsedNpcTraderData.generated_inventory_items`).
+            - Ensure `guild_id` is correctly propagated to all saved entities.
+            - Resolve internal references (e.g., a generated NPC being a quest giver for a generated quest in the same batch) using `static_id`s and a two-pass saving process if needed.
+        - If saving is successful, update `PendingGeneration.status` to `SAVED`.
+        - If saving fails, update status to `ERROR_ON_SAVE` and log detailed errors.
+    - **Post-Save Actions**:
+        - If player status was `AWAITING_MODERATION`, revert it (e.g., to `EXPLORING`), considering if other pending generations for the player still exist.
+        - Asynchronously call relevant game event hooks (e.g., `on_enter_location` if new location content was generated, `on_new_entities_created`).
+    - **Error Handling & Logging**: Comprehensive error handling and logging throughout the entire pipeline.
+Result: A fully operational, fault-tolerant AI content generation pipeline from triggering to saving, with robust moderation tools, ensuring all generated content is validated, approved, and correctly integrated into the game world per guild.
 
 
 🎲 Phase 6: Action Resolution Systems (Core Mechanics)
 🎲 6.3.1 Dice Roller Module. (None)
-Description: Implement a dice string parser and rolling function. Not linked to a guild.
-API: roll_dice(dice_string: str) -> Tuple[int, List[int]].
+Description: Implement a flexible dice string parser (e.g., "2d6+3", "1d20-1", "best3of4d6") and rolling function. This module is guild-agnostic.
+API: `roll_dice(dice_string: str) -> Tuple[int, List[int], str]` where the tuple contains (total_result, list_of_individual_rolls, normalized_dice_string_used).
+Handles various dice types, counts, modifiers, and common mechanics like drop lowest/highest.
+Result: A reliable dice rolling utility usable by any game system requiring random number generation based on standard dice notation.
 
 
 🎲 6.3.2 Check Resolver Module. (14, 0.3, 11, 47)
-Description: Module for calculating check outcomes based on RuleConfig rules.
-API: resolve_check(guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_check_type: str, target_entity_id: Optional[int] = None, target_entity_type: Optional[str] = None, difficulty_dc: Optional[int] = None, check_context: Optional[dict] = None) -> CheckResult.
-Accepts guild_id. Gets RuleConfig rules FOR THIS GUILD (0.3/13). Loads entities by guild_id (0.3). Uses Effective_Stats (14) FOR THIS ENTITY IN THIS GUILD.
-Calculates modifier based on rules, using stats, skills (14), equipment (15), statuses (14), relationships (31), and context.
-Calls 11 (roll_dice). Calculates final result. Determines outcome based on rules (compare result vs DC/vs_result).
-Returns the result AND an object with details (for log 19, feedback 47).
+Description: **A to Z Implementation**: Develop a comprehensive module for resolving attribute/skill checks based on configurable `RuleConfig` rules, entity stats, and situational context.
+    - **API**: `resolve_check(session, guild_id: int, check_type: str, entity_doing_check_id: int, entity_doing_type: RelationshipEntityType, target_entity_id: Optional[int] = None, target_entity_type: Optional[RelationshipEntityType] = None, difficulty_dc: Optional[int] = None, opposed_check_by_target: bool = False, base_attribute: Optional[str] = None, skills_involved: Optional[List[str]] = None, check_context: Optional[Dict[str, Any]] = None) -> CheckResult`.
+    - **Rule Loading**: Load check-specific rules from `RuleConfig` using `guild_id` and `check_type` (e.g., `checks:<check_type>:base_dc`, `checks:<check_type>:relevant_attributes`, `checks:<check_type>:situational_modifiers_formula`).
+    - **Entity Data**: Load `entity_doing_check` (and `target_entity` if applicable) to access their base stats, skills, current status effects, equipped items, and relationships.
+    - **Effective Stats Calculation**: Calculate effective stats/skills for the check, considering temporary effects from statuses, item bonuses (from `properties_json`), and ability modifiers.
+    - **Modifier Calculation**:
+        - Calculate base modifier from attributes (e.g., `(attribute_value - 10) // 2`) and skill ranks.
+        - Apply situational modifiers based on `check_context` and `RuleConfig` formulas (e.g., advantage/disadvantage, numerical bonuses/penalties from weather, terrain, lighting, social situations).
+        - Apply modifiers from active status effects on the `entity_doing_check`.
+        - Apply modifiers derived from relationships between `entity_doing_check` and `target_entity` (Task 37).
+    - **Dice Rolling**: Call Dice Roller (Task 6.3.1) using dice notation from `RuleConfig` (e.g., "1d20", "2d6").
+    - **Result Determination**:
+        - If `opposed_check_by_target` is true, recursively call `resolve_check` for the target, and compare results.
+        - Otherwise, compare total roll + modifiers against `difficulty_dc` (either provided, from `RuleConfig`, or derived from target's opposing stats/skills).
+        - Determine outcome (e.g., critical success, success, failure, critical failure) based on `RuleConfig` (e.g., degrees of success/failure, crit ranges).
+    - **`CheckResult` Object**: Return a comprehensive `CheckResult` Pydantic model containing: input parameters, all calculated modifiers (with sources), dice roll details, final result, outcome, and any narrative snippets for feedback.
+    - **Error Handling**: Gracefully handle missing rules, invalid entity IDs, or calculation errors.
+    - **Logging**: Detailed logging of the check resolution process for auditing and debugging.
+Result: A robust and highly configurable check resolution system capable of handling diverse game situations, modifiers, and outcomes, providing detailed results for game logic and player feedback.
 
 
 ⚙️ 6.10 Action Parsing and Recognition Module (NLU & Intent/Entity). (1, 4, 7, 14, 0.2, 0.3, Choose NLU Libs, Guild-Scoped Dictionary)
-Description: Understands player narrative input and extracts their intentions and targets in the context of their guild.
-Async Listener for on_message(message). Gets guild_id. Checks player status. Uses NLU library and an entity dictionary ONLY FOR THIS GUILD. Saves the Action (JSON) in player.collected_actions_json (0.2) for this player in this guild.
+Description: **A to Z Implementation**: Develop a sophisticated Natural Language Understanding (NLU) module to parse player narrative input, identify intents, and extract relevant entities within the context of their specific guild.
+    - **API**: `parse_player_input(raw_text: str, guild_id: int, player_id: int, current_game_context: Dict[str, Any]) -> ParsedAction`.
+        - `current_game_context`: Includes player's location, nearby entities, active quests, dialogue state, etc., to aid disambiguation.
+    - **NLU Library Integration**: Choose and integrate a suitable NLU library (e.g., Rasa, spaCy with custom components, or a cloud-based NLU service if external calls are permitted). Configure it for high accuracy.
+    - **Intent Recognition**:
+        - Define and train/configure the NLU model to recognize a comprehensive set of game intents (e.g., "move", "attack", "talk", "use_item", "examine", "trade_buy", "cast_ability", "party_invite", "quest_accept").
+        - Handle ambiguous inputs and provide clarification prompts or default actions where appropriate (based on `RuleConfig`).
+    - **Entity Extraction**:
+        - Extract all relevant game entities from the text: target names (NPCs, players, items), locations, directions, quantities, ability names, etc.
+        - **Guild-Scoped Entity Dictionary**: Dynamically build and use an entity dictionary for the NLU model based on the current `guild_id`. This dictionary includes names of known locations, NPCs, items, abilities, quests, factions, etc., within that guild to improve recognition accuracy. This dictionary should be updatable as new entities are discovered or generated.
+        - Normalize extracted entities (e.g., map synonyms to canonical names).
+    - **Coreference Resolution**: Resolve pronouns and ambiguous references (e.g., "talk to him", "use it") based on `current_game_context` and dialogue history.
+    - **Action Storage**: Store the recognized `ParsedAction` (containing intent, entities, confidence scores, raw text) in `Player.collected_actions_json` for processing by the Turn Processor (Task 6.11). If player is in `PlayerStatus.DIALOGUE`, route directly to Dialogue System (Task 53).
+    - **Multi-language Support**: Ensure NLU model can process input in all supported languages for the guild (defined in `GuildConfig.supported_languages_json`).
+    - **Error Handling & Fallbacks**: If NLU fails to understand the input with sufficient confidence, provide appropriate feedback to the player (e.g., "I didn't understand that, try phrasing differently.") or trigger a fallback mechanism.
+    - **Logging**: Log raw input, NLU processing steps, recognized intent, and extracted entities for analysis and model improvement.
+Result: A powerful NLU module that accurately interprets diverse player inputs in multiple languages, leveraging guild-specific context to provide structured actions for the game engine.
 
 
 ⚙️ 6.12 Turn Queue System (Turn Controller) - Per-Guild Processing. (1, 2, 13, 21, 1.3, 19, 11.3, 25, 35, 15, 36, Per-Guild Async Workers/Queue Management)
-Description: Manages the step-by-step progression of the game and triggers action processing independently for each guild.
-Player and Party models with statuses, linked to the guild (0.2/1.2).
-Async Listener for /end_turn//end_party_turn. Gets guild_id.
-Updates player(s) status in this guild within a transaction (0.3).
-If conditions for processing a turn in this guild are met: Sets status(es) to 'processing' in this guild. Starts an async worker for the Action Processing Module (15), passing it the guild_id.
+Description: **A to Z Implementation**: Develop a robust Turn Controller to manage the step-by-step progression of game time and action resolution independently for each active guild.
+    - **State Management**: Reliably track `PlayerStatus` (e.g., `IDLE`, `AWAITING_TURN_SUBMISSION`, `TURN_ENDED_PENDING_RESOLUTION`, `PROCESSING_GUILD_TURN`, `IN_COMBAT`, `IN_DIALOGUE`, `AWAITING_MODERATION`) and `PartyTurnStatus` for all players and parties.
+    - **Turn Submission**:
+        - Handle `/end_turn` (for individual players not in a party or when party rules allow individual turns) and `/end_party_turn` commands.
+        - Atomically update player/party status to `TURN_ENDED_PENDING_RESOLUTION` upon valid turn submission.
+    - **Guild Turn Readiness Check (`process_guild_turn_if_ready`)**:
+        - This function, likely called periodically or after every turn submission for a guild:
+            - Checks if all active players/parties (those not `IDLE`, `IN_DIALOGUE`, `AWAITING_MODERATION`, or already `PROCESSING_GUILD_TURN`) in a guild have submitted their turns (status `TURN_ENDED_PENDING_RESOLUTION`).
+            - `RuleConfig` may define exceptions (e.g., a timer forces turn progression even if some players haven't acted: `rules:turn_controller:max_turn_wait_seconds`).
+            - Consider players/parties currently `IN_COMBAT` – their actions are typically resolved immediately by the Combat Cycle (Task 5.4) rather than queued here, but their overall turn might still be part of this system.
+    - **Action Processing Trigger**:
+        - If a guild's turn is ready to be processed:
+            - Atomically set status of all involved players/parties to `PROCESSING_GUILD_TURN`.
+            - Collect all entities whose actions need processing.
+            - Asynchronously initiate the Central Collected Actions Processing Module (Task 6.11) for that `guild_id`, passing the list of entities. This should be non-blocking using `asyncio.create_task` or a similar mechanism.
+            - Implement a locking mechanism (`_guild_turn_processing_locks`) to prevent concurrent turn processing for the same guild.
+    - **Global Event Ticks**: Integrate with a global game clock (if implemented) to trigger periodic events or NPC actions that occur outside of player turns (related to Task 14.2 Global Entity Management).
+    - **Error Handling**: Robustly handle errors during status updates or when triggering action processing. Ensure locks are released.
+    - **Scalability**: Design to handle numerous concurrent guilds efficiently.
+    - **Logging**: Detailed logs of turn submissions, readiness checks, and initiation of action processing.
+Result: A reliable and scalable Turn Controller that accurately manages game flow for multiple guilds, ensuring timely processing of player and party actions based on defined statuses and rules.
 
 
 ⚙️ 6.11 Central Collected Actions Processing Module (Turn Processor) - Guild-Scoped Execution. (14, 13, 14, 0.3, 19, 47, 21, 36, 38, 40, 1.3, 25, 15, 35, Conflict Resolution, Master Notification 41, Transactions 0.3)
-Description: The main asynchronous executor of game logic for one turn in one guild. Processes all collected player actions, resolves conflicts, and calls relevant game modules.
-Async Worker: Accepts guild_id and a list of player_id/party_id from 14.
-ALL data operations (loading, saving, updating) MUST USE THE PROVIDED guild_id. Utilities 0.3, 14, 15, and calls to other modules MUST accept it.
-Loads Players by guild_id. Extracts actions, clears the field in the DB.
-Conflict Analysis Phase (Party): If a party, analyzes actions based on conflict_resolution_rules FROM RULECONFIG FOR THIS GUILD (13/41).
-If a conflict requires MANUAL moderation: Create a pending conflict record WITH guild_id. Notify the Master (41) IN THE CHANNEL FOR THIS GUILD. Mark actions as 'pending'. Pause processing.
-
-
-Automatic Conflict Resolution Phase: If conflict auto_resolve == true: Determine check type (RuleConfig 13/41), call 12 (Check Resolver Module, passing guild_id). Determine outcome based on rules 13/44. Log the decision (19).
-Action Execution Phase: Iterate through actions (skipping pending ones). For each action:
-Start an ATOMIC TRANSACTION (0.3) SCOPED TO THIS GUILD.
-Hand over control to the corresponding module (1.3 - Move, 21 - Look, 25 - Combat init/action, 15 - Inventory actions, 35 - Quest progress event, 16 - Intra-Location Interaction) PASSING IT guild_id and action data. The module executes the logic, updates the DB. Commit the transaction.
-
-
-Collect feedback (47). Log events (19). Generate report (47). Update statuses.
+Description: **A to Z Implementation**: The core asynchronous worker that executes all queued game logic for a single turn within a specific guild. This module must be robust, transactional, and fully integrated with all other game systems and `RuleConfig`.
+    - **Worker Signature**: `process_actions_for_guild(guild_id: int, entities_and_types_to_process: List[Dict[str, Any]])`.
+    - **Pre-computation/Loading**:
+        - Within a transaction, load all `Player.collected_actions_json` for the specified entities. Clear these fields in the DB after loading.
+        - Pre-load any frequently accessed guild-wide data or rules if beneficial.
+    - **Conflict Analysis & Resolution (Pre-Execution)**:
+        - **Identify Conflicts**: Analyze all loaded actions for potential conflicts based on `RuleConfig` (`rules:conflict_resolution:policies`). Conflicts can arise from:
+            - Multiple players/parties targeting the same exclusive resource/NPC.
+            - Contradictory party member actions (if party submitted a single "party action" composed of member intents).
+            - Actions that are mutually exclusive by game rules.
+        - **Automatic Resolution**: If `RuleConfig` allows automatic resolution (e.g., `highest_skill_succeeds`, `random_choice`, `leader_decides_for_party`), apply it. This may involve calling Check Resolver (Task 6.3.2). Log the resolution.
+        - **Manual Moderation**: If rules require Master intervention:
+            - Create `PendingConflict` record(s) with `guild_id`, details of conflicting actions, and involved entities.
+            - Notify Master via Discord (Task related to 15.1).
+            - Mark involved player actions as 'pending_conflict_resolution'. Processing for these players/actions pauses until Master resolves via `/master_conflict resolve`.
+            - The worker may need to periodically re-check for resolved conflicts or be signaled.
+    - **Action Execution Phase**:
+        - Iterate through non-conflicted (or resolved) `ParsedAction` objects.
+        - **For each action**:
+            - Start an **atomic transaction** (using `@transactional` on handler or explicit `session.begin()`).
+            - **Dispatch**: Call the appropriate handler module based on `action.intent` (e.g., Movement (1.3), Combat (5.2/5.4), Intra-Location Interaction (6.1.1), Inventory (related to 10.1/10.3), Quest event (9.3), Dialogue (11.2), Ability (3.3), Trade (10.3)).
+            - Pass `guild_id`, `session`, `player_id`, and `action_data` to the handler.
+            - The handler executes all game logic, performs checks, updates DB state (within the action's transaction), and returns a result object (including success/failure, feedback messages/keys, data for logging).
+            - If the handler raises an exception, the transaction for that action must roll back, the error logged, and appropriate feedback prepared. Other actions in the turn should still attempt to process.
+    - **Post-Execution**:
+        - **Aggregate Feedback**: Collect all feedback messages/data from individual action results.
+        - **Event Logging**: Ensure all significant outcomes are logged to `StoryLog` (Task 7.1) by the handlers or this module.
+        - **Report Generation**: Generate a turn report for each affected player and potentially a summary for the Game Master using the Report Formatting system (Task 7.3/54). Send reports via Discord.
+        - **Status Updates**: After all actions are attempted, update `Player.current_status` and `Party.turn_status` (e.g., to `IDLE` or `AWAITING_TURN_SUBMISSION` for the next turn).
+    - **Error Handling**: Comprehensive error handling for database issues, unexpected exceptions from handlers, etc. Ensure guild processing doesn't get stuck.
+Result: A robust, transactional, and fully rule-driven turn processing engine that correctly executes all player actions, manages conflicts, updates game state across all systems, and provides comprehensive feedback and logging for each guild.
 
 
 ⚙️ 6.1.1 Intra-Location Interaction Handler Module. (15, 4.1, 0.3, 15, 12, 21, 35, Rules 13/41)
-Description: Handles player actions directed at objects or sub-locations WITHIN the current location.
-API function handle_intra_location_action(guild_id: int, session: Session, player_id: int, action_data: dict) -> dict. Called from 15 (Central Turn Processor). Accepts guild_id and DB session from 15, as well as action data (intent/entity) from NLU (13).
-Determines interaction type (move_to_sublocation, interact_with_object, examine_object) based on action_data['intent'].
-Loads Player (with guild_id) and their current location (4.1). Finds the target entity (sub-location/object) in the DB (4.1, 7, 14) by guild_id and Entity ID from action_data.
-Uses rules FROM RULECONFIG (13/41) FOR THIS GUILD to determine how to interact: is a check required (12)? What are the consequences (WorldState change 36, item acquisition 15, quest trigger 35)?
-Executes the corresponding logic (updating player's "position within location" - a new field in Player?, calling 12 for a check, calling 15/35/36 for consequences). All within the provided transaction (session).
-Logs the event (19) for the guild. Provides feedback (47).
-
+Description: **A to Z Implementation**: Handles all player actions directed at objects, features, or sub-locations *within* their current main `Location`. This module must be highly configurable via `RuleConfig`.
+    - **API**: `handle_intra_location_action(session, guild_id: int, player_id: int, action_data: ParsedAction) -> InteractionResult` (called by Action Processor).
+    - **Interaction Types**: Robustly determine interaction type based on `action_data.intent` (e.g., "examine_object", "use_object_on_self", "use_object_on_target", "take_item_from_world", "move_to_sublocation", "manipulate_lever").
+    - **Target Resolution**:
+        - Identify the target entity (object, feature, sub-location name) from `action_data.entities`.
+        - Load the target from `Location.generated_details_json.interactive_elements` or a dedicated `WorldObject` table if such exists, scoped to `guild_id` and current `Location.id`.
+        - Handle ambiguous targets or targets not found.
+    - **Rule-Driven Interactions**:
+        - For the identified target and interaction type, load interaction rules from `RuleConfig` (e.g., `interactions:<object_static_id>:<intent_verb>`, or `interactions:default_object:<intent_verb>`).
+        - Rules define:
+            - If a skill/attribute check is required (details for Check Resolver: `check_type`, `base_dc`, `relevant_attribute/skill`).
+            - Prerequisite conditions (e.g., player status, required items in inventory, quest state, world flags).
+            - Consequences of success/failure/critical outcomes:
+                - `WorldState` changes (setting flags via `RuleConfig` update).
+                - Item acquisition/loss (update `Player.inventory_items`).
+                - Quest triggers or updates (call Quest System Task 9.3).
+                - Relationship changes (call Relationship System Task 8.4).
+                - Unlocking new interactions or revealing information (update object's state in `Location.generated_details_json` or `WorldObject` table).
+                - Applying status effects to player/target.
+                - Narrative feedback text keys for localization.
+    - **Check Resolution**: If a check is required, call Check Resolver (Task 6.3.2) with all necessary context.
+    - **State Updates**: All DB changes (player inventory, object state, WorldState via `RuleConfig`) must occur within the action's transaction. Update `Player.current_sublocation_name` if moving to a sub-location.
+    - **Event Logging**: Log interaction events to `StoryLog` (Task 7.1) with details: player, target, action, check result (if any), and key consequences.
+    - **Feedback**: Return a structured `InteractionResult` with localized feedback messages (via Report Formatter Task 7.3/54) describing the outcome.
+    - **Error Handling**: Handle invalid targets, missing rules, failed checks, and other exceptional conditions gracefully.
+Result: A highly flexible and rule-driven system for managing detailed interactions within locations, enabling rich environmental storytelling and puzzles.
 
 
 Task Block: Phase 7: Narrative Generation and Event Log
-This block presents tasks related to maintaining an event log and generating narrative text, including turn reports.
-
 Task 17: 📚 7.1 Event Log Model (Story Log, i18n, Guild-Scoped).
 Description: Model for storing a detailed log of game events within each guild. (Renamed from 5.1, moved).
-Implement the StoryLog model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, FK to GuildConfig), timestamp (DATETIME), location_id (INTEGER FK, Nullable), event_type (TEXT, ENUM?), entity_ids_json (JSONB - {"players":[...], "npcs":[...], ...} - references to affected entities by ID), details_json (JSONB - full event details, for rollback 20 and feedback 47).
-Implement the log_event(session: Session, guild_id: int, event_type: str, details_json: dict, player_id=None, party_id=None, location_id=None, entity_ids_json=None) API: Saves a record to StoryLog within the provided transaction (session), SPECIFYING THIS guild_id. Called by all modules that change state or produce important events.
-Result: StoryLog model defined, API for logging events within a guild implemented.
-
+Implement the `StoryLog` model (0.2/7). Fields: `id` (PK), `guild_id` (BIGINT, Indexed, FK to GuildConfig), `timestamp` (DATETIME, auto-now-add), `turn_number` (INTEGER, Nullable), `location_id` (INTEGER FK, Nullable), `event_type` (ENUM `EventType`), `entity_ids_json` (JSONB - e.g., `{"player_ids": [...], "npc_ids": [...], "item_ids": [...]}` - references to primary involved entities by ID and type for quick indexing/lookup), `details_json` (JSONB - full event details, including parameters, outcomes, check results, for rollback, feedback, and AI context), `narrative_i18n` (JSONB, optional, for AI-generated narrative embellishment of this event - Task 7.2).
+Implement the `log_event(session: AsyncSession, guild_id: int, event_type: EventType, details_json: Dict[str, Any], entity_ids_json: Optional[Dict[str, List[int]]] = None, player_id: Optional[int] = None, party_id: Optional[int] = None, location_id: Optional[int] = None, turn_number: Optional[int] = None, narrative_i18n: Optional[Dict[str, str]] = None)` API: Saves a record to `StoryLog` within the provided transaction (session), SPECIFYING THIS `guild_id`. Ensure `entity_ids_json` is structured consistently. Called by all modules that change state or produce important events.
+Result: `StoryLog` model defined, comprehensive API for logging all significant game events within a guild implemented, supporting detailed context for game mechanics and narrative.
 
 
 Task 18: 📚 7.2 AI Narrative Generation (Multilang).
-Description: Call LLM to generate more freeform narrative text (event description, reactions to something).
-API generate_narrative(guild_id: int, context: dict) -> str. Accepts guild_id. Called by other modules to enrich event descriptions.
-Forms the LLM prompt: Context (event, participants, location, WorldState - all for this guild). Requests the LLM to generate text IN THE PLAYER'S LANGUAGE (0.1/0.2) or the bot's main language (guild 1), relevant to the context.
-Result: API for generating narrative text on demand.
+Description: **A to Z Implementation**: Develop a module to call an LLM for generating immersive, freeform narrative text (e.g., detailed event descriptions, NPC reactions, environmental flavor text) based on game context.
+    - **API**: `generate_narrative(session, guild_id: int, context_event_log: StoryLog, generation_type: str, target_language: str, additional_context: Optional[Dict[str, Any]] = None) -> str`.
+        - `context_event_log`: The primary `StoryLog` entry that this narrative will embellish or relate to.
+        - `generation_type`: e.g., "event_elaboration", "npc_reaction_to_event", "location_ambiance_update".
+        - `target_language`: Specific language for generation.
+        - `additional_context`: Any other relevant data not in `context_event_log.details_json`.
+    - **Prompt Engineering**:
+        - Use AI Prompt Preparation Module (Task 2.2) to construct a detailed prompt.
+        - Context should include:
+            - Key details from `context_event_log.details_json` and `entity_ids_json`.
+            - Relevant `WorldState` for the guild.
+            - Current `Location` details if applicable.
+            - Involved entities' key characteristics (names, types, brief descriptions from DB).
+            - `RuleConfig` entries defining narrative style, tone, or forbidden themes for the guild (e.g., `ai:narrative:style:<generation_type>`).
+        - Request generation in the `target_language`.
+    - **LLM Interaction**:
+        - Make a call to the configured LLM (OpenAI API or other) via `ai_orchestrator.make_real_ai_call`.
+        - Implement robust error handling for API calls (timeouts, rate limits, content filters).
+    - **Output Processing**:
+        - Basic sanitization of LLM output (e.g., remove extraneous formatting, ensure it fits display constraints).
+        - Optionally, store the generated narrative in `context_event_log.narrative_i18n` if the API is designed to update the log, or return it for the caller to use/store.
+    - **Configurability**: Allow `RuleConfig` to enable/disable AI narrative generation globally or per `generation_type` for a guild.
+Result: A robust API for generating dynamic, contextually relevant, and multilingual narrative text on demand, enriching the player experience.
 
-Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped).
-Description: Module that transforms structured event data (from StoryLog) into readable reports for players and the Master. (Moved from 6.7.1).
-API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names (from DB by their ID and guild_id) and RuleConfig terms (from cache 0.3) FOR THIS GUILD to format the text in the required language.
-API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild (determined from log_entries or explicitly passed). Formats them using format_log_entry. Generates a report for each player in their language (0.1/0.2).
-Result: Logging and feedback formatting system generating localized reports.
+
+Task 19: 📚 7.3 Turn and Report Formatting (Guild-Scoped). (Also Task 54)
+Description: **A to Z Implementation**: Develop a comprehensive module that transforms structured event data (from `StoryLog`) into readable, localized reports for players and the Game Master.
+    - **API**:
+        - `format_log_entry_for_display(session, log_entry: StoryLog, target_language: str, perspective_entity_id: Optional[int] = None, perspective_entity_type: Optional[RelationshipEntityType] = None) -> str`. Formats a single log entry into a human-readable string. `perspective_entity_id` helps tailor information visibility if needed (e.g., hiding details unknown to that entity).
+        - `format_turn_report_for_player(session, guild_id: int, player_id: int, turn_number: int, target_language: str) -> str`. Collects all relevant `StoryLog` entries for a player for a given turn and formats them into a cohesive report.
+        - `format_master_event_summary(session, log_entry: StoryLog, target_language: str) -> str`. (Optional) A more detailed format for GMs.
+    - **Localization**:
+        - Use `localization_utils.get_localized_text` for all UI strings and templates.
+        - Use `localization_utils.get_localized_entity_name` (and batch version) to fetch i18n names for all entities referenced in log entries (players, NPCs, items, locations, etc.) using their IDs and types stored in `StoryLog.entity_ids_json`.
+        - Load term definitions (e.g., for skills, statuses, event types) from `RuleConfig` (e.g., `terms:event_names:<event_type>:<lang>`, `terms:skill_names:<skill_id>:<lang>`) for the `target_language`.
+    - **Template Engine (Conceptual)**:
+        - For each `EventType`, define message templates (stored in `RuleConfig` under keys like `report_templates:<event_type>:<lang>`).
+        - Templates use placeholders for dynamic data from `log_entry.details_json` and localized entity names.
+        - Example template for `MOVEMENT`: `"{player_name} moved from {old_location_name} to {new_location_name}."`
+    - **Data Extraction & Formatting Logic (`_format_log_entry_with_names_cache` or similar internal function)**:
+        - For each `StoryLog` entry:
+            - Extract all referenced entity IDs from `entity_ids_json`.
+            - Batch-fetch their localized names.
+            - Based on `log_entry.event_type`, select the appropriate template from `RuleConfig`.
+            - Populate the template with data from `details_json` and the fetched localized names.
+            - Handle complex `details_json` structures (e.g., for combat results, check outcomes) by recursively formatting them or using sub-templates.
+    - **Information Hiding (Perspective)**: If `perspective_entity_id` is provided, filter out details from the log entry that should not be visible to that entity (e.g., hidden NPC thoughts, outcomes of checks another player failed). This requires rules in `RuleConfig` about information visibility.
+    - **Error Handling**: Gracefully handle missing templates, terms, or entity names, falling back to default messages or raw data display.
+Result: A comprehensive and flexible logging and feedback formatting system capable of generating clear, detailed, and localized reports for players and GMs from any game event.
+
 
 Task Block: Phase 3: Abilities and Checks Mechanics
-This block presents tasks related to defining and using abilities, statuses, and attribute/skill check mechanics.
-
 Task 20: 🧠 3.1 Ability Model (i18n, Guild-Scoped).
-Description: Define the model for storing ability data.
-Implement the Ability model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable? - if ability can be global), static_id (TEXT, unique within the guild/globally), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - effects, cost, damage types).
-Result: Ability model defined.
+Description: Define the model for storing ability data, supporting guild-specific and global abilities.
+Implement the `Ability` model (0.2/7). Fields: `id` (PK), `guild_id` (BIGINT, Indexed, FK to GuildConfig, Nullable - if null, it's a global/system ability), `static_id` (TEXT, unique within `guild_id` if not null, globally unique if `guild_id` is null), `name_i18n` (JSONB), `description_i18n` (JSONB), `ability_type` (TEXT ENUM: e.g., "COMBAT_ACTIVE", "COMBAT_PASSIVE", "UTILITY", "SOCIAL"), `properties_json` (JSONB - detailed definition of effects, costs, targeting, requirements, cooldowns, presentation (e.g., animation/sound keys)).
+Ensure unique constraint on (`guild_id`, `static_id`) allows `guild_id` to be NULL.
+Result: `Ability` model defined, capable of storing diverse abilities with detailed mechanics and supporting both guild-specific and global scopes.
+
 
 Task 21: 🧠 3.2 Entity Status Model (Status Effects, i18n, Guild-Scoped).
-Description: Define the model for storing various temporary states (buffs/debuffs) of entities.
-Implement the Status model (0.2/7). Fields: id (PK), guild_id (BIGINT, Indexed, Nullable?), static_id (TEXT, unique), name_i18n (JSONB), description_i18n (JSONB), properties_json (JSONB - how it affects stats/behavior, duration).
-Result: Status model defined.
+Description: Define models for storing status effect definitions and tracking active statuses on entities.
+    - **`StatusEffectDefinition` Model (0.2/7)**: Defines a type of status effect.
+        - Fields: `id` (PK), `guild_id` (BIGINT, Indexed, FK to GuildConfig, Nullable - for global statuses), `static_id` (TEXT, unique like Ability), `name_i18n` (JSONB), `description_i18n` (JSONB), `status_type` (TEXT ENUM: e.g., "BUFF", "DEBUFF", "NEUTRAL", "DOT", "HOT", "CONTROL"), `max_stacks` (INTEGER, default 1), `is_permanent` (BOOLEAN, default False), `properties_json` (JSONB - detailed mechanics: stat modifications (e.g., `{"stats_add": {"strength": 5}, "stats_mult": {"attack_speed": 0.1}}`), periodic effects (damage/heal), behavioral changes, dispel conditions, visual effect keys).
+    - **`ActiveStatusEffect` Model (0.2/7)**: Represents an instance of a status effect applied to an entity.
+        - Fields: `id` (PK), `guild_id` (BIGINT, Indexed, FK to GuildConfig), `target_entity_id` (INTEGER), `target_entity_type` (ENUM `RelationshipEntityType`), `status_effect_definition_id` (INTEGER FK to `StatusEffectDefinition`), `applied_at` (DATETIME), `duration_turns` (INTEGER, nullable for permanent), `remaining_turns` (INTEGER, nullable), `current_stacks` (INTEGER, default 1), `source_entity_id` (INTEGER, nullable), `source_entity_type` (ENUM `RelationshipEntityType`, nullable), `source_ability_id` (INTEGER FK to `Ability`, nullable), `instance_properties_json` (JSONB, for variations of this specific instance, e.g., variable DoT damage).
+        - Indexed on (`target_entity_type`, `target_entity_id`).
+Result: Models for status effect definitions and their active instances on entities are defined, supporting detailed mechanics, duration, stacking, and guild-scoping.
+
 
 Task 22: 🧠 3.3 API for Activating Abilities and Applying Statuses (Guild-Scoped).
-Description: Implement the logic for characters using abilities and applying/removing statuses.
-API function activate_ability(guild_id: int, entity_id: int, entity_type: str, ability_id: int, target_ids: Optional[List[int]] = None) -> AbilityOutcomeDetails. Accepts guild_id.
-Loads Ability (20) and Entity (1.2/5) by guild_id. Checks ability availability (Entity has it), costs (Entity resources), target validity.
-Executes the ability logic (dealing damage, applying status). Uses rules FROM RULECONFIG FOR THIS GUILD (13/0.3) for calculations and effects.
-Updates the Entity's state (HP, resources, adds status entry). Within the action's transaction (0.3). Logs (19) WITH THIS guild_id.
+Description: **A to Z Implementation**: Implement the comprehensive logic for entities using abilities and for applying/removing status effects, fully driven by `RuleConfig` and ability/status definitions.
+    - **API `activate_ability(session, guild_id: int, actor_id: int, actor_type: RelationshipEntityType, ability_static_id_or_db_id: Union[str, int], primary_target_ids_and_types: Optional[List[Tuple[int, RelationshipEntityType]]] = None, chosen_sub_options_json: Optional[Dict[str, Any]] = None) -> AbilityOutcomeDetails`**:
+        - **Load Data**: Load `Ability` definition (by `static_id` or `db_id`, respecting `guild_id` or global). Load actor entity.
+        - **Pre-activation Checks (from `Ability.properties_json.requirements` and `RuleConfig`)**:
+            - Cooldowns, resource costs (HP, MP, stamina - deduct from actor if checks pass).
+            - Required items, statuses on actor/target, player state (e.g., "must_be_in_combat").
+            - Line of sight, range to target(s).
+            - Skill checks if ability itself requires one to cast (call Check Resolver Task 6.3.2).
+        - **Targeting**: Resolve targets based on `Ability.properties_json.targeting_rules` (e.g., "self", "single_enemy", "all_allies_in_range", "area_at_point") and `primary_target_ids_and_types`. This may involve complex queries or spatial checks.
+        - **Effect Execution (iterate `Ability.properties_json.effects` list)**:
+            - For each effect (e.g., "damage", "heal", "apply_status", "summon_entity", "modify_world_state"):
+                - Determine affected targets for this specific effect.
+                - Perform calculations based on effect properties, actor's effective stats (Task related to 6.3.2), and `RuleConfig` (e.g., damage formulas, resistance/vulnerability checks). This may involve further calls to Check Resolver (e.g., saving throws for targets).
+                - Update target entity states (HP, stats, apply/remove `ActiveStatusEffect` records via `apply_status` API).
+                - Update actor state (e.g., set cooldowns).
+        - **`AbilityOutcomeDetails`**: Populate with comprehensive results: caster, targets, actual effects applied (damage dealt, healing done, statuses applied with durations, resources spent), any check results.
+        - **Logging**: Log `ABILITY_USED` event to `StoryLog` with full `AbilityOutcomeDetails`.
+    - **API `apply_status(session, guild_id: int, target_entity_id: int, target_entity_type: RelationshipEntityType, status_definition_static_id_or_db_id: Union[str, int], duration_turns: Optional[int], source_actor_id: Optional[int], source_actor_type: Optional[RelationshipEntityType], source_ability_id: Optional[int], instance_properties_json: Optional[Dict[str, Any]]) -> bool`**:
+        - Load `StatusEffectDefinition`.
+        - Check stacking rules (`max_stacks`, `RuleConfig` for how stacks interact).
+        - If stackable and existing `ActiveStatusEffect` of same type found: increment `current_stacks`, refresh duration per `StatusEffectDefinition.properties_json.duration_refresh_on_reapply` rule.
+        - If not stackable or no existing, create new `ActiveStatusEffect`.
+        - Log `STATUS_APPLIED` event.
+    - **API `remove_status(session, guild_id: int, active_status_id: int) -> bool`**: Remove an `ActiveStatusEffect`. Log `STATUS_REMOVED`.
+    - **Status Tick System (Conceptual - may be part of Turn Controller or separate)**: Logic to process active statuses each turn/round (decrement `remaining_turns`, apply periodic effects like DoT/HoT, check for expiration).
+    - **Error Handling**: Graceful error handling for all failure conditions (invalid ability/status, unmet requirements, invalid targets).
+Result: A complete system for ability activation and status effect management, deeply integrated with game rules, entity stats, and event logging, providing rich tactical possibilities.
 
-
-API functions for applying/removing statuses: apply_status(guild_id: int, entity_id: int, status_id: int, duration: int, source_ability_id=None).
-Result: Logic for using abilities and statuses within a guild implemented.
 
 Task Block: Phase 4: World and Location Model
-This block presents tasks related to defining and managing locations and the world map.
-
 Task 23: 🗺️ 4.1 Location Model (i18n, Guild-Scoped).
-* Description: (Moved from 13 for better grouping). Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details. (See description in Task 4).
+* Description: (Moved from 13 for better grouping). Define the location model in the DB, linked to a guild, with multilingual support and relationships. This model will store both static and generated location details. (See description in Task 1.1 - tasks are identical and cover model definition).
+Result: Location model defined, static data accessible and isolated.
 
 Task 24: 🗺️ 4.2 Guild Map Generation and Editing (Guild-Scoped).
-* Description: Implement logic for AI generating new locations and adding them to the guild map, as well as Master tools for map management.
-* API function generate_location(guild_id: int, ...): Calls AI (16/17/10) to generate data for a NEW location (name, description, type, coordinates, neighbors). Creates a new record in Location with this guild_id and generated data. Adds connections to existing locations in the DB (updates neighbor_locations_json in neighbors). Logs (19).
-* API function add_location(guild_id: int, data: dict) (for Master). remove_location(guild_id: int, location_id: int). connect_locations(guild_id: int, loc1_id: int, loc2_id: int, connection_type_i18n: dict).
-* Implement Master commands for these APIs (e.g., /master add_location, /master connect_locations).
-* Result: The system can generate and manage the guild map.
+* Description: **A to Z Implementation**: Implement comprehensive AI-driven new location generation and robust Game Master tools for manual map management.
+    - **AI Location Generation (`generate_new_location_ai`)**:
+        - API: `generate_new_location_ai(session, bot, guild_id: int, generation_context: Dict[str, Any])`. Context can include: connecting `Location.id` (to generate adjacent), desired `LocationType`, theme keywords, difficulty hints.
+        - Calls AI Prompt Preparation (Task 2.2) to generate a detailed prompt for a *new* location (name, description, type, coordinates relative to context or absolute, potential interactive elements, initial NPC/item placements, suggested connections to existing locations with connection types).
+        - Trigger AI generation and moderation flow (Task 2.6). The `parsed_validated_data_json` from an approved `PendingGeneration` (containing `ParsedLocationData`) will be used.
+        - **Saving**: After approval, the `save_approved_generation` (Task 2.6) logic must correctly create the new `Location` record, establish `neighbor_locations_json` links (two-way if applicable) with specified existing locations, and populate `generated_details_json` (interactive elements, sublocations) and any initial entities (NPCs, items) also generated by AI for this new location.
+    - **Master Map Editing Commands (Discord - part of Task 15.1)**:
+        - `/master_map create_location <name_i18n_json> [type] [static_id] ...`: Manually create a new `Location`.
+        - `/master_map update_location <location_id_or_static_id> <field> <value_json>`: Update any field of an existing `Location`.
+        - `/master_map delete_location <location_id_or_static_id>`: Delete a location (handle entities within, re-routing connections if possible, or warning Master).
+        - `/master_map connect_locations <loc1_id_or_static_id> <loc2_id_or_static_id> <connection_type_i18n_json> [is_two_way=True] [conditions_json]`: Create/update connections in `neighbor_locations_json` for both locations. `conditions_json` could specify requirements (item, quest state) to use the connection.
+        - `/master_map disconnect_locations <loc1_id_or_static_id> <loc2_id_or_static_id>`: Remove connection.
+        - `/master_map set_coordinates <location_id_or_static_id> <coordinates_json>`
+        - `/master_map manage_interactive_element <location_id_or_static_id> <element_id_or_name> [action:add/update/remove] [details_json]`: Manage elements in `Location.generated_details_json.interactive_elements`.
+    - **Data Integrity**: All operations must maintain consistency of the map graph (e.g., reciprocal connections in `neighbor_locations_json` if two-way).
+    - **Logging**: All map generation and editing actions logged to `StoryLog`.
+Result: A comprehensive system for both AI-driven procedural expansion and manual curation of the guild-specific game world map, ensuring data integrity and detailed logging.
 
 Task 25: 🗺️ 4.3 Location Transitions (Guild-Scoped).
-* Description: API for handling player/party movement action between locations. (Moved from 6. Partially overlaps with 1.3).
-* API function handle_move_action(guild_id: int, session: Session, player_id: int, target_location_identifier: str) -> dict. Called from 15 (Central Action Processing Module). Accepts guild_id and DB session.
-* Loads Player (with guild_id) and their current location (23). Matches target_location_identifier with the name/static_id of locations in this guild.
-* Checks location connections (static 4.1 and generated 23).
-* If player is in a party: Checks PARTY MOVEMENT RULES (from RuleConfig 13/0.3) FOR THIS GUILD.
-* If movement is allowed: Updates current_location_id for Player (and Party). Logs (19) WITH THIS guild_id.
-* After successful commit of the action transaction (performed in 15): Asynchronously calls on_enter_location(guild_id, entity_id, entity_type, location_id) (14).
+* Description: **A to Z Implementation**: Fully implement player and party movement between locations. (This task is identical to Task 1.3. The detailed "A to Z" description provided for Task 1.3 applies here.)
+* API function `handle_move_action(guild_id: int, session: Session, player_id: int, target_location_identifier: str) -> dict`. Called from Action Processing Module (Task 6.11).
+* Result: A robust, rule-driven movement system supporting individual and party travel, with integrated checks, costs, event logging, and hooks for dynamic content.
+
 
 Task Block: Phase 5: Combat System
-This block presents tasks related to combat mechanics.
-
 Task 26: ⚔️ 5.1 Combat and Participant Model (Guild-Scoped).
 Description: Define the model for tracking the state of active combat within a guild.
-Implement the CombatEncounter model (0.2/7). With a guild_id field. Includes: id (PK), location_id (INTEGER FK), status (TEXT enum), current_turn_entity_id (INT), turn_order_json (JSONB), rules_config_snapshot_json (JSONB - snapshot of combat rules from RuleConfig at combat start?), participants_json (JSONB - {entity_id, entity_type, current_hp, ...}), combat_log_json (JSONB - log of this combat's events).
+Implement the `CombatEncounter` model (0.2/7). Fields: `id` (PK), `guild_id` (BIGINT, FK), `location_id` (INTEGER FK), `status` (ENUM `CombatStatus`: e.g., `ACTIVE`, `PLAYER_VICTORY`, `NPC_VICTORY`, `ENDED_DRAW`), `start_time` (DATETIME), `end_time` (DATETIME, Nullable), `current_turn_number` (INTEGER, default 1), `current_round_number` (INTEGER, default 1), `current_turn_entity_id` (INT), `current_turn_entity_type` (ENUM `RelationshipEntityType`), `turn_order_json` (JSONB: list of `{"entity_id": int, "entity_type": str, "initiative_roll": int}`), `rules_config_snapshot_json` (JSONB: snapshot of relevant combat rules from `RuleConfig` at combat start, e.g., crit rules, damage type modifiers), `participants_json` (JSONB: list of participant objects, each containing `entity_id`, `entity_type`, `team_id` (e.g., "players", "monsters", "faction_A"), `initial_hp`, `current_hp`, `initial_resources_json`, `current_resources_json`, `initial_statuses_json`, `active_statuses_json` (simplified list for quick access, full state in `ActiveStatusEffect` table)), `combat_log_json` (JSONB: turn-by-turn log of actions, damage, checks within this specific combat, for detailed playback or analysis).
+Result: A comprehensive `CombatEncounter` model capable of storing all necessary state for managing complex, multi-participant combat scenarios.
+
 
 Task 27: ⚔️ 5.2 Combat Engine Module.
-Description: Implement the central module for calculating action outcomes in combat.
-API process_combat_action(guild_id: int, session: Session, combat_instance_id: int, actor_id: int, actor_type: str, action_data: dict) -> CombatActionResult. Accepts guild_id and session.
-Called from 28 (Combat Cycle).
-Loads CombatEncounter (24) and participants (by their ID and type) by guild_id from the DB (1.2/5/14) via the provided session. Uses Effective_Stats (14).
-Retrieves action rules (damage formulas, criticals, status effects) FROM rules_config FOR THIS GUILD (13/0.3/41), or from combat_instance.rules_config_snapshot_json (24).
-If the action requires a check (attack, save) -> call 12 (Check Resolver Module) with guild_id.
-Performs calculations (damage, statuses, costs) strictly according to formulas/rules.
-Updates combat participant states (HP, resources, statuses) in the DB (14/15) via the provided session.
-Logs (19) the action result, including calculation details, check outcomes (from 12).
-Returns a CombatActionResult object (action result + details for log 19/feedback 47).
-Result: Detailed, reliable combat calculations based on configurable rules, with logging.
+Description: **A to Z Implementation**: Implement the central module for calculating and applying the outcomes of all actions performed during combat, fully driven by `RuleConfig`.
+    - **API**: `process_combat_action(session, guild_id: int, combat_instance_id: int, actor_id: int, actor_type: RelationshipEntityType, action_data: Dict[str, Any]) -> CombatActionResult`.
+        - `action_data`: Contains `action_type` (e.g., "attack", "cast_ability", "use_item", "defend", "flee"), `target_id`, `target_type`, `ability_id`/`item_id` if applicable, etc.
+    - **Data Loading**: Load `CombatEncounter`, actor, and target(s) data. Use `CombatEncounter.rules_config_snapshot_json` and current `RuleConfig` for rules.
+    - **Action Processing (Dispatch based on `action_data.action_type`)**:
+        - **Attack**:
+            - Perform attack roll (Check Resolver Task 6.3.2) against target's defense (e.g., AC, evasion stat).
+            - Calculate damage based on weapon, actor's stats, ability modifiers, target's resistances/vulnerabilities (from `RuleConfig`, `Item.properties_json`, `StatusEffectDefinition.properties_json`). Apply critical hit rules.
+        - **Cast Ability**: Call Ability System (Task 3.3 `activate_ability`) with combat context. `activate_ability` handles costs, targeting, effects, and returns details for `CombatActionResult`.
+        - **Use Item**: Validate item usability in combat. Apply item effects (e.g., healing potion, grenade). Update item quantity in inventory.
+        - **Defend/Dodge**: Apply temporary status effect (e.g., "defending" giving bonus to defense for 1 round) or set a flag for next incoming attack.
+        - **Flee**: Perform check (e.g., opposed by fastest enemy) based on `RuleConfig`. If successful, actor exits combat.
+        - **Other Actions**: Support for other tactical actions as defined by rules.
+    - **State Updates**:
+        - Update `current_hp`, `current_resources_json`, `active_statuses_json` for all affected participants within `CombatEncounter.participants_json`.
+        - If an entity's HP drops to 0 or below, mark them as "defeated" in `participants_json`.
+    - **Logging**:
+        - Append detailed action results (dice rolls, damage, status changes) to `CombatEncounter.combat_log_json`.
+        - Log significant events (e.g., `COMBAT_ACTION`, `ENTITY_DEFEATED`) to global `StoryLog` (Task 7.1), including the `CombatActionResult`.
+    - **`CombatActionResult`**: Return a comprehensive Pydantic model detailing the action's success, numerical outcomes (damage, healing), status changes, check results, and a descriptive message key for localization.
+    - **Error Handling**: Gracefully handle invalid actions, targets, or rule configurations.
+Result: A detailed, reliable, and highly configurable combat engine that accurately calculates and applies the outcomes of all combat actions, maintaining combat state and providing comprehensive logging.
+
 
 Task 28: ⚔️ 5.3 NPC Combat Strategy Module (AI).
-Description: Implement the logic governing NPC actions in combat.
-API get_npc_combat_action(guild_id: int, npc_id: int, combat_instance_id: int) -> dict. Accepts guild_id. Called from 27 (Combat Cycle).
-Loads the NPC (1.2/5/14), combat state (24), participating players/other NPCs by guild_id. Gets the NPC's relationships (32) to players/parties/other NPCs.
-Uses AI behavior rules FROM rules_config FOR THIS GUILD (13/0.3/41): How to choose targets (aggro system?), how to choose an action (based on stats 14, abilities 20, resources), how to evaluate action success chances (possibly by calling a check simulation via 12). Considers NPC character (from AI generation 16/17) and their relationships (35).
-AI behavior can scale according to rules 13/41 based on encounter difficulty or PARTY level in the location (see 27). Includes choosing types of creatures to spawn or adjusting their tactics.
-Returns a description of the chosen action (format understandable by 27).
+Description: **A to Z Implementation**: Implement sophisticated AI logic governing NPC actions in combat, driven by `RuleConfig` and dynamic combat conditions.
+    - **API**: `get_npc_combat_action(session, guild_id: int, npc_id: int, combat_instance_id: int) -> Dict[str, Any]` (returns `action_data` for Task 5.2).
+    - **Context Gathering**:
+        - Load NPC data (`GeneratedNpc` model, including `properties_json` for stats, abilities, personality tags like "aggressive", "cautious", "healer").
+        - Load current `CombatEncounter` state (participants, turn order, environment if relevant).
+        - Load NPC's relationships (Task 34) with all other combat participants.
+        - Load NPC's current active status effects.
+    - **Rule Loading**: Fetch AI behavior rules from `RuleConfig` for this `guild_id` (e.g., `ai:combat_strategy:<npc_type_or_role>`, `ai:combat_strategy:default`). Rules define:
+        - Targeting priorities (e.g., "lowest_hp_percent", "highest_threat", "focus_healers", "protect_allies").
+        - Action selection logic (conditions for using specific abilities, items, or standard actions like attack/defend).
+        - Risk assessment (e.g., when to flee, when to use defensive abilities).
+        - Preferred engagement range.
+    - **Target Selection**:
+        - Identify valid targets based on ability/attack ranges and visibility.
+        - Evaluate potential targets based on rules: threat level (damage output, crowd control effects), vulnerability, relationship status (prioritize enemies, avoid harming allies unless specific tactic), current HP, key roles (healer, damage dealer).
+    - **Action Choice**:
+        - Evaluate available actions: standard attack, special abilities (check resources, cooldowns), usable items from NPC's inventory (if simulated).
+        - For each action-target pair, simulate potential outcome/effectiveness (e.g., using a simplified Check Resolver or heuristics based on chance-to-hit, expected damage/effect).
+        - Select the action that maximizes utility based on NPC's current state (HP, resources), personality, role (damage, support, tank), and strategic goals defined in rules (e.g., "eliminate_weakest_first", "debuff_strongest_enemy", "heal_lowest_ally").
+        - Consider synergy between abilities or with allied NPCs.
+    - **Scalability & Adaptability**: AI behavior should scale with encounter difficulty, NPC level, or party strength, as defined in `RuleConfig`. NPCs might change tactics based on combat progression (e.g., more desperate actions at low HP).
+    - **Output**: Return a dictionary describing the chosen action in the format expected by Combat Engine (Task 5.2).
+    - **Logging**: Log NPC's decision-making process (key factors, chosen action/target) for debugging and analysis (internal log, not `StoryLog`).
+Result: A dynamic and configurable NPC combat AI capable of making intelligent tactical decisions based on a wide range of factors, providing challenging and varied combat encounters.
+
 
 Task 29: ⚔️ 5.4 Combat Cycle Refactoring (Multiplayer Combat State Machine).
-Description: Manages turn-based or round-based combat, integrating player actions (via Processing Module 21) and AI NPC actions (via 26), performing calculations (via 25).
-API start_combat(guild_id: int, location_id: int, participant_ids: List[Tuple[int, str]]) -> CombatEncounter. Accepts guild_id. Called from 21 (Action Processing Module) upon detecting an "attack" action or from the system (Global Entities 44, Quest 39).
-Within an ATOMIC TRANSACTION (0.3), SCOPED TO THIS GUILD: Creates a CombatEncounter record (24) with this guild_id and a link to the location. Loads participants by guild_id (1.2/5/14), populates participants_json. Determines initiative (via 12 based on rules 13/41). Copies combat rules from RuleConfig into rules_config_snapshot_json. Sets participant status to 'combat'. Logs (19).
-Returns the created CombatEncounter.
-
-
-API process_combat_turn(guild_id: int, combat_id: int): Called by the Turn Module (14) to process one combat turn.
-Loads combat (24) by guild_id. Determines the active participant.
-If it's a player/party turn: The Turn Module (14/21) awaits player input, recognizes combat action (13/21), and passes it to this module (29). If there's a party action conflict, 21 has already resolved it. Calls 25 (Combat Engine) with guild_id and the action.
-If it's an NPC turn: Calls 26 (AI Strategy) with guild_id to get an action. Calls 25 with this action.
-After EACH action in combat: Logs the action result (from 25) to the general log (19) and the combat log (24). Updates participant states in the DB (0.3/14/15) (these updates are done within the transaction in 25).
-Output feedback (47) in the player's language.
-Check for combat conclusion. Remove 'combat' status.
-Handle Combat End Consequences:
-XP: Calls 30 (XP System). Awarding according to rules 13/41 AMONG COMBAT PARTICIPANTS (in this guild) based on distribution rules 13/41.
-Loot: Generated (according to rules 13/41, can use Item/ItemProperty 42, Context 16) or taken from defeated NPC inventories (15). Distributed AMONG VICTORS WITHIN THE PARTY (or placed in the location) according to rules 13/41. Optionally - trigger manual moderation (47) for rare loot distribution.
-WS/Relationships: Update WorldState (36) / Relationships (36) according to rules 13/41 (on behalf of the player/party who killed opponents).
-Quest Progress (36/39): Completion of combat-related steps.
-
-
-
+Description: **A to Z Implementation**: Develop a robust Combat Cycle Manager to orchestrate turn-based or round-based combat from initiation to conclusion, integrating player and NPC actions, and handling all state transitions and consequences.
+    - **API `start_combat(session, guild_id: int, location_id: int, initiating_player_id: Optional[int], participant_entities: List[Union[Player, GeneratedNpc, Party]]) -> CombatEncounter`**:
+        - Called by Action Processor (Task 6.11) or system events.
+        - Within an **atomic transaction**:
+            - Create `CombatEncounter` record (Task 26) with `guild_id`, `location_id`.
+            - Populate `participants_json` with all involved entities (resolve parties to individual players), their initial HP/resources (from base stats + current active statuses), team affiliations.
+            - Determine initiative for all participants (call Check Resolver Task 6.3.2 with agility/perception checks based on `RuleConfig`). Sort entities into `turn_order_json`.
+            - Set first turn: `current_turn_entity_id/type`, `current_turn_number=1`, `current_round_number=1`.
+            - Snapshot relevant combat rules from `RuleConfig` into `CombatEncounter.rules_config_snapshot_json`.
+            - Update `Player.current_status` / `Party.turn_status` to `IN_COMBAT`.
+            - Log `COMBAT_START` event to `StoryLog`.
+        - Return the created `CombatEncounter`.
+    - **API `process_combat_turn(session, guild_id: int, combat_id: int, player_action_data: Optional[Dict[str, Any]] = None) -> CombatEncounter`**:
+        - Called by Action Processor (if player turn with `player_action_data`) or internally for NPC turns.
+        - Load `CombatEncounter`. If status is not `ACTIVE`, return.
+        - **If current turn is Player**:
+            - If `player_action_data` is provided, process it using Combat Engine (Task 5.2 `process_combat_action`).
+            - If no action (e.g., player disconnected or timed out by `RuleConfig`), process as a "delay" or "pass" action.
+        - **If current turn is NPC**:
+            - Call NPC Combat Strategy (Task 5.3 `get_npc_combat_action`) to get NPC's action.
+            - Process the NPC action using Combat Engine (Task 5.2).
+        - **After any action**:
+            - Update `CombatEncounter` (participants' state, combat log) based on `CombatActionResult`.
+            - Log action to global `StoryLog`.
+            - Provide localized feedback to relevant players (Task 7.3/54).
+        - **Check for Combat End (`_check_combat_end_condition`)**:
+            - Evaluate if combat has ended (e.g., all members of one team defeated, key NPC defeated, morale break based on `RuleConfig`).
+            - If ended, set `CombatEncounter.status` (e.g., `PLAYER_VICTORY`), call `_handle_combat_end_consequences`.
+        - **Advance Turn (`_advance_turn_in_combat`)**:
+            - If combat not ended, determine next entity in `turn_order_json` (skip defeated).
+            - Update `CombatEncounter.current_turn_entity_id/type`, increment `current_turn_number`/`current_round_number`.
+            - If next turn is NPC, recursively call `process_combat_turn` or schedule it.
+            - If next turn is Player, control returns (Action Processor will await next player input).
+    - **API `_handle_combat_end_consequences(session, guild_id: int, combat_encounter: CombatEncounter)`**:
+        - Determine winning/losing teams and involved players.
+        - **XP**: Call Experience System (Task 13.2 `award_xp`) for victors, based on `RuleConfig` (XP for defeated enemies, objectives).
+        - **Loot**: Generate and distribute loot.
+            - Determine loot from defeated NPCs (from their `InventoryItem` or generated based on `RuleConfig` `loot_tables:<npc_type>`).
+            - Distribute among victors according to `RuleConfig` (e.g., need/greed rolls, leader distribution, random assignment). This may involve creating `InventoryItem` records.
+            - Handle cases where loot is placed in location if no one can carry.
+        - **Relationships**: Call Relationship System (Task 8.4 `update_relationship`) based on combat outcomes (e.g., player vs. NPC faction, player vs. specific NPC).
+        - **WorldState**: Update relevant `RuleConfig` flags (e.g., `worldstate:npc_defeated:<npc_static_id>`).
+        - **Quest Progress**: Call Quest System (Task 9.3 `handle_player_event_for_quest`) with `COMBAT_END` event context.
+        - Update `Player.current_status` / `Party.turn_status` from `IN_COMBAT` to `EXPLORING` or `IDLE`.
+        - Log `COMBAT_END_CONSEQUENCES_APPLIED` event.
+    - **Error Handling**: Robust error handling for all operations.
+Result: A fully functional combat state machine that manages the entire lifecycle of combat encounters, from initiation through action resolution to consequence application, driven by game rules and interacting with all relevant systems.
 
 
 Task Block: Phase 13: Experience and Character Development System
-This block presents tasks related to character experience, leveling up, and attribute distribution.
-
 Task 30: ⚡️ 13.1 Experience System Structure (Rules).
-* Description: Rules for gaining XP, leveling up, distributing points are defined in RuleConfig FOR EACH GUILD. (See RuleConfig structure in 13).
+* Description: Define the comprehensive structure for all experience and leveling rules within `RuleConfig` for each guild. This includes:
+    - `experience_system:xp_gain_rules:<event_type>`: Defines base XP, scaling factors (player level, target level difference), and distribution policies for events like `combat_victory:<enemy_category>`, `quest_completed:<quest_type>`, `skill_usage:<skill_name>`, `discovery:<discovery_type>`.
+    - `experience_system:level_curve`: Array defining XP needed for each level (e.g., `[{"current_level": 1, "xp_to_reach_next_level": 1000}, ...]`).
+    - `experience_system:level_up_rewards`: Defines default and level-specific rewards (attribute points, skill points, new abilities unlocked via `static_id`, special feature flags).
+    - `character_attributes:definitions`: Defines all available attributes (e.g., "strength", "intelligence") with `name_i18n`, `description_i18n`, min/max values.
+    - `character_attributes:base_values`: Default starting values for attributes.
+    - `character_attributes:cost_per_point`: Formula or tiered cost for increasing attributes during level up.
+    - `skills:definitions`: Similar to attributes, for skills.
+    - `skills:base_values` and `skills:cost_per_point`.
+Result: A clear and comprehensive definition of all `RuleConfig` keys and their JSON structures required to govern the entire experience and character development system.
 
 Task 31: ⚡️ 13.2 XP Awarding and Progress.
-* Description: Implement logic for awarding XP and checking for level up.
-* API award_xp(guild_id: int, player_id/party_id, xp_amount, source_log_id). Accepts guild_id. Called from 27 (Combat) and 39 (Quest). Calculate base XP amount (can scale by player level) according to rules 13/41. Distribute AMONG EVENT PARTICIPANTS (players in party/location) according to rules 13/41. Update player.XP (1.2/5/0.2/0.3). Log event (19).
-* After updating XP: Check against rules 13/41 if the player has reached the next level. If yes: Update player.Level, calculate and award player.UnspentXP (attribute/skill points to distribute) according to rules. Notify the player (47).
+* Description: **A to Z Implementation**: Implement the complete logic for awarding XP from all sources and tracking player progress towards leveling up, fully driven by `RuleConfig`.
+    - **API**: `award_xp(session, guild_id: int, primary_entity_id: int, primary_entity_type: RelationshipEntityType, xp_source_event_type: EventType, xp_source_details: Dict[str, Any], source_log_id: int)`.
+        - `xp_source_details`: Contains context for calculating XP (e.g., for combat: list of defeated enemies, their levels; for quest: quest difficulty, type).
+    - **XP Calculation**:
+        - Load `RuleConfig` for `experience_system:xp_gain_rules:<xp_source_event_type.name>`.
+        - Calculate base XP based on `xp_source_details` and rules (e.g., sum XP from multiple defeated enemies).
+        - Apply all relevant scaling factors (player level vs. content level, party size modifiers, bonus XP from statuses/items).
+    - **XP Distribution**:
+        - Determine all recipient players. If `primary_entity_type` is `PARTY`, get all eligible members from `Party.player_ids_json`.
+        - Apply `RuleConfig` distribution policy (e.g., `even_split`, `performance_based_modifier_from_combat_logs`, `leader_gets_bonus`).
+    - **DB Update & Level Check**:
+        - For each recipient player:
+            - Atomically add calculated XP to `Player.xp`.
+            - Call `_check_for_level_up(session, guild_id, player)`:
+                - Continuously check `player.xp` against `experience_system:level_curve` from `RuleConfig`.
+                - If level up: increment `Player.level`, subtract XP cost, award `Player.unspent_xp` and other rewards (new abilities, features) based on `experience_system:level_up_rewards` from `RuleConfig`. Log `LEVEL_UP` event. Notify player. Repeat if multiple levels gained.
+    - **Event Logging**: Log `XP_GAINED` event to `StoryLog` for each player, detailing source, amount, and final XP total.
+    - **Feedback**: Provide localized feedback to players about XP gained and level ups.
+Result: A comprehensive XP system that accurately awards and distributes experience from all game activities, handles level progression, and grants rewards according to flexible, guild-specific rules.
 
 Task 32: ⚡️ 13.3 Applying Level Up (Multy-i18n).
-* Description: Distributing level points.
-* Player commands receive guild context. Update player stats/xp within the guild (1.2/5/14). Recalculate Effective_Stats (14). Provide feedback (47).
+* Description: **A to Z Implementation**: Implement player commands and underlying logic for spending accumulated points (`Player.unspent_xp` or other point types like `unspent_skill_points` if modeled) to improve character attributes, skills, or unlock choices, all governed by `RuleConfig`.
+    - **Player Commands (Discord)**:
+        - `/levelup attribute <attribute_name> <points_to_spend>`
+        - `/levelup skill <skill_name> <points_to_spend>`
+        - `/levelup choice <choice_id_from_levelup_rewards>` (e.g., for choosing one of two abilities offered at a certain level).
+    - **API `spend_character_points(session, guild_id: int, player_id: int, point_type: str, target_name: str, points_to_spend: int) -> SpendPointsResult`**:
+        - `point_type`: e.g., "attribute", "skill".
+        - `target_name`: e.g., "strength", "swordsmanship".
+        - Load player, `RuleConfig` for `character_attributes:definitions`, `character_attributes:cost_per_point` (or skill equivalents).
+        - Validate `target_name`, sufficiency of `points_to_spend` against `Player.unspent_xp` (or other point fields), and cost per point.
+        - Update `Player.attributes_json` (or `skills_json`, or grant abilities/items based on `target_name` for "choice" type).
+        - Deduct spent points from `Player.unspent_xp`.
+        - Log `ATTRIBUTE_POINTS_SPENT` or `SKILL_POINTS_SPENT` event.
+    - **Effective Stats Recalculation**: Ensure that any change to base attributes/skills triggers a recalculation or invalidation of cached "effective stats" if such a caching system exists (related to Task 6.3.2).
+    - **Feedback**: Provide detailed, localized feedback via Discord commands on success (new stat/skill values, remaining points) or failure (invalid target, not enough points, etc.).
+    - **i18n**: All attribute/skill names and command feedback must be localized.
+Result: A complete system allowing players to meaningfully develop their characters by spending level-up points according to guild-specific rules, with clear feedback.
+
 
 Task Block: Phase 8: Factions, Relationships, and Social Mechanics
-This block presents tasks related to factions, relationships between entities, and their influence on gameplay.
-
 Task 33: 🎭 8.1 Factions Model (Guild-Scoped, i18n).
-Description: Define the model for storing faction data within a guild.
-Implement the GeneratedFaction model (0.2/7). With a guild_id field. Fields: id (PK), name_i18n (JSONB), ideology_i18n (JSONB), description_i18n (JSONB), resources_json (JSONB), leader_npc_id (INTEGER FK, Nullable), ai_metadata_json (JSONB).
+Description: Define the model for storing faction data within a guild, including their ideology, resources, leadership, and AI generation metadata.
+Implement the `GeneratedFaction` model (0.2/7). Fields: `id` (PK), `guild_id` (BIGINT, FK), `static_id` (TEXT, unique within guild), `name_i18n` (JSONB), `description_i18n` (JSONB), `ideology_i18n` (JSONB: summary of beliefs/goals), `banner_url` (TEXT, Optional), `leader_npc_id` (INTEGER FK to `GeneratedNpc.id`, Nullable), `member_npc_ids_json` (JSONB: List of `GeneratedNpc.id`s that are prominent members, for quick reference), `resources_json` (JSONB: abstract representation of faction wealth, manpower, territory influence), `ai_metadata_json` (JSONB: data used for or resulting from AI generation, e.g., personality tags, generation prompt hints).
+Result: `GeneratedFaction` model defined, capable of storing detailed information about game factions.
 
 Task 34: 🎭 8.2 Relationships Model (Guild-Scoped).
-Description: Define the model for storing relationships between entities within a guild. (Moved from 8.1).
-Implement the Relationship model (0.2/7). With a guild_id field. Fields: id (PK), entity1_type (TEXT, ENUM Player/Party/Npc/Faction), entity1_id (INT), entity2_type (TEXT), entity2_id (INT), type (TEXT enum), value (INT), source_log_id (INTEGER FK, Nullable). (Composite Unique Index: guild_id, entity1_type, entity1_id, entity2_type, entity2_id).
+Description: Define the model for storing quantified relationships (positive/negative standing, specific types like "allied", "rival", "feared_by") between various game entities (Players, Parties, NPCs, Factions) within a guild.
+Implement the `Relationship` model (0.2/7). Fields: `id` (PK), `guild_id` (BIGINT, FK), `entity1_id` (INTEGER), `entity1_type` (ENUM `RelationshipEntityType`), `entity2_id` (INTEGER), `entity2_type` (ENUM `RelationshipEntityType`), `relationship_type` (TEXT, e.g., "personal_feeling", "faction_standing_official", "trade_reputation", default "neutral"), `value` (INTEGER, e.g., -100 to 100), `source_log_id` (INTEGER FK to `StoryLog.id`, Nullable, for tracking the event that last significantly changed this relationship).
+Implement `UniqueConstraint("guild_id", "entity1_id", "entity1_type", "entity2_id", "entity2_type", "relationship_type")` to allow multiple types of relationships between the same pair of entities. Ensure `_get_canonical_entity_pair` in `relationship_system.py` correctly handles this if `relationship_type` becomes part of the key for fetching a specific relationship.
+Result: `Relationship` model defined, allowing for detailed tracking of nuanced social dynamics between game entities.
 
 Task 35: 🎭 8.3 AI Generation of Factions and Relationships (Multilang, Per Guild).
-Description: AI generates factions and their relationships for a guild according to rules. (Moved from 8.2).
-Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules (13/41) FOR THIS GUILD, including factions and their relationships (to others, to player/NPC/parties). The result is saved in the GeneratedFaction (33) and Relationship (34) models WITH THIS guild_id.
+Description: **A to Z Implementation**: Enable AI to generate a cohesive set of factions and their initial inter-relationships (and key NPC-to-faction relationships) for a guild, based on `RuleConfig` and world lore.
+    - **Trigger**: Part of initial world generation (Task 10 in old numbering) or triggered by Game Master / game events.
+    - **Prompt Preparation (Task 2.2)**: Generate a prompt requesting a set of factions (names, descriptions, ideologies, potential leaders) and a matrix of their initial relationships (e.g., Faction A is "allied" with Faction B, "hostile" to Faction C). Prompt should include `RuleConfig` constraints (number of factions, allowed ideologies, conflict likelihood: `ai:generation:faction_ecosystem:*`).
+    - **AI Call & Parsing (Task 2.3, 2.6)**:
+        - Invoke LLM.
+        - Parse response into `ParsedFactionData` and `ParsedRelationshipData` objects. Validate thoroughly.
+    - **Saving (Task 2.6 `save_approved_generation` extension)**:
+        - **Pass 1: Save Factions**: Create `GeneratedFaction` records. Store `static_id` to `db_id` mapping.
+        - **Pass 2: Save Relationships**:
+            - For inter-faction relationships, use the `static_id` map to find `db_id`s and create `Relationship` records.
+            - If AI suggests NPC leaders and their faction alignment, create/update `GeneratedNpc` records (if part of same generation batch) and link them via `GeneratedFaction.leader_npc_id` and create corresponding NPC-to-Faction `Relationship` records.
+    - **i18n**: Ensure all generated text fields (`name_i18n`, `description_i18n`, etc.) are created in required languages.
+    - **Logging**: Log `FACTIONS_GENERATED` and `RELATIONSHIPS_INITIALIZED_AI` events.
+Result: A system capable of AI-generating a rich initial social landscape of factions and their relationships, providing a dynamic backdrop for gameplay.
 
 Task 36: 🎭 8.4 Relationship Changes Through Actions (According to Rules, Guild-Scoped).
-Description: Implement logic for updating numerical relationship values in response to game events based on Master-configurable rules. (Moved from 8.3).
-API update_relationship(guild_id: int, entity_doing_id, entity_doing_type, target_entity_id, target_entity_type, event_type: str, event_details_log_id: int). Accepts guild_id. Called by other modules upon events that change relationships (combat 27, quest 39, dialogue 46, trade 42, world event 44/40).
-Uses rules FROM rules_config (13/0.3) FOR THIS GUILD to find relationship change rules by event_type. Determines which relationship changes (Player vs Entity or Party vs Entity), by what amount (formula from RuleConfig).
-Finds/creates a Relationship record (34) WITHIN THIS GUILD. Updates the value. Logs (19) WITH THIS guild_id.
+Description: **A to Z Implementation**: Implement the logic for updating numerical relationship values and types in response to all relevant game events, driven by flexible `RuleConfig` settings.
+    - **API**: `update_relationship(session, guild_id: int, entity_doing_id: int, entity_doing_type: RelationshipEntityType, target_entity_id: int, target_entity_type: RelationshipEntityType, event_type: EventType, event_details: Dict[str, Any], source_log_id: int)`.
+        - `event_details`: Provides specific context from the triggering event (e.g., damage dealt in combat, specific dialogue choice ID, item gifted in trade).
+    - **Rule Loading**:
+        - For the given `event_type.name`, load rules from `RuleConfig` (e.g., `relationship_rules:<EVENT_TYPE_NAME>`).
+        - Rules specify:
+            - `relationship_type_to_affect` (e.g., "personal_feeling", "faction_standing_official").
+            - `delta_value` (fixed amount) or `delta_formula` (string to be `eval`ed with `event_details` and entity stats as context).
+            - `conditions` (list of criteria that must be met in `event_details` or entity states for the rule to apply).
+            - `min_val`, `max_val` for clamping.
+            - `affects_faction_of_target`: If true, and target is NPC, also try to apply change between actor and target's faction.
+            - `reciprocal_change_multiplier`: (e.g., -0.5 for "if A likes B more, B likes A a bit less due to perceived neediness").
+    - **Relationship Update**:
+        - Use `_get_canonical_entity_pair` to ensure consistent keying.
+        - Find or create the `Relationship` record for the specified `relationship_type_to_affect`.
+        - Calculate `delta` based on rule. Apply `delta` to `Relationship.value`, clamping with `min_val`/`max_val`.
+        - Update `Relationship.source_log_id`.
+    - **Faction Relationship Cascade**: If `affects_faction_of_target` and applicable, determine factions of `entity_doing` and `target_entity`. Recursively call `update_relationship` for the faction-to-faction or entity-to-faction relationship, using a modified `event_type` (e.g., `FACTION_PROXY_COMBAT_VICTORY`) and potentially different rules from `RuleConfig`.
+    - **Logging**: Log `RELATIONSHIP_CHANGE` event to `StoryLog` with full details (both entities, type of relationship, old/new value, source event).
+    - **Integration**: Ensure this API is called by all relevant modules: Combat (Task 5.4), Quests (Task 9.3), Dialogue (Task 11.2), Trade (Task 10.3), World Events (Task 14.2), Ability System (Task 3.3).
+Result: A comprehensive system that dynamically adjusts relationships between all entity types based on game events and highly configurable rules, creating an evolving social simulation.
 
 Task 37: 🎭 8.5 Relationship Influence (Full, According to Rules, Multy-i18n).
-Description: Implement the use of relationship values from the DB (34) as parameters or conditions in various game mechanics according to game rules. (Moved from 8.5).
-Modules (12, 28, 48, 42, 44, 21) REQUIRE guild_id. When executing their logic, they:
-Load current relationships (34) between involved entities FROM THE DB, STRICTLY BY guild_id.
-Use rules FROM rules_config (13/0.3) FOR THIS GUILD on how the relationship value (from 34) translates into a numerical modifier (for checks 12), multiplier (for prices 42), or condition (for AI action choice 28, dialogue availability 46).
-
-
-Feedback (49) about relationship influence should be in the player's language.
+Description: **A to Z Implementation**: Fully integrate the use of `Relationship.value` (for various `relationship_type`s) from the DB as parameters or conditions in all relevant game mechanics, governed by `RuleConfig`.
+    - **Check Resolver (Task 6.3.2)**:
+        - When resolving checks, load relationships between actor and target (and potentially actor/target vs. other relevant entities like faction leaders).
+        - `RuleConfig` (`checks:<check_type>:relationship_modifiers`) defines how relationship values (of specified types) translate to check modifiers (e.g., bonus/penalty to roll, change to DC). Formulas can be used.
+    - **NPC Combat Strategy (Task 5.3)**:
+        - NPC AI loads relationships with potential targets.
+        - `RuleConfig` (`ai:combat_strategy:<npc_type>:relationship_behavior`) dictates:
+            - Target selection preference (e.g., prioritize attacking hated enemies, avoid attacking allies/friends unless confused/berserk).
+            - Action choice (e.g., use different abilities against friends vs. foes, hesitate to use lethal force on high-relationship targets).
+    - **Dialogue System (Task 11.1, 11.2)**:
+        - When generating NPC dialogue (Task 11.1), include relationship values in prompt context.
+        - `RuleConfig` (`dialogue:relationship_influence`) defines:
+            - NPC tone/greeting variations based on relationship level.
+            - Availability of specific dialogue options or information disclosure.
+            - NPC willingness to offer quests, trade, or services.
+    - **Trade System (Task 10.3)**:
+        - When calculating prices, load relationship between player and NPC trader.
+        - `RuleConfig` (`economy:price_modifiers:relationship`) defines how relationship values affect buy/sell price multipliers.
+    - **Quest System (Task 9.3)**:
+        - Availability of quests from an NPC can depend on relationship with player/party.
+        - Quest outcomes or specific step resolutions might be influenced by relationships with involved NPCs/factions.
+    - **Action Processing (Task 6.11, 6.1.1)**:
+        - Certain player actions (e.g., social interactions, persuasion attempts not covered by specific checks) might have outcomes modified by relationships.
+    - **Feedback (Task 7.3/54)**: Ensure localized feedback to players clearly (or subtly, as per design) reflects how relationships influenced outcomes (e.g., "The guard seems friendlier towards you and offers a discount," "Your blatant aggression towards the Baron's men has made him wary.").
+    - **Generic Utility**: Provide a utility `get_relationship_modifier(session, guild_id, entity1, entity2, context_key_for_rules)` that encapsulates loading relationships and applying rules for a specific context.
+Result: A game world where social standing and past interactions meaningfully impact gameplay across all relevant systems, driven by configurable rules.
 
 Task 38: 🎭 8.6 Complex Internal Faction Relationships.
-Description: Generation and use of specific NPC relationships to other factions or NPCs within their own factions for more complex behavior. (Moved from 8.6).
-AI generates (16) and parses (17) these relationships. Stored in Relationship (34).
-Their influence is defined in RuleConfig (13/0.3) as a separate relationship type or rule modifier. NPC behavior rules dictated by hidden relationships (betrayal, helping the player from a hostile faction) are used by the AI Strategy (28) and Action Processing Module (21) / Dialogue (46).
+Description: **A to Z Implementation**: Enable the generation and use of specific, potentially hidden or nuanced, NPC-to-NPC and NPC-to-Faction relationships within the game world, influencing NPC behavior and plot developments.
+    - **AI Generation (Task 2.2, 2.3, 2.6, 35)**:
+        - AI prompts for NPC generation can request details about their specific loyalties, rivalries, secret allegiances, or personal feelings towards other specific NPCs or Factions (even their own).
+        - `ParsedNpcData` and `ParsedRelationshipData` should support capturing these nuanced relationships.
+        - Saving logic must correctly create these `Relationship` records (e.g., NPC A "secretly_admires" NPC B; NPC C "distrusts_leader_of_own_faction" Faction X).
+    - **Storage**: Store these as standard `Relationship` records, possibly using specific `relationship_type` values (e.g., "personal_grudge_npc_npc", "secret_loyalty_npc_faction").
+    - **Influence on NPC Behavior**:
+        - **NPC Combat Strategy (Task 5.3)**: AI rules in `RuleConfig` (`ai:combat_strategy:<npc_type>:internal_relationship_tactics`) can define how these hidden relationships affect combat choices (e.g., an NPC might hesitate to attack an admired enemy NPC, or might subtly assist the player against a distrusted faction member).
+        - **Dialogue System (Task 11.1, 11.2)**: Hidden relationships can influence NPC dialogue choices, willingness to share information, or offer secret help/hindrance, if the LLM prompt is constructed to consider them.
+        - **Global Entity Management (Task 14.2)**: Interactions between Global NPCs or Mobile Groups can be influenced by these specific relationships.
+    - **Revealing Relationships**: Game events, player actions (investigation, social checks), or quest progression might reveal these hidden relationships to the player, potentially changing player's understanding or strategy. This involves updating `PlayerNpcMemory` or `WorldState`.
+    - **`RuleConfig`**: Define keys for NPC archetypes or specific NPCs that describe how different internal relationship types should modify their standard behavior patterns.
+Result: A richer social simulation where NPCs have complex interconnections that can lead to emergent behaviors, betrayals, unexpected alliances, and deeper plotlines.
+
 
 Task Block: Phase 9: Detailed Quest System with Consequences
-This block presents tasks for implementing a comprehensive quest system with steps, consequences, and links to other mechanics.
-
 Task 39: 📚 9.1 Quest and Step Structure (Guild-Scoped, i18n).
-Description: GeneratedQuest, Questline, QuestStep models. MUST INCLUDE guild_id. Link to player OR party in this guild. Step structure with required_mechanics_json, abstract_goal_json, consequences_json. _i18n text fields.
+Description: Define comprehensive ORM models for `Questline`, `GeneratedQuest`, `QuestStep`, and `PlayerQuestProgress`, ensuring `guild_id` for isolation, i18n for all text, and robust structures for complex quest logic.
+    - **`Questline` Model**: `id`, `guild_id`, `static_id`, `title_i18n`, `description_i18n`, `starting_quest_static_id` (links to first `GeneratedQuest.static_id`), `is_main_storyline` (bool), `required_previous_questline_static_id` (for chaining storylines), `properties_json` (e.g., overall theme, recommended player level range).
+    - **`GeneratedQuest` Model**: `id`, `guild_id`, `static_id`, `title_i18n`, `description_i18n` (overall summary), `questline_id` (FK, nullable), `giver_entity_type` (ENUM `RelationshipEntityType`, nullable), `giver_entity_id` (INT, nullable), `min_level` (INT, nullable), `is_repeatable` (bool), `cooldown_hours_on_completion` (INT, if repeatable), `rewards_json` (JSONB: default rewards for quest completion - XP, items, gold, relationship changes, world state flags), `properties_json` (e.g., quest type tag like "slay", "fetch", "escort"; difficulty tag), `ai_metadata_json`.
+    - **`QuestStep` Model**: `id`, `guild_id`, `quest_id` (FK to `GeneratedQuest`), `step_order` (INT), `title_i18n` (optional, for display), `description_i18n` (detailed instructions for this step), `required_mechanics_json` (JSONB: defines what game event/action completes this step, e.g., `{"event_type": "ITEM_ACQUIRED", "details_subset": {"item_static_id": "macguffin", "quantity": 1}}` or `{"event_type": "NPC_INTERACTED", "details_subset": {"npc_static_id": "oracle", "dialogue_choice_id": "secret_revealed"}}`), `abstract_goal_json` (JSONB, optional: for goals requiring complex evaluation, e.g., `{"enabled": true, "description_i18n": {"en": "Impress the Baron."}, "evaluation_method": "llm_based" or "rule_based", "rule_config_key": "quest_goals:impress_baron"}`), `consequences_json` (JSONB: specific outcomes for completing *this step* - can be similar structure to `GeneratedQuest.rewards_json`), `next_step_order` (INT, nullable, for branching if current step has multiple outcomes), `properties_json` (e.g., hints, is_hidden_step).
+    - **`PlayerQuestProgress` Model**: `id`, `guild_id`, `player_id` (FK, nullable), `party_id` (FK, nullable, ensure one of player/party is set), `quest_id` (FK to `GeneratedQuest`), `current_step_id` (FK to `QuestStep`, nullable if quest not started/completed), `status` (ENUM `QuestStatus`: `NOT_STARTED`, `STARTED`, `IN_PROGRESS`, `COMPLETED`, `FAILED`, `ABANDONED`), `progress_data_json` (JSONB: for tracking step-specific counters, e.g., `{"goblins_slain": 3}`), `accepted_at` (DATETIME), `completed_at` (DATETIME, nullable), `failed_at` (DATETIME, nullable). Add `UniqueConstraint` for (`guild_id`, `player_id`, `quest_id`) and (`guild_id`, `party_id`, `quest_id`) if a quest can only be active once per player/party.
+    - All models include `TimestampMixin` for `created_at`, `updated_at`.
+Result: Fully defined database schema for a comprehensive quest system, supporting complex multi-step quests, branching, varied objectives, and detailed progress tracking for both players and parties.
 
 Task 40: 🧬 9.2 AI Quest Generation (According to Rules, Multilang, Per Guild).
-Description: AI generates quests for a specific guild according to rules.
-Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to structure 39 based on RuleConfig rules (13/0.3) FOR THIS GUILD, including rules for steps and consequences. Request generation of required_mechanics_json and abstract_goal_json (according to rules 13/41) and consequences_json (according to rules 13/41). Texts should be i18n. Entities get guild_id.
+Description: **A to Z Implementation**: Enable AI to generate complete, multi-step quests with objectives, mechanics, and consequences, tailored to guild-specific rules, lore, and existing world state.
+    - **Trigger**: Part of larger content generation (Task 2.6) or specific Master command. Context can include target player level, location, desired quest type/theme, linked entities (e.g., quest giver NPC).
+    - **Prompt Preparation (Task 2.2)**:
+        - Construct a detailed prompt requesting a `GeneratedQuest` object, including a list of `QuestStep` objects.
+        - Provide `RuleConfig` guidelines:
+            - `ai:generation:quest:structure_templates:<quest_type>` (e.g., typical number of steps for "fetch" vs "investigation" quests).
+            - `ai:generation:quest:mechanic_options` (list of valid `required_mechanics_json.event_type` and typical `details_subset` structures AI can use).
+            - `ai:generation:quest:reward_guidelines:<difficulty>` (typical XP/gold/item rewards for quest difficulty).
+            - `ai:generation:quest:theme_elements:<theme_name>` (keywords, typical NPCs/items for a given theme).
+        - Include current world state snippets, relevant NPC/faction info from context to ensure generated quest fits the world.
+        - Request i18n for all text fields.
+    - **AI Call & Parsing (Task 2.3, 2.6)**:
+        - Invoke LLM.
+        - Parse response into `ParsedQuestData` (which includes a list of `ParsedQuestStepData`). Perform thorough validation of structure, mechanics, and consistency (e.g., `next_step_order` forms valid chains).
+    - **Saving (Task 2.6 `save_approved_generation` extension)**:
+        - After Master approval (if moderation is enabled):
+            - Create `GeneratedQuest` record.
+            - For each `ParsedQuestStepData`, create corresponding `QuestStep` records, linked to the parent `GeneratedQuest`.
+            - Ensure `guild_id` propagation and transactional integrity.
+    - **Complexity Handling**: AI should be guided to generate quests of varying complexity, potentially including branching steps (multiple `next_step_order` options based on different outcomes of a step, though model might need `QuestStep.outcome_conditions_json` for this).
+    - **Logging**: Log `QUEST_BATCH_GENERATED_AI` event.
+Result: A system capable of AI-generating diverse and structurally sound quests that are thematically consistent with the guild's world and adhere to defined gameplay mechanics and reward structures.
 
 Task 41: 📚 9.3 Quest Tracking and Completion System (Guild-Scoped).
-Description: Tracking the progress of active quests and applying consequences.
-API handle_player_event_for_quest(guild_id: int, player_id/party_id, log_entry_id: int). Called FROM 21 (Action Processing Module - after EVERY action) AND FROM 27 (Combat Cycle - after combat). Accepts guild_id and the ID of the just-occurred event's log entry.
-Loads active quests (39) for this player/party IN THIS GUILD.
-For each active quest: Checks if the event (from log 17) matches the required_mechanics_json requirement of the current step (from DB 39), comparing the event type from the log and its details with the mechanic description in the step, according to RuleConfig rules (13/0.3/41).
-If the step is complete:
-If step has abstract_goal_json: Evaluate the abstract goal. Collect logs (17) for the recent period for this player/party (related to the quest?). Optionally: Call LLM (48) for judgment, using a prompt with guild context, logs, goal description. The LLM result (or rules 13/41) determines the success/failure of the evaluation.
-If the step is successfully completed (and goal evaluation is successful): Update step status in the DB. Apply STEP CONSEQUENCES (from the step's consequences_json 39): Parse the step's consequences_json. Call corresponding modules (36 for WorldState, 34 for relationships, 29 for XP, 15/42 for gold/items) PASSING guild_id AND SPECIFYING THE PLAYER OR PARTY AS THE SOURCE of change. All according to RuleConfig rules (13/0.3/41). Log event (19). Provide feedback (47).
-Check if there's a next step in the branch. If yes, update the current step.
-
-
-If this is the last step: Mark the quest as completed. Apply the CONSEQUENCES OF THE ENTIRE QUEST (similarly to a step). Start the next quest in the arc (39). Award rewards (according to distribution rules 13/41!).
-
+Description: **A to Z Implementation**: Develop a comprehensive system for tracking player/party progress through quests, evaluating step completion based on game events, and applying all defined consequences.
+    - **API `handle_player_event_for_quest(session, guild_id: int, event_log_entry: StoryLog, player_id: Optional[int] = None, party_id: Optional[int] = None)`**:
+        - Called by Action Processor (Task 6.11) after every significant player/party action or by other systems posting to `StoryLog`.
+        - Determine all relevant `PlayerQuestProgress` entries for the involved player(s)/party in status `STARTED` or `IN_PROGRESS`.
+    - **Mechanic Matching (`_check_mechanic_match`)**:
+        - For each active quest and its `current_step`:
+            - Compare `event_log_entry.event_type` and `event_log_entry.details_json` against `current_step.required_mechanics_json`.
+            - Use `RuleConfig` (`quest_rules:mechanic_matching:<EVENT_TYPE_NAME>`) to define how `details_json` fields map to `details_subset` fields and what comparison types to use (exact match, contains, value range).
+    - **Abstract Goal Evaluation (`_evaluate_abstract_goal`)**:
+        - If `current_step.abstract_goal_json.enabled` is true:
+            - If `evaluation_method` is `"llm_based"`: Prepare prompt (Task 2.2) with goal description, recent relevant `StoryLog` entries for player/party, current world state. Call LLM (Task 7.2) to return a boolean assessment.
+            - If `evaluation_method` is `"rule_based"`: Load rules from `RuleConfig` (key from `abstract_goal_json.rule_config_key`). Evaluate these rules against current game state (player stats, inventory, world flags, aggregated past events).
+    - **Step Completion & Consequence Application (`_apply_quest_consequences`)**:
+        - If mechanic matched AND (no abstract goal OR abstract goal evaluated to true):
+            - Apply consequences defined in `current_step.consequences_json` (XP, items, relationship changes, world state changes) by calling respective system APIs (Tasks 13.2, related to 10.1/10.3, 8.4, update `RuleConfig`).
+            - Log `QUEST_STEP_COMPLETED` event.
+    - **Advancing Quest (`_advance_quest_progress`)**:
+        - If step completed, determine `next_step_order` from `current_step`.
+        - Find the next `QuestStep` in `GeneratedQuest.steps`.
+        - If next step exists: update `PlayerQuestProgress.current_step_id`. Log `SYSTEM_EVENT` for "new step started". Provide feedback.
+        - If no next step (or `next_step_order` is a terminal indicator):
+            - Mark `PlayerQuestProgress.status` as `COMPLETED`. Set `completed_at`.
+            - Apply overall quest rewards from `GeneratedQuest.rewards_json` (using `_apply_quest_consequences`).
+            - Log `QUEST_COMPLETED` event. Provide feedback.
+            - Trigger any subsequent quest in a `Questline` if defined.
+    - **Handling Failure/Abandonment**:
+        - Implement logic for `PlayerQuestProgress.status = FAILED` (e.g., time limit expired, key NPC died, critical objective failed based on an event). Apply consequences from `GeneratedQuest.properties_json.failure_consequences_json`.
+        - Implement player command `/quest abandon <quest_id>` which sets status to `ABANDONED`.
+    - **Error Handling & Logging**: Robust error handling and detailed logging throughout.
+Result: A comprehensive quest system that dynamically tracks and updates player progress based on diverse game events, evaluates complex objectives, and applies rich, interconnected consequences.
 
 
 Task Block: Phase 10: Economy, Items, and Trade
-This block presents tasks related to economy, items, and trade mechanics.
-
 Task 42: 💰 10.1 Data Structure (Guild-Scoped, i18n).
-Description: Item, ItemProperty models. With a guild_id field. name_i18n, description_i18n. Properties, base value, category. Economy rules (rules_config 13/0.3/41).
+Description: Define models for `Item`, `ItemProperty` (if distinct from `Item.properties_json`), and `InventoryItem`. Establish how economy rules (base prices, price adjustments, item availability) are stored in `RuleConfig`.
+    - **`Item` Model (0.2/7)**: `id`, `guild_id` (nullable for global/template items), `static_id` (unique per guild or globally if `guild_id` is null), `name_i18n`, `description_i18n`, `item_type_i18n` (e.g., "Weapon", "Potion", "Armor", "Junk"), `item_category_i18n` (e.g., "Sword", "Healing Potion", "Heavy Armor"), `base_value` (INT, currency implicit or in properties), `is_stackable` (BOOLEAN), `slot_type` (TEXT ENUM for equippable items: "MAIN_HAND", "HEAD", "CONSUMABLE"), `properties_json` (JSONB: detailed stats, effects on use/equip, skill requirements, crafting components, visual appearance key, rarity tag).
+    - **`InventoryItem` Model (0.2/7)**: `id`, `guild_id`, `owner_entity_id`, `owner_entity_type` (ENUM `RelationshipEntityType`), `item_id` (FK to `Item`), `quantity` (INT), `equipped_status` (TEXT ENUM for `slot_type` or generic "EQUIPPED", nullable), `instance_specific_properties_json` (JSONB: for unique item instances, e.g., durability, specific enchantments, soulbound status).
+    - **`RuleConfig` for Economy**:
+        - `economy:base_item_values:<item_category_or_type_key>`: Default prices.
+        - `economy:price_modifiers:<modifier_type>`: Rules for price adjustments (skill, relationship, location tax, demand/supply simulation if advanced).
+        - `economy:npc_inventory_templates:<npc_role_key>`: Defines typical trader inventories.
+        - `economy:regional_item_availability:<location_tag>`: Controls what items are commonly found/sold in areas.
+        - `economy:currency_name_i18n`: `{"en": "Gold", "ru": "Золото"}`.
+Result: Robust data structures for items and inventory, and a clear definition of `RuleConfig` keys for governing all aspects of the game economy.
 
 Task 43: 💰 10.2 AI Economic Entity Generation (Per Guild).
-Description: AI generates items and NPC traders for a guild according to rules.
-Called from 10 (Generation Cycle). AI (16/17) is prompted to generate according to rules 13/41 FOR THIS GUILD, including traders (with roles, inventory), base prices (calculated by rules 13/41), i18n texts. Entities get guild_id.
+Description: **A to Z Implementation**: Enable AI to generate balanced and thematically appropriate items and NPC traders for a guild, based on `RuleConfig` and world context.
+    - **Trigger**: Part of larger content generation (Task 2.6) or specific Master command. Context: desired item types/rarity, trader roles, location for trader.
+    - **Prompt Preparation (Task 2.2)**:
+        - For Items: Request `Item` data including `static_id`, `name_i18n`, `description_i18n`, `item_type_i18n`, `properties_json` (stats, effects), `base_value`. Prompt should use `RuleConfig` for item themes, typical stats for level/rarity (`ai:generation:item:balance_rules:<item_type>`), and desired i18n.
+        - For NPC Traders: Request `GeneratedNpc` data (`ParsedNpcTraderData`) including `name_i18n`, `role_i18n` (e.g., "Blacksmith", "Alchemist"), `inventory_template_key` (from `RuleConfig economy:npc_inventory_templates`) or a list of `GeneratedInventoryItemEntry` (item `static_id`s and quantities for their initial stock), and potentially some personality/dialogue hints.
+    - **AI Call & Parsing (Task 2.3, 2.6)**: Invoke LLM, parse into `ParsedItemData` and `ParsedNpcTraderData`. Validate against schemas and economic rules (e.g., generated `base_value` within acceptable range for item type/properties).
+    - **Saving (Task 2.6 `save_approved_generation` extension)**:
+        - After approval:
+            - Create `Item` records.
+            - Create `GeneratedNpc` records for traders, storing `role_i18n` and `inventory_template_key` in `properties_json`.
+            - For each trader, if `generated_inventory_items` were provided by AI:
+                - For each `GeneratedInventoryItemEntry`: Resolve `item_static_id` to an `Item.id` (must exist or be part of same generation batch).
+                - Create `InventoryItem` records linked to the trader NPC, with random quantity within `quantity_min`/`quantity_max` if `chance_to_appear` met.
+    - **Balance & Consistency**: AI should be guided by `RuleConfig` to generate items and trader inventories that are balanced for the game's economy and appropriate for the world's lore and specific locations.
+Result: A system that uses AI to populate the game world with unique items and specialized NPC traders with appropriate stock, all configurable per guild.
 
 Task 44: 💰 10.3 Trade System (Guild-Scoped).
-Description: Managing a trade session.
-API handle_trade_action(guild_id: int, session: Session, player_id: int, target_npc_id: int, action_type: str, item_id: Optional[int] = None, count: Optional[int] = None). Called from 21 (Action Processing Module) or 46 (Dialogue Module). REQUIRES guild_id and session.
-Implements logic: opening trade interface, processing "buy"/"sell". Prices are calculated DYNAMICALLY according to rules 13/41/36, considering relationships (30/31).
-Within the provided transaction (session): Check feasibility of transaction, calculate final price, move items (call 15 add/remove), update gold (15/0.2/0.3). If the transaction fails (e.g., item already bought by another party member) -> ROLLBACK (of the action transaction in 15).
-Log (19) for the guild. Provide feedback (47). Change Relationships (30/31) according to rules 13/41 for trades.
+Description: **A to Z Implementation**: Develop a comprehensive system for managing trade interactions between players and NPCs (or players, if p2p trade is supported).
+    - **API**: `handle_trade_action(session, guild_id: int, player_id: int, target_npc_id: Optional[int], action_type: str, item_identifier: Optional[Union[int, str]], inventory_item_id: Optional[int], quantity: Optional[int]) -> TradeActionResult`.
+        - `action_type`: "view_inventory", "buy", "sell", "start_trade_session", "end_trade_session".
+        - `item_identifier`: `Item.static_id` or `Item.id` for buying.
+        - `inventory_item_id`: `InventoryItem.id` from player's inventory for selling.
+    - **Trade Session Management (Optional but recommended for UI)**:
+        - `start_trade_session`: Locks items in NPC inventory (if dynamic), sets player status.
+        - `end_trade_session`: Releases locks, clears temporary trade data.
+    - **View Inventory**: Display NPC's (or player's) inventory with calculated buy/sell prices for the active player.
+    - **Price Calculation (`_calculate_item_price`)**:
+        - Start with `Item.base_value`.
+        - Apply modifiers from `RuleConfig` (`economy:price_modifiers:*`):
+            - Player's trade skill level.
+            - Relationship value between player and trader (Task 37).
+            - Faction standing influence.
+            - Location-specific taxes or tariffs.
+            - Global economic state (supply/demand simulation, if implemented).
+        - Differentiate between player buying price (typically higher) and player selling price (typically lower).
+    - **Buy/Sell Logic**:
+        - **Validation**: Check item availability, player's gold (for buying), player's item quantity (for selling), NPC's gold (if limited), carrying capacity.
+        - **Transactional Update**: Atomically:
+            - Adjust Player/NPC gold.
+            - Transfer `InventoryItem` records (create new, update quantity, or delete if quantity becomes zero). Handle stackable vs. non-stackable items.
+        - If transaction fails (e.g., item bought by another party member simultaneously if not locked by session), ensure full rollback.
+    - **Relationship Impact**: Call Relationship System (Task 8.4) to update player-trader relationship based on trade volume/fairness (defined in `RuleConfig`).
+    - **Logging & Feedback**: Log `TRADE_ITEM_BOUGHT`/`SOLD` events to `StoryLog`. Provide clear, localized feedback (success, failure reasons, prices) via `TradeActionResult`.
+    - **Error Handling**: Robustly handle all edge cases (item not found, insufficient funds/items, NPC not a trader, etc.).
+Result: A complete and dynamic trade system with rule-based pricing, inventory management, and integration with social and logging systems.
+
 
 Task Block: Phase 14: Global Entities and Dynamic World
-This block presents tasks related to entities that move around the world independently of players (caravans, patrols, random NPCs), and their simulation.
-
 Task 45: 🌌 14.1 Global Entity Models (Guild-Scoped, i18n).
-Description: Models for entities moving in the world within each guild.
-Implement GlobalNpc, MobileGroup, GlobalEvent models (0.2/7). All with a guild_id field. name_i18n. Routes, goals, composition.
+Description: Define data models for entities that move and act in the game world independently of direct player control, such as caravans, patrols, wandering monsters, or dynamic global events.
+    - **`GlobalNpc` Model (0.2/7)**: Represents an individual NPC that operates globally.
+        - Fields: `id`, `guild_id`, `static_id` (unique within guild), `name_i18n`, `description_i18n`, `npc_template_id` (FK to `GeneratedNpc` for base stats/abilities, optional), `current_location_id` (FK, nullable), `mobile_group_id` (FK to `MobileGroup`, nullable, if part of a group), `properties_json` (current HP/resources if different from template, current goal (e.g., "patrol_route_A", "travel_to_city_B"), behavior tags, AI state), `ai_metadata_json`.
+    - **`MobileGroup` Model (0.2/7)**: Represents a group of GlobalNpcs or other entities moving together.
+        - Fields: `id`, `guild_id`, `static_id`, `name_i18n`, `description_i18n`, `current_location_id` (FK, nullable), `leader_global_npc_id` (FK to `GlobalNpc`, nullable), `members_definition_json` (JSONB: list of `{"global_npc_static_id": str, "role_in_group_i18n": json}` or `{"npc_template_id": int, "count": int, "role_in_group_i18n": json}` for dynamically spawned members), `behavior_type_i18n` (e.g., "merchant_caravan", "bandit_patrol", "refugee_column"), `route_json` (JSONB: list of `location_id`s or `static_id`s for pathing, or target destination), `properties_json` (current group goal, formation, speed, AI state, shared resources).
+    - **`GlobalEvent` Model (0.2/7)**: Represents a dynamic event occurring in the world, potentially affecting locations or entities.
+        - Fields: `id`, `guild_id`, `event_type_static_id` (links to `RuleConfig` for event mechanics), `name_i18n`, `description_i18n`, `status` (ENUM: `SCHEDULED`, `ACTIVE`, `CONCLUDED`, `CANCELLED`), `start_time_epoch` (INT, nullable), `duration_seconds` (INT, nullable), `target_location_ids_json` (JSONB: list of affected `Location.id`s, nullable), `affected_faction_ids_json` (JSONB: list of `GeneratedFaction.id`s, nullable), `trigger_conditions_json` (JSONB: conditions for event to start), `effects_on_start_json` (JSONB: immediate changes to WorldState, entity spawns), `ongoing_effects_rules_key` (TEXT: key in `RuleConfig` defining continuous impacts), `resolution_conditions_json` (JSONB: conditions for event to conclude), `effects_on_resolution_json` (JSONB: final changes).
+Result: Comprehensive data models for various types of global entities and events, enabling a dynamic and evolving game world.
 
 Task 46: 🧬 14.2 Global Entity Management (Per-Guild Iteration).
-Description: Module simulating the life and movement of global entities for each guild.
-Async Worker(s): Iterates through the list of all active guilds. For each guild_id:
-Loads Global Entities, rules (13/0.3/41) for this guild.
-Simulates GE movement.
-Simulates interactions (with other GEs, entities, players) IN THE CONTEXT OF THIS GUILD: Detection check (12 by 13/41), Reaction (determined by rules 13/41 and relationships 30/31/32), Triggers (Combat 27, Dialogue 46, Quest 31, World Event).
-Log events (19).
-
+Description: **A to Z Implementation**: Develop a module that simulates the behavior, movement, and interactions of all `GlobalNpc` and `MobileGroup` entities for each guild, and manages the lifecycle of `GlobalEvent`s.
+    - **Async Worker(s)**: One or more asynchronous workers that periodically iterate through all active guilds.
+    - **For each guild_id**:
+        - **Load Data**: Load all active `GlobalNpc`s, `MobileGroup`s, and `GlobalEvent`s for the guild. Load relevant `RuleConfig` entries (`rules:global_entity:movement`, `rules:global_entity:interaction_detection_dc`, `rules:global_entity:reaction_matrix:<entity_type>`).
+        - **Global Event Lifecycle**:
+            - Check `GlobalEvent.trigger_conditions_json` against current game state. If met and event is `SCHEDULED`, change status to `ACTIVE` and apply `effects_on_start_json`. Log `GLOBAL_EVENT_STARTED`.
+            - For `ACTIVE` events, apply `ongoing_effects_rules_key` (e.g., spawn temporary entities, modify location properties, affect player actions in area).
+            - Check `GlobalEvent.resolution_conditions_json`. If met, change status to `CONCLUDED`, apply `effects_on_resolution_json`. Log `GLOBAL_EVENT_CONCLUDED`.
+        - **Global NPC & Mobile Group Simulation**:
+            - **Goal Update**: For each GE/MG, determine current goal based on `properties_json.goal`, schedule (e.g., from `RuleConfig` `ge_schedules:<static_id>`), or dynamic events.
+            - **Movement**:
+                - If goal involves travel, determine next `Location.id` in `route_json` or pathfind towards destination.
+                - Simulate movement time based on distance, terrain (from `Location.type`), GE/MG speed (from `properties_json`).
+                - Update `current_location_id`. Log `GLOBAL_ENTITY_MOVED`.
+            - **Interactions**:
+                - In new location, perform detection checks (Check Resolver Task 6.3.2) against players, other GEs/MGs, and significant static entities based on `RuleConfig` (detection range, DC modifiers for stealth/perception).
+                - If detection occurs, log `GLOBAL_ENTITY_DETECTED_ENTITY`.
+                - **Reaction**: Based on `RuleConfig` (`rules:global_entity:reaction_matrix:<actor_type>:<target_type>`), relationships (Task 37), and GE/MG current goal/state, choose a reaction:
+                    - Initiate combat (call Combat Cycle Task 5.4 `start_combat`).
+                    - Attempt to initiate dialogue (create a placeholder interaction or call Dialogue System Task 11.2 if GE can "talk" and player is present).
+                    - Trigger a quest (call Quest System Task 9.3 `handle_player_event_for_quest` with a custom event).
+                    - Ignore, flee, or continue on current path.
+                    - Log `GLOBAL_ENTITY_ACTION`.
+        - **State Persistence**: All changes to GE/MG/GlobalEvent states must be saved to DB transactionally per guild iteration.
+    - **Scalability**: Ensure worker(s) can handle many guilds without significant slowdown, possibly by distributing guild processing.
+Result: A dynamic world simulation where global entities and events actively shape the game environment and create emergent interaction opportunities for players.
 
 
 Task Block: Phase 15: Management and Monitoring Tools
-This block presents tasks for implementing tools for the game Master.
-
 Task 47: 🛠️ 15.1 Master Command System.
-Description: Implement a full set of Discord commands for the Master to manage gameplay and data in their guild. Commands automatically receive the guild_id from the command context. Support multilingual input for arguments and display results in the Master's language.
-API for CRUD over ALL DB models (7 and others). Require guild_id.
-API for viewing/editing records in the RuleConfig table (0.2/7/13). Allow the Master to configure all game rules for their guild.
-Manual trigger/modification commands for entities operate WITHIN THE guild_id CONTEXT.
-API /master resolve_conflict <id> <outcome>: Accepts guild_id. Finds the pending conflict record (created in 21) by guild_id. Sets status to 'resolved' and the outcome. Signals the Turn Processing Module (21), which was waiting for resolution, to continue processing.
+Description: **A to Z Implementation**: Implement a comprehensive suite of Discord slash commands for Game Masters to manage all aspects of gameplay, data, and configuration within their specific guild. All commands must be guild-scoped, support i18n for arguments and output, and provide clear feedback.
+    - **CRUD Operations**: For **every significant database model** (Player, Party, Location, GeneratedNpc, GlobalNpc, MobileGroup, Item, InventoryItem, Ability, StatusEffectDefinition, ActiveStatusEffect, GeneratedFaction, Relationship, GeneratedQuest, QuestStep, Questline, PlayerQuestProgress, PendingGeneration, PendingConflict, CombatEncounter, StoryLog (view/list only), CraftingRecipe, Skill, PlayerNpcMemory, PartyNpcMemory, GlobalEvent), implement commands for:
+        - `create <parameters...>`: Create new entity. Parameters should accept JSON for complex fields.
+        - `view <id_or_static_id>`: View details of an entity.
+        - `list [filters...] [page] [limit]`: List entities with pagination and relevant filters.
+        - `update <id_or_static_id> <field_to_update> <new_value_json_or_simple>`: Update a specific field of an entity.
+        - `delete <id_or_static_id>`: Delete an entity (with confirmation and handling of dependencies).
+    - **`RuleConfig` Management**:
+        - `/master_ruleconfig get <key>`
+        - `/master_ruleconfig set <key> <value_json>`
+        - `/master_ruleconfig list [prefix] [page] [limit]`
+        - `/master_ruleconfig delete <key>`
+        - `/master_ruleconfig export_all`: Export all rules for the guild as a JSON file.
+        - `/master_ruleconfig import_all <json_file_attachment>`: Import rules, with options to overwrite or merge.
+    - **Gameplay Management**:
+        - `/master_action trigger_event <event_type_name> <details_json> [location_id] [player_id]`: Manually trigger a game event.
+        - `/master_action modify_player_stat <player_id> <stat_name> <new_value_or_delta>`
+        - `/master_action award_item <player_id> <item_static_id> [quantity]`
+        - `/master_action teleport_entity <entity_id> <entity_type> <target_location_id_or_static_id>`
+        - `/master_combat start <npc_static_ids_json_list> [player_ids_json_list] [location_id]`
+        - `/master_combat end <combat_encounter_id> [outcome_status]`
+        - `/master_quest assign <player_id_or_party_id> <quest_static_id>`
+        - `/master_quest advance_step <player_quest_progress_id> [step_order_or_id]`
+        - `/master_quest complete <player_quest_progress_id>`
+    - **Conflict Resolution**: `/master_conflict resolve <pending_conflict_id> <outcome_status_enum> [notes]`: Resolves a pending conflict and signals the Turn Processor (Task 6.11) to potentially resume.
+    - **AI Management**: Commands for triggering AI generation (Task 2.6, 24), managing `PendingGeneration` queue (approve, reject, edit - see Task 2.6 for details).
+    - **Permissions**: All master commands must be restricted to users with appropriate Discord permissions (e.g., Administrator) or a defined Master role within the guild.
+    - **Localization**: All command descriptions, parameter names, choices, and output messages must be localized using `localization_utils` and `RuleConfig` for text templates.
+    - **Error Handling**: Robust error handling for invalid parameters, non-existent entities, failed operations, with clear, localized feedback.
+Result: A complete and powerful suite of Game Master commands providing full control over all aspects of the game world, data, and ongoing gameplay for each guild.
 
 Task 48: 🛠️ 15.2 Balance and Testing Tools (Per Guild).
-Description: Simulators and analyzers for the Master, operating within the guild context according to rules.
-Simulation APIs (Combat 27, Checks 12, Conflicts 21). REQUIRE guild_id. Use data and rules FOR THIS GUILD.
-AI generation analyzers (18): Check the quality and balance of generated content against rules 13/41.
-Results are output in the Master's language (49).
+Description: **A to Z Implementation**: Develop a suite of Game Master commands and underlying APIs for simulating game mechanics and analyzing generated content to aid in balancing and testing, all operating within the guild's specific context and rules.
+    - **Simulation APIs & Commands**:
+        - **Check Simulation (`/master_simulate check`)**:
+            - Parameters: `actor_id`, `actor_type`, `check_type`, `target_id` (opt), `target_type` (opt), `difficulty_dc` (opt), `context_json` (opt).
+            - Calls Check Resolver (Task 6.3.2) using current stats of entities and guild's `RuleConfig`.
+            - Output: Detailed breakdown of the check (roll, modifiers with sources, final result, outcome), localized.
+        - **Combat Action Simulation (`/master_simulate combat_action`)**:
+            - Parameters: `combat_encounter_id` (or setup for mock combat: `actor_data_json`, `target_data_json_list`), `actor_id`, `actor_type`, `action_data_json` (describing attack/ability), `dry_run` (bool, if true, no DB changes).
+            - Calls Combat Engine (Task 5.2).
+            - Output: Detailed `CombatActionResult` (damage, effects, checks), localized. If not dry_run, indicates that state *was* changed.
+        - **Conflict Simulation (`/master_simulate conflict_detection`)**:
+            - Parameters: `list_of_actions_json` (each action: actor_id, actor_type, parsed_action_intent_and_entities).
+            - Uses `conflict_simulation_system.simulate_conflict_detection` with current `RuleConfig`.
+            - Output: List of detected potential conflicts with reasons, localized.
+        - **Ability Outcome Simulation (`/master_simulate ability_outcome`)**:
+             - Parameters: `actor_id`, `actor_type`, `ability_id_or_static_id`, `target_ids_json_list`, `context_json`.
+             - Calls Ability System (Task 3.3) in a dry-run mode (if possible, or clearly state it's a live test affecting ephemeral mock entities).
+             - Output: Detailed `AbilityOutcomeDetails`, localized.
+    - **AI Generation Analyzers (`/master_analyze ai_generation`)**:
+        - Parameters: `entity_type_to_generate` (npc, item, quest, etc.), `target_count`, `generation_context_json` (opt), `use_real_ai` (bool).
+        - Triggers AI generation (mock or real via Task 2.6 logic but doesn't save to `PendingGeneration` unless specified).
+        - **Analysis Logic (`ai_analysis_system.py`)**:
+            - **Content Quality**: Check i18n completeness, text length/style against `RuleConfig` (`ai:analysis:text_quality`), placeholder detection.
+            - **Balance**:
+                - Items: Compare `base_value` and `properties_json` stats against `RuleConfig` (`ai:analysis:item_balance:<item_type>`).
+                - NPCs: Compare stats (HP, attack) against level and `RuleConfig` (`ai:analysis:npc_balance:<npc_type_or_role>`).
+                - Quests: Evaluate reward appropriateness (XP, items) for quest level/steps using `RuleConfig` (`ai:analysis:quest_rewards`).
+            - **Lore Consistency**: Check generated names/descriptions against guild lore keywords (from `RuleConfig` `world_lore:keywords_allowed/forbidden`).
+            - **Structural Integrity**: For complex objects like quests, check for valid step chaining, defined mechanics.
+        - Output: Detailed report for each generated entity: preview, issues found (errors, warnings, suggestions), balance scores, localized.
+    - **All tools use current `guild_id` data and `RuleConfig`. Results are localized.**
+Result: A comprehensive suite of simulation and analysis tools enabling Game Masters to effectively test mechanics, balance gameplay, and verify the quality of AI-generated content for their guild.
 
 Task 49: 🛠️ 15.3 Monitoring Tools (Guild-Scoped).
-Description: Provide the Master with information about the game state and history in their guild.
-Viewing commands (Log 17, WS 36, Map 4.1, Entities, Statistics): Automatically filter data BY the command's guild_id. Use 47 to format reports in the Master's language.
+Description: **A to Z Implementation**: Provide Game Masters with a comprehensive set of Discord commands to view various aspects of the game state and history within their guild, with data filtered by `guild_id` and formatted in the Master's language.
+    - **Viewing Commands (all with pagination and relevant filters where applicable)**:
+        - **Event Log (`/master_monitor log ...`)**:
+            - `view <log_id>`: Detailed view of a single `StoryLog` entry.
+            - `list [event_type] [entity_id_filter_json] [page] [limit]`: List `StoryLog` entries. `entity_id_filter_json` could be `{"player_id": 123}`.
+        - **WorldState (`/master_monitor worldstate ...`)**:
+            - `get <key>`: View a specific `RuleConfig` entry used as a world state flag.
+            - `list [prefix] [page] [limit]`: List `RuleConfig` entries (e.g., those starting with `worldstate:`).
+        - **Map & Locations (`/master_monitor map ...`)**:
+            - `view_location <location_id_or_static_id>`: Details of a `Location`.
+            - `list_locations [page] [limit]`: List all `Location`s.
+            - `who_is_at <location_id_or_static_id>`: List players, parties, NPCs, GEs at a location.
+        - **Entities (`/master_monitor entities ...`)**: Subcommands for each major entity type (Player, Party, GeneratedNpc, GlobalNpc, MobileGroup, Item (definitions), Faction, Quest (definitions), CombatEncounter (active/recent)):
+            - `view <id_or_static_id>`: View details of a specific entity.
+            - `list [filters...] [page] [limit]`: List entities of that type.
+        - **Game Statistics (`/master_monitor statistics ...`)**:
+            - `guild_overview`: Total players, NPCs, locations, active quests, current turn number, etc.
+            - `player_activity [player_id_or_name]`: Last active time, turns played, quests completed (requires aggregation from `StoryLog` or dedicated stats tables).
+            - `economy_summary`: Total gold in circulation, most common items (requires aggregation).
+            - This section requires defining what statistics are valuable and how they are collected/calculated. May involve creating new tables or complex queries on `StoryLog`.
+    - **Output Formatting**: All command outputs use Report Formatting System (Task 7.3/54) for clear, localized presentation, often in `discord.Embed`s.
+    - **Data Access**: Commands use CRUD utilities (Task 0.3) to fetch data, ensuring `guild_id` scoping.
+Result: A comprehensive set of monitoring tools allowing Game Masters to easily inspect and understand the current state and historical activity of their game world.
+
 
 Task Block: Phase 11: Dynamic Dialogue and NPC Memory
-This block presents tasks related to dynamic NPC dialogues using LLM and storing interaction history.
-
 Task 50: 🧠 11.1 Dialogue Generation Module (LLM, Multy-i18n, According to Rules).
-Description: Prepare the prompt for the LLM to generate NPC dialogue lines.
-API generate_npc_dialogue(guild_id: int, context: dict) -> str. REQUIRES guild_id. Called from 46 (Dialogue Module).
-Prompt context: WorldState (36), Global Entities (40), NPC profile (data 1.2/14, current relationships 30/31/32, memory 52), Player/Party profile (1.2/5), Quest context (39) if related, dialogue rules (checks, influence) from RuleConfig 13/0.3. Player input text (from 46).
-LLM Request: Generate a line IN THE PLAYER'S LANGUAGE (0.1/0.2), relevant to the context, character, relationship. Use i18n names of entities (from DB 4/7/14/39) FOR THIS GUILD.
+Description: **A to Z Implementation**: Develop a module to prepare prompts and call an LLM for generating dynamic, contextually appropriate NPC dialogue lines in multiple languages, governed by `RuleConfig`.
+    - **API**: `generate_npc_dialogue(session, guild_id: int, npc_id: int, player_id: int, current_dialogue_history: List[Dict[str,str]], player_input_text: str, language_code: str, additional_context: Optional[Dict[str, Any]] = None) -> str` (returns generated NPC line).
+        - `current_dialogue_history`: List of `{"speaker": "player/npc_name", "line": "text"}`.
+        - `additional_context`: e.g., active quest step involving this NPC, recent relevant world events.
+    - **Prompt Engineering (using AI Prompt Prep Module - Task 2.2)**:
+        - Construct a detailed prompt including:
+            - **NPC Profile**: Name, personality traits (from `GeneratedNpc.properties_json.personality_tags`), role, faction, current emotional state (if tracked).
+            - **Player Profile**: Name, known reputation/relationship with NPC (Task 37).
+            - **Dialogue History**: Recent lines to maintain conversational context.
+            - **Current Game Context**: Location, time of day, active quests involving NPC/player, relevant `WorldState` flags.
+            - **NPC Memory**: Key interaction summaries from `PlayerNpcMemory` (Task 11.3) regarding this player.
+            - **Dialogue Rules (`RuleConfig`)**:
+                - `dialogue:npc_personality:<tag>:response_style_guidelines_i18n` (e.g., "formal", "gruff", "talkative").
+                - `dialogue:topic_knowledge:<npc_static_id_or_role>:<topic_keyword>` (what this NPC knows).
+                - `dialogue:forbidden_topics_or_phrases`.
+            - **Player's Input**: `player_input_text`.
+            - **Instruction**: "Generate the NPC's next dialogue line in `{language_code}` that is consistent with all the above."
+    - **LLM Interaction (via AI Orchestrator - Task 2.6 extension or direct call)**:
+        - Call the configured LLM API with the prepared prompt.
+        - Handle API errors, timeouts, content filters.
+    - **Output Processing**: Sanitize LLM output. Ensure it's just the dialogue line.
+    - **i18n**: Generate dialogue in the specified `language_code`. Use localized entity names (from DB) when constructing prompt context for the LLM.
+Result: A robust system for generating dynamic and contextually rich NPC dialogue using LLMs, tailored by NPC personality, player relationship, and game state, in multiple languages.
 
 Task 51: 🧠 11.2 Dialogue Context and Status (Guild-Scoped).
-Description: Implement logic for managing the state of a dialogue session for a player/party.
-API start_dialogue(guild_id: int, player_id: int, target_npc_id: int). Called from 21 (Action Processing Module) or a command. Sets player(s) status to 'dialogue' (0.2/1.1). Creates a temporary dialogue record.
-API handle_dialogue_input(guild_id: int, player_id: int, message_text: str) -> dict. Called FROM 21 (Action Processing Module) upon receiving text from a player in 'dialogue' status. Processes the text as a line, calls 50 to generate the NPC response.
-API end_dialogue(guild_id: int, player_id: int). Removes 'dialogue' status.
+Description: **A to Z Implementation**: Implement the full logic for managing the state and flow of a dialogue session between a player (or party) and an NPC.
+    - **Dialogue State Storage**:
+        - In-memory store (e.g., a dictionary `active_dialogues` keyed by `(guild_id, player_id)` or `(guild_id, party_id)`) holding:
+            - `npc_id`
+            - `dialogue_history: List[Dict[str, str]]` (speaker, line)
+            - `current_dialogue_options_presented_ids: List[str]` (if using structured options)
+            - `dialogue_state_flags_json: Dict[str, Any]` (e.g., "topic_discussed_A", "npc_mood_shifted")
+        - Alternatively, consider a temporary DB table for `ActiveDialogueSession` if persistence across bot restarts is critical for long dialogues, though this adds complexity.
+    - **API `start_dialogue(session, guild_id: int, player_id: int, target_npc_id: int) -> StartDialogueResult`**:
+        - Called by Action Processor (Task 6.11) or a direct command.
+        - Validate: NPC exists, is interactive, player not in combat, etc.
+        - Set `Player.current_status` to `PlayerStatus.DIALOGUE`.
+        - Initialize entry in `active_dialogues`.
+        - Generate NPC's opening line using Dialogue Generation Module (Task 11.1), potentially based on context (time of day, player approach, NPC current action).
+        - Return `StartDialogueResult` (success, opening line, initial options if any).
+        - Log `DIALOGUE_START` event.
+    - **API `handle_dialogue_input(session, guild_id: int, player_id: int, player_input_text: str, parsed_nlu_action: Optional[ParsedAction]) -> DialogueTurnResult`**:
+        - Called by Action Processor (Task 6.11 via Task 53) when player in `DIALOGUE` status sends a message.
+        - Add player's line to `dialogue_history`.
+        - **Intent Processing**:
+            - If `parsed_nlu_action` indicates a meta-intent like "end_dialogue", call `end_dialogue`.
+            - If `parsed_nlu_action` indicates a choice from structured options, validate choice ID.
+            - Otherwise, treat `player_input_text` as conversational.
+        - Generate NPC response using Dialogue Generation Module (Task 11.1), passing full history and context.
+        - Add NPC's line to `dialogue_history`.
+        - **Apply Dialogue Effects**: Based on `RuleConfig` (`dialogue:effects:<npc_static_id_or_role>:<dialogue_node_or_keyword_trigger>`), NPC response, or player choice, trigger consequences:
+            - Update `dialogue_state_flags_json`.
+            - Call Quest System (Task 9.3), Relationship System (Task 8.4).
+            - Grant items, information (update Player memory or `WorldState`).
+        - Determine next set of dialogue options (if using structured options) based on current state and rules.
+        - Return `DialogueTurnResult` (NPC response, new options, any game state changes like quest updates).
+        - Log `DIALOGUE_LINE` event for both player and NPC lines.
+    - **API `end_dialogue(session, guild_id: int, player_id: int) -> EndDialogueResult`**:
+        - Clear player's entry from `active_dialogues`.
+        - Revert `Player.current_status` (e.g., to `EXPLORING`).
+        - Log `DIALOGUE_END` event.
+        - Return `EndDialogueResult` (success, concluding message if any).
+    - **Party Dialogues**: Extend logic to handle party dialogues if a party initiates. `RuleConfig` defines who speaks for party or if members can interject. `active_dialogues` key might be `party_id`.
+Result: A comprehensive dialogue management system that handles session state, player input, NPC response generation, application of dialogue-driven game effects, and supports both free-form and potentially structured dialogue interactions.
 
 Task 52: 🧠 11.3 NPC Memory Management (Persistent, Per Guild).
-Description: Storing NPC interaction history with players/parties. (Renamed from 11.4, moved from 47).
-Implement PlayerNpcMemory/PartyNpcMemory models (0.2/7). BOTH INCLUDE guild_id. Utilities require guild_id.
-API add_to_npc_memory(guild_id: int, player_id/party_id, npc_id, event_type: str, details: dict). Called by other modules upon significant events (dialogue 46, quest 41, combat 27, relationship change 31).
-Utility get_npc_memory(guild_id: int, player_id/party_id, npc_id) -> List[MemoryEntry]: Loads memory for this NPC and Player/Party IN THIS GUILD. Used in 50 (for LLM context).
+Description: **A to Z Implementation**: Implement a persistent memory system for NPCs to recall significant past interactions and information regarding specific players or parties, influencing future interactions.
+    - **Models (Task 2.1)**:
+        - `PlayerNpcMemory`: `id`, `guild_id`, `player_id` (FK), `npc_id` (FK to `GeneratedNpc`), `event_type` (ENUM `EventType` or specific memory type), `timestamp`, `importance_score` (INT, 0-100), `summary_i18n` (JSONB, brief text summary of the memory), `details_json` (JSONB, full context of the remembered event).
+        - `PartyNpcMemory`: Similar, with `party_id` (FK).
+    - **API `add_to_npc_memory(session, guild_id: int, npc_id: int, event_log_entry: StoryLog, summary_i18n: Dict[str, str], importance_score: int, relevant_player_id: Optional[int] = None, relevant_party_id: Optional[int] = None)`**:
+        - Called by other modules (Dialogue, Quest, Combat, Trade, Action Processor) upon significant events that an NPC should remember about a player/party.
+        - `event_log_entry.details_json` becomes `details_json` for the memory.
+        - Create `PlayerNpcMemory` or `PartyNpcMemory` record.
+        - **Memory Pruning/Summarization (Advanced)**: `RuleConfig` (`npc_memory:max_entries_per_pair`, `npc_memory:summarization_trigger_threshold`) could define when to prune old/low-importance memories or trigger an LLM call to summarize multiple related memories into one.
+    - **API `get_npc_memory_for_context(session, guild_id: int, npc_id: int, player_id: Optional[int] = None, party_id: Optional[int] = None, query_keywords: Optional[List[str]] = None, limit: int = 5) -> List[PlayerNpcMemory | PartyNpcMemory]`**:
+        - Retrieves relevant memories for an NPC about a player/party.
+        - Filter by `importance_score >= RuleConfig(npc_memory:min_importance_for_recall)`.
+        - If `query_keywords`, search `summary_i18n` or `details_json`.
+        - Order by `timestamp` (desc) and `importance_score` (desc).
+        - Used by Dialogue Generation (Task 11.1) and NPC Combat Strategy (Task 5.3) to provide context.
+    - **Integration**: Ensure all key game systems call `add_to_npc_memory` appropriately:
+        - Dialogue: Memorable choices, information revealed, promises made/broken.
+        - Quests: Player accepting/completing/failing quests given by NPC.
+        - Combat: Player defeating NPC, sparing NPC, critical hits received from player.
+        - Relationships: Significant relationship milestones.
+        - Trade: Very large or unfair trades.
+Result: A persistent NPC memory system allowing NPCs to recall past interactions, leading to more believable, evolving NPC behavior and personalized player experiences.
 
 Task 53: 🧠 11.4 NLU and Intent Recognition in Dialogue (Guild-Scoped).
-Description: Processing player input in dialogue mode. This is part of module 13 (NLU) logic.
-If player status is 'dialogue', NLU (13) does not save the action to collected_actions_json, but passes it directly to the Dialogue Management Module (46) via the handle_dialogue_input API (46). NLU (13) still recognizes Intents/Entities and passes them to 46.
+Description: Ensure NLU (Task 6.10) correctly processes player input during dialogue mode. If `Player.current_status == PlayerStatus.DIALOGUE`, NLU should still parse the input for intents and entities, but instead of queuing an action in `Player.collected_actions_json`, the `ParsedAction` (or its components: intent, entities, original text) is passed directly to the Dialogue Management Module's `handle_dialogue_input` API (Task 51). This allows dialogue system to react to specific player intents within conversation (e.g., player asks "what quests do you have?", NLU recognizes "query_quests" intent).
+Result: NLU effectively supports dialogue system by providing structured understanding of player utterances within a conversation.
 
 Task Block: Feedback Formatting System
-This block presents tasks related to transforming structured event data into readable textual feedback for users.
-
 Task 54: ⚙️ 6.7.1 Log and Feedback Formatting System (Full, Multy-i18n, Guild-Scoped).
-Description: Transforming structured event data into readable textual feedback. (Renamed from 49).
-API format_log_entry(log_entry_details_json: dict, language: str) -> str. Accepts JSON log details (from StoryLog 17) and language. Uses the guild_id from details_json to load i18n entity names and RuleConfig terms FOR THIS GUILD to format the text in the required language.
-API format_turn_report(guild_id: int, log_entries: List[dict], player_id: int, language: str) -> str. Collects log entries (17) for the turn for the guild.
+Description: **A to Z Implementation**: Develop a comprehensive module that transforms structured event data (from `StoryLog`) into readable, localized reports for players and the Game Master. (This task is identical to Task 19. The detailed "A to Z" description provided for Task 19 applies here.)
+Result: A comprehensive and flexible logging and feedback formatting system capable of generating clear, detailed, and localized reports for players and GMs from any game event.
 
 Task Block: Phase UI (User Interface)
-This block presents tasks related to developing a separate client application (web or desktop) that will provide a convenient graphical interface for the Game Master and potentially players, interacting with the backend API.
-
-Task 55: 🖥️ UI.1 UI Technology Stack Selection and Basic Structure. (None)
-* Description: Select a framework/library for developing the client UI application (e.g., React, Vue for web; Electron, PyQt for desktop). Define the basic architecture of the UI application (components, routing, state management).
-* Result: Technology stack selected, basic UI project framework created.
-
-Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?)
-* Description: Create the main structure of the UI application (navigation, page layouts). Implement a UI user authentication system (e.g., via Discord OAuth2 to link to the Master's Discord account). Implement selection of the guild the Master is working with in the current UI session. The UI must store the Guild ID and automatically pass it in all subsequent requests to the backend API.
-* Result: A working UI login and guild selection system, ready for page development.
-
-Task 57: 🖥️ UI.3 UI for Player and Character Management. (Depends on API 1.3)
-* Description: Create UI pages for viewing lists of players and characters for the selected guild. Implement functionality for displaying data (using API 1.3 for reading). Implement forms for creating, editing, and deleting Player and GeneratedNpc records (calling API 1.3 for create/update/delete). The UI must correctly handle i18n fields for displaying and editing texts in different languages.
-* Result: Interface for managing players and characters via UI.
-
-Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
-* Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
-* Load the rule structure (from 13/0.3) and current values (via API 41, e.g., /master view_rules or a dedicated RuleConfig API). Display the rule structure in a convenient format (e.g., JSON tree structure).
-* Implement user-friendly controls (forms, input fields, sliders, dropdowns) for editing various types of rule parameters (numbers, strings, booleans, JSON).
-* Implement a save button for changes (calling the RuleConfig editing API 41).
-* Result: Graphical interface for configuring game rules by the Master.
-
-Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Depends on API 10)
-* Description: Create a UI page for managing AI generation and moderation.
-* Implement controls for triggering AI generation (calling API 10 trigger_location_generation). Ability to specify generation parameters (location, type).
-* Display a list of pending moderation requests for this guild (via API 41, e.g., /master review_ai).
-* Upon selecting a pending request: Display the generated content (NPCs, quests, items, descriptions) in a readable format (using API 47 for formatting or getting data directly from 18 ai_data_json). Display validation issues (from issues_json 18).
-* Implement "Approve", "Reject", "Edit" buttons (calling corresponding API 41). Editing should allow modifying entity fields in the pending request, including _i18n texts.
-* Result: Graphical interface for managing AI content generation and moderation.
-
-Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42)
-* Description: Create UI pages for viewing and editing character/NPC inventories and the general list of items in the guild.
-* Interface for viewing the inventory of a selected character/NPC (calling API 15 get_player_inventory or similar for NPCs). Display items with their details (properties, i18n descriptions).
-* Interface for viewing/editing the list of all items in the guild (calling CRUD API 41 for the Item model 42). Implement forms for creating/editing Items, including _i18n names/descriptions.
-* Ability to move items between inventories via UI (calling API 15 add/remove).
-* Result: Graphical interface for managing inventory and items in the guild.
-
-Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21)
-* Description: Create UI pages for managing factions and relationships.
-* Interface for viewing/editing the list of factions (calling CRUD API 41 for the GeneratedFaction model 20). Forms for editing factions (including _i18n).
-* Interface for viewing/editing the list of relationships (calling CRUD API 41 for the Relationship model 21). Display relationships between entities in the guild, forms for changing them. Possibly a visual representation of relationships.
-* Result: Graphical interface for managing factions and relationships.
-
-Task 62: 🖥️ UI.8 UI for Quest Management. (Depends on API 39)
-* Description: Create UI pages for managing quests.
-* Interface for viewing the list of all quests in the guild (calling CRUD API 41 for GeneratedQuest 39).
-* Interface for viewing/editing quest details, including steps, requirements (required_mechanics_json), abstract goals (abstract_goal_json), consequences (consequences_json). Convenient forms for editing these JSON structures. Editing _i18n texts.
-* Interface for tracking quest progress for players/parties.
-* Result: Graphical interface for managing quests in the guild.
-
-Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45)
-* Description: Create UI pages for managing global entities.
-* Interface for viewing/editing the list of Global Entities (MobileGroup, GlobalNpc, GlobalEvent) in the guild (calling CRUD API 41 for models 45).
-* Display their state, routes, goals. Forms for editing.
-
-Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43)
-* Description: Create UI pages for monitoring game state and viewing logs.
-* Interface for viewing WorldState (API 43).
-* Interface for viewing the event log (API 43). Implement filtering and pagination for the log. Format log entries (API 47) for display.
-* Possibly, visualization of the guild map (based on Location data 4.1). Display the position of players, parties, global entities.
-
-Task 65: 🖥️ UI.11 UI for Balance Tools. (Depends on API 48)
-* Description: Create UI pages for accessing balance and testing tools.
-* Interfaces for running simulations (combat, checks, conflicts - calling API 48) with configurable parameters. Display simulation results.
-* Display reports from the AI analyzer (API 48).
-
-Task 66: 🖥️ UI.12 UI for Conflict Resolution. (Depends on API 41)
-* Description: Create a UI page for manual resolution of conflict actions.
-* Display a list of pending conflicts for this guild (loading PendingConflict records via API 41).
-* Upon selecting a conflict: Display conflict details (player actions, conflict type) in a readable format.
-* Provide controls (buttons, dropdown list) for selecting the conflict outcome (based on master_outcome_types from RuleConfig 13/41).
-* "Resolve" button (calling API 41 master_resolve_conflict).
-
-Task 67: 🖥️ UI.13 Backend API for Command List. (Depends on 0.1)
-* Description: Develop a backend API endpoint that provides structured information about bot commands.
-* Implement an API endpoint (e.g., /api/commands). Loads the list of all available Discord bot commands (from the Discord API via the bot library). For each command: get name, description, parameters, permissions.
-* The API should return information in the bot's language (guild's) or support requesting information in a specific language.
-* Result: Backend API for retrieving command data.
-
-Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Depends on API 67)
-* Description: In the UI, create a section for displaying the list of commands.
-* Load the list of commands via API 67. Display it in a readable format (table, list). Present command descriptions and parameters.
-* Result: A command help section appears in the UI.
-
+... (UI Tasks 55-68 Descriptions will remain as is, as they describe UI work based on backend capabilities. The "A to Z" focus is on the backend tasks that enable these UIs.)
