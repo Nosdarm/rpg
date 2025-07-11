@@ -1235,3 +1235,127 @@ async def test_process_player_message_for_nlu_player_not_in_dialogue_unknown_int
     mock_parse_nlu.assert_called_once()
     assert mock_player_exploring_status.collected_actions_json == "[]" # Unknown intent not queued
     mock_session.add.assert_not_called() # Player not modified if action not queued
+
+
+# --- Tests for _handle_talk_to_npc_action_wrapper with name lookup ---
+from backend.core.action_processor import _handle_talk_to_npc_action_wrapper
+from backend.models import GeneratedNpc # For creating mock NPC
+
+@pytest.mark.asyncio
+@patch("backend.core.action_processor.player_crud.get_by_id_and_guild", new_callable=AsyncMock)
+@patch("backend.core.action_processor.npc_crud.get_npcs_by_name_in_location", new_callable=AsyncMock)
+@patch("backend.core.dialogue_system.start_dialogue", new_callable=AsyncMock)
+async def test_handle_talk_to_npc_name_lookup_success(
+    mock_start_dialogue: AsyncMock,
+    mock_get_npcs_by_name_loc: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_session: AsyncMock
+):
+    player_id_pk = PLAYER_ID_PK_1
+    npc_name = "Old Man Willow"
+    npc_id_resolved = 55
+    player_location_id = 100
+
+    action = ParsedAction(
+        raw_text=f"talk to {npc_name}", intent="talk", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
+        entities=[ActionEntity(type="npc_name", value=npc_name)] # NLU provides name
+    )
+
+    mock_player = Player(id=player_id_pk, guild_id=DEFAULT_GUILD_ID, current_location_id=player_location_id)
+    mock_get_player.return_value = mock_player
+
+    mock_npc_found = GeneratedNpc(id=npc_id_resolved, guild_id=DEFAULT_GUILD_ID, name_i18n={"en": npc_name}, current_location_id=player_location_id)
+    mock_get_npcs_by_name_loc.return_value = [mock_npc_found]
+
+    mock_start_dialogue.return_value = (True, "dialogue_started_key", {"npc_name": npc_name})
+
+    result = await _handle_talk_to_npc_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
+
+    mock_get_player.assert_called_once_with(mock_session, id=player_id_pk, guild_id=DEFAULT_GUILD_ID)
+    mock_get_npcs_by_name_loc.assert_called_once_with(
+        session=mock_session, guild_id=DEFAULT_GUILD_ID, location_id=player_location_id, npc_name=npc_name
+    )
+    mock_start_dialogue.assert_called_once_with(
+        session=mock_session, guild_id=DEFAULT_GUILD_ID, player_id=player_id_pk, target_npc_id=npc_id_resolved
+    )
+    assert result["status"] == "success"
+    assert result["message_key"] == "dialogue_started_key"
+
+@pytest.mark.asyncio
+@patch("backend.core.action_processor.player_crud.get_by_id_and_guild", new_callable=AsyncMock)
+@patch("backend.core.action_processor.npc_crud.get_npcs_by_name_in_location", new_callable=AsyncMock)
+@patch("backend.core.dialogue_system.start_dialogue", new_callable=AsyncMock)
+async def test_handle_talk_to_npc_name_lookup_not_found(
+    mock_start_dialogue: AsyncMock,
+    mock_get_npcs_by_name_loc: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_session: AsyncMock
+):
+    player_id_pk = PLAYER_ID_PK_1
+    npc_name = "Ghostly Figure"
+    player_location_id = 101
+
+    action = ParsedAction(
+        raw_text=f"talk {npc_name}", intent="talk", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
+        entities=[ActionEntity(type="npc_name", value=npc_name)]
+    )
+    mock_player = Player(id=player_id_pk, guild_id=DEFAULT_GUILD_ID, current_location_id=player_location_id)
+    mock_get_player.return_value = mock_player
+    mock_get_npcs_by_name_loc.return_value = [] # NPC not found
+
+    result = await _handle_talk_to_npc_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
+
+    mock_get_npcs_by_name_loc.assert_called_once_with(
+        session=mock_session, guild_id=DEFAULT_GUILD_ID, location_id=player_location_id, npc_name=npc_name
+    )
+    mock_start_dialogue.assert_not_called()
+    assert result["status"] == "error"
+    assert result["message_key"] == "dialogue_error_npc_not_found_by_name"
+    assert result["feedback_params"]["npc_name"] == npc_name
+
+@pytest.mark.asyncio
+@patch("backend.core.action_processor.player_crud.get_by_id_and_guild", new_callable=AsyncMock)
+@patch("backend.core.action_processor.npc_crud.get_npcs_by_name_in_location", new_callable=AsyncMock)
+@patch("backend.core.dialogue_system.start_dialogue", new_callable=AsyncMock)
+async def test_handle_talk_to_npc_name_lookup_ambiguous(
+    mock_start_dialogue: AsyncMock,
+    mock_get_npcs_by_name_loc: AsyncMock,
+    mock_get_player: AsyncMock,
+    mock_session: AsyncMock
+):
+    player_id_pk = PLAYER_ID_PK_1
+    npc_name = "Guard"
+    player_location_id = 102
+    resolved_npc_id_for_first_guard = 60
+
+    action = ParsedAction(
+        raw_text=f"talk Guard", intent="talk", guild_id=DEFAULT_GUILD_ID, player_id=PLAYER_DISCORD_ID_1,
+        timestamp=datetime.datetime.fromisoformat(fixed_dt_str),
+        entities=[ActionEntity(type="npc", value=npc_name)] # Generic type "npc" with name
+    )
+    mock_player = Player(id=player_id_pk, guild_id=DEFAULT_GUILD_ID, current_location_id=player_location_id)
+    mock_get_player.return_value = mock_player
+
+    # Simulate finding multiple NPCs with the same name
+    mock_npc1 = GeneratedNpc(id=resolved_npc_id_for_first_guard, name_i18n={"en": npc_name})
+    mock_npc2 = GeneratedNpc(id=61, name_i18n={"en": npc_name})
+    mock_get_npcs_by_name_loc.return_value = [mock_npc1, mock_npc2]
+
+    # Current logic picks the first one if ambiguous
+    mock_start_dialogue.return_value = (True, "dialogue_with_first_guard", {"npc_name": npc_name})
+
+
+    result = await _handle_talk_to_npc_action_wrapper(mock_session, DEFAULT_GUILD_ID, player_id_pk, action)
+
+    mock_get_npcs_by_name_loc.assert_called_once_with(
+        session=mock_session, guild_id=DEFAULT_GUILD_ID, location_id=player_location_id, npc_name=npc_name
+    )
+    # Verify it started dialogue with the first NPC found
+    mock_start_dialogue.assert_called_once_with(
+        session=mock_session, guild_id=DEFAULT_GUILD_ID, player_id=player_id_pk, target_npc_id=resolved_npc_id_for_first_guard
+    )
+    assert result["status"] == "success"
+    # If in future ambiguous names return an error, this test would change:
+    # assert result["message_key"] == "dialogue_error_npc_name_ambiguous"

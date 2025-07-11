@@ -501,22 +501,58 @@ async def _handle_talk_to_npc_action_wrapper(
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}, Player {player_id}: Handling TALK_TO_NPC action: {action.entities}")
     from backend.core.dialogue_system import start_dialogue # Local import
 
-    target_npc_id = None
+    target_npc_id: Optional[int] = None
+    npc_name_to_find: Optional[str] = None
+
     if action.entities:
         for entity in action.entities:
-            if entity.type == "target_npc_id" or entity.type.lower() == "npc": # NLU might provide npc_id or generic npc name
+            if entity.type == "target_npc_id":
                 try:
-                    target_npc_id = int(entity.value) # Assume value is ID for now
+                    target_npc_id = int(entity.value)
                     break
                 except ValueError:
-                    # TODO: Implement NPC name to ID lookup if NLU provides name
-                    logger.warning(f"Could not parse target_npc_id '{entity.value}' as int. Name lookup needed.")
-                    return {"status": "error", "message_key": "dialogue_error_npc_name_lookup_not_implemented", "feedback_params": {"npc_name": entity.value}}
-            elif entity.type == "npc_name_i18n": # More specific from NLU
-                # TODO: Implement NPC name to ID lookup
-                logger.warning(f"Target NPC by name '{entity.value}' requires name lookup.")
-                return {"status": "error", "message_key": "dialogue_error_npc_name_lookup_not_implemented", "feedback_params": {"npc_name": entity.value}}
+                    logger.warning(f"Could not parse target_npc_id '{entity.value}' as int for TALK_TO_NPC. Will treat as name if no other ID found.")
+                    npc_name_to_find = entity.value # Could be a name
+            elif entity.type.lower() == "npc" or entity.type.lower() == "npc_name" or entity.type.lower() == "npc_name_i18n":
+                # If it's explicitly a name, or a generic "npc" type that isn't an ID
+                try:
+                    target_npc_id = int(entity.value) # Check if it's an ID disguised as a name type
+                    logger.info(f"Parsed potential NPC ID {target_npc_id} from entity type {entity.type}.")
+                    break
+                except ValueError:
+                    npc_name_to_find = entity.value
+                    logger.info(f"Identified NPC name '{npc_name_to_find}' for lookup.")
+                    break # Found a name, prioritize this for lookup if ID not already found
 
+    if target_npc_id is None and npc_name_to_find:
+        player = await player_crud.get_by_id_and_guild(session, id=player_id, guild_id=guild_id)
+        if not player or player.current_location_id is None:
+            logger.warning(f"Player {player_id} or their location not found for NPC name lookup.")
+            return {"status": "error", "message_key": "dialogue_error_player_location_unknown"}
+
+        # Search for NPC by name in player's current location
+        # This assumes name_i18n stores names like {"en": "Guard Captain"}
+        # We'll perform a case-insensitive search on the 'en' name for simplicity.
+        # A more robust solution would use the player's current language preference.
+        npcs_found = await npc_crud.get_npcs_by_name_in_location(
+            session=session,
+            guild_id=guild_id,
+            location_id=player.current_location_id,
+            npc_name=npc_name_to_find
+        )
+
+        if not npcs_found:
+            logger.warning(f"NPC with name '{npc_name_to_find}' not found in location {player.current_location_id}.")
+            return {"status": "error", "message_key": "dialogue_error_npc_not_found_by_name", "feedback_params": {"npc_name": npc_name_to_find}}
+        if len(npcs_found) > 1:
+            logger.warning(f"Multiple NPCs found with name '{npc_name_to_find}' in location {player.current_location_id}. Ambiguous target.")
+            # For now, pick the first one. Future: ask user to clarify.
+            # return {"status": "error", "message_key": "dialogue_error_npc_name_ambiguous", "feedback_params": {"npc_name": npc_name_to_find}}
+            target_npc_id = npcs_found[0].id
+            logger.info(f"Multiple NPCs found for '{npc_name_to_find}', selected first one: ID {target_npc_id}")
+        else: # Exactly one found
+            target_npc_id = npcs_found[0].id
+            logger.info(f"NPC '{npc_name_to_find}' resolved to ID {target_npc_id} in location {player.current_location_id}.")
 
     if target_npc_id is None:
         return {"status": "error", "message_key": "dialogue_error_npc_target_missing"}
@@ -975,6 +1011,8 @@ async def process_actions_for_guild(guild_id: int, entities_and_types_to_process
 
     logger.info(f"[ACTION_PROCESSOR] Guild {guild_id}: Turn processing complete. Processed {len(processed_actions_results)} individual action results.")
     # TODO: Send feedback reports to players/master based on processed_actions_results
+    # This function will now return the results for the caller to handle feedback.
+    return processed_actions_results
 
 
 @transactional

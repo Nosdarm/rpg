@@ -81,6 +81,10 @@ class EventType(enum.Enum):
     ABILITY_USED = "ability_used"
     STATUS_APPLIED = "status_applied"
     STATUS_REMOVED = "status_removed" # For future use with remove_status
+    STATUS_TICK_EFFECT = "status_tick_effect" # For effects like poison/regeneration per round
+    CONSEQUENCE_EFFECT_APPLIED = "consequence_effect_applied" # Specific effect from a consequence was applied
+    CONSEQUENCE_EFFECT_ERROR = "consequence_effect_error"   # Error applying a specific consequence effect
+
 
     # AI Orchestrator related
     AI_GENERATION_TRIGGERED = "ai_generation_triggered"

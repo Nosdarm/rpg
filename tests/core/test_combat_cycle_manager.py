@@ -589,6 +589,539 @@ async def test_start_combat_player_in_party_status_update(
     # assert party_added is not None
     # assert party_added.turn_status == PartyTurnStatus.IN_COMBAT
 
+
+# --- Tests for round-based effects ---
+from backend.models import ActiveStatusEffect, StatusEffect # For creating mock status effects
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.ability_system.remove_status', new_callable=AsyncMock) # Patched at its source
+async def test_process_round_effects_status_duration_and_removal(
+    mock_remove_status: AsyncMock,
+    mock_log_event_round_effects: AsyncMock, # Renamed to avoid fixture conflict
+    mock_session: AsyncMock,
+    mock_player_entity: Player, # Will have the status effect
+    mock_npc_entity: GeneratedNpc   # Another participant
+):
+    guild_id = 100
+    combat_id = 1
+    active_status_id = 123
+    status_def_id = 456
+
+    # Setup CombatEncounter
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.status = CombatStatus.ACTIVE
+    mock_combat_encounter.current_turn_entity_id = mock_npc_entity.id # NPC's turn, player just ended theirs
+    mock_combat_encounter.current_turn_entity_type = "npc"
+    mock_combat_encounter.location_id = 10
+
+    player_participant_data = {
+        "id": mock_player_entity.id, "type": "player", "name": "Test Player", "team": "players",
+        "current_hp": 50, "max_hp": 100
+    }
+    npc_participant_data = {
+        "id": mock_npc_entity.id, "type": "npc", "name": "Goblin", "team": "npcs",
+        "current_hp": 30, "max_hp": 50
+    }
+    mock_combat_encounter.participants_json = {"entities": [player_participant_data, npc_participant_data]}
+
+    # Turn order: Player, then NPC. Current index is 1 (NPC), so next is Player (index 0), starting new round.
+    mock_combat_encounter.turn_order_json = {
+        "order": [
+            {"id": mock_player_entity.id, "type": "player"},
+            {"id": mock_npc_entity.id, "type": "npc"}
+        ],
+        "current_index": 1, # NPC's turn just ended / is current
+        "current_turn_number": 1
+    }
+    mock_session.get.return_value = mock_combat_encounter # For process_combat_turn loading
+
+    # Setup ActiveStatusEffect for the player
+    mock_status_definition = MagicMock(spec=StatusEffect)
+    mock_status_definition.id = status_def_id
+    mock_status_definition.static_id = "test_poison"
+    mock_status_definition.properties_json = {} # No tick effect for this test
+
+    active_status_player = MagicMock(spec=ActiveStatusEffect)
+    active_status_player.id = active_status_id
+    active_status_player.entity_id = mock_player_entity.id
+    active_status_player.entity_type = "player"
+    active_status_player.guild_id = guild_id
+    active_status_player.status_effect_id = status_def_id
+    active_status_player.remaining_turns = 1 # Initial value
+    # Attach the definition to the active effect instance for the join behavior
+    active_status_player.status_effect = mock_status_definition
+
+
+    # Mock session.execute for fetching active status effects
+    # await session.execute(stmt) returns a Result object (synchronous).
+    # Result.scalars() is a sync method returning ScalarResult.
+    # ScalarResult.all() is a sync method returning a list.
+
+    mock_db_result_for_statuses = MagicMock() # This will be the return_value of await session.execute()
+    mock_scalar_result_for_statuses = MagicMock()
+    mock_scalar_result_for_statuses.all.return_value = [active_status_player]
+    mock_db_result_for_statuses.scalars.return_value = mock_scalar_result_for_statuses
+
+    # Store the original execute mock from the fixture
+    original_session_execute_mock = mock_session.execute
+
+    # Prepare separate mock results for player and NPC status queries
+    # For player
+    mock_db_result_player = MagicMock()
+    mock_scalar_result_player = MagicMock()
+    mock_scalar_result_player.all.return_value = [active_status_player] # Player has the status
+    mock_db_result_player.scalars.return_value = mock_scalar_result_player
+
+    # For NPC
+    mock_db_result_npc = MagicMock()
+    mock_scalar_result_npc = MagicMock()
+    mock_scalar_result_npc.all.return_value = [] # NPC has no status
+    mock_db_result_npc.scalars.return_value = mock_scalar_result_npc
+
+    # Side effect function for session.execute
+    # It will be called twice by _process_round_based_status_effects: once for player, once for NPC.
+    # We need to return the correct mock result based on which entity is being queried.
+    # This is hard to do by inspecting the statement directly in a mock.
+    # Instead, we can rely on the call order if participants are processed predictably.
+    # The participant list is [player_participant_data, npc_participant_data].
+    # So, first execute call in _process_round_based_status_effects will be for player, second for NPC.
+
+    # We need a way to track calls to the *new* AsyncMock we are about to assign to mock_session.execute
+    temp_execute_mock = AsyncMock()
+
+    call_count_for_execute = 0
+    async def conditional_execute_side_effect(statement, *args, **kwargs):
+        nonlocal call_count_for_execute
+        call_count_for_execute += 1
+        if call_count_for_execute == 1: # First call (for player)
+            return mock_db_result_player
+        else: # Second call (for NPC)
+            return mock_db_result_npc
+
+    temp_execute_mock.side_effect = conditional_execute_side_effect
+    mock_session.execute = temp_execute_mock # Assign the new mock with side_effect
+
+    # We will test _advance_turn directly to isolate the round effect processing
+    from backend.core.combat_cycle_manager import _advance_turn
+
+    # Call _advance_turn. This should trigger a new round and call _process_round_based_status_effects.
+    await _advance_turn(mock_session, mock_combat_encounter)
+
+    # Restore original session.execute mock from the fixture
+    mock_session.execute = original_session_execute_mock
+
+
+    # Assertions
+    # Status duration should have been decremented
+    assert active_status_player.remaining_turns == 0 # Decremented from 1 to 0
+
+    # Status should have been removed
+    mock_remove_status.assert_called_once_with(mock_session, guild_id, active_status_player.id)
+
+    # Turn number should increment
+    assert mock_combat_encounter.turn_order_json["current_turn_number"] == 2
+    # Current turn should be player's
+    assert mock_combat_encounter.current_turn_entity_id == mock_player_entity.id
+    assert mock_combat_encounter.turn_order_json["current_index"] == 0
+
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.combat_engine.process_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
+async def test_process_combat_turn_active_entity_defeated_skips_action(
+    mock_check_combat_end: AsyncMock,
+    mock_engine_process_action: AsyncMock,
+    mock_get_npc_action: AsyncMock,
+    mock_advance_turn: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player_entity: Player, # Next in turn
+    mock_npc_entity: GeneratedNpc   # Current turn, but defeated
+):
+    guild_id = 100
+    combat_id = 1
+
+    # Setup CombatEncounter: NPC is current turn but has 0 HP
+    defeated_npc_participant_data = {
+        "id": mock_npc_entity.id, "type": "npc", "name": "Defeated Goblin", "team": "npcs",
+        "current_hp": 0, "max_hp": 50 # DEFEATED
+    }
+    player_participant_data = {
+        "id": mock_player_entity.id, "type": "player", "name": "Test Player", "team": "players",
+        "current_hp": 100, "max_hp": 100
+    }
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.status = CombatStatus.ACTIVE
+    mock_combat_encounter.current_turn_entity_id = mock_npc_entity.id # Defeated NPC's turn
+    mock_combat_encounter.current_turn_entity_type = "npc"
+    mock_combat_encounter.participants_json = {"entities": [defeated_npc_participant_data, player_participant_data]}
+    mock_combat_encounter.turn_order_json = {
+        "order": [
+            {"id": mock_npc_entity.id, "type": "npc"},      # Defeated
+            {"id": mock_player_entity.id, "type": "player"} # Next
+        ],
+        "current_index": 0, # Defeated NPC's index
+        "current_turn_number": 2
+    }
+    mock_session.get.return_value = mock_combat_encounter
+    # Combat does not end immediately (e.g. player still needs to act or other NPCs exist)
+    mock_check_combat_end.return_value = (False, None)
+
+    # Call process_combat_turn
+    await process_combat_turn(mock_session, guild_id, combat_id)
+
+    # Assertions
+    mock_get_npc_action.assert_not_called() # NPC action should be skipped
+    mock_engine_process_action.assert_not_called() # Engine processing should be skipped
+
+    # _check_combat_end is called after potential action processing (which is skipped here)
+    mock_check_combat_end.assert_called_once_with(mock_session, guild_id, mock_combat_encounter)
+
+    # _advance_turn should be called to move to the next entity because combat didn't end
+    mock_advance_turn.assert_called_once_with(mock_session, mock_combat_encounter)
+
+    # Ensure session.refresh was called on the encounter
+    mock_session.refresh.assert_called_with(mock_combat_encounter)
+
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.combat_engine.process_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._handle_combat_end_consequences', new_callable=AsyncMock)
+async def test_process_combat_turn_combat_ends(
+    mock_handle_end_consequences: AsyncMock,
+    mock_check_combat_end: AsyncMock,
+    mock_engine_process_action: AsyncMock,
+    mock_get_npc_action: AsyncMock,
+    mock_advance_turn: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player_entity: Player,
+    mock_npc_entity: GeneratedNpc
+):
+    guild_id = 100
+    combat_id = 1
+
+    # Setup: NPC's turn. Player is the only opponent and has low HP.
+    player_participant_data = {
+        "id": mock_player_entity.id, "type": "player", "name": "Test Player", "team": "players",
+        "current_hp": 5, "max_hp": 100 # Player has low HP
+    }
+    npc_participant_data = { # NPC is acting
+        "id": mock_npc_entity.id, "type": "npc", "name": "Goblin Attacker", "team": "npcs",
+        "current_hp": 30, "max_hp": 50
+    }
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.status = CombatStatus.ACTIVE
+    mock_combat_encounter.current_turn_entity_id = mock_npc_entity.id
+    mock_combat_encounter.current_turn_entity_type = "npc"
+    mock_combat_encounter.participants_json = {"entities": [player_participant_data, npc_participant_data]}
+    mock_combat_encounter.turn_order_json = {
+        "order": [{"id": mock_npc_entity.id, "type": "npc"}, {"id": mock_player_entity.id, "type": "player"}],
+        "current_index": 0, "current_turn_number": 1
+    }
+    mock_session.get.return_value = mock_combat_encounter
+
+    # NPC performs an action
+    mock_get_npc_action.return_value = {"action_type": "attack", "target_id": mock_player_entity.id, "target_type": "player"}
+
+    # combat_engine.process_combat_action will modify participants_json in the session's view of combat_encounter
+    # For the test, we simulate this by having _check_combat_end see the result.
+    # The mock_engine_process_action itself doesn't need to do much for this test's focus.
+    mock_engine_process_action.return_value = AsyncMock(spec=CombatActionResult)
+
+
+    # _check_combat_end will be called after the action. Simulate it finds combat has ended.
+    # It needs to be a side effect because participants_json is modified by combat_engine (conceptually)
+    async def check_end_side_effect(session, gid, encounter_obj):
+        # Simulate player defeated after NPC action
+        for p_data in encounter_obj.participants_json["entities"]:
+            if p_data["id"] == mock_player_entity.id:
+                p_data["current_hp"] = 0 # Player is now defeated
+        return (True, "npcs") # NPCs win
+    mock_check_combat_end.side_effect = check_end_side_effect
+
+    await process_combat_turn(mock_session, guild_id, combat_id)
+
+    mock_get_npc_action.assert_called_once()
+    mock_engine_process_action.assert_called_once()
+    mock_check_combat_end.assert_called_once() # Called after action
+
+    # Crucially, _advance_turn should NOT be called if combat ended
+    mock_advance_turn.assert_not_called()
+
+    # _handle_combat_end_consequences should be called
+    mock_handle_end_consequences.assert_called_once_with(mock_session, guild_id, mock_combat_encounter, "npcs")
+
+    assert mock_combat_encounter.status == CombatStatus.ENDED_VICTORY_NPCS
+    mock_session.add.assert_called_with(mock_combat_encounter) # For status update
+
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager._advance_turn', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.combat_engine.process_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
+async def test_process_combat_turn_player_action_advances_turn(
+    mock_check_combat_end: AsyncMock,
+    mock_engine_process_action: AsyncMock, # Should not be called by process_combat_turn for player
+    mock_get_npc_action: AsyncMock,      # Should not be called
+    mock_advance_turn: AsyncMock,
+    mock_session: AsyncSession,
+    mock_player_entity: Player, # Current turn
+    mock_npc_entity: GeneratedNpc   # Next in turn (hypothetically)
+):
+    guild_id = 100
+    combat_id = 1
+
+    player_participant_data = {
+        "id": mock_player_entity.id, "type": "player", "name": "Test Player", "team": "players",
+        "current_hp": 100, "max_hp": 100
+    }
+    npc_participant_data = {
+        "id": mock_npc_entity.id, "type": "npc", "name": "Goblin", "team": "npcs",
+        "current_hp": 30, "max_hp": 50
+    }
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.status = CombatStatus.ACTIVE
+    mock_combat_encounter.current_turn_entity_id = mock_player_entity.id # Player's turn
+    mock_combat_encounter.current_turn_entity_type = "player"
+    mock_combat_encounter.participants_json = {"entities": [player_participant_data, npc_participant_data]}
+    mock_combat_encounter.turn_order_json = {
+        "order": [
+            {"id": mock_player_entity.id, "type": "player"},
+            {"id": mock_npc_entity.id, "type": "npc"}
+        ],
+        "current_index": 0,
+        "current_turn_number": 1
+    }
+    mock_session.get.return_value = mock_combat_encounter
+
+    # Player's action is assumed to have been processed externally by combat_engine.
+    # So, process_combat_turn should not try to get/process a player action.
+
+    mock_check_combat_end.return_value = (False, None) # Combat continues
+
+    await process_combat_turn(mock_session, guild_id, combat_id)
+
+    mock_get_npc_action.assert_not_called()
+    mock_engine_process_action.assert_not_called() # Not by process_combat_turn for player
+
+    mock_check_combat_end.assert_called_once_with(mock_session, guild_id, mock_combat_encounter)
+    mock_advance_turn.assert_called_once_with(mock_session, mock_combat_encounter)
+    mock_session.refresh.assert_called_with(mock_combat_encounter)
+
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager.npc_combat_strategy.get_npc_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager.combat_engine.process_combat_action', new_callable=AsyncMock)
+@patch('backend.core.combat_cycle_manager._check_combat_end', new_callable=AsyncMock)
+# We need to control _advance_turn very carefully for this test.
+# We cannot simply mock it with a single AsyncMock if we want to test recursion based on its side effects.
+# Instead, we will patch it but provide a more stateful side_effect or multiple return_values.
+# For this test, we'll use a side_effect on the main process_combat_turn mock if needed, or carefully control _advance_turn.
+# Let's try to control _advance_turn's effect on the combat_encounter mock.
+async def test_process_combat_turn_recursive_npc_turns(
+    mock_check_combat_end: AsyncMock,
+    mock_engine_process_action: AsyncMock,
+    mock_get_npc_action: AsyncMock,
+    mock_session: AsyncMock,
+    mock_player_entity: Player,
+    mock_npc_entity: GeneratedNpc # NPC1
+):
+    # This test will be complex due to the recursive nature.
+    # We want to see process_combat_turn handle NPC1, then NPC2.
+    guild_id = 100
+    combat_id = 1
+
+    npc2_id = mock_npc_entity.id + 1
+    mock_npc_entity_2 = MagicMock(spec=GeneratedNpc)
+    mock_npc_entity_2.id = npc2_id
+    mock_npc_entity_2.name_i18n = {"en": "Goblin Archer"}
+
+    # Participants data
+    player_pd = {"id": mock_player_entity.id, "type": "player", "name": "Player", "team": "players", "current_hp": 100}
+    npc1_pd = {"id": mock_npc_entity.id, "type": "npc", "name": "NPC1", "team": "npcs", "current_hp": 50}
+    npc2_pd = {"id": npc2_id, "type": "npc", "name": "NPC2", "team": "npcs", "current_hp": 40}
+
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.status = CombatStatus.ACTIVE
+    mock_combat_encounter.current_turn_entity_id = mock_npc_entity.id # Start with NPC1's turn
+    mock_combat_encounter.current_turn_entity_type = "npc"
+    mock_combat_encounter.participants_json = {"entities": [player_pd, npc1_pd, npc2_pd]}
+    mock_combat_encounter.turn_order_json = {
+        "order": [
+            {"id": mock_npc_entity.id, "type": "npc"}, # NPC1
+            {"id": npc2_id, "type": "npc"},            # NPC2
+            {"id": mock_player_entity.id, "type": "player"}   # Player
+        ],
+        "current_index": 0, # NPC1's turn
+        "current_turn_number": 1
+    }
+    mock_session.get.return_value = mock_combat_encounter
+
+    # Mock actions for NPCs
+    npc1_action = {"action_type": "ability", "ability_id": "npc_skill_1", "target_id": mock_player_entity.id}
+    npc2_action = {"action_type": "attack", "target_id": mock_player_entity.id}
+
+    mock_get_npc_action.side_effect = [npc1_action, npc2_action] # NPC1 action, then NPC2 action
+
+    # Mock combat engine results (doesn't need to be complex, just successful)
+    mock_engine_process_action.return_value = AsyncMock(spec=CombatActionResult, success=True, description_i18n={"en":"Action done"})
+
+    # Combat doesn't end during these NPC turns
+    mock_check_combat_end.return_value = (False, None)
+
+    # This is the tricky part: how _advance_turn modifies mock_combat_encounter
+    # We need process_combat_turn to see these changes to trigger recursion.
+    # Patching _advance_turn directly to modify the encounter state.
+    async def advance_turn_side_effect(session, encounter_obj):
+        current_id = encounter_obj.current_turn_entity_id
+        if current_id == mock_npc_entity.id: # After NPC1's turn
+            encounter_obj.current_turn_entity_id = npc2_id
+            encounter_obj.current_turn_entity_type = "npc"
+            encounter_obj.turn_order_json["current_index"] = 1
+        elif current_id == npc2_id: # After NPC2's turn
+            encounter_obj.current_turn_entity_id = mock_player_entity.id
+            encounter_obj.current_turn_entity_type = "player"
+            encounter_obj.turn_order_json["current_index"] = 2
+            encounter_obj.turn_order_json["current_turn_number"] +=1 # New round for player
+        # No further recursion if it's player's turn
+
+    with patch('backend.core.combat_cycle_manager._advance_turn', side_effect=advance_turn_side_effect) as mock_advance_turn_stateful:
+        await process_combat_turn(mock_session, guild_id, combat_id)
+
+    # Assertions
+    assert mock_get_npc_action.call_count == 2
+    mock_get_npc_action.assert_any_call(session=mock_session, guild_id=guild_id, npc_id=mock_npc_entity.id, combat_instance_id=combat_id)
+    mock_get_npc_action.assert_any_call(session=mock_session, guild_id=guild_id, npc_id=npc2_id, combat_instance_id=combat_id)
+
+    assert mock_engine_process_action.call_count == 2
+    mock_engine_process_action.assert_any_call(guild_id=guild_id, session=mock_session, combat_instance_id=combat_id, actor_id=mock_npc_entity.id, actor_type="npc", action_data=npc1_action)
+    mock_engine_process_action.assert_any_call(guild_id=guild_id, session=mock_session, combat_instance_id=combat_id, actor_id=npc2_id, actor_type="npc", action_data=npc2_action)
+
+    assert mock_check_combat_end.call_count == 2 # Called after each NPC action
+    assert mock_advance_turn_stateful.call_count == 2 # Called after each NPC action that doesn't end combat
+
+    # Final state of combat encounter should be Player's turn
+    assert mock_combat_encounter.current_turn_entity_id == mock_player_entity.id
+    assert mock_combat_encounter.current_turn_entity_type == "player"
+
+
+@pytest.mark.asyncio
+@patch('backend.core.combat_cycle_manager.game_events.log_event', new_callable=AsyncMock)
+@patch('backend.core.entity_stats_utils.change_entity_hp') # Patched at its source
+@patch('backend.core.entity_stats_utils.get_entity_hp') # Patched at its source
+async def test_process_round_effects_tick_damage_and_participant_json_update(
+    mock_get_hp: MagicMock,
+    mock_change_hp: MagicMock,
+    mock_log_event_tick_damage: AsyncMock,
+    mock_session: AsyncMock,
+    mock_player_entity: Player
+):
+    guild_id = 100
+    combat_id = 1
+    active_status_id = 124
+    status_def_id = 457
+    initial_hp = 50
+    tick_damage = 5
+
+    player_participant_data = {
+        "id": mock_player_entity.id, "type": "player", "name": "Test Player", "team": "players",
+        "current_hp": initial_hp, "max_hp": 100
+    }
+    mock_combat_encounter = MagicMock(spec=CombatEncounter)
+    mock_combat_encounter.id = combat_id
+    mock_combat_encounter.guild_id = guild_id
+    mock_combat_encounter.participants_json = {"entities": [player_participant_data]}
+    mock_combat_encounter.turn_order_json = {"current_turn_number": 2} # For logging
+    mock_combat_encounter.location_id = 10
+
+    # Mock player model for change_entity_hp and get_entity_hp
+    # The _process_round_based_status_effects function re-fetches the entity model.
+    mock_player_model_instance = Player(id=mock_player_entity.id, current_hp=initial_hp)
+    mock_session.get.return_value = mock_player_model_instance # Mock for session.get(Player, ...)
+
+    # Setup ActiveStatusEffect with a tick damage effect
+    mock_status_definition_tick = MagicMock(spec=StatusEffect)
+    mock_status_definition_tick.id = status_def_id
+    mock_status_definition_tick.static_id = "strong_poison"
+    mock_status_definition_tick.properties_json = {
+        "tick_effect": {"type": "damage", "amount": tick_damage, "damage_type": "poison"}
+    }
+    active_status_player_tick = MagicMock(spec=ActiveStatusEffect)
+    active_status_player_tick.id = active_status_id
+    active_status_player_tick.entity_id = mock_player_entity.id
+    active_status_player_tick.entity_type = "player"
+    active_status_player_tick.guild_id = guild_id
+    active_status_player_tick.status_effect_id = status_def_id
+    active_status_player_tick.remaining_turns = 2 # Won't expire this round
+    active_status_player_tick.status_effect = mock_status_definition_tick
+
+    # Mock session.execute to return this status effect
+    mock_db_result_for_tick_status = MagicMock()
+    mock_scalar_result_for_tick_status = MagicMock()
+    mock_scalar_result_for_tick_status.all.return_value = [active_status_player_tick]
+    mock_db_result_for_tick_status.scalars.return_value = mock_scalar_result_for_tick_status
+
+    original_execute = mock_session.execute
+    mock_session.execute = AsyncMock(return_value=mock_db_result_for_tick_status)
+
+    # Mock behavior of entity_stats_utils functions
+    # change_entity_hp will modify mock_player_model_instance.current_hp
+    def change_hp_side_effect(entity, amount):
+        entity.current_hp += amount # amount is negative for damage
+        return True
+    mock_change_hp.side_effect = change_hp_side_effect
+    # get_entity_hp will return the updated HP from mock_player_model_instance
+    mock_get_hp.side_effect = lambda entity: entity.current_hp
+
+
+    from backend.core.combat_cycle_manager import _process_round_based_status_effects
+    await _process_round_based_status_effects(mock_session, guild_id, mock_combat_encounter)
+
+    mock_session.execute = original_execute # Restore
+
+    # Assertions
+    assert active_status_player_tick.remaining_turns == 1 # Decremented
+    mock_change_hp.assert_called_once_with(mock_player_model_instance, -tick_damage)
+    assert mock_player_model_instance.current_hp == initial_hp - tick_damage
+
+    # Check that participants_json was updated
+    updated_player_p_data = mock_combat_encounter.participants_json["entities"][0]
+    assert updated_player_p_data["current_hp"] == initial_hp - tick_damage
+
+    # Check log event for tick effect
+    mock_log_event_tick_damage.assert_called() # Check if log_event was called at all
+
+    status_tick_log_call = None
+    for call_args_tuple in mock_log_event_tick_damage.call_args_list:
+        # event_type is the 3rd positional argument (index 2) to game_events.log_event
+        if len(call_args_tuple.args) > 2 and call_args_tuple.args[2] == EventType.STATUS_TICK_EFFECT.name:
+            status_tick_log_call = call_args_tuple
+            break
+
+    assert status_tick_log_call is not None, f"STATUS_TICK_EFFECT event not logged. Calls: {mock_log_event_tick_damage.call_args_list}"
+
+    details = status_tick_log_call.kwargs.get("details_json", {})
+    assert details.get("effect_type") == "damage"
+    assert details.get("amount") == tick_damage
+    assert details.get("status_static_id") == "strong_poison"
+
+
 # Finalizing the test file structure
 if __name__ == "__main__":
     # This block is useful for running tests with a debugger from your IDE

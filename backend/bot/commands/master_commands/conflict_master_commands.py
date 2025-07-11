@@ -289,6 +289,9 @@ class MasterConflictCog(commands.Cog, name="Master Conflict Commands"): # type: 
                         valid_statuses_str = ", ".join([s.name for s in ConflictStatus])
                         await interaction.followup.send(invalid_status_msg.format(provided_status=status, valid_statuses=valid_statuses_str), ephemeral=True)
                         return
+            else:
+                # Default to PENDING_MASTER_RESOLUTION if no status is provided
+                status_enum = ConflictStatus.PENDING_MASTER_RESOLUTION
 
             offset = (page - 1) * limit
             # These CRUD methods are assumed to exist and correctly handle guild_id
