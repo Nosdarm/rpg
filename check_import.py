@@ -4,7 +4,7 @@ print(f"Current sys.path: {sys.path}")
 print(f"Current working directory: {__import__('os').getcwd()}")
 
 try:
-    import src.core.global_entity_manager
+    import backend.core.global_entity_manager
     print("SUCCESS: import src.core.global_entity_manager worked!")
 except ImportError as e:
     print(f"FAIL (ImportError): {e}")
