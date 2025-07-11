@@ -143,12 +143,45 @@ This block presents tasks related to developing a separate client application (w
 {Task 56: 🖥️ UI.2 Basic UI Structure and Authentication Development. (Depends on 0.1 - Discord API/OAuth2?) - Moved to Done.txt}
 {Task 57: 🖥️ UI.3 UI for Player and Character Management. (Depends on API 1.3) - Moved to Done.txt}
 
-Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Depends on API 41)
-* Description: Create a UI page for viewing and editing game rules (RuleConfig) for the selected guild.
-* Load the rule structure (from 13/0.3) and current values (via API 41, e.g., /master view_rules or a dedicated RuleConfig API). Display the rule structure in a convenient format (e.g., JSON tree structure).
-* Implement user-friendly controls (forms, input fields, sliders, dropdowns) for editing various types of rule parameters (numbers, strings, booleans, JSON).
-* Implement a save button for changes (calling the RuleConfig editing API 41).
-* Result: Graphical interface for configuring game rules by the Master.
+Task 58: 🖥️ UI.4 UI for Rule Configuration (RuleConfig). (Full UI Implementation)
+* Description: Create a comprehensive UI page for viewing, editing, and managing game rules (RuleConfig entries) for the selected guild. This requires full implementation of all necessary UI components and logic.
+* Dependencies:
+    *   API: Master commands for RuleConfig CRUD (`/master_ruleconfig get <key>`, `/master_ruleconfig set <key> <value_json>`, `/master_ruleconfig list [prefix]`, `/master_ruleconfig delete <key>`) (from Task 41/47).
+    *   TypeScript types: `RuleConfigEntry`, `RuleConfigMap`, `RuleConfigUpdatePayload` (from `src/ui/src/types/ruleconfig.ts`).
+    *   UI Service: `ruleConfigService.ts` (from `src/ui/src/services/ruleConfigService.ts`).
+* UI Components and Functionality:
+    *   **`RuleConfigurationPage.tsx` (Main Page)**:
+        *   Overall layout for rule configuration.
+        *   Displays a filter input for rule keys (prefix-based search).
+        *   Contains a "Create New Rule" button/modal.
+        *   Hosts the `RuleListDisplay.tsx` component.
+        *   Handles global notifications for save/delete operations.
+    *   **`RuleListDisplay.tsx` (List/Tree View)**:
+        *   Fetches and displays `RuleConfigEntry` items using `ruleConfigService.listRules` (with prefix filter and pagination).
+        *   Option 1: Display as a flat list with keys, current values (preview), and descriptions.
+        *   Option 2 (Advanced): Attempt to display rules in a hierarchical/tree-like structure based on key prefixes (e.g., "experience_system:xp_gain_rules:combat_victory" becomes nested). This might require client-side processing of the flat list from the API.
+        *   Each rule item should have "Edit" and "Delete" buttons.
+        *   "Edit" button: Opens `RuleEditForm.tsx` (modal or inline) for the selected rule.
+        *   "Delete" button: Prompts for confirmation, then calls `ruleConfigService.deleteRule` and refreshes the list.
+    *   **`RuleEditForm.tsx` (Form for Editing/Creating a Rule)**:
+        *   **Mode**: Can operate in "create" or "edit" mode.
+            *   In "create" mode: Allows input of `key`, `value_json` (as a JSON string in a textarea), and `description`.
+            *   In "edit" mode: Loads existing rule data using `ruleConfigService.getRuleDetails`. The `key` field is typically read-only. Allows editing `value_json` and `description`.
+        *   **`key` field**: Text input, validated for format (e.g., no spaces, uses colons for nesting).
+        *   **`value_json` field**:
+            *   Primary input: A `textarea` for raw JSON string input.
+            *   Client-side validation for JSON syntax.
+            *   (Optional Advanced Feature): Based on a predefined schema for known rule keys (if available), dynamically render user-friendly input controls (text, number, boolean toggle, dropdowns for enums) instead of raw JSON for specific rule structures. This would significantly improve UX but requires a schema definition system. For MVP, raw JSON in textarea is acceptable.
+        *   **`description` field**: Textarea for rule description.
+        *   **Save Button**: Calls `ruleConfigService.createRule` or `ruleConfigService.updateRule`. Handles loading states and success/error feedback.
+    *   **Service Usage (`ruleConfigService.ts`)**:
+        *   Ensure all service methods (`listRules`, `getRuleDetails`, `createRule`, `updateRule`, `deleteRule`) correctly interact with the mock API client and handle mock responses.
+* **Unit Tests**:
+    *   `RuleConfigurationPage.test.tsx`: Test rendering, filtering, and interaction with child components.
+    *   `RuleListDisplay.test.tsx`: Test list/tree rendering, pagination (if applicable), edit/delete button functionality, and interaction with `RuleEditForm`.
+    *   `RuleEditForm.test.tsx`: Test form rendering in create/edit modes, input validation (especially for JSON), and save functionality.
+    *   `ruleConfigService.test.ts`: Verify mock service calls and data transformations.
+* Result: A fully functional graphical interface for Game Masters to configure all aspects of game rules for their guild.
 
 Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Depends on API 10)
 * Description: Create a UI page for managing AI generation and moderation.
@@ -160,19 +193,271 @@ Task 59: 🖥️ UI.5 UI for AI Generation and Moderation. (Depends on API 10)
 
 {Task 60: 🖥️ UI.6 UI for Inventory and Item Management. (Depends on API 15, 42) - Moved to Done.txt}
 
-{Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Depends on API 20, 21) - Moved to Done.txt}
+Task 61: 🖥️ UI.7 UI for Faction and Relationship Management. (Full UI Implementation)
+* Description: Create fully implemented UI pages for managing Factions and Relationships within a guild, building upon previously defined stubs and API documentation.
+* Dependencies:
+    *   API: Master commands for Faction CRUD (`/master_faction ...`) and Relationship CRUD (`/master_relationship ...`) (from Task 41/47).
+    *   TypeScript types: `Faction`, `FactionPayload`, `FactionUpdatePayload`, `RelationshipData`, `RelationshipPayload`, `RelationshipUpdatePayload`, `PaginatedResponse` (from `src/ui/src/types/faction.ts`, `src/ui/src/types/relationship.ts`, `src/ui/src/types/entities.ts`).
+    *   UI Services: `factionService.ts`, `relationshipService.ts` (from `src/ui/src/services/`).
+* UI Components and Functionality:
+    *   **`FactionManagementPage.tsx` (Dashboard/Container for Faction UI)**:
+        *   Main layout for faction management.
+        *   Allows navigation/switching between `FactionsListPage.tsx` and `FactionForm.tsx`.
+    *   **`FactionsListPage.tsx`**:
+        *   Fetches and displays a list of `Faction` objects using `factionService.listFactions` (with pagination and potential filters like name or static_id).
+        *   Each item in the list should show key faction details (name, static_id, leader NPC if available).
+        *   Provides "Create New Faction" button (navigates to `FactionForm.tsx` in create mode).
+        *   Provides "Edit" and "Delete" buttons for each faction.
+            *   "Edit": Navigates to `FactionForm.tsx` in edit mode with the faction ID.
+            *   "Delete": Prompts for confirmation, calls `factionService.deleteFaction`, and refreshes the list.
+    *   **`FactionForm.tsx` (for Create/Edit Faction)**:
+        *   Form fields for `FactionPayload` (on create) or `FactionUpdatePayload` (on edit).
+            *   `static_id`: Text input (read-only on edit).
+            *   `name_i18n_json`: Textarea for JSON or dedicated i18n input component.
+            *   `description_i18n_json`: Textarea for JSON or dedicated i18n input component.
+            *   `ideology_i18n_json`: Textarea for JSON or dedicated i18n input component.
+            *   `leader_npc_static_id`: Text input (optional).
+            *   `resources_json`: Textarea for JSON (optional).
+            *   `ai_metadata_json`: Textarea for JSON (optional).
+        *   Handles JSON validation for JSON textareas.
+        *   On edit mode, loads faction details using `factionService.getFactionDetails`.
+        *   Save button calls `factionService.createFaction` or `factionService.updateFaction`.
+        *   Manages loading states and user feedback.
+    *   **`RelationshipManagementPage.tsx` (Dashboard/Container for Relationship UI)**:
+        *   Main layout for relationship management.
+        *   Allows navigation/switching between `RelationshipsListPage.tsx` and `RelationshipForm.tsx`.
+    *   **`RelationshipsListPage.tsx`**:
+        *   Fetches and displays a list of `RelationshipData` objects using `relationshipService.listRelationships` (with pagination and filters: `entity1_id`, `entity1_type`, `entity2_id`, `entity2_type`, `relationship_type`).
+        *   Each item should clearly show `entity1_details`, `entity2_details`, `relationship_type`, and `value`.
+        *   Provides "Create New Relationship" button.
+        *   Provides "Edit" and "Delete" buttons for each relationship.
+    *   **`RelationshipForm.tsx` (for Create/Edit Relationship)**:
+        *   Form fields for `RelationshipPayload` or `RelationshipUpdatePayload`.
+            *   `entity1_id`, `entity1_type` (dropdown for type: PLAYER, NPC, FACTION, PARTY, etc.), `entity2_id`, `entity2_type`. (May need entity pickers/search components).
+            *   `relationship_type`: Text input or dropdown for predefined types.
+            *   `value`: Number input.
+            *   `source_log_id`: (Optional) Number input, possibly read-only if primarily system-set.
+        *   On edit mode, loads details using `relationshipService.getRelationshipDetails`.
+        *   Save button calls `relationshipService.createRelationship` or `relationshipService.updateRelationship`.
+* **Unit Tests**:
+    *   Tests for `FactionsListPage.tsx`, `FactionForm.tsx`, `factionService.ts`.
+    *   Tests for `RelationshipsListPage.tsx`, `RelationshipForm.tsx`, `relationshipService.ts`.
+    *   Cover rendering, form interactions, API calls, state updates, and error handling.
+* Result: Fully implemented UI for managing factions and inter-entity relationships.
+
 {Task 62: 🖥️ UI.8 UI for Quest Management (Backend Preparation & UI Stubs) - Moved to Done.txt}
-{Task 63: 🖥️ UI.9 UI for Global Entity Management. (Depends on API 45) - Moved to Done.txt}
 
-{Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Depends on API 43) - Moved to Done.txt}
+Task 63: 🖥️ UI.9 UI for Global Entity Management. (Full UI Implementation)
+* Description: Create fully implemented UI pages for managing Global NPCs and Mobile Groups within a guild. UI for GlobalEvent is deferred as per original backend preparation notes (Task 63 log in AGENTS.md).
+* Dependencies:
+    *   API: Master commands for GlobalNpc CRUD (`/master_global_npc ...`) and MobileGroup CRUD (`/master_mobile_group ...`) (from Task 41/47).
+    *   TypeScript types: `GlobalNpcData`, `GlobalNpcPayload`, `GlobalNpcUpdatePayload`, `MobileGroupData`, `MobileGroupPayload`, `MobileGroupUpdatePayload`, `PaginatedResponse` (from `src/ui/src/types/globalEntity.ts`, `src/ui/src/types/entities.ts`).
+    *   UI Service: `globalEntityService.ts` (from `src/ui/src/services/`).
+* UI Components and Functionality:
+    *   **`GlobalEntityManagementPage.tsx` (Dashboard/Container)**:
+        *   Main layout, allows switching between Global NPC management and Mobile Group management (e.g., using tabs or a sub-navigation).
+    *   **For Global NPCs**:
+        *   **`GlobalNpcListPage.tsx`**:
+            *   Fetches and displays a list of `GlobalNpcData` using `globalEntityService.getGlobalNpcs` (with pagination and filters like name or static_id).
+            *   Each item shows key details (name, static_id, current location).
+            *   "Create New Global NPC" button (navigates to `GlobalNpcForm.tsx` in create mode).
+            *   "Edit" and "Delete" buttons for each Global NPC.
+        *   **`GlobalNpcForm.tsx` (for Create/Edit GlobalNpc)**:
+            *   Form fields for `GlobalNpcPayload` or `GlobalNpcUpdatePayload`.
+                *   `static_id`: Text input (read-only on edit).
+                *   `name_i18n_json`: Textarea for JSON or i18n component.
+                *   `description_i18n_json`: Textarea or i18n component.
+                *   `npc_template_id`: Number input (optional, ID of a `GeneratedNpc` to use as a template).
+                *   `current_location_id`: Number input (optional, ID of a `Location`). May need a location picker.
+                *   `mobile_group_id`: Number input (optional, ID of a `MobileGroup`).
+                *   `route_json`: Textarea for JSON (e.g., `{"type": "patrol", "points": [1, 2, 3], "current_step": 0}`).
+                *   `properties_json`: Textarea for JSON.
+                *   `ai_metadata_json`: Textarea for JSON.
+            *   Handles JSON validation.
+            *   On edit, loads data using `globalEntityService.getGlobalNpc`.
+            *   Save calls `globalEntityService.createGlobalNpc` or `globalEntityService.updateGlobalNpc`.
+    *   **For Mobile Groups**:
+        *   **`MobileGroupListPage.tsx`**:
+            *   Fetches and displays a list of `MobileGroupData` using `globalEntityService.getMobileGroups` (with pagination and filters).
+            *   Each item shows key details (name, static_id, leader, current location).
+            *   "Create New Mobile Group" button.
+            *   "Edit" and "Delete" buttons.
+        *   **`MobileGroupForm.tsx` (for Create/Edit MobileGroup)**:
+            *   Form fields for `MobileGroupPayload` or `MobileGroupUpdatePayload`.
+                *   `static_id`: Text input.
+                *   `name_i18n_json`: Textarea/i18n component.
+                *   `description_i18n_json`: Textarea/i18n component.
+                *   `current_location_id`: Number input (optional).
+                *   `leader_global_npc_id`: Number input (optional, ID of a `GlobalNpc`).
+                *   `members_definition_json`: Textarea for JSON (e.g., `[{"global_npc_static_id": "gnpc_guard1", "role_i18n": {"en": "Guard"}}, {"count": 3, "template_npc_static_id": "generic_soldier"}]`).
+                *   `behavior_type_i18n_json`: Textarea/i18n component (e.g., {"en": "Patrol", "ru": "Патруль"}).
+                *   `route_json`: Textarea for JSON.
+                *   `properties_json`: Textarea for JSON.
+            *   Handles JSON validation.
+            *   On edit, loads data using `globalEntityService.getMobileGroup`.
+            *   Save calls `globalEntityService.createMobileGroup` or `globalEntityService.updateMobileGroup`.
+* **Unit Tests**:
+    *   Tests for `GlobalNpcListPage.tsx`, `GlobalNpcForm.tsx`.
+    *   Tests for `MobileGroupListPage.tsx`, `MobileGroupForm.tsx`.
+    *   Tests for `globalEntityService.ts`.
+    *   Cover rendering, form interactions, API calls, state management, error handling.
+* Result: Fully implemented UI for managing Global NPCs and Mobile Groups.
 
-{Task 65: 🖥️ UI.11 UI for Balance Tools. (Depends on API 48) - Moved to Done.txt}
+Task 64: 🖥️ UI.10 UI for Monitoring and Logging. (Full UI Implementation)
+* Description: Create fully implemented UI pages for monitoring game state (WorldState), viewing event logs (StoryLog), and visualizing the game map with locations and entity positions.
+* Dependencies:
+    *   API:
+        *   Master commands for WorldState: `/master_monitor worldstate list [prefix]`, `/master_monitor worldstate get <key>` (Task 47/49).
+        *   Master commands for StoryLog: `/master_monitor log list [event_type_filter]`, `/master_monitor log view <id>` (Task 47/49).
+        *   Master commands for Locations: `/master_monitor map list_locations`, `/master_monitor map view_location <identifier>` (Task 47/49).
+        *   APIs for fetching Player, NPC, GlobalNpc, MobileGroup lists with their `current_location_id` (from Task 57, 63 APIs/services).
+    *   TypeScript types: `RuleConfigEntry` (for WorldState), `UIStoryLogData`, `UIEventType`, `UILocationData`, `PaginatedResponse`, `Player`, `GeneratedNpc`, `GlobalNpcData`, `MobileGroupData`.
+    *   UI Services: `monitoringService.ts`, `locationService.ts`, `playerService.ts`, `npcService.ts`, `globalEntityService.ts`.
+* UI Components and Functionality:
+    *   **`MonitoringDashboardPage.tsx` (Main Container/Dashboard)**:
+        *   Provides navigation (e.g., tabs) to `WorldStatePage`, `StoryLogPage`, and `MapPage`.
+    *   **`WorldStatePage.tsx`**:
+        *   Fetches and displays `RuleConfigEntry` items (filtered by a default prefix like "worldstate:") using `monitoringService.getWorldStateEntries` (with pagination and prefix filtering).
+        *   Displays key, a preview of `value_json`, and description for each entry.
+        *   (Optional Enhancement): Clicking an entry could show full `value_json` in a modal or allow navigation to the Rule Configuration page (Task 58) for editing if the key matches a rule.
+    *   **`StoryLogPage.tsx`**:
+        *   Fetches and displays `UIStoryLogData` entries using `monitoringService.getStoryLogEntries` (with pagination and `UIEventType` filter).
+        *   Each log entry should be clearly formatted, displaying timestamp, event type, involved entities (names resolved if possible), and the narrative/details.
+        *   (Optional Enhancement): Clicking an entry could show full `details_json` and `narrative_i18n` in a modal.
+    *   **`MapPage.tsx`**:
+        *   **Map Display Area**:
+            *   Fetches all `UILocationData` using `locationService.getLocations`.
+            *   Renders locations on a 2D canvas or using an SVG-based approach. Coordinates from `coordinates_json` will be used.
+            *   Displays location names (i18n) and types (e.g., icons).
+            *   Visualizes connections/paths between locations based on `neighbor_locations_json`.
+        *   **Entity Display**:
+            *   Fetches lists of Players, GeneratedNpcs, GlobalNpcs, and MobileGroups (using their respective services: `playerService.listPlayers`, `npcService.listNpcs`, etc.).
+            *   For each entity with a valid `current_location_id`, display an icon/marker on the map at their location.
+            *   Hovering or clicking an entity marker could show a tooltip/popup with basic info (name, type).
+        *   **Map Controls**:
+            *   Zoom in/out, pan.
+            *   Filters to show/hide different entity types.
+            *   (Optional): Click on a location to view its details (using `locationService.getLocationDetails`).
+* **Unit Tests**:
+    *   `WorldStatePage.test.tsx`: Test data fetching, display, filtering.
+    *   `StoryLogPage.test.tsx`: Test data fetching, display, filtering, formatting.
+    *   `MapPage.test.tsx`: Test fetching and rendering of locations and entities. Test map controls if feasible in unit test environment (may require more integration-style tests for complex interactions).
+    *   `monitoringService.test.ts`, `locationService.test.ts`: Verify mock service calls.
+* Result: A comprehensive set of UI tools for Masters to monitor game state, review history, and visualize the world.
 
-{Task 66: 🖥️ UI.12 UI for Conflict Resolution. (Depends on API 41) - Moved to Done.txt}
+Task 65: 🖥️ UI.11 UI for Balance Tools. (Full UI Implementation)
+* Description: Create fully implemented UI pages for accessing balance and testing tools, including simulation of checks, combat actions, conflict detection, and AI generation analysis.
+* Dependencies:
+    *   API: Master commands `/master_simulate check`, `/master_simulate combat_action`, `/master_simulate conflict`, `/master_analyze ai_generation` (from Task 48).
+    *   TypeScript types: `UISimulateCheckParams`, `IUICheckResult`, `UISimulateCombatActionParams`, `UICombatActionResult`, `UISimulateConflictParams`, `UIPydanticConflictForSim`, `UIAnalyzeAiGenerationParams`, `UIAiAnalysisResult`, `UIEntityAnalysisReport` (from `src/ui/src/types/simulation.ts`).
+    *   UI Service: `balanceToolsService.ts` (from `src/ui/src/services/`).
+* UI Components and Functionality:
+    *   **`BalanceToolsPage.tsx` (Main Page/Dashboard)**:
+        *   Provides navigation (e.g., tabs) to different simulation/analysis tools: `SimulateCheckTab`, `SimulateCombatActionTab`, `SimulateConflictTab`, `AnalyzeAiGenerationTab`.
+    *   **`SimulateCheckTab.tsx`**:
+        *   Form for inputting `UISimulateCheckParams`:
+            *   `check_type`: Text input.
+            *   `actor_id`, `actor_type`: Inputs (e.g., number for ID, dropdown for type).
+            *   `target_id`, `target_type`: Optional inputs.
+            *   `difficulty_dc`: Optional number input.
+            *   `json_context`: Textarea for JSON string.
+        *   Button to trigger `balanceToolsService.simulateCheck`.
+        *   Displays the returned `IUICheckResult` in a structured and readable format (e.g., showing roll details, modifiers, outcome).
+    *   **`SimulateCombatActionTab.tsx`**:
+        *   Form for inputting `UISimulateCombatActionParams`:
+            *   `combat_encounter_id`: Number input.
+            *   `actor_id`, `actor_type`: Inputs.
+            *   `action_json_data`: Textarea for JSON string describing the action.
+            *   `dry_run`: Checkbox.
+        *   Button to trigger `balanceToolsService.simulateCombatAction`.
+        *   Displays the `UICombatActionResult` (success, damage, healing, status effects, description, etc.).
+    *   **`SimulateConflictTab.tsx`**:
+        *   Form for inputting `UISimulateConflictParams`:
+            *   `actions_json`: Textarea for a JSON string representing a list of `UIInputConflictAction`. (Consider a more user-friendly way to build this list, e.g., a dynamic list of forms for each action).
+        *   Button to trigger `balanceToolsService.simulateConflict`.
+        *   Displays the list of `UIPydanticConflictForSim` (detected conflicts), detailing involved entities and actions.
+    *   **`AnalyzeAiGenerationTab.tsx`**:
+        *   Form for inputting `UIAnalyzeAiGenerationParams`:
+            *   `entity_type`: Dropdown (NPC, Item, Quest, etc.).
+            *   `generation_context_json`: Optional textarea for JSON.
+            *   `target_count`: Number input.
+            *   `use_real_ai`: Checkbox.
+        *   Button to trigger `balanceToolsService.analyzeAiGeneration`.
+        *   Displays the `UIAiAnalysisResult`, including overall summary and a list of `UIEntityAnalysisReport` (with previews, issues, scores).
+* **Unit Tests**:
+    *   Tests for `BalanceToolsPage.tsx` and each tab component (`SimulateCheckTab.test.tsx`, etc.).
+    *   Tests for `balanceToolsService.ts`.
+    *   Cover form rendering, input handling, API calls, result display, and error states.
+* Result: A suite of UI tools for Masters to test game mechanics, simulate scenarios, and analyze AI-generated content for balance and quality.
+
+Task 66: 🖥️ UI.12 UI for Conflict Resolution. (Full UI Implementation)
+* Description: Create a fully implemented UI page for manual resolution of action conflicts by the Game Master.
+* Dependencies:
+    *   API: Master commands `/master_conflict list`, `/master_conflict view <id>`, `/master_conflict resolve <id> <outcome_status> [notes]` (from Task 41/47).
+    *   TypeScript types: `UIConflictListItem`, `UIConflictDetails`, `UIConflictStatus`, `UIMasterOutcomeOption`, `UIResolveConflictPayload`, `PaginatedResponse` (from `src/ui/src/types/conflict.ts`, `src/ui/src/types/entities.ts`).
+    *   UI Service: `conflictService.ts` (from `src/ui/src/services/`).
+* UI Components and Functionality:
+    *   **`ConflictResolutionDashboardPage.tsx` (Main Page/Dashboard)**:
+        *   Main layout for conflict resolution.
+        *   May host both `ConflictListPage` and `ConflictDetailPage` or manage navigation between them.
+    *   **`ConflictListPage.tsx`**:
+        *   Fetches and displays a list of `UIConflictListItem` using `conflictService.getPendingConflicts` (with pagination and filter by `UIConflictStatus`).
+        *   Each item shows: ID, status (e.g., "PENDING_RESOLUTION"), creation date, and a summary of involved entities.
+        *   Clicking an item navigates to `ConflictDetailPage.tsx` with the conflict ID.
+    *   **`ConflictDetailPage.tsx`**:
+        *   Fetches and displays `UIConflictDetails` for a specific conflict ID using `conflictService.getConflictDetails`.
+        *   Displays:
+            *   Conflict ID, current status, creation/resolution dates.
+            *   Detailed information about `involved_entities` and their `conflicting_actions` (actor, raw text, intent, entities involved in action).
+            *   `resolution_notes` and `resolved_action` if the conflict is already resolved.
+        *   **Resolution Form (if status is PENDING_RESOLUTION)**:
+            *   Fetches outcome options using `conflictService.getConflictResolutionOutcomeOptions`.
+            *   Dropdown/Radio group to select an `UIMasterOutcomeOption` (e.g., "Favor Action 1", "Dismiss Conflict").
+            *   Textarea for `notes` for the resolution.
+            *   "Resolve Conflict" button:
+                *   Calls `conflictService.resolveConflict` with `conflictId` and `UIResolveConflictPayload`.
+                *   Handles loading state and displays success/error messages.
+                *   Refreshes conflict details or navigates back to the list upon successful resolution.
+* **Unit Tests**:
+    *   `ConflictResolutionDashboardPage.test.tsx`: Test layout and navigation.
+    *   `ConflictListPage.test.tsx`: Test data fetching, list rendering, filtering, pagination, navigation.
+    *   `ConflictDetailPage.test.tsx`: Test fetching details, displaying conflict information, rendering and submitting the resolution form.
+    *   `conflictService.test.ts`: Verify mock service calls, including fetching outcome options.
+* Result: A UI enabling Game Masters to efficiently review and resolve gameplay conflicts.
 
 {Task 67: 🖥️ UI.13 Backend API for Command List. (Depends on 0.1) - Moved to Done.txt}
 
-{Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Depends on API 67) - Moved to Done.txt}
+Task 68: 🖥️ UI.14 UI "Command List" Section (Help/Guide). (Full UI Implementation)
+* Description: Create a fully implemented UI section (e.g., a dedicated page) for displaying a comprehensive list of available bot commands, including their descriptions and parameters, to serve as a help/guide for users (especially Masters).
+* Dependencies:
+    *   API: `GET /api/v1/command-list/` (from Task 67).
+    *   TypeScript types: `UICommandInfo`, `UICommandParameterInfo`, `UICommandListResponse` (from `src/ui/src/types/commands.ts`).
+    *   UI Service: `commandListService.ts` (from `src/ui/src/services/`).
+* UI Components and Functionality:
+    *   **`CommandHelpPage.tsx` (Main Component)**:
+        *   Fetches the command list using `commandListService.fetchCommandList`. Allows specifying a language code if the UI supports language selection.
+        *   Displays a list or table of `UICommandInfo` objects.
+        *   For each command:
+            *   Display `name` (full command name, including groups/subcommands like `/group subcommand name`).
+            *   Display `description` (localized if available).
+            *   Display parameters (`UICommandParameterInfo`):
+                *   For each parameter: `name`, `description` (localized), `type`, `required` status.
+                *   (Optional): If API provides choices for a parameter, display them.
+        *   **Layout Options**:
+            *   Option 1 (Simple List/Accordion): Each command is an item. Clicking expands to show description and parameters.
+            *   Option 2 (Table): Columns for Name, Description, Parameters. Parameters could be a formatted string or a nested sub-table/list.
+        *   **Filtering/Search**:
+            *   (Optional) Implement a text input to filter commands by name.
+        *   Handles loading states and displays an appropriate message if commands cannot be fetched.
+* **Unit Tests**:
+    *   `CommandHelpPage.test.tsx`:
+        *   Test fetching and rendering of command list.
+        *   Test display of command name, description, and parameters (including type and required status).
+        *   Test behavior with empty command list or API error.
+        *   Test filtering/search if implemented.
+    *   `commandListService.test.ts`:
+        *   Verify mock service call to `fetchCommandList` and data transformation if any.
+* Result: An informative and user-friendly "Command List" or "Help" section within the UI.
 
 Project: AI-Driven Text RPG Bot - Backend Technical Specification (FINAL VERSION with AI CONTEXT MANAGEMENT VIA UI)
 Overall Project Context: This is a scalable backend service for a Discord bot supporting numerous independent RPG worlds (per guild). The world is procedurally generated by AI (OpenAI API) and managed by a system of game mechanics (combat, quests, dialogues) based on configurable rules. All data is persistently stored in a scalable DB, isolated for each guild. Multilingual support (RU/EN), NLU input, a Turn System, and Master tools allowing manual situation resolution are supported.
