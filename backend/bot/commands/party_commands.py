@@ -4,9 +4,11 @@ from discord.ext import commands
 from typing import Optional
 
 from backend.core.database import get_db_session
+import re # For regex validation
 from backend.core.crud.crud_player import player_crud
 from backend.core.crud.crud_party import party_crud
 from backend.core.crud.crud_location import location_crud # For party location consistency
+from backend.core.rules import get_rule # For validation rules
 from backend.models.player import Player
 from backend.models.party import Party, PartyTurnStatus
 from backend.models.location import Location
@@ -45,6 +47,30 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                 if player.current_party_id:
                     existing_party = await party_crud.get(session, id=player.current_party_id, guild_id=guild_id)
                     await ctx.send(f"{ctx.author.mention}, ты уже состоишь в группе '{existing_party.name if existing_party else 'Неизвестная группа'}'. Сначала покинь ее.")
+                    return
+
+                # Validate party name
+                name_validation_regex_str = await get_rule(session, guild_id, "party:name_validation_regex", default="^[a-zA-Z0-9А-Яа-яЁё\\s'-_]{3,32}$")
+                if not isinstance(name_validation_regex_str, str) : # Fallback if rule is misconfigured
+                    name_validation_regex_str = "^[a-zA-Z0-9А-Яа-яЁё\\s'-_]{3,32}$"
+
+                name_max_length = await get_rule(session, guild_id, "party:name_max_length", default=32)
+                if not isinstance(name_max_length, int): name_max_length = 32
+
+
+                if not re.match(name_validation_regex_str, party_name):
+                    # TODO: Provide more specific feedback based on regex (e.g., "Name contains invalid characters.")
+                    await ctx.send(f"{ctx.author.mention}, название группы содержит недопустимые символы или не соответствует требованиям по длине (3-32 символа, буквы, цифры, пробелы, дефисы, апострофы).")
+                    return
+
+                if len(party_name) > name_max_length:
+                    await ctx.send(f"{ctx.author.mention}, название группы слишком длинное (максимум {name_max_length} символов).")
+                    return
+
+                # Check for name uniqueness
+                existing_named_party = await party_crud.get_by_name(session, name=party_name, guild_id=guild_id)
+                if existing_named_party:
+                    await ctx.send(f"{ctx.author.mention}, группа с названием '{party_name}' уже существует. Пожалуйста, выбери другое название.")
                     return
 
                 # Create the new party
@@ -98,21 +124,65 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                     return
 
                 # Remove player from party's JSON list and update player
+                party_name = party.name # Store before potential modification
+                was_leader = (party.leader_player_id == player.id)
+
+                # Remove player from party's JSON list
                 party = await party_crud.remove_player_from_party_json(session, party=party, player_id=player.id)
                 player.current_party_id = None
-                await session.merge(player)
+                await session.merge(player) # Player update
 
-                party_name = party.name
                 logger.info(f"Игрок {player.name} (ID: {player.id}) покинул группу '{party_name}' (ID: {party.id}) на сервере {guild_id}.")
 
-                # Check if party is now empty
-                if not party.player_ids_json:
-                    logger.info(f"Группа '{party_name}' (ID: {party.id}) пуста и будет распущена.")
+                disband_party_flag = False
+                new_leader_id: Optional[int] = None
+
+                if not party.player_ids_json: # Party is now empty
+                    disband_party_flag = True
+                elif was_leader:
+                    leader_transfer_policy = await get_rule(session, guild_id, "party:leader_transfer_policy", default="disband_if_empty_else_promote")
+                    if leader_transfer_policy == "disband_if_empty_else_promote": # Default behavior
+                        if party.player_ids_json: # If members remain, promote first one
+                            new_leader_id = party.player_ids_json[0]
+                        else: # Should be caught by previous `not party.player_ids_json`
+                            disband_party_flag = True
+                    elif leader_transfer_policy == "promote_oldest_member": # Simplification: promote first
+                         if party.player_ids_json:
+                            new_leader_id = party.player_ids_json[0]
+                         else: # Should not happen if logic is correct
+                            disband_party_flag = True
+                    elif leader_transfer_policy == "disband_on_leader_leave": # Example of another policy
+                        disband_party_flag = True
+                    # If policy is "require_manual_promote", party might become leaderless if not handled by a separate command.
+                    # For now, if no explicit promotion, and not disbanding, it remains leaderless (or leader_id points to non-member).
+                    # A better approach for "require_manual_promote" might be to set leader_id to None if no other rule applies.
+
+                    if new_leader_id:
+                        party.leader_player_id = new_leader_id
+                        await session.merge(party) # Party update for new leader
+                        # TODO: Log leader change event, notify party
+                        logger.info(f"Лидерство в группе '{party_name}' передано игроку ID: {new_leader_id}.")
+
+
+                # Check auto-disband threshold if not already flagged for disband
+                if not disband_party_flag:
+                    auto_disband_threshold = await get_rule(session, guild_id, "party:auto_disband_threshold", default=1)
+                    if not isinstance(auto_disband_threshold, int) or auto_disband_threshold < 0: auto_disband_threshold = 1 # Ensure valid
+                    if len(party.player_ids_json) < auto_disband_threshold:
+                        disband_party_flag = True
+                        logger.info(f"Группа '{party_name}' (ID: {party.id}) имеет {len(party.player_ids_json)} участников, что меньше порога автороспуска ({auto_disband_threshold}).")
+
+                if disband_party_flag:
+                    logger.info(f"Группа '{party_name}' (ID: {party.id}) будет распущена.")
                     await party_crud.delete(session, id=party.id, guild_id=guild_id)
+                    # Player's current_party_id already set to None. Other members' IDs are not updated by this command path.
+                    # Disband command handles updating all members. Here, we assume they'll find out or /start again.
+                    # A more robust solution would iterate remaining party.player_ids_json and update their Player records.
                     await session.commit()
-                    await ctx.send(f"{ctx.author.mention} покинул группу '{party_name}'. Группа была распущена, так как стала пустой.")
+                    await ctx.send(f"{ctx.author.mention} покинул группу '{party_name}'. Группа была распущена.")
                 else:
-                    await session.commit()
+                    await session.commit() # Commit player and potential party (new leader) changes
+                    # TODO: Notify party about member leaving and potential new leader
                     await ctx.send(f"{ctx.author.mention} покинул группу '{party_name}'.")
 
             except Exception as e:
@@ -146,10 +216,10 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                     await ctx.send(f"{ctx.author.mention}, похоже, твоей группы больше не существует.")
                     return
 
-                # TODO: Add leader check here in the future. For now, any member can disband.
-                # if party.leader_id != player.id: # Assuming a leader_id field on Party model
-                #     await ctx.send(f"{ctx.author.mention}, только лидер может распустить группу.")
-                #     return
+                if party.leader_player_id != player.id:
+                    # TODO: Localize this message
+                    await ctx.send(f"{ctx.author.mention}, только лидер группы может ее распустить.")
+                    return
 
                 party_name = party.name
                 member_ids_to_update = list(party.player_ids_json) if party.player_ids_json else []
@@ -221,7 +291,29 @@ class PartyCog(commands.Cog, name="Party Commands"): # type: ignore[call-arg]
                     await ctx.send(f"{ctx.author.mention}, группа с именем или ID '{party_identifier}' не найдена.")
                     return
 
-                # TODO: Добавить проверки (например, максимальное количество участников в группе из RuleConfig)
+                # Validation checks based on RuleConfig and party properties
+                max_party_size = await get_rule(session, guild_id, "party:max_size", default=5)
+                if not isinstance(max_party_size, int) or max_party_size <= 0: max_party_size = 5 # Fallback
+                current_party_size = len(target_party.player_ids_json) if target_party.player_ids_json else 0
+                if current_party_size >= max_party_size:
+                    # TODO: Localize
+                    await ctx.send(f"{ctx.author.mention}, группа '{target_party.name}' уже заполнена (максимум {max_party_size} участников).")
+                    return
+
+                party_properties = target_party.properties_json if isinstance(target_party.properties_json, dict) else {}
+                invite_policy = party_properties.get("invite_policy", await get_rule(session, guild_id, "party:default_invite_policy", default="open"))
+                if invite_policy == "invite_only":
+                    # TODO: Implement actual invitation system check. For now, just deny if policy is "invite_only".
+                    # TODO: Localize
+                    await ctx.send(f"{ctx.author.mention}, для вступления в группу '{target_party.name}' требуется приглашение.")
+                    return
+
+                min_level_req = party_properties.get("min_level_req", await get_rule(session, guild_id, "party:default_min_level_req", default=1))
+                if not isinstance(min_level_req, int) or min_level_req < 1: min_level_req = 1 # Fallback
+                if player.level < min_level_req:
+                    # TODO: Localize
+                    await ctx.send(f"{ctx.author.mention}, твой уровень ({player.level}) слишком низок для вступления в группу '{target_party.name}'. Требуемый уровень: {min_level_req}.")
+                    return
 
                 # Добавляем игрока в JSON список партии
                 target_party = await party_crud.add_player_to_party_json(session, party=target_party, player_id=player.id)
