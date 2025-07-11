@@ -581,8 +581,36 @@ async def execute_move_for_player_action(
                                 logger.warning(f"Party {party.id} has no leader_player_id set. Defaulting check performer to initiator {player.name}.")
                         elif performer_policy == "initiator":
                             logger.info(f"Party movement skill check to be performed by initiator: {player.name} (ID: {player.id})")
-                            pass # Defaults are already set to initiator
-                        # TODO: Implement "highest_member_skill", "average_party_skill" policies
+                            # Defaults are already set to initiator
+                        elif performer_policy == "highest_member_skill":
+                            attribute_to_check = skill_check_info.get("attribute")
+                            if attribute_to_check:
+                                best_performer_model = player
+                                try:
+                                    max_stat_value = int(player.attributes_json.get(attribute_to_check, -1000))
+                                except (ValueError, TypeError):
+                                    max_stat_value = -1000 # Treat non-int as very low
+
+                                member_ids = party.player_ids_json or []
+                                for member_id in member_ids:
+                                    if member_id == player.id: # Initiator already considered
+                                        continue
+                                    member_player = await player_crud.get(session, id=member_id)
+                                    if member_player and isinstance(member_player.attributes_json, dict):
+                                        try:
+                                            member_stat_value = int(member_player.attributes_json.get(attribute_to_check, -1000))
+                                            if member_stat_value > max_stat_value:
+                                                max_stat_value = member_stat_value
+                                                best_performer_model = member_player
+                                        except (ValueError, TypeError):
+                                            continue # Ignore member if stat is not int
+
+                                actor_model_for_check = best_performer_model
+                                actor_for_check_id = best_performer_model.id
+                                logger.info(f"Party movement skill check by 'highest_member_skill' ({attribute_to_check}): {actor_model_for_check.name} (ID: {actor_for_check_id}) with value {max_stat_value}")
+                            else:
+                                logger.warning(f"'highest_member_skill' policy requires 'attribute' in skill_check_info. Defaulting to initiator.")
+                        # TODO: Implement "average_party_skill" policy
                         else:
                             logger.warning(f"Unknown party:movement_skill_check_performer policy '{performer_policy}'. Defaulting to initiator.")
 
@@ -634,8 +662,28 @@ async def execute_move_for_player_action(
         # Resource Costs Check & Preparation
         resource_costs_to_apply: Dict[str, int] = {}
         defined_resource_costs = connection_details.get("resource_costs_json") # e.g. {"stamina": 5, "rations": 1}
-        if isinstance(defined_resource_costs, dict):
+
+        if not isinstance(defined_resource_costs, dict) or not defined_resource_costs:
+            # Fallback to RuleConfig if not in connection_details or if empty
+            cost_rule_key = f"movement:costs:{current_location.type.value}:{target_location.type.value}"
+            rule_based_costs = await get_rule(session, guild_id, cost_rule_key, default=None)
+            if isinstance(rule_based_costs, dict):
+                defined_resource_costs = rule_based_costs
+                logger.info(f"Using RuleConfig defined costs for movement from {current_location.type.value} to {target_location.type.value}: {defined_resource_costs}")
+            else:
+                if rule_based_costs is not None: # Rule existed but was not a dict
+                    logger.warning(f"RuleConfig key {cost_rule_key} did not return a dictionary. Value: {rule_based_costs}")
+                defined_resource_costs = {} # Ensure it's a dict for the next block
+
+        if isinstance(defined_resource_costs, dict) and defined_resource_costs: # Check again if we got costs from RuleConfig
             player_resources = player.properties_json.get("resources", {}) if player.properties_json else {}
+            # TODO: Implement party:movement:resource_source_policy from RuleConfig.
+            # Current logic assumes initiator (player) pays all costs.
+            # If party exists and policy is e.g. "leader_pays", "all_contribute_even", or "first_available":
+            # - 'player_resources' would need to be fetched from the correct player(s).
+            # - 'resource_costs_to_apply' might need to be split if 'all_contribute_even'.
+            # - '_update_entities_location' would need to be adapted to deduct from the correct player(s)
+            #   or a shared party resource pool if that model is introduced.
             for resource_name, cost_amount in defined_resource_costs.items():
                 if not isinstance(cost_amount, int) or cost_amount <= 0:
                     logger.warning(f"Invalid cost amount {cost_amount} for resource '{resource_name}' in movement connection. Skipping this cost.")
