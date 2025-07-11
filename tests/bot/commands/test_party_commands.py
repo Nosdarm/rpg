@@ -477,3 +477,342 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    async def test_party_invite_success(self):
+        inviter_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="The Invitees", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        target_user_mock = MockAuthor(id=400, name="TargetUser")
+        target_player_db = Player(id=400, discord_id=target_user_mock.id, guild_id=self.guild.id, name=target_user_mock.name, current_party_id=None)
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: inviter_player if discord_id == self.author.id else target_player_db if discord_id == target_user_mock.id else None
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: "leader_only" if key == "party:invite_permissions" else 5 if key == "party:max_size" else default
+
+        # Mock discord.Member methods if necessary for target_player, e.g. send
+        target_member_mock = AsyncMock(spec=discord.Member)
+        target_member_mock.id = target_user_mock.id
+        target_member_mock.name = target_user_mock.name
+        target_member_mock.display_name = target_user_mock.display_name
+        target_member_mock.bot = False
+        target_member_mock.send = AsyncMock() # Crucial for DM
+
+        await self.cog.party_invite.callback(self.cog, self.ctx, target_player=target_member_mock)
+
+        target_member_mock.send.assert_called_once()
+        dm_message_content = target_member_mock.send.call_args[0][0]
+        self.assertIn(f"{self.author.display_name} приглашает тебя присоединиться к группе '{party_obj.name}'", dm_message_content)
+        self.ctx.send.assert_called_once_with(f"Приглашение отправлено игроку {target_member_mock.mention}.")
+
+
+    async def test_party_invite_fails_inviter_not_in_party(self):
+        inviter_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None) # Not in party
+        self.mock_player_crud.get_by_discord_id.return_value = inviter_player
+        target_member_mock = AsyncMock(spec=discord.Member, id=401, bot=False)
+
+        await self.cog.party_invite.callback(self.cog, self.ctx, target_player=target_member_mock)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, ты не состоишь в группе, чтобы приглашать в нее.")
+
+    async def test_party_invite_fails_not_leader_and_policy_leader_only(self):
+        inviter_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=102)
+        party_obj = Party(id=102, guild_id=self.guild.id, name="Leader's Domain", leader_player_id=999, player_ids_json=[999, self.author.id]) # Inviter is not leader
+
+        self.mock_player_crud.get_by_discord_id.return_value = inviter_player
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.return_value = "leader_only" # Rule for invite permissions
+        target_member_mock = AsyncMock(spec=discord.Member, id=402, bot=False)
+
+        await self.cog.party_invite.callback(self.cog, self.ctx, target_player=target_member_mock)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, только лидер группы может приглашать новых участников.")
+
+    async def test_party_invite_fails_target_already_in_party(self):
+        inviter_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="The Invitees", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        target_user_mock = MockAuthor(id=403, name="TargetInParty")
+        target_player_db = Player(id=403, discord_id=target_user_mock.id, guild_id=self.guild.id, name=target_user_mock.name, current_party_id=202) # Already in a party
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: inviter_player if discord_id == self.author.id else target_player_db
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: "leader_only" if key == "party:invite_permissions" else 5 # Default for max_size
+
+        target_member_mock = AsyncMock(spec=discord.Member)
+        target_member_mock.id = target_user_mock.id
+        target_member_mock.bot = False
+
+        await self.cog.party_invite.callback(self.cog, self.ctx, target_player=target_member_mock)
+        self.ctx.send.assert_called_once_with(f"{target_member_mock.mention} уже состоит в другой группе.")
+
+    # Add similar tests for target_is_self, target_is_bot, target_not_started, party_full, dm_forbidden
+    # For dm_forbidden, target_member_mock.send would raise discord.Forbidden
+
+    async def test_party_view_current_party_success(self):
+        player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101, current_location_id=10, selected_language="en")
+        leader = Player(id=self.author.id, name="LeaderPlayer") # Simplified for this test
+        member2 = Player(id=2, name="MemberTwo")
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Current Crew", leader_player_id=self.author.id, player_ids_json=[self.author.id, 2], current_location_id=10, properties_json={"invite_policy": "invite_only", "min_level_req": 3})
+        location_obj = Location(id=10, name_i18n={"en": "The Hideout"})
+
+        self.mock_player_crud.get_by_discord_id.return_value = player
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_player_crud.get.side_effect = lambda session, id, guild_id: leader if id == self.author.id else member2 if id == 2 else None
+        self.mock_location_crud.get.return_value = location_obj
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: default # Rules not used if props exist
+
+        await self.cog.party_view.callback(self.cog, self.ctx, party_identifier=None)
+
+        self.ctx.send.assert_called_once()
+        embed = self.ctx.send.call_args[1]['embed']
+        self.assertEqual(embed.title, "Информация о группе: My Current Crew")
+        self.assertIn("LeaderPlayer", embed.fields[0].value) # Leader field
+        self.assertIn("LeaderPlayer", embed.fields[1].value) # Members field
+        self.assertIn("MemberTwo", embed.fields[1].value)   # Members field
+        self.assertIn("The Hideout", embed.fields[2].value) # Location field
+        self.assertIn("invite_only", embed.fields[3].value) # Invite Policy
+        self.assertIn("3", embed.fields[4].value) # Min Level
+
+    async def test_party_view_specified_party_by_name_success(self):
+        player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, selected_language="ru") # Not in a party
+
+        leader = Player(id=50, name="ДругойЛидер")
+        member = Player(id=51, name="ДругойУчастник")
+        specified_party = Party(id=102, guild_id=self.guild.id, name="Another Crew", leader_player_id=50, player_ids_json=[50, 51], current_location_id=11)
+        location_obj = Location(id=11, name_i18n={"ru": "Другое Место"})
+
+        self.mock_player_crud.get_by_discord_id.return_value = player
+        self.mock_party_crud.get_by_name.return_value = specified_party
+        self.mock_player_crud.get.side_effect = lambda session, id, guild_id: leader if id == 50 else member if id == 51 else None
+        self.mock_location_crud.get.return_value = location_obj
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: "ru" if key == "guild_main_language" else default
+
+
+        await self.cog.party_view.callback(self.cog, self.ctx, party_identifier="Another Crew")
+
+        self.ctx.send.assert_called_once()
+        embed = self.ctx.send.call_args[1]['embed']
+        self.assertEqual(embed.title, "Информация о группе: Another Crew")
+        self.assertIn("ДругойЛидер", embed.fields[0].value)
+        self.assertIn("ДругойУчастник", embed.fields[1].value)
+        self.assertIn("Другое Место", embed.fields[2].value)
+
+    async def test_party_view_fails_not_in_party_no_identifier(self):
+        player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=None) # Not in party
+        self.mock_player_crud.get_by_discord_id.return_value = player
+
+        await self.cog.party_view.callback(self.cog, self.ctx, party_identifier=None)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, ты не состоишь в группе. Укажи название или ID группы для просмотра.")
+
+    async def test_party_view_fails_party_not_found(self):
+        player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name)
+        self.mock_player_crud.get_by_discord_id.return_value = player
+        self.mock_party_crud.get.return_value = None # Not found by ID
+        self.mock_party_crud.get_by_name.return_value = None # Not found by Name
+
+        await self.cog.party_view.callback(self.cog, self.ctx, party_identifier="NonExistentParty")
+        self.ctx.send.assert_called_once_with("Группа с идентификатором 'NonExistentParty' не найдена.")
+
+    async def test_party_promote_success_by_leader(self):
+        current_leader_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+
+        new_leader_discord_id = 409
+        new_leader_user_mock = MockAuthor(id=new_leader_discord_id, name="NewLeader")
+        new_leader_player_db = Player(id=new_leader_discord_id, discord_id=new_leader_user_mock.id, guild_id=self.guild.id, name=new_leader_user_mock.name, current_party_id=101)
+
+        party_obj = Party(id=101, guild_id=self.guild.id, name="Leadership Change", leader_player_id=self.author.id, player_ids_json=[self.author.id, new_leader_discord_id])
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: current_leader_player if discord_id == self.author.id else new_leader_player_db if discord_id == new_leader_discord_id else None
+        self.mock_party_crud.get.return_value = party_obj
+
+        new_leader_member_mock = AsyncMock(spec=discord.Member)
+        new_leader_member_mock.id = new_leader_user_mock.id
+        new_leader_member_mock.bot = False
+        new_leader_member_mock.mention = f"<@{new_leader_user_mock.id}>"
+
+
+        await self.cog.party_promote.callback(self.cog, self.ctx, new_leader=new_leader_member_mock)
+
+        self.assertEqual(party_obj.leader_player_id, new_leader_player_db.id)
+        self.session_mock.merge.assert_called_once_with(party_obj)
+        self.session_mock.commit.assert_called_once()
+        self.ctx.send.assert_called_once_with(f"{new_leader_member_mock.mention} успешно назначен новым лидером группы '{party_obj.name}'!")
+
+    async def test_party_promote_fails_promoter_not_leader(self):
+        promoter_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        actual_leader_id = 998
+        party_obj = Party(id=101, guild_id=self.guild.id, name="Strict Leadership", leader_player_id=actual_leader_id, player_ids_json=[self.author.id, actual_leader_id])
+
+        self.mock_player_crud.get_by_discord_id.return_value = promoter_player
+        self.mock_party_crud.get.return_value = party_obj
+
+        new_leader_member_mock = AsyncMock(spec=discord.Member, id=410, bot=False) # Some other member
+
+        await self.cog.party_promote.callback(self.cog, self.ctx, new_leader=new_leader_member_mock)
+
+        self.session_mock.merge.assert_not_called()
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, только текущий лидер группы может назначать нового.")
+
+    async def test_party_promote_fails_target_not_in_party(self):
+        current_leader_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Party", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        target_outsider_user_mock = MockAuthor(id=411, name="Outsider")
+        # Simulate target_player_db not found or not in party
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: current_leader_player if discord_id == self.author.id else None if discord_id == target_outsider_user_mock.id else None
+        self.mock_party_crud.get.return_value = party_obj
+
+        target_member_mock = AsyncMock(spec=discord.Member)
+        target_member_mock.id = target_outsider_user_mock.id
+        target_member_mock.name = target_outsider_user_mock.name # Set name for message
+        target_member_mock.mention = "<@411>" # Set mention for message
+        target_member_mock.bot = False
+
+
+        await self.cog.party_promote.callback(self.cog, self.ctx, new_leader=target_member_mock)
+        self.ctx.send.assert_called_once_with(f"{target_member_mock.mention} не является участником твоей группы '{party_obj.name}'.")
+
+    async def test_party_promote_fails_target_is_current_leader(self):
+        current_leader_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Party", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        self.mock_player_crud.get_by_discord_id.return_value = current_leader_player
+        self.mock_party_crud.get.return_value = party_obj
+
+        # Target is the current leader (promoter)
+        current_leader_member_mock = AsyncMock(spec=discord.Member, id=self.author.id, bot=False)
+
+        await self.cog.party_promote.callback(self.cog, self.ctx, new_leader=current_leader_member_mock)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, ты уже являешься лидером этой группы.")
+
+    async def test_party_kick_success_by_leader(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        target_player_db_id = 405
+        target_user_mock = MockAuthor(id=target_player_db_id, name="KickedUser") # Using actual ID for consistency
+        target_player_db = Player(id=target_player_db_id, discord_id=target_user_mock.id, guild_id=self.guild.id, name=target_user_mock.name, current_party_id=101)
+
+        party_obj = Party(id=101, guild_id=self.guild.id, name="Kick Happy Group", leader_player_id=self.author.id, player_ids_json=[self.author.id, target_player_db_id, 999]) # Kicker is leader
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: kicker_player if discord_id == self.author.id else target_player_db if discord_id == target_user_mock.id else None
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: "leader_only" if key == "party:kick_permissions" else 1 if key == "party:auto_disband_threshold" else default
+
+        async def mock_remove_player(session, party, player_id):
+            if player_id in party.player_ids_json:
+                party.player_ids_json.remove(player_id)
+            return party
+        self.mock_party_crud.remove_player_from_party_json.side_effect = mock_remove_player
+
+        target_member_mock = AsyncMock(spec=discord.Member)
+        target_member_mock.id = target_user_mock.id
+        target_member_mock.name = target_user_mock.name
+        target_member_mock.display_name = target_user_mock.display_name
+        target_member_mock.bot = False
+
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=target_member_mock)
+
+        self.mock_party_crud.remove_player_from_party_json.assert_called_once_with(self.session_mock, party=party_obj, player_id=target_player_db.id)
+        self.assertIsNone(target_player_db.current_party_id)
+        self.session_mock.merge.assert_called_once_with(target_player_db)
+        self.mock_party_crud.delete.assert_not_called() # Should not disband as 2 members remain (threshold 1)
+        self.session_mock.commit.assert_called_once()
+        self.ctx.send.assert_called_once_with(f"Игрок {target_member_mock.mention} исключен из группы '{party_obj.name}'.")
+
+    async def test_party_kick_fails_kicker_not_leader(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        target_player_db_id = 406
+        target_user_mock = MockAuthor(id=target_player_db_id, name="TargetUser")
+
+        party_obj = Party(id=101, guild_id=self.guild.id, name="Strict Group", leader_player_id=999, player_ids_json=[999, self.author.id, target_player_db_id]) # Kicker is not leader
+
+        self.mock_player_crud.get_by_discord_id.return_value = kicker_player
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.return_value = "leader_only" # Policy is leader_only
+
+        target_member_mock = AsyncMock(spec=discord.Member, id=target_user_mock.id, bot=False)
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=target_member_mock)
+
+        self.mock_party_crud.remove_player_from_party_json.assert_not_called()
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, только лидер группы может исключать участников.")
+
+    async def test_party_kick_fails_target_not_in_party(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Group", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        target_user_mock = MockAuthor(id=407, name="Outsider")
+        # Target player DB object either not found or not in this party
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: kicker_player if discord_id == self.author.id else Player(id=407, discord_id=407, current_party_id=None) if discord_id == 407 else None
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.return_value = "leader_only"
+
+        target_member_mock = AsyncMock(spec=discord.Member, id=target_user_mock.id, name="Outsider", bot=False)
+        target_member_mock.mention = "<@407>"
+
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=target_member_mock)
+        self.ctx.send.assert_called_once_with(f"{target_member_mock.mention} не является участником твоей группы '{party_obj.name}'.")
+
+    async def test_party_kick_fails_kick_self(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101)
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Group", leader_player_id=self.author.id, player_ids_json=[self.author.id])
+
+        self.mock_player_crud.get_by_discord_id.return_value = kicker_player
+        self.mock_party_crud.get.return_value = party_obj
+        # No need to mock get_rule as it won't be reached if validation fails earlier
+
+        # Target is the kicker themselves
+        kicker_member_mock = AsyncMock(spec=discord.Member, id=self.author.id, bot=False)
+
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=kicker_member_mock)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, нельзя исключить самого себя. Используй `/party leave`.")
+
+    async def test_party_kick_fails_kick_leader(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101) # Kicker is a member, not leader
+        leader_id = 999
+        leader_user_mock = MockAuthor(id=leader_id, name="PartyLeader")
+        leader_player_db = Player(id=leader_id, discord_id=leader_id, guild_id=self.guild.id, name="PartyLeader", current_party_id=101)
+
+        party_obj = Party(id=101, guild_id=self.guild.id, name="My Group", leader_player_id=leader_id, player_ids_json=[self.author.id, leader_id])
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: kicker_player if discord_id == self.author.id else leader_player_db if discord_id == leader_id else None
+        self.mock_party_crud.get.return_value = party_obj
+        self.mock_get_rule.return_value = "members_can_kick" # Assume a policy where members can kick, to test leader immunity
+
+        # Target is the leader
+        leader_member_mock = AsyncMock(spec=discord.Member, id=leader_id, name="PartyLeader", bot=False)
+        leader_member_mock.mention = "<@999>"
+
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=leader_member_mock)
+        self.ctx.send.assert_called_once_with(f"{self.author.mention}, нельзя исключить лидера группы. Лидер может покинуть группу (`/party leave`) или передать лидерство (`/party promote`).")
+
+    async def test_party_kick_leads_to_disband(self):
+        kicker_player = Player(id=self.author.id, discord_id=self.author.id, guild_id=self.guild.id, name=self.author.name, current_party_id=101) # Kicker is leader
+        target_player_db_id = 408
+        target_user_mock = MockAuthor(id=target_player_db_id, name="LastMember")
+        target_player_db = Player(id=target_player_db_id, discord_id=target_user_mock.id, guild_id=self.guild.id, name=target_user_mock.name, current_party_id=101)
+
+        party_obj = Party(id=101, guild_id=self.guild.id, name="Two Person Crew", leader_player_id=self.author.id, player_ids_json=[self.author.id, target_player_db_id])
+
+        self.mock_player_crud.get_by_discord_id.side_effect = lambda session, guild_id, discord_id: kicker_player if discord_id == self.author.id else target_player_db if discord_id == target_user_mock.id else None
+        self.mock_party_crud.get.return_value = party_obj
+
+        # Rule: disband if less than 2 members (i.e. if 1 member remains, or becomes empty)
+        self.mock_get_rule.side_effect = lambda session, guild_id, key, default: "leader_only" if key == "party:kick_permissions" else 2 if key == "party:auto_disband_threshold" else default
+
+        async def mock_remove_player(session, party, player_id):
+            if player_id in party.player_ids_json:
+                party.player_ids_json.remove(player_id) # After kick, only leader remains
+            return party
+        self.mock_party_crud.remove_player_from_party_json.side_effect = mock_remove_player
+
+        target_member_mock = AsyncMock(spec=discord.Member)
+        target_member_mock.id = target_user_mock.id
+        target_member_mock.mention = "<@408>"
+
+
+        await self.cog.party_kick.callback(self.cog, self.ctx, target_player=target_member_mock)
+
+        self.mock_party_crud.delete.assert_called_once_with(self.session_mock, id=party_obj.id, guild_id=self.guild.id)
+        self.ctx.send.assert_called_once_with(f"Игрок {target_member_mock.mention} исключен из группы '{party_obj.name}'. Группа распущена.")
