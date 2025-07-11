@@ -687,6 +687,7 @@ class MasterMonitoringCog(commands.GroupCog, name="master_monitor", description=
                         # loc.name_i18n is Dict[str,str] by model definition
                         loc_name_display_en = None # Initialize
                         if current_name_i18n: # Explicitly check if current_name_i18n is not None
+                            assert current_name_i18n is not None # For Pyright's benefit, though model makes it non-nullable
                             loc_name_display_en = current_name_i18n.get("en") # type: ignore[reportOptionalMemberAccess]
                         if loc_name_display_en:
                             loc_name_display = loc_name_display_en

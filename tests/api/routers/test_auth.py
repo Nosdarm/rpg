@@ -40,19 +40,23 @@ def client(mock_db: AsyncMock) -> Generator[TestClient, None, None]:
 def create_test_jwt(
     master_user_id: str = "1",
     discord_user_id: str = "discord123",
-    accessible_guilds: Optional[List[Dict[str, str]]] = "DEFAULT_GUILDS_PLACEHOLDER",
+    accessible_guilds: Optional[List[Dict[str, str]]] = None, # Changed default to None
     active_guild_id: Optional[str] = None
 ) -> str:
-    if accessible_guilds == "DEFAULT_GUILDS_PLACEHOLDER":
+    final_accessible_guilds: Optional[List[Dict[str, str]]]
+    if accessible_guilds is None: # Check against None
         final_accessible_guilds = [{"id": "guild1", "name": "Test Guild 1"}]
     else:
         final_accessible_guilds = accessible_guilds
 
-    subject_data = {
+    subject_data: Dict[str, Any] = { # Added type hint for subject_data
         "sub": master_user_id,
         "discord_user_id": discord_user_id,
-        "accessible_guilds": final_accessible_guilds,
+        # "accessible_guilds" will be added conditionally below
     }
+    if final_accessible_guilds is not None: # Add only if not None
+        subject_data["accessible_guilds"] = final_accessible_guilds
+
     if active_guild_id:
         subject_data["active_guild_id"] = active_guild_id
 

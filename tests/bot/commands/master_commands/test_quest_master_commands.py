@@ -39,8 +39,17 @@ def master_quest_cog(mock_bot: MagicMock) -> MasterQuestCog:
     return MasterQuestCog(bot=mock_bot)
 
 @pytest.fixture
-def mock_interaction() -> MockDiscordInteraction:
-    return MockDiscordInteraction()
+def mock_interaction() -> MagicMock: # Changed type hint
+    # Use MagicMock with spec for better type compatibility
+    mock_interaction_obj = MagicMock(spec=discord.Interaction)
+    mock_interaction_obj.guild_id = 123
+    mock_interaction_obj.user = MagicMock(id=456)
+    mock_interaction_obj.locale = "en"
+    mock_interaction_obj.response = AsyncMock(spec=discord.InteractionResponse)
+    mock_interaction_obj.response.defer = AsyncMock()
+    mock_interaction_obj.followup = AsyncMock(spec=discord.Webhook)
+    mock_interaction_obj.client = MagicMock(spec=discord.Client)
+    return mock_interaction_obj
 
 @pytest.fixture
 def mock_session() -> AsyncMock:
@@ -98,7 +107,7 @@ async def test_progress_create_success_player(
     mock_parse_json: MagicMock,
     mock_pqp_crud: MagicMock, mock_qs_crud: MagicMock, mock_gq_crud: MagicMock,
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
-    master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
+    master_quest_cog: MasterQuestCog, mock_interaction: MagicMock, mock_session: AsyncMock
 ):
     mock_get_db_session.return_value.__aenter__.return_value = mock_session
 
@@ -119,10 +128,15 @@ async def test_progress_create_success_player(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_core_party_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1, party_id=None, status="IN_PROGRESS",
-        current_step_id=10, progress_data_json='{"notes": "test"}',
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        party_id=None,
+        status="IN_PROGRESS",
+        current_step_id=10,
+        progress_data_json='{"notes": "test"}',
         accepted_at_iso=datetime.datetime.now(datetime.timezone.utc).isoformat()
     )
 
@@ -138,21 +152,30 @@ async def test_progress_create_success_player(
     assert 'embed' in call_args.kwargs
     embed_sent = call_args.kwargs['embed']
     assert isinstance(embed_sent, discord.Embed)
-    assert success_msg_template.format(id=created_pqp_instance.id) in embed_sent.title
+    assert embed_sent.title is not None and success_msg_template.format(id=created_pqp_instance.id) in embed_sent.title
 
 @pytest.mark.asyncio
 @patch('backend.bot.commands.master_commands.quest_master_commands.get_db_session')
 @patch('backend.bot.commands.master_commands.quest_master_commands.get_localized_message_template')
 async def test_progress_create_error_no_owner(
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
-    master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
+    master_quest_cog: MasterQuestCog, mock_interaction: MagicMock, mock_session: AsyncMock
 ):
     mock_get_db_session.return_value.__aenter__.return_value = mock_session
     expected_error_message = "Either player_id or party_id must be provided."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction, quest_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        # Ensuring all required parameters are passed, even if None, if they don't have defaults in the signature
+        player_id=None,
+        party_id=None,
+        status=None, # Assuming status might be optional or handled if None
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
@@ -163,15 +186,23 @@ async def test_progress_create_error_no_owner(
 async def test_progress_create_error_quest_not_found(
     mock_gq_crud: MagicMock, mock_get_loc_msg: MagicMock,
     mock_get_db_session: MagicMock, master_quest_cog: MasterQuestCog,
-    mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
+    mock_interaction: MagicMock, mock_session: AsyncMock
 ):
     mock_get_db_session.return_value.__aenter__.return_value = mock_session
     expected_error_message_template = "GeneratedQuest with ID {id} not found."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message_template)
     mock_gq_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction, quest_id=999, player_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=999,
+        player_id=1,
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(id=999), ephemeral=True)
 
@@ -185,7 +216,7 @@ async def test_progress_create_error_step_not_found(
     mock_core_player_crud: MagicMock,
     mock_qs_crud: MagicMock, mock_gq_crud: MagicMock,
     mock_get_loc_msg: MagicMock, mock_get_db_session: MagicMock,
-    master_quest_cog: MasterQuestCog, mock_interaction: MockDiscordInteraction, mock_session: AsyncMock
+    master_quest_cog: MasterQuestCog, mock_interaction: MagicMock, mock_session: AsyncMock
 ):
     mock_get_db_session.return_value.__aenter__.return_value = mock_session
     expected_error_message_template = "QuestStep ID {step_id} not found or does not belong to Quest ID {quest_id}."
@@ -195,9 +226,16 @@ async def test_progress_create_error_step_not_found(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_qs_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1, current_step_id=999
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        current_step_id=999,
+        party_id=None,
+        status=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(step_id=999, quest_id=1), ephemeral=True)
 
@@ -221,9 +259,16 @@ async def test_progress_create_error_already_exists(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_pqp_crud.get_by_player_and_quest = AsyncMock(return_value=PlayerQuestProgress(id=1))
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
@@ -240,9 +285,16 @@ async def test_progress_create_guild_only_command(
 
     interaction_no_guild = MockDiscordInteraction(guild_id=None)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, interaction_no_guild,
-        quest_id=1, player_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        interaction_no_guild,
+        quest_id=1,
+        player_id=1,
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     interaction_no_guild.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
@@ -257,9 +309,16 @@ async def test_progress_create_error_both_player_and_party_ids(
     expected_error_message = "Provide either player_id or party_id, not both."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1, party_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        party_id=1,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
@@ -275,9 +334,16 @@ async def test_progress_create_invalid_status_string(
     # This mock will return the template, the SUT will format it
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message_template)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1, status="INVALID_STATUS_FOO"
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        status="INVALID_STATUS_FOO",
+        party_id=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once()
     args, kwargs = mock_interaction.followup.send.call_args
@@ -308,9 +374,16 @@ async def test_progress_create_invalid_progress_data_json(
     mock_gq_crud.get = AsyncMock(return_value=GeneratedQuest(id=1, guild_id=123, static_id="q1", title_i18n={"en":"Test Quest"}))
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction, # mock_interaction передается в SUT
-        quest_id=1, player_id=1, progress_data_json="invalid json"
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        progress_data_json="invalid json",
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        accepted_at_iso=None
     )
     # Теперь проверяем, что mock_interaction.followup.send был вызван с ожидаемыми аргументами
     mock_interaction.followup.send.assert_called_once_with("Invalid JSON from mock_parse_json", ephemeral=True)
@@ -326,9 +399,16 @@ async def test_progress_create_invalid_accepted_at_iso_format(
     expected_error_message = "Invalid ISO 8601 format for accepted_at_iso."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1, accepted_at_iso="not-a-date"
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        accepted_at_iso="not-a-date",
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message, ephemeral=True)
 
@@ -353,9 +433,16 @@ async def test_progress_create_db_error_on_create(
     mock_pqp_crud.get_by_player_and_quest = AsyncMock(return_value=None)
     mock_pqp_crud.create = AsyncMock(side_effect=Exception("DB error"))
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=1,
+        party_id=None,
+        status=None,
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
     mock_interaction.followup.send.assert_called_once_with(expected_error_message_template.format(error="DB error"), ephemeral=True)
 
@@ -389,9 +476,16 @@ async def test_progress_create_success_party(
     mock_parse_json.return_value = {}
     mock_core_player_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback(
-        master_quest_cog, mock_interaction,
-        quest_id=1, player_id=None, party_id=1
+    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+        master_quest_cog,
+        mock_interaction,
+        quest_id=1,
+        player_id=None,
+        party_id=1,
+        status=None, # Assuming default status or handled if None
+        current_step_id=None,
+        progress_data_json=None,
+        accepted_at_iso=None
     )
 
     mock_interaction.response.defer.assert_called_once_with(ephemeral=True)
@@ -404,4 +498,4 @@ async def test_progress_create_success_party(
     call_args = mock_interaction.followup.send.call_args
     embed_sent = call_args.kwargs['embed']
     assert isinstance(embed_sent, discord.Embed)
-    assert success_message_template.format(id=created_pqp_instance.id) in embed_sent.title
+    assert embed_sent.title is not None and success_message_template.format(id=created_pqp_instance.id) in embed_sent.title

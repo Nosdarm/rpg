@@ -29,10 +29,11 @@ class MockInteraction:
         mock_locale = MagicMock(spec=discord.Locale)
         mock_locale.__str__ = MagicMock(return_value=locale_str) # Ensures str(interaction.locale) returns the string
         self.locale = mock_locale
-        self.response = AsyncMock()
+        self.response = AsyncMock(spec=discord.InteractionResponse) # Add spec
         self.response.defer = AsyncMock()
-        self.followup = AsyncMock()
+        self.followup = AsyncMock(spec=discord.Webhook) # Add spec
         self.followup.send = AsyncMock()
+        self.client = MagicMock(spec=discord.Client) # Add client as it's part of Interaction
 
 class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
 
@@ -40,6 +41,24 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
         self.bot_mock = AsyncMock(spec=commands.Bot) # Use commands.Bot
         self.cog = MasterSimulationToolsCog(self.bot_mock)
         self.mock_db_session = AsyncMock()
+
+        # Replace the custom MockInteraction with MagicMock(spec=discord.Interaction)
+        # This will be used by tests that don't define their own specific interaction mock
+        self.mock_general_interaction = MagicMock(spec=discord.Interaction)
+        self.mock_general_interaction.guild_id = 1
+        self.mock_general_interaction.guild = MockGuild(1)
+        self.mock_general_interaction.user = MockUser(12345)
+
+        mock_locale_obj = MagicMock(spec=discord.Locale)
+        mock_locale_obj.__str__ = MagicMock(return_value="en")
+        self.mock_general_interaction.locale = mock_locale_obj
+
+        self.mock_general_interaction.response = AsyncMock(spec=discord.InteractionResponse)
+        self.mock_general_interaction.response.defer = AsyncMock()
+        self.mock_general_interaction.followup = AsyncMock(spec=discord.Webhook)
+        self.mock_general_interaction.followup.send = AsyncMock()
+        self.mock_general_interaction.client = MagicMock(spec=discord.Client)
+
 
     @patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_db_session')
     @patch('backend.core.check_resolver.resolve_check')
@@ -52,7 +71,15 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
     ):
         mock_get_db_session_cm.return_value.__aenter__.return_value = self.mock_db_session
         mock_get_db_session_cm.return_value.__aexit__.return_value = None
-        mock_interaction = MockInteraction(guild_id=1, locale_str="en")
+
+        # Use the MagicMock for interaction
+        mock_interaction = self.mock_general_interaction
+        mock_interaction.guild_id = 1 # Ensure guild_id is set for this test
+        # Ensure locale is correctly mocked if str() is called on it
+        mock_locale_obj = MagicMock(spec=discord.Locale)
+        mock_locale_obj.__str__ = MagicMock(return_value="en")
+        mock_interaction.locale = mock_locale_obj
+
         mock_actor_model = MagicMock()
         mock_actor_model.name = "Test Actor"
         mock_get_entity_by_id_and_type_str.return_value = mock_actor_model
@@ -70,12 +97,10 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
         with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
             from typing import cast
-            # The first argument to command.callback is the Interaction,
-            # `self` (the cog instance) is bound by the decorator.
-            # The explicit self.cog was incorrect here.
-            await self.cog.simulate_check_command.callback( # type: ignore
-                self.cog, # Added self.cog
-                interaction=cast(discord.Interaction, mock_interaction),
+            command = self.cog.simulate_check_command
+            await command.callback( # type: ignore[reportCallIssue]
+                self.cog,
+                mock_interaction,
                 check_type="perception",
                 actor_id=101,
                 actor_type="player",
@@ -99,14 +124,20 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
     async def test_simulate_check_invalid_json_context(self, mock_get_db_session_cm: MagicMock):
         mock_get_db_session_cm.return_value.__aenter__.return_value = self.mock_db_session
         mock_get_db_session_cm.return_value.__aexit__.return_value = None
-        mock_interaction = MockInteraction(guild_id=1, locale_str="en")
+
+        mock_interaction = self.mock_general_interaction
+        mock_interaction.guild_id = 1
+        mock_locale_obj = MagicMock(spec=discord.Locale)
+        mock_locale_obj.__str__ = MagicMock(return_value="en")
+        mock_interaction.locale = mock_locale_obj
+
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            from typing import cast
-            await self.cog.simulate_check_command.callback(  # type: ignore
-                self.cog, # Added self.cog
-                interaction=cast(discord.Interaction, mock_interaction),
+            command = self.cog.simulate_check_command
+            await command.callback( # type: ignore[reportCallIssue]
+                self.cog,
+                mock_interaction,
                 check_type="test",
                 actor_id=1,
                 actor_type="player",
@@ -126,15 +157,21 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
     ):
         mock_get_db_session_cm.return_value.__aenter__.return_value = self.mock_db_session
         mock_get_db_session_cm.return_value.__aexit__.return_value = None
-        mock_interaction = MockInteraction(guild_id=1, locale_str="en")
+
+        mock_interaction = self.mock_general_interaction
+        mock_interaction.guild_id = 1
+        mock_locale_obj = MagicMock(spec=discord.Locale)
+        mock_locale_obj.__str__ = MagicMock(return_value="en")
+        mock_interaction.locale = mock_locale_obj
+
         mock_get_entity_by_id_and_type_str.return_value = None
         async def mock_get_localized_master_message(session, guild_id, key, default, locale, **kwargs):
             return default.format(**kwargs) if kwargs else default
         with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            from typing import cast
-            await self.cog.simulate_check_command.callback(  # type: ignore
-                self.cog, # Added self.cog as first argument
-                interaction=cast(discord.Interaction, mock_interaction),
+            command = self.cog.simulate_check_command
+            await command.callback(  # type: ignore[reportCallIssue]
+                self.cog,
+                mock_interaction,
                 check_type="test",
                 actor_id=999,
                 actor_type="player",
@@ -160,7 +197,12 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
     ):
         mock_get_db_session_cm.return_value.__aenter__.return_value = self.mock_db_session
         mock_get_db_session_cm.return_value.__aexit__.return_value = None
-        mock_interaction = MockInteraction(guild_id=1, locale_str="en")
+
+        mock_interaction = self.mock_general_interaction
+        mock_interaction.guild_id = 1
+        mock_locale_obj = MagicMock(spec=discord.Locale)
+        mock_locale_obj.__str__ = MagicMock(return_value="en")
+        mock_interaction.locale = mock_locale_obj
 
         # Create a mock that can be configured like a Pydantic model instance
         mock_action_result_instance = MagicMock(spec=CombatActionResult)
@@ -187,10 +229,10 @@ class TestMasterSimulationToolsCog(unittest.IsolatedAsyncioTestCase):
             return default.format(**kwargs) if kwargs else default
 
         with patch('backend.bot.commands.master_commands.master_simulation_tools_cog.get_localized_master_message', side_effect=mock_get_localized_master_message):
-            from typing import cast
-            await self.cog.simulate_combat_action_command.callback(  # type: ignore
-                self.cog, # Added self.cog
-                interaction=cast(discord.Interaction, mock_interaction),
+            command = self.cog.simulate_combat_action_command
+            await command.callback(  # type: ignore[reportCallIssue]
+                self.cog,
+                mock_interaction,
                 combat_encounter_id=1,
                 actor_id=101,
                 actor_type="player",
