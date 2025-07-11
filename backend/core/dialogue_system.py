@@ -182,20 +182,33 @@ async def start_dialogue(
     if isinstance(npc.name_i18n, dict):
         # Try to get display name using player's selected language if available
         if lang_key_from_player is not None:
-            # At this point, lang_key_from_player is confirmed to be a str
-            npc_display_name = npc.name_i18n.get(lang_key_from_player)
+            valid_lang_key: str = lang_key_from_player
+            # Ensure npc.name_i18n is treated as a dict for type checking
+            if isinstance(npc.name_i18n, dict):
+                npc_display_name = npc.name_i18n.get(valid_lang_key)
+            else:
+                # This case should ideally not be reached if model is correct (nullable=False)
+                logger.warning(f"NPC {npc.id} name_i18n is not a dict: {type(npc.name_i18n)}. Falling back for display name.")
+                npc_display_name = None # Set to None if not a dict to trigger fallback
 
-        # If display name is still None (either key not found or player had no language preference),
-        # fallback to English, then to a generic default.
         if npc_display_name is None:
-            npc_display_name = npc.name_i18n.get("en", "the NPC")
+            if isinstance(npc.name_i18n, dict):
+                npc_display_name = npc.name_i18n.get("en", "the NPC")
+            else:
+                # Fallback if name_i18n was not a dict initially
+                npc_display_name = "the NPC (name data error)"
     else:
         # This case handles if npc.name_i18n is unexpectedly not a dict (e.g. None or wrong type from DB)
-        npc_display_name = "the NPC (name i18n error)"
-        logger.warning(f"NPC {npc.id} name_i18n is not a dict or is None: {npc.name_i18n}")
+        # This 'else' branch is now effectively covered by the isinstance checks above.
+        # If npc.name_i18n was not a dict, npc_display_name would be "the NPC (name data error)" or None.
+        # If it was None, the final fallback below handles it.
+        # To simplify, we can ensure npc_display_name is set if this outer `else` is hit due to `isinstance(npc.name_i18n, dict)` being false initially.
+        if not isinstance(npc.name_i18n, dict): # Condition from the original outer else
+             npc_display_name = "the NPC (name i18n error)"
+             logger.warning(f"NPC {npc.id} name_i18n is not a dict or is None: {npc.name_i18n}")
 
     # Final fallback if all else fails to produce a name (e.g., if "en" key was missing and no default provided in .get)
-    if npc_display_name is None:
+    if npc_display_name is None: # This handles if previous logic resulted in None
         npc_display_name = "the NPC"
 
 

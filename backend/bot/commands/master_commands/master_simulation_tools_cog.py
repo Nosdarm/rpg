@@ -653,8 +653,11 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                         involved_actions_label = await get_localized_master_message(session, guild_id, "simulate_conflict:involved_actions_label", "Involved actions:", str(interaction.locale))
 
                         for entity_action in conflict.involved_entities_json:
-                            actor_type = entity_action.get('entity_type', 'Unknown type')
-                            actor_id = entity_action.get('entity_id', 'N/A')
+                            if entity_action is None:
+                                logger.warning(f"Encountered a None entity_action in conflict {conflict.conflict_type} (simulated), skipping.")
+                                continue
+                            actor_type = entity_action.get('entity_type', 'Unknown type') # type: ignore[reportOptionalMemberAccess]
+                            actor_id = entity_action.get('entity_id', 'N/A') # type: ignore[reportOptionalMemberAccess]
                             intent_val = entity_action.get('action_intent', 'Unknown intent') # Renamed to avoid conflict
                             text_val = entity_action.get('action_text', '') # Renamed to avoid conflict
 
@@ -662,6 +665,9 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
                             action_entities = entity_action.get("action_entities", [])
                             if isinstance(action_entities, list) and action_entities:
                                 for act_ent in action_entities: # Show all entities for clarity
+                                    if act_ent is None: # Added check for None inside list
+                                        logger.warning(f"Encountered a None act_ent in action_entities for conflict {conflict.conflict_type}, skipping.")
+                                        continue
                                     ent_type = act_ent.get('type', 'unknown_entity_type')
                                     ent_val_str = str(act_ent.get('value', 'unknown_entity_value'))
                                     # Try to get localized entity type name
