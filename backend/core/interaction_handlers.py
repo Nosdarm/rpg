@@ -330,6 +330,13 @@ async def _apply_consequences(
     logger.info(f"Player {player.id} applying consequences for key '{consequences_key}': {consequence_rules}")
     player_lang = player.selected_language or "en"
 
+    # Define a display name for the target object of the initial interaction for feedback messages
+    target_object_display_name: str = "the interaction" # Default display name
+    if target_object_data and isinstance(target_object_data, dict):
+        name_from_data = target_object_data.get("name")
+        if name_from_data:
+            target_object_display_name = name_from_data
+
     # additional_log_details_for_effects is passed from handle_intra_location_action
     # and might contain player_id, location_id etc. that were part of the main action log.
     # We'll merge them into details_json for consequence effect logs.
@@ -440,8 +447,8 @@ async def _apply_consequences(
                     guild_id=guild_id,
                     details_json=current_effect_log_details
                 )
-                # Temporarily simplified to avoid NameError for target_object_name_for_feedback
-                feedback_messages.append("An unexpected error occurred with a consequence.")
+                # Restored detailed error message
+                feedback_messages.append(f"An issue occurred with a consequence related to '{target_object_display_name}'.")
                 continue # Skip generic "applied" log for this error case
 
             if effect_processed_or_known_error:
@@ -457,13 +464,15 @@ async def _apply_consequences(
             feedback_key_from_rule = effect_rule.get("feedback_message_key")
             if feedback_key_from_rule:
                 # Allow target_object_name to be overridden by the effect rule if needed
-                feedback_target_name = effect_rule.get("feedback_target_name", target_object_name_for_feedback)
+                # Use target_object_display_name as the fallback from the initial interaction
+                feedback_target_name = effect_rule.get("feedback_target_name", target_object_display_name)
                 feedback_params = effect_rule.get("feedback_params", {})
                 feedback_messages.append(_format_feedback(feedback_key_from_rule, player_lang, target_name=feedback_target_name, **feedback_params))
 
         except Exception as e_effect:
             logger.error(f"Error applying consequence effect {effect_rule} for key {rule_config_full_key}: {e_effect}", exc_info=True)
-            feedback_messages.append("Something unexpected happened due to your action.")
+            # Restored detailed error message
+            feedback_messages.append(f"Something unexpected happened concerning '{target_object_display_name}' due to your action.")
             exception_log_details = {
                 **base_effect_log_details,
                 "rule_key": rule_config_full_key,

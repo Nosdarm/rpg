@@ -759,6 +759,9 @@ async def test_examine_object_no_description_i18n(
 
 # --- Tests for _apply_consequences ---
 
+# Use the globally imported EventType as the pristine version for patching into SUT
+from backend.models.enums import EventType as PristineEventType
+
 @pytest.mark.asyncio
 @patch("backend.core.interaction_handlers.get_rule", new_callable=AsyncMock)
 @patch("backend.core.interaction_handlers.player_crud", new_callable=AsyncMock)
@@ -766,8 +769,10 @@ async def test_examine_object_no_description_i18n(
 @patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 # Patches for consequence effect handlers if they were external, but they are internal for now or mocked directly
 @patch("backend.core.entity_stats_utils.change_entity_stat", new_callable=MagicMock) # Corrected patch path
+@patch("backend.core.interaction_handlers.EventType", new=PristineEventType) # Added EventType patch
 async def test_apply_consequences_update_location_state(
-    mock_change_stat: MagicMock, # Not used in this specific test but part of common setup for consequence tests
+    mock_sut_event_type_patch: MagicMock, # For EventType patch
+    mock_change_stat: MagicMock,
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
     mock_player_crud: AsyncMock,
@@ -846,14 +851,35 @@ async def test_apply_consequences_update_location_state(
 
     # Verify log_event for CONSEQUENCE_EFFECT_APPLIED
     consequence_log_found = False
-    for call_args_tuple in mock_log_event.call_args_list:
-        if len(call_args_tuple.args) > 2 and call_args_tuple.args[2] == "CONSEQUENCE_EFFECT_APPLIED":
-            consequence_log_found = True
-            details = call_args_tuple.kwargs.get("details_json", {}) # kwargs are still used for details
-            assert details.get("effect_type") == "update_location_state"
-            assert details.get("updated_location_object") == target_object_name
-            break
-    assert consequence_log_found, f"CONSEQUENCE_EFFECT_APPLIED event not logged. Log calls: {mock_log_event.call_args_list}"
+
+    expected_consequence_details = {
+        "player_id": mock_player.id,
+        "location_id": mock_location_with_details.id,
+        "rule_key": f"consequences:{consequence_key}",
+        "effect_index": 0,
+        "effect_rule_content": consequence_rule_content[0],
+        "outcome_details": {
+            "updated_object": target_object_name,
+            "property": "state",
+            "new_value": "unlocked"
+        }
+    }
+
+    for call_item in mock_log_event.call_args_list:
+        args, kwargs = call_item
+        current_call_event_type = args[0] if args else None
+
+        if current_call_event_type == PristineEventType.CONSEQUENCE_EFFECT_APPLIED:
+            details_json = kwargs.get("details_json", {})
+            if details_json.get("effect_rule_content", {}).get("type") == "update_location_state":
+                consequence_log_found = True
+                assert args[1] == mock_session, "Session not passed correctly to log_event"
+                assert kwargs.get("guild_id") == DEFAULT_GUILD_ID, "Guild ID not passed correctly"
+                assert "player_id" not in [k for k in kwargs if k not in ['details_json', 'guild_id', 'event_type', 'session']]
+                assert details_json == expected_consequence_details, \
+                    f"CONSEQUENCE_EFFECT_APPLIED details mismatch. Got: {details_json}, Expected: {expected_consequence_details}"
+                break
+    assert consequence_log_found, f"CONSEQUENCE_EFFECT_APPLIED event for update_location_state not logged correctly. Log calls: {mock_log_event.call_args_list}"
 
     mock_session.add.assert_any_call(mock_location_with_details) # Check if location was marked for update
     # session.flush should be called by _apply_consequences
@@ -866,7 +892,9 @@ async def test_apply_consequences_update_location_state(
 @patch("backend.core.interaction_handlers.location_crud", new_callable=AsyncMock)
 @patch("backend.core.interaction_handlers.log_event", new_callable=AsyncMock)
 @patch("backend.core.entity_stats_utils.change_entity_stat") # Corrected patch path
+@patch("backend.core.interaction_handlers.EventType", new=PristineEventType) # Added EventType patch
 async def test_apply_consequences_change_player_stat(
+    mock_sut_event_type_patch: MagicMock, # For EventType patch
     mock_change_entity_stat: MagicMock,
     mock_log_event: AsyncMock,
     mock_location_crud: AsyncMock,
@@ -905,13 +933,31 @@ async def test_apply_consequences_change_player_stat(
     mock_change_entity_stat.assert_called_once_with(mock_player, "strength", 2)
 
     consequence_log_found = False
-    for call_args_tuple in mock_log_event.call_args_list:
-        if len(call_args_tuple.args) > 2 and call_args_tuple.args[2] == "CONSEQUENCE_EFFECT_APPLIED":
-            details = call_args_tuple.kwargs.get("details_json", {})
-            if details.get("effect_type") == "change_player_stat":
-                assert details.get("stat_changed") == "strength"
-                assert details.get("change_amount") == 2
+    expected_consequence_details = {
+        "player_id": mock_player.id,
+        "location_id": mock_location_with_details.id,
+        "rule_key": f"consequences:{consequence_key}",
+        "effect_index": 0,
+        "effect_rule_content": consequence_rule_content[0],
+        "outcome_details": {
+            "stat": "strength",
+            "change": 2
+        }
+    }
+
+    for call_item in mock_log_event.call_args_list:
+        args, kwargs = call_item
+        current_call_event_type = args[0] if args else None
+
+        if current_call_event_type == PristineEventType.CONSEQUENCE_EFFECT_APPLIED:
+            details_json = kwargs.get("details_json", {})
+            if details_json.get("effect_rule_content", {}).get("type") == "change_player_stat":
                 consequence_log_found = True
+                assert args[1] == mock_session, "Session not passed correctly to log_event"
+                assert kwargs.get("guild_id") == DEFAULT_GUILD_ID, "Guild ID not passed correctly"
+                assert "player_id" not in [k for k in kwargs if k not in ['details_json', 'guild_id', 'event_type', 'session']]
+                assert details_json == expected_consequence_details, \
+                    f"CONSEQUENCE_EFFECT_APPLIED details mismatch. Got: {details_json}, Expected: {expected_consequence_details}"
                 break
     assert consequence_log_found, f"CONSEQUENCE_EFFECT_APPLIED for change_player_stat not logged correctly. Log calls: {mock_log_event.call_args_list}"
     mock_session.flush.assert_called()
@@ -931,6 +977,9 @@ async def test_apply_consequences_teleport_player(
     mock_player: Player,
     mock_location_with_details: Location # Starting location
 ):
+    # mock_event_type_patch is the MagicMock from @patch("backend.core.interaction_handlers.EventType", new=PristineEventType)
+    # It ensures that 'EventType' inside interaction_handlers module refers to PristineEventType for this test.
+
     mock_player_crud.get.return_value = mock_player
     mock_location_crud.get.return_value = mock_location_with_details # For current location
 
@@ -956,95 +1005,101 @@ async def test_apply_consequences_teleport_player(
         "feedback_message_key": "player_teleported" # This key is not used by teleport, it makes its own
     }]
 
-    # get_rule for interaction rule and consequence rule
-    # location_crud.get_by_static_id for the target teleport location
     def get_rule_side_effect_teleport(session, guild_id, key):
         if key == "interactions:portal_activation": return interaction_rule_content
         if key == f"consequences:{consequence_key}": return consequence_rule_content
         return None
     mock_get_rule.side_effect = get_rule_side_effect_teleport
 
-    # This mock is for location_crud.get_by_static_id inside _apply_consequences
     mock_location_crud.get_by_static_id = AsyncMock(return_value=mock_target_location)
 
 
     action_data = {"intent": "interact", "entities": [{"name": target_object_name}]}
+    # SUT (_apply_consequences) will now use the PristineEventType due to the patch
     result = await handle_intra_location_action(DEFAULT_GUILD_ID, mock_session, DEFAULT_PLAYER_ID, action_data)
 
     assert result["success"] is True
     assert f"You suddenly find yourself in {target_location_name_en}" in result["message"]
 
     assert mock_player.current_location_id == mock_target_location.id
-    mock_session.add.assert_any_call(mock_player) # Player location updated
-    # session.commit() is not called directly by this path of handle_intra_location_action for 'interact' intent.
-    # _apply_consequences calls session.flush().
+    mock_session.add.assert_any_call(mock_player)
     mock_session.flush.assert_called()
 
 
     movement_log_found = False
     consequence_applied_log_found = False
 
-    # Expected details for PLAYER_MOVED event
     expected_player_moved_details = {
         "old_location_id": mock_location_with_details.id,
         "new_location_id": mock_target_location.id,
-        "method": "teleport" # As per _apply_consequences
+        "method": "teleport"
     }
-    # Expected details for CONSEQUENCE_EFFECT_APPLIED event
+
+    # Corrected expected_consequence_applied_details
+    # consequence_rule_content is defined earlier in this test
+    effect_rule_for_teleport = consequence_rule_content[0]
+
     expected_consequence_applied_details = {
-        "rule_key": f"consequences:{consequence_key}", # From _apply_consequences
-        "effect_type": "teleport_player",
         "player_id": mock_player.id,
-        "params": {"target_location_static_id": target_location_static_id}, # From rule
-        "outcome_details": {"teleported_to_static_id": target_location_static_id, "teleported_to_location_id": mock_target_location.id}
+        "location_id": mock_location_with_details.id, # Location *before* teleport
+        "rule_key": f"consequences:{consequence_key}",
+        "effect_index": 0, # Assuming this is the first and only effect
+        "effect_rule_content": effect_rule_for_teleport,
+        "outcome_details": {
+            "teleported_to_static_id": target_location_static_id,
+            "teleported_to_location_id": mock_target_location.id
+        }
     }
-    print(f"DEBUG TELEPORT: All log calls from mock: {mock_log_event.call_args_list}")
-    print(f"DEBUG TELEPORT: Initial EventType object in test - Type: {type(EventType)}, ID: {id(EventType)}")
-    if hasattr(EventType, 'PLAYER_MOVED'):
-        print(f"DEBUG TELEPORT: Initial EventType.PLAYER_MOVED member exists. Value: '{EventType.PLAYER_MOVED.value}', Member: {EventType.PLAYER_MOVED}")
+
+    # Debug prints to verify PristineEventType state
+    print(f"DEBUG TELEPORT: Using PristineEventType for assertions. ID: {id(PristineEventType)}")
+    if hasattr(PristineEventType, 'PLAYER_MOVED'):
+        print(f"DEBUG TELEPORT: PristineEventType.PLAYER_MOVED exists. Value: '{PristineEventType.PLAYER_MOVED.value}'")
     else:
-        print(f"DEBUG TELEPORT: Initial EventType.PLAYER_MOVED DOES NOT EXIST. Dir(EventType): {dir(EventType)}")
-    if hasattr(EventType, 'CONSEQUENCE_EFFECT_APPLIED'):
-        print(f"DEBUG TELEPORT: Initial EventType.CONSEQUENCE_EFFECT_APPLIED member exists. Value: '{EventType.CONSEQUENCE_EFFECT_APPLIED.value}', Member: {EventType.CONSEQUENCE_EFFECT_APPLIED}")
+        print(f"DEBUG TELEPORT: PristineEventType.PLAYER_MOVED DOES NOT EXIST. Dir: {dir(PristineEventType)}")
+    if hasattr(PristineEventType, 'CONSEQUENCE_EFFECT_APPLIED'):
+        print(f"DEBUG TELEPORT: PristineEventType.CONSEQUENCE_EFFECT_APPLIED exists. Value: '{PristineEventType.CONSEQUENCE_EFFECT_APPLIED.value}'")
     else:
-        print(f"DEBUG TELEPORT: Initial EventType.CONSEQUENCE_EFFECT_APPLIED DOES NOT EXIST. Dir(EventType): {dir(EventType)}")
+        print(f"DEBUG TELEPORT: PristineEventType.CONSEQUENCE_EFFECT_APPLIED DOES NOT EXIST. Dir: {dir(PristineEventType)}")
+
 
     for i, call_item in enumerate(mock_log_event.call_args_list):
         args, kwargs = call_item
-        # print(f"DEBUG TELEPORT: Log call {i} raw - Args: {args}, Kwargs: {kwargs}") # Verbose, covered by "All log calls"
-
         current_call_event_type = None
-        if 'event_type' in kwargs: # Check kwarg first as per handle_intra_location_action's direct log
+        if 'event_type' in kwargs:
             current_call_event_type = kwargs['event_type']
-        elif args: # Then check positional, as per _apply_consequences
+        elif args:
             current_call_event_type = args[0]
 
-        print(f"DEBUG TELEPORT: Log call {i} - Extracted event type from call_item: '{current_call_event_type}', Type: {type(current_call_event_type)}")
+        print(f"DEBUG TELEPORT: Log call {i} - Extracted event type: '{current_call_event_type}', Type: {type(current_call_event_type)}")
+        # The SUT should have called log_event with members from PristineEventType
+        # So current_call_event_type should be an actual member of PristineEventType
 
-        # Debug EventType state right before each comparison
-        print(f"DEBUG TELEPORT: Comparing for call {i}. EventType ID now: {id(EventType)}. hasattr(PLAYER_MOVED): {hasattr(EventType, 'PLAYER_MOVED')}, hasattr(CONSEQUENCE_EFFECT_APPLIED): {hasattr(EventType, 'CONSEQUENCE_EFFECT_APPLIED')}")
-
-        if hasattr(EventType, 'PLAYER_MOVED') and current_call_event_type == EventType.PLAYER_MOVED:
-            print(f"DEBUG TELEPORT: Matched EventType.PLAYER_MOVED for call {i}")
+        if hasattr(PristineEventType, 'PLAYER_MOVED') and current_call_event_type == PristineEventType.PLAYER_MOVED:
+            print(f"DEBUG TELEPORT: Matched PristineEventType.PLAYER_MOVED for call {i}")
             movement_log_found = True
-            # Remove session from comparison if it's part of kwargs, or ensure it matches if it's expected
-            # logged_details = {k: v for k, v in kwargs.items() if k not in ['session', 'event_type', 'guild_id', 'player_id']} # Not needed if directly asserting kwargs
-
-            # Direct comparison of details_json content
+            # Check positional args: log_event(EventType.PLAYER_MOVED, session, ...)
+            assert args[1] == mock_session
+            # Check keyword args
+            assert kwargs.get("guild_id") == DEFAULT_GUILD_ID
+            assert kwargs.get("player_id") == mock_player.id # player_id is a direct kwarg for PLAYER_MOVED
             assert kwargs.get("details_json") == expected_player_moved_details, \
                 f"PLAYER_MOVED details mismatch. Got: {kwargs.get('details_json')}, Expected: {expected_player_moved_details}"
-            assert kwargs.get("guild_id") == DEFAULT_GUILD_ID
-            assert kwargs.get("player_id") == mock_player.id
 
-        elif hasattr(EventType, 'CONSEQUENCE_EFFECT_APPLIED') and current_call_event_type == EventType.CONSEQUENCE_EFFECT_APPLIED:
-            print(f"DEBUG TELEPORT: Matched EventType.CONSEQUENCE_EFFECT_APPLIED for call {i}")
+        elif hasattr(PristineEventType, 'CONSEQUENCE_EFFECT_APPLIED') and current_call_event_type == PristineEventType.CONSEQUENCE_EFFECT_APPLIED:
+            print(f"DEBUG TELEPORT: Matched PristineEventType.CONSEQUENCE_EFFECT_APPLIED for call {i}")
             details_json = kwargs.get("details_json")
-            if details_json and details_json.get("effect_type") == "teleport_player":
+            # Corrected condition to identify the teleport consequence log
+            if details_json and details_json.get("effect_rule_content", {}).get("type") == "teleport_player":
                 consequence_applied_log_found = True
+                # Check positional args: log_event(EventType.CONSEQUENCE_EFFECT_APPLIED, session, ...)
+                assert args[1] == mock_session
+                # Check keyword args
+                assert kwargs.get("guild_id") == DEFAULT_GUILD_ID
+                # player_id is in details_json, not a direct kwarg for this event type
+                assert "player_id" not in [k for k, v in kwargs.items() if k not in ['details_json', 'guild_id', 'event_type', 'session']]
                 assert details_json == expected_consequence_applied_details, \
                     f"CONSEQUENCE_EFFECT_APPLIED for teleport_player details mismatch. Got: {details_json}, Expected: {expected_consequence_applied_details}"
-                assert kwargs.get("guild_id") == DEFAULT_GUILD_ID
-                assert kwargs.get("player_id") == mock_player.id
 
     assert movement_log_found, f"PLAYER_MOVED event for teleport not logged. Log calls: {mock_log_event.call_args_list}"
     assert consequence_applied_log_found, f"CONSEQUENCE_EFFECT_APPLIED for teleport_player not logged. Log calls: {mock_log_event.call_args_list}"
