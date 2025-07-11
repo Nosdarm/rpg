@@ -312,9 +312,10 @@ async def execute_move_for_player_action(
         player = await player_crud.get(session, id=player_id)
         if not player:
             # This should ideally not happen if player_id comes from a validated context
+            # TODO: Localize this message
             raise MovementError(f"Player with ID {player_id} not found.")
         if player.guild_id != guild_id:
-            # Security check
+            # Security check - internal error, less critical for player localization
             raise MovementError(f"Player {player_id} does not belong to guild {guild_id}.")
 
         # Player Status Check
@@ -329,12 +330,15 @@ async def execute_move_for_player_action(
             raise MovementError(f"Cannot move while in status: {player.current_status.value}. Allowed statuses: {', '.join(allowed_statuses_rule)}")
 
         if player.current_location_id is None:
-            raise MovementError(f"Player {player.id} (Guild: {guild_id}) has no current location set.")
+            # TODO: Localize this message
+            raise MovementError(f"Player {player.id} has no current location set.")
 
         current_location = await location_crud.get(session, id=player.current_location_id)
         if not current_location:
+            # Internal error
             raise MovementError(f"Current location ID {player.current_location_id} for player {player.id} not found.")
         if current_location.guild_id != guild_id:
+             # Internal error
              raise MovementError(f"Data integrity issue: Player's current location {current_location.id} does not belong to guild {guild_id}.")
 
         # Resolve target_location_identifier using the new helper
@@ -358,12 +362,13 @@ async def execute_move_for_player_action(
 
         if not target_location:
             logger.info(f"Player {player.id} tried to move to '{target_location_identifier}', but it was not found (guild: {guild_id}).")
+            # TODO: Localize this message
             return {"status": "error", "message": f"Location '{target_location_identifier}' could not be found."}
 
         if target_location.id == current_location.id:
             # Using name_i18n.get for user-facing messages
-            # Assuming 'en' as a default fallback if specific language logic isn't fully implemented here
-            loc_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
+            loc_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or target_location_identifier)
+            # TODO: Localize this message
             return {"status": "error", "message": f"You are already at '{loc_name}'."}
 
         # Check for connectivity and get connection details
@@ -400,17 +405,97 @@ async def execute_move_for_player_action(
             # Placeholder for Item Check
             required_item_static_id = conditions.get("requires_item_static_id")
             if required_item_static_id:
-                # TODO: Implement inventory check for player/party.
-                # For now, let's assume this check passes if we don't implement it.
-                logger.info(f"Movement condition: requires item '{required_item_static_id}'. Check not yet implemented.")
-                pass # Placeholder: raise MovementError("Missing required item: {required_item_static_id}")
+                from backend.core.crud import inventory_item_crud, item_crud # For item definition
+                from backend.models.enums import OwnerEntityType
 
-            # Placeholder for Quest Status Check
-            required_quest_status = conditions.get("requires_quest_status")
-            if isinstance(required_quest_status, dict): # e.g. {"quest_static_id": "main_quest_01", "status": "COMPLETED"}
-                # TODO: Implement quest progress check.
-                logger.info(f"Movement condition: requires quest status '{required_quest_status}'. Check not yet implemented.")
-                pass # Placeholder: raise MovementError("Quest condition not met.")
+                item_definition = await item_crud.get_by_static_id(session, guild_id=guild_id, static_id=required_item_static_id)
+                if not item_definition:
+                    logger.error(f"Movement condition references unknown item static_id: {required_item_static_id}")
+                    # TODO: Localize this message
+                    raise MovementError(f"Internal error: Movement requirement misconfigured (item {required_item_static_id}).")
+
+                item_found_in_inventory = False
+                # Check player's inventory
+                player_inventory = await inventory_item_crud.get_inventory_for_owner(
+                    session, guild_id=guild_id, owner_entity_id=player.id, owner_entity_type=OwnerEntityType.PLAYER
+                )
+                for inv_item in player_inventory:
+                    if inv_item.item_id == item_definition.id and inv_item.quantity > 0: # Basic check, quantity could be part of condition
+                        item_found_in_inventory = True
+                        break
+
+                if not item_found_in_inventory and party:
+                    # TODO: Implement RuleConfig check: "party:movement:item_source_policy" (e.g., "any_member", "leader_only", "shared_pool")
+                    # For now, check all party members if player doesn't have it.
+                    member_ids = party.player_ids_json or []
+                    for member_id in member_ids:
+                        if member_id == player.id: continue # Already checked
+                        member_inventory = await inventory_item_crud.get_inventory_for_owner(
+                            session, guild_id=guild_id, owner_entity_id=member_id, owner_entity_type=OwnerEntityType.PLAYER
+                        )
+                        for inv_item in member_inventory:
+                            if inv_item.item_id == item_definition.id and inv_item.quantity > 0:
+                                item_found_in_inventory = True
+                                break
+                        if item_found_in_inventory:
+                            break
+
+                if not item_found_in_inventory:
+                    item_name_for_message = item_definition.name_i18n.get(player.selected_language or guild_main_lang, required_item_static_id)
+                    # TODO: Localize this message
+                    raise MovementError(f"Missing required item to pass: {item_name_for_message}")
+
+            # Quest Status Check
+            required_quest_status_condition = conditions.get("requires_quest_status")
+            if isinstance(required_quest_status_condition, dict): # e.g. {"quest_static_id": "main_quest_01", "status": "COMPLETED"}
+                quest_static_id = required_quest_status_condition.get("quest_static_id")
+                expected_status_str = required_quest_status_condition.get("status")
+
+                if quest_static_id and expected_status_str:
+                    from backend.core.crud.crud_quest import generated_quest_crud, player_quest_progress_crud
+                    from backend.models.enums import QuestStatus # Assuming QuestStatus is in enums
+
+                    quest_def = await generated_quest_crud.get_by_static_id(session, static_id=quest_static_id, guild_id=guild_id)
+                    if not quest_def:
+                        logger.error(f"Movement condition references unknown quest static_id: {quest_static_id}")
+                        # TODO: Localize this message
+                        raise MovementError(f"Internal error: Movement requirement misconfigured (quest {quest_static_id}).")
+
+                    try:
+                        expected_status_enum = QuestStatus[expected_status_str.upper()]
+                    except KeyError:
+                        logger.error(f"Movement condition references invalid quest status: {expected_status_str} for quest {quest_static_id}")
+                        # TODO: Localize this message
+                        raise MovementError(f"Internal error: Movement requirement misconfigured (quest status {expected_status_str}).")
+
+                    quest_condition_met = False
+                    # Check player's quest progress
+                    # Ensure player_quest_progress_crud can filter by guild_id if necessary, or that quest_id is globally unique.
+                    # Assuming quest_def.id is the correct quest_id PK.
+                    player_progress = await player_quest_progress_crud.get_by_player_and_quest(
+                        session, player_id=player.id, quest_id=quest_def.id, guild_id=guild_id
+                    )
+                    if player_progress and player_progress.status == expected_status_enum:
+                        quest_condition_met = True
+
+                    if not quest_condition_met and party:
+                        # TODO: Implement RuleConfig check: "party:movement:quest_status_policy"
+                        # (e.g., "any_member_has_status", "leader_has_status", "all_members_have_status")
+                        # For now, if player doesn't have it, check if party has it (assuming party quest progress might exist)
+                        # This assumes PlayerQuestProgress can also link to a party_id.
+                        if party.id: # Ensure party object and id exist
+                            party_progress = await player_quest_progress_crud.get_by_party_and_quest(
+                               session, party_id=party.id, quest_id=quest_def.id, guild_id=guild_id
+                            )
+                            if party_progress and party_progress.status == expected_status_enum:
+                                quest_condition_met = True
+
+                    if not quest_condition_met:
+                        quest_name_for_message = quest_def.title_i18n.get(player.selected_language or guild_main_lang, quest_static_id)
+                        # TODO: Localize this message
+                        raise MovementError(f"Cannot move: Quest '{quest_name_for_message}' status is not '{expected_status_str}'.")
+                else:
+                    logger.warning(f"Invalid 'requires_quest_status' condition in movement: {required_quest_status_condition}")
 
             # Skill Check
             skill_check_info = conditions.get("requires_skill_check") # e.g. {"skill": "climbing", "dc": 15, "attribute": "strength"}
@@ -555,16 +640,22 @@ async def execute_move_for_player_action(
             )
         )
 
-        target_loc_display_name = target_location.name_i18n.get(player.selected_language or 'en', target_location.static_id)
-        moved_entity_message = "You and your party have" if party else "You have"
-        return {"status": "success", "message": f"{moved_entity_message} moved to '{target_loc_display_name}'."}
+        target_loc_display_name = target_location.name_i18n.get(player.selected_language or guild_main_lang, target_location.static_id or target_location_identifier)
+        moved_entity_message_key = "movement_success_party" if party else "movement_success_solo"
+        # TODO: Localize this message (using the keys above)
+        # Default templates: "You and your party have moved to '{location_name}'." or "You have moved to '{location_name}'."
+        success_message_template = "You and your party have moved to '{location_name}'." if party else "You have moved to '{location_name}'."
+        return {"status": "success", "message": success_message_template.format(location_name=target_loc_display_name)}
 
     except MovementError as e:
         logger.warning(f"MovementError for player {player_id} in guild {guild_id} targeting '{target_location_identifier}': {e}")
+        # Specific MovementError messages are already constructed to be somewhat user-friendly,
+        # but should ideally be keys for localization. For now, pass them through.
         return {"status": "error", "message": str(e)}
     except Exception as e:
         logger.exception(
             f"Unexpected error in execute_move_for_player_action for player {player_id} in guild {guild_id} "
             f"targeting '{target_location_identifier}': {e}"
         )
+        # TODO: Localize this generic error message
         return {"status": "error", "message": "An unexpected internal error occurred while trying to move."}

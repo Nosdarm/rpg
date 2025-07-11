@@ -15,13 +15,69 @@ async def on_enter_location(
     location_id: int
 ):
     """
-    Placeholder function called when an entity enters a new location.
-    This is related to Task 14.
+    Handles events when an entity (player or party) enters a new location.
+    Currently logs information and sends location description (conceptually).
     """
-    logger.info(
-        f"[Game Event Placeholder] Entity {entity_type} {entity_id} in guild {guild_id} "
-        f"entered location {location_id}."
-    )
+    from .database import get_db_session # For independent session if needed
+    from .crud import location_crud, player_crud, party_crud
+    from .localization_utils import get_localized_text
+    from .rules import get_rule # For guild default language
+
+    async with get_db_session() as session:
+        location = await location_crud.get(session, id=location_id, guild_id=guild_id)
+        if not location:
+            logger.error(f"on_enter_location: Location {location_id} not found for guild {guild_id}.")
+            return
+
+        entity_name = f"{entity_type} {entity_id}"
+        language_code = await get_rule(session, guild_id, "guild_main_language", default="en")
+        if not isinstance(language_code, str): language_code = "en"
+
+
+        if entity_type == "player":
+            player = await player_crud.get(session, id=entity_id)
+            if player:
+                entity_name = player.name
+                if player.selected_language: # Player's preference
+                    language_code = player.selected_language
+        elif entity_type == "party":
+            party = await party_crud.get(session, id=entity_id)
+            if party:
+                entity_name = party.name
+                if party.leader_player_id: # Use leader's language or guild default
+                    leader = await player_crud.get(session, id=party.leader_player_id)
+                    if leader and leader.selected_language:
+                        language_code = leader.selected_language
+
+        location_name_i18n = location.name_i18n if location.name_i18n else {}
+        location_desc_i18n = location.descriptions_i18n if location.descriptions_i18n else {}
+
+        loc_display_name = get_localized_text(location_name_i18n, language_code, location.static_id or f"Location {location.id}")
+        loc_description = get_localized_text(location_desc_i18n, language_code, "No description available.")
+
+        logger.info(
+            f"[Game Event] Entity '{entity_name}' ({entity_type} {entity_id}) in guild {guild_id} "
+            f"entered location '{loc_display_name}' (ID: {location_id})."
+        )
+
+        # TODO: Send location name and description to the player/party via Discord.
+        # This requires access to the bot instance or a messaging queue/utility.
+        # Example: await bot.send_message_to_player_or_party_channel(guild_id, entity_id, entity_type, f"**{loc_display_name}**\n{loc_description}")
+        logger.info(f"Location Description for {entity_name} ({language_code}): **{loc_display_name}**\n{loc_description}")
+
+        # Placeholder for advanced triggers:
+        logger.info(f"TODO: Check for encounters in location {location_id} for entity {entity_id} ({entity_type}).")
+        logger.info(f"TODO: Trigger AI for dynamic details/events in location {location_id} for entity {entity_id} ({entity_type}).")
+
+        # Placeholder for quest system update
+        # from .quest_system import handle_player_event_for_quest
+        # event_details = {"event_subtype": "entered_location", "location_id": location_id, "location_static_id": location.static_id}
+        # if entity_type == "player":
+        #    asyncio.create_task(handle_player_event_for_quest(session_factory=get_db_session, guild_id=guild_id, event_type="LOCATION_ENTERED", details_json=event_details, player_id=entity_id))
+        # elif entity_type == "party" and party:
+        #    asyncio.create_task(handle_player_event_for_quest(session_factory=get_db_session, guild_id=guild_id, event_type="LOCATION_ENTERED", details_json=event_details, party_id=entity_id))
+        logger.info(f"TODO: Call quest system for 'entered_location' event for entity {entity_id} ({entity_type}) at location {location_id}.")
+
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
