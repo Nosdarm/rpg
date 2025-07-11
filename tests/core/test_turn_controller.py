@@ -38,11 +38,28 @@ def clear_locks_after_test():
 @pytest.fixture
 def mock_session() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
+    mock_result = AsyncMock(spec=Result) # General mock for query results
+
+    # Async methods
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
-    session.add = AsyncMock() # Changed to AsyncMock
-    mock_result = AsyncMock(spec=Result) # General mock for query results
     session.execute = AsyncMock(return_value=mock_result)
+    session.flush = AsyncMock()
+    session.refresh = AsyncMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock(return_value=mock_result)
+    session.get = AsyncMock(return_value=None)
+
+    # Synchronous methods
+    session.add = MagicMock()
+    session.add_all = MagicMock()
+    session.delete = MagicMock()
+    session.merge = MagicMock()
+    session.expire = MagicMock()
+    session.expunge = MagicMock()
+    session.is_modified = MagicMock()
+    session.begin = MagicMock()
+
     return session
 
 @pytest.fixture

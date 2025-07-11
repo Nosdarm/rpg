@@ -56,15 +56,36 @@ def mock_interaction_fixture(guild_id_fixture, master_user_id_fixture, command_l
 @pytest.fixture
 def mock_session_fixture():
     session = AsyncMock(spec=AsyncSession)
+
+    # Async methods
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
     session.refresh = AsyncMock()
-    session.add = AsyncMock()
+    session.execute = AsyncMock()
+    session.flush = AsyncMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock()
+    session.get = AsyncMock(return_value=None)
+
+    # Synchronous methods
+    session.add = MagicMock()
+    session.add_all = MagicMock()
+    session.delete = MagicMock()
+    session.merge = MagicMock()
+    session.expire = MagicMock()
+    session.expunge = MagicMock()
+    session.is_modified = MagicMock()
+
     # For async with session.begin():
-    mock_transaction_cm = AsyncMock()
-    mock_transaction_cm.__aenter__.return_value = None # type: ignore
-    mock_transaction_cm.__aexit__.return_value = None # type: ignore
+    # session.begin() itself is synchronous and returns an async context manager.
+    # The context manager's __aenter__ and __aexit__ are async.
+    mock_transaction_cm = AsyncMock() # Mock the context manager
+    async def mock_aenter(): return session # __aenter__ should return the session or self
+    async def mock_aexit(exc_type, exc, tb): pass
+    mock_transaction_cm.__aenter__ = AsyncMock(side_effect=mock_aenter)
+    mock_transaction_cm.__aexit__ = AsyncMock(side_effect=mock_aexit)
     session.begin = MagicMock(return_value=mock_transaction_cm)
+
     return session
 
 @pytest.fixture

@@ -7,7 +7,7 @@ if PROJECT_ROOT not in sys.path:
 import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
-from pydantic import ValidationError, parse_obj_as
+from pydantic import ValidationError, TypeAdapter
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,7 +118,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
                     pydantic_model_for_parsing = TestAIAnalysisSystem.MAPPING_ENTITY_TYPE_TO_PYDANTIC_MODEL_FOR_TEST.get(actual_entity_type_str)
                     if not pydantic_model_for_parsing:
                         raise AssertionError(f"Test setup error: No Pydantic model for entity_type '{actual_entity_type_str}'")
-                    actual_parser_model_instance = parse_obj_as(pydantic_model_for_parsing, mock_test_data_entity.model_dump(mode='json'))
+                    actual_parser_model_instance = TypeAdapter(pydantic_model_for_parsing).validate_python(mock_test_data_entity.model_dump(mode='json'))
                 else:
                     raise AssertionError(f"Cannot determine entity_type for mock entity: {type(mock_test_data_entity)}")
                 entities_for_parsed_ai_data = [actual_parser_model_instance]
@@ -170,7 +170,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         item_dict_missing_required_fields = {"entity_type": "item", "static_id": "item1", "name_i18n": {"en": "Item With Missing Fields"}}
         with self.assertRaises(ValidationError) as context:
             from backend.core.ai_response_parser import ParsedItemData
-            parse_obj_as(ParsedItemData, item_dict_missing_required_fields)
+            TypeAdapter(ParsedItemData).validate_python(item_dict_missing_required_fields)
         errors = context.exception.errors()
         self.assertTrue(any(err['type'] == 'missing' and err['loc'] == ('item_type',) for err in errors))
         self.assertTrue(any(err['type'] == 'missing' and err['loc'] == ('description_i18n',) for err in errors))
@@ -191,7 +191,7 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
         from backend.core.ai_response_parser import ParsedQuestData
         # This test now checks Pydantic validation at the model level
         with self.assertRaises(ValidationError) as context:
-            parse_obj_as(ParsedQuestData, raw_quest_data_no_steps)
+            TypeAdapter(ParsedQuestData).validate_python(raw_quest_data_no_steps)
 
         self.assertTrue(any("Quest must have at least one step" in err['msg'] for err in context.exception.errors()),
                         f"Expected validation error for empty steps, got errors: {context.exception.errors()}")
@@ -233,8 +233,8 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
             "inventory_items_json": [], "sells_item_types": ["weapon"], "buys_item_types": ["ore"], "currency_preferrence_json": {}
         }
         from backend.core.ai_response_parser import ParsedItemData, ParsedNpcTraderData, GeneratedEntity
-        actual_item = parse_obj_as(ParsedItemData, mock_item.model_dump(mode='json'))
-        actual_trader = parse_obj_as(ParsedNpcTraderData, mock_trader_dict)
+        actual_item = TypeAdapter(ParsedItemData).validate_python(mock_item.model_dump(mode='json'))
+        actual_trader = TypeAdapter(ParsedNpcTraderData).validate_python(mock_trader_dict)
         entities: List[GeneratedEntity] = [actual_item, actual_trader] # type: ignore
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=entities)
         result = await self._run_analysis("item", None)
@@ -250,9 +250,9 @@ class TestAIAnalysisSystem(unittest.IsolatedAsyncioTestCase):
             "inventory_items_json": [], "sells_item_types": ["weapon"], "buys_item_types": ["ore"], "currency_preferrence_json": {}
         }
         from backend.core.ai_response_parser import ParsedItemData, ParsedNpcData, ParsedNpcTraderData, GeneratedEntity
-        actual_item = parse_obj_as(ParsedItemData, mock_item_to_ignore.model_dump(mode='json'))
-        actual_npc = parse_obj_as(ParsedNpcData, mock_npc_to_find.model_dump(mode='json'))
-        actual_npc_trader = parse_obj_as(ParsedNpcTraderData, mock_npc_trader_dict_to_ignore)
+        actual_item = TypeAdapter(ParsedItemData).validate_python(mock_item_to_ignore.model_dump(mode='json'))
+        actual_npc = TypeAdapter(ParsedNpcData).validate_python(mock_npc_to_find.model_dump(mode='json'))
+        actual_npc_trader = TypeAdapter(ParsedNpcTraderData).validate_python(mock_npc_trader_dict_to_ignore)
         entities: List[GeneratedEntity] = [actual_item, actual_npc, actual_npc_trader] # type: ignore
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mock", generated_entities=entities)
         result = await self._run_analysis("npc", None)
@@ -308,7 +308,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_generated_content_calls_item_specific_analyzers(self):
         mock_item_data = MockParsedItem(static_id="test_item1")
         from backend.core.ai_response_parser import ParsedItemData
-        parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data.model_dump(mode='json'))
+        parsed_item_instance = TypeAdapter(ParsedItemData).validate_python(mock_item_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
         self.mock_analyze_item_balance.assert_called_once()
@@ -320,7 +320,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_generated_content_calls_npc_specific_analyzers(self):
         mock_npc_data = MockParsedNPC(static_id="test_npc1")
         from backend.core.ai_response_parser import ParsedNpcData
-        parsed_npc_instance = parse_obj_as(ParsedNpcData, mock_npc_data.model_dump(mode='json'))
+        parsed_npc_instance = TypeAdapter(ParsedNpcData).validate_python(mock_npc_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_npc_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "npc", target_count=1)
         self.mock_analyze_npc_balance.assert_called_once()
@@ -331,7 +331,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_generated_content_calls_quest_specific_analyzers(self):
         mock_quest_data = MockParsedQuest(static_id="test_quest1")
         from backend.core.ai_response_parser import ParsedQuestData
-        parsed_quest_instance = parse_obj_as(ParsedQuestData, mock_quest_data.model_dump(mode='json'))
+        parsed_quest_instance = TypeAdapter(ParsedQuestData).validate_python(mock_quest_data.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_quest_instance])
         await analyze_generated_content(self.mock_session, self.guild_id, "quest", target_count=1)
         self.mock_analyze_quest_balance.assert_called_once()
@@ -356,7 +356,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         self.mock_get_rule.side_effect = i18n_test_get_rule_side_effect
         item_missing_de_mock = MockParsedItem(name_i18n={"en": "Test Item"})
         from backend.core.ai_response_parser import ParsedItemData
-        parsed_item_instance = parse_obj_as(ParsedItemData, item_missing_de_mock.model_dump(mode='json'))
+        parsed_item_instance = TypeAdapter(ParsedItemData).validate_python(item_missing_de_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item_instance])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=1)
         self.mock_guild_config_get_main.assert_called_once_with(self.mock_session, id=self.guild_id)
@@ -370,8 +370,8 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         item1_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item One"})
         item2_mock = MockParsedItem(static_id="dup_id", name_i18n={"en":"Item Two"})
         from backend.core.ai_response_parser import ParsedItemData
-        parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
-        parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
+        parsed_item1 = TypeAdapter(ParsedItemData).validate_python(item1_mock.model_dump(mode='json'))
+        parsed_item2 = TypeAdapter(ParsedItemData).validate_python(item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
         self.assertIn("Duplicate static_id 'dup_id' found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
@@ -383,8 +383,8 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
         item1_mock = MockParsedItem(static_id="item1", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя1"})
         item2_mock = MockParsedItem(static_id="item2", name_i18n={"en":"Duplicate Name", "ru": "Уникальное Имя2"})
         from backend.core.ai_response_parser import ParsedItemData
-        parsed_item1 = parse_obj_as(ParsedItemData, item1_mock.model_dump(mode='json'))
-        parsed_item2 = parse_obj_as(ParsedItemData, item2_mock.model_dump(mode='json'))
+        parsed_item1 = TypeAdapter(ParsedItemData).validate_python(item1_mock.model_dump(mode='json'))
+        parsed_item2 = TypeAdapter(ParsedItemData).validate_python(item2_mock.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="...", generated_entities=[parsed_item1, parsed_item2])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "item", target_count=2)
         self.assertIn("Duplicate name/title 'Duplicate Name' (lang: en) found across generated entities (indices 0 and 1).", result.analysis_reports[0].issues_found)
@@ -397,7 +397,7 @@ class TestAIAnalysisSystemMainFunction(unittest.IsolatedAsyncioTestCase):
     async def test_score_aggregation(self):
         mock_item_data_mock = MockParsedItem()
         from backend.core.ai_response_parser import ParsedItemData
-        parsed_item_instance = parse_obj_as(ParsedItemData, mock_item_data_mock.model_dump(mode='json'))
+        parsed_item_instance = TypeAdapter(ParsedItemData).validate_python(mock_item_data_mock.model_dump(mode='json'))
         initial_quality_details = {
             "batch_static_id_uniqueness": 1.0, "batch_name_uniqueness_en": 1.0,
             "batch_name_uniqueness_ru": 1.0,
@@ -477,7 +477,7 @@ class TestQuestItemBalanceAnalysis(unittest.IsolatedAsyncioTestCase):
             rewards_json={"item_static_ids": [f"item_{i}" for i in range(num_item_rewards)]}
         )
         from backend.core.ai_response_parser import ParsedQuestData
-        parsed_quest_instance = parse_obj_as(ParsedQuestData, mock_quest.model_dump(mode='json'))
+        parsed_quest_instance = TypeAdapter(ParsedQuestData).validate_python(mock_quest.model_dump(mode='json'))
         self.mock_parse_and_validate.return_value = ParsedAiData(raw_ai_output="mocked quest", generated_entities=[parsed_quest_instance])
         result = await analyze_generated_content(self.mock_session, self.guild_id, "quest", target_count=1)
         return result.analysis_reports[0]

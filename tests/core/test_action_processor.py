@@ -86,9 +86,25 @@ def mock_party_with_player_1(mock_player_1_with_both_actions: Player) -> Party:
 @pytest.fixture
 def mock_session() -> AsyncMock:
     session = AsyncMock(spec=AsyncSession)
+    # Async methods correctly mocked as AsyncMock
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
-    session.add = AsyncMock() # Changed to AsyncMock
+    session.flush = AsyncMock()
+    session.refresh = AsyncMock()
+    session.execute = AsyncMock()
+    session.scalar = AsyncMock()
+    session.scalars = AsyncMock()
+
+    # Synchronous methods should be MagicMock
+    session.add = MagicMock()
+    session.add_all = MagicMock()
+    session.delete = MagicMock()
+    session.merge = MagicMock()
+    session.expire = MagicMock()
+    session.expunge = MagicMock()
+    session.is_modified = MagicMock()
+    # session.get_bind() is also sync, but less likely to cause this specific warning unless called.
+
     mock_transaction_cm = AsyncMock()
     async def mock_aenter_for_begin(): return None
     async def mock_aexit_for_begin(exc_type, exc, tb):

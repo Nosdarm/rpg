@@ -3,7 +3,7 @@ import logging
 from typing import Union, List, Optional, Dict, Any, TypeVar, Type
 
 # Explicitly import Pydantic's ValidationError to avoid confusion
-from pydantic import BaseModel, field_validator, model_validator, Field, parse_obj_as, ValidationInfo
+from pydantic import BaseModel, field_validator, model_validator, Field, TypeAdapter, ValidationInfo
 from pydantic import ValidationError as PydanticNativeValidationError # For catching Pydantic errors
 
 from .rules import get_rule, get_all_rules_for_guild
@@ -337,7 +337,7 @@ def _validate_overall_structure(
                 ))
                 continue
             try:
-                validated_entity = parse_obj_as(GeneratedEntity, entity_data) # type: ignore[arg-type]
+                validated_entity = TypeAdapter(GeneratedEntity).validate_python(entity_data) # type: ignore[arg-type]
                 validated_entities.append(validated_entity)
             except PydanticNativeValidationError as e:
                 potential_errors.append(CustomValidationError(

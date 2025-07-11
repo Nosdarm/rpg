@@ -81,12 +81,26 @@ def mock_session_no_existing_status() -> AsyncMock:
     mock_scalars_result = MagicMock()
     mock_scalars_result.first.return_value = None # For .scalars().first()
     mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
+
+    # Async methods
     session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
-    session.add = AsyncMock() # Changed to AsyncMock
-    session.delete = AsyncMock() # Changed to AsyncMock
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
     session.flush = AsyncMock()
+    session.rollback = AsyncMock()
+    session.scalar = AsyncMock(return_value=None)
+    session.scalars = AsyncMock(return_value=mock_scalars_result)
+
+    # Synchronous methods
+    session.add = MagicMock()
+    session.add_all = MagicMock()
+    session.delete = MagicMock()
+    session.merge = MagicMock()
+    session.expire = MagicMock()
+    session.expunge = MagicMock()
+    session.is_modified = MagicMock()
+    session.begin = MagicMock()
+
     return session
 
 @pytest.fixture
@@ -97,12 +111,26 @@ def mock_session_with_existing_status_factory():
         mock_scalars_result = MagicMock()
         mock_scalars_result.first.return_value = existing_status_instance # For .scalars().first()
         mock_sql_alchemy_result.scalars.return_value = mock_scalars_result
+
+        # Async methods
         session.execute = AsyncMock(return_value=mock_sql_alchemy_result) # session.execute is awaitable
-        session.add = AsyncMock() # Changed to AsyncMock
-        session.delete = AsyncMock() # Changed to AsyncMock
         session.commit = AsyncMock()
         session.refresh = AsyncMock()
         session.flush = AsyncMock()
+        session.rollback = AsyncMock()
+        session.scalar = AsyncMock(return_value=None)
+        session.scalars = AsyncMock(return_value=mock_scalars_result)
+
+        # Synchronous methods
+        session.add = MagicMock()
+        session.add_all = MagicMock()
+        session.delete = MagicMock()
+        session.merge = MagicMock()
+        session.expire = MagicMock()
+        session.expunge = MagicMock()
+        session.is_modified = MagicMock()
+        session.begin = MagicMock()
+
         return session
     return _factory
 
