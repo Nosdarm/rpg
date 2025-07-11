@@ -750,46 +750,345 @@ Result: A set of utilities for reliable, secure (guild-isolated) DB data access 
 Result: Location model defined, static data accessible and isolated, localization utilities available.
 
 
-🌍 1.2 Player and Party System (ORM, Commands, Guild-Scoped). (0.2, 0.3, 0.1)
-Description: **A to Z Implementation**: Fully implement player and party management within a guild, adhering to `RuleConfig` for all relevant behaviors.
-    - **Models**: Ensure `Player` and `Party` models (Task 0.2, 2.1) are complete, including all stats, statuses (PlayerStatus, PartyTurnStatus ENUMs), inventory links, quest progress links, and `guild_id`.
-    - **Player Creation (`/start` command)**:
-        - On `/start`, correctly identify `guild_id`. Create `Player` record.
-        - Assign starting location, language, stats (HP, attributes), XP, level, gold based on `RuleConfig` (e.g., `player:starting_stats`, `player:starting_location_static_id`).
-        - Set initial status (e.g., `PlayerStatus.EXPLORING`).
-        - Provide comprehensive, localized feedback. Handle cases where player already exists.
-    - **Party Management Commands (`/party create <name>`, `/party join <name>`, `/party leave`, `/party disband`, `/party invite <player>`, `/party kick <player>`, `/party promote <player>`)**:
-        - All commands operate strictly within `guild_id`.
-        - **Create**: Adhere to `RuleConfig` for party size limits, naming conventions. Auto-assign leader.
-        - **Join**: Adhere to `RuleConfig` (open/invite-only, level requirements). Handle player already in party, party full. Update player/party locations consistently.
-        - **Leave**: Handle leader leaving (transfer leadership per `RuleConfig` or disband). Update player/party locations.
-        - **Disband**: Only by leader or per `RuleConfig`. Notify members.
-        - **Invite/Kick/Promote**: Permission checks (leader or `RuleConfig` based roles).
-        - All operations must update `Player.current_party_id` and `Party.player_ids_json` atomically.
-        - Update `Party.turn_status` and `Player.current_status` appropriately (e.g., if joining an active party).
-        - Log all party changes (PartyLog or StoryLog). Provide localized feedback for all success/failure scenarios.
-    - **Utilities**: Ensure robust `get_player`, `get_party`, `get_players_in_location`, `get_party_members` utilities, all guild-scoped.
-    - **Error Handling**: Graceful handling of non-existent players/parties, permission issues, invalid states.
+🌍 Task 1.2: Player and Party System (ORM, Commands, Guild-Scoped) (A-Z Implementation Plan)
+
+**Overall Goal**: Implement a complete system for managing individual players and player-formed parties within each Discord guild. This includes player creation, party formation, and various party management actions, all governed by `RuleConfig` settings and integrated with database persistence and event logging.
+
+**1. Model Refinement and Completion (Prerequisite: Task 0.2, 2.1):**
+    *   **`Player` Model (`src/models/player.py`):**
+        *   Verify/add fields:
+            *   `id: Mapped[int]` (PK - from `BaseModel`)
+            *   `guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False)`
+            *   `discord_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)`
+            *   `name: Mapped[str] = mapped_column(String(100), nullable=False)`
+            *   `language: Mapped[str] = mapped_column(String(10), default="en", nullable=False)`
+            *   `current_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)`
+            *   `current_party_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("parties.id"), nullable=True)`
+            *   `current_status: Mapped[PlayerStatus] = mapped_column(Enum(PlayerStatus), default=PlayerStatus.IDLE, nullable=False)` (Ensure `PlayerStatus` Enum is defined in `src/models/enums.py` with values like `IDLE`, `EXPLORING`, `IN_COMBAT`, `IN_DIALOGUE`, `AWAITING_MODERATION`, `AWAITING_TURN_SUBMISSION`, `TURN_ENDED_PENDING_RESOLUTION`, `PROCESSING_GUILD_TURN`)
+            *   `xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)`
+            *   `level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)`
+            *   `gold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)`
+            *   `hp: Mapped[int] = mapped_column(Integer, default=100, nullable=False)` (Initial value, max HP might be derived)
+            *   `attributes_json: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)` (For STR, DEX, INT etc.)
+            *   `unspent_xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)` (For level up points)
+            *   `collected_actions_json: Mapped[Optional[List[Dict[str, Any]]]] = mapped_column(JSONB, nullable=True)` (For turn system)
+        *   Relationships:
+            *   `guild_config: Mapped["GuildConfig"] = relationship(back_populates="players")`
+            *   `current_location: Mapped[Optional["Location"]] = relationship()`
+            *   `party: Mapped[Optional["Party"]] = relationship(back_populates="members")` (if `Party.members` is the chosen back-population name)
+            *   `inventory_items: Mapped[List["InventoryItem"]] = relationship(back_populates="player_owner", cascade="all, delete-orphan")`
+            *   `quest_progress: Mapped[List["PlayerQuestProgress"]] = relationship(back_populates="player", cascade="all, delete-orphan")`
+
+    *   **`Party` Model (`src/models/party.py`):**
+        *   Verify/add fields:
+            *   `id: Mapped[int]` (PK - from `BaseModel`)
+            *   `guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id"), index=True, nullable=False)`
+            *   `name: Mapped[str] = mapped_column(String(100), nullable=False)`
+            *   `leader_player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)`
+            *   `player_ids_json: Mapped[List[int]] = mapped_column(JSONB, default=list, nullable=False)` (List of `Player.id`s)
+            *   `current_location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("locations.id"), nullable=True)` (Location of the party, usually leader's or an average)
+            *   `turn_status: Mapped[PartyTurnStatus] = mapped_column(Enum(PartyTurnStatus), default=PartyTurnStatus.IDLE, nullable=False)` (Ensure `PartyTurnStatus` Enum is defined in `src/models/enums.py` with values like `IDLE`, `AWAITING_ACTIONS`, `PROCESSING_TURN`, `IN_COMBAT`)
+            *   `properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)` (e.g., `{"invite_policy": "open" / "invite_only"}`)
+        *   Relationships:
+            *   `guild_config: Mapped["GuildConfig"] = relationship(back_populates="parties")`
+            *   `leader: Mapped["Player"] = relationship()`
+            *   `current_location: Mapped[Optional["Location"]] = relationship()`
+            *   `members: Mapped[List["Player"]] = relationship(back_populates="party", primaryjoin="foreign(Player.current_party_id) == Party.id")` (This requires `Player.current_party_id` to be set correctly)
+                *Self-correction: A direct M2M for party members via `player_ids_json` is simpler than relying solely on `Player.current_party_id` for the list of members, though `Player.current_party_id` is still crucial for the player's perspective.* The `members` relationship above is one way to represent it if `Player.current_party_id` is the source of truth. If `player_ids_json` is the source, a dynamic property or utility function would fetch member objects.
+
+    *   **Alembic Migrations:** Ensure migrations from Task 0.2 (and any subsequent ones from Task 2.1 if it happens before this) correctly create/update these tables and fields.
+
+**2. Player Creation (`/start` command in `src/bot/commands/general_commands.py`):**
+    *   **Command Definition:**
+        *   `@app_commands.command(name="start", description="Begin your adventure or view your character.")`
+        *   Ensure it's guild-only.
+    *   **Logic (`GeneralCog.start`):**
+        *   `guild_id = interaction.guild_id`
+        *   `discord_user_id = interaction.user.id`
+        *   `player_name = interaction.user.display_name` (or `interaction.user.name`)
+        *   **Check for Existing Player:**
+            *   Call `player_crud.get_by_discord_user_id_and_guild(session, discord_user_id=discord_user_id, guild_id=guild_id)`.
+            *   If player exists:
+                *   Respond with a "welcome back" message and basic character info (level, location). Use `localization_utils.get_localized_text`.
+                *   Return early.
+        *   **Load Starting Rules from `RuleConfig` (via `core.rules.get_rule`):**
+            *   `starting_loc_static_id = get_rule(session, guild_id, "player:starting_location_static_id", "default_start_loc")`
+            *   `starting_lang = get_rule(session, guild_id, "player:starting_language", interaction.locale.value if interaction.locale else "en")` (Use Discord's locale as a hint if available)
+            *   `starting_stats = get_rule(session, guild_id, "player:starting_stats", {"hp": 100, "xp": 0, "level": 1, "gold": 10})`
+            *   `starting_attributes = get_rule(session, guild_id, "player:starting_attributes", {"strength": 10, "dexterity": 10})`
+        *   **Resolve Starting Location:**
+            *   `start_location = await location_crud.get_by_static_id(session, guild_id=guild_id, static_id=starting_loc_static_id)`
+            *   If not found, log error and use a fallback or raise an error for GM attention. For now, assume it exists or `current_location_id` can be `None`.
+        *   **Create Player Object:**
+            *   `player_data = PlayerCreateSchema(...)` with all resolved starting values.
+            *   `player = await player_crud.create(session, obj_in=player_data)`
+            *   Set `player.current_status = PlayerStatus.EXPLORING`.
+        *   **Log Event:** `log_event(session, guild_id, EventType.PLAYER_CREATED, details_json={"player_id": player.id, "name": player.name})`
+        *   **Feedback:** Send a comprehensive, localized welcome message to the player.
+    *   **Error Handling:**
+        *   Database errors during creation.
+        *   Failure to load critical `RuleConfig` values.
+    *   **Transaction:** The entire operation should be within a single transaction (e.g., using `@transactional` on the command handler or a wrapper).
+
+**3. Party Management Cog (`src/bot/commands/party_commands.py`):**
+    *   Create `PartyCog(commands.Cog)`.
+    *   Register this cog in `main.py`'s `setup_hook`.
+    *   All commands below are slash commands, guild-only, and use `@transactional`.
+
+    *   **3.1. `/party create <name: str>`:**
+        *   **Permissions:** Any player can attempt.
+        *   **Validation:**
+            *   Player must not already be in a party (`player.current_party_id is None`).
+            *   `name` length/content validation (from `RuleConfig` key `party:name_validation_regex`, `party:name_max_length`).
+            *   Party name uniqueness within the guild (query `Party` table).
+        *   **Logic:**
+            *   `leader_player_id = player.id`
+            *   `party_data = PartyCreateSchema(name=name, guild_id=guild_id, leader_player_id=leader_player_id, player_ids_json=[player.id], current_location_id=player.current_location_id, turn_status=PartyTurnStatus.IDLE)`
+            *   `party = await party_crud.create(session, obj_in=party_data)`
+            *   Update `player.current_party_id = party.id`.
+            *   Update `player.current_status` if necessary (e.g., to `PlayerStatus.IDLE` if they were `EXPLORING` alone).
+        *   **Logging:** `log_event(EventType.PARTY_CREATED, ...)`
+        *   **Feedback:** Localized success/failure message.
+
+    *   **3.2. `/party join <party_identifier: str>` (name or ID):**
+        *   **Permissions:** Any player.
+        *   **Validation:**
+            *   Player not already in a party.
+            *   Resolve `party_identifier` to a `Party` object (try by ID, then by name). If not found, error.
+            *   Check party size limit (`RuleConfig` key `party:max_size`).
+            *   Check party invite policy (`party.properties_json.get("invite_policy", "open")`). If "invite_only", check if player is invited (requires an invitation system - defer this complexity for now, assume "open" or leader approval).
+            *   Check level requirements if any (`party.properties_json.get("min_level_req")`).
+        *   **Logic:**
+            *   Add `player.id` to `party.player_ids_json`.
+            *   Update `player.current_party_id = party.id`.
+            *   Update `player.current_location_id = party.current_location_id`.
+            *   Update `player.current_status` and `party.turn_status` appropriately.
+        *   **Logging:** `log_event(EventType.PARTY_PLAYER_JOINED, ...)`
+        *   **Feedback:** Localized success/failure message to player and party (e.g., system message in party channel if one exists).
+
+    *   **3.3. `/party leave`:**
+        *   **Permissions:** Player must be in a party.
+        *   **Validation:** Player is in a party.
+        *   **Logic:**
+            *   Load `player` and `party`.
+            *   Remove `player.id` from `party.player_ids_json`.
+            *   `old_party_id = player.current_party_id`
+            *   `player.current_party_id = None`.
+            *   If player was leader:
+                *   Handle leader transfer (`RuleConfig` key `party:leader_transfer_policy`: e.g., "promote_oldest_member", "disband_if_empty_else_promote", "require_manual_promote").
+                *   If policy is to promote, select new leader, update `party.leader_player_id`.
+                *   If policy is to disband and party becomes empty (or size < min_members from `RuleConfig`), delete `party`.
+            *   If party becomes empty (or size < min_members) after leave (even if not leader): potentially disband based on `RuleConfig` `party:auto_disband_threshold`.
+        *   **Logging:** `log_event(EventType.PARTY_PLAYER_LEFT, ...)`, `log_event(EventType.PARTY_DISBANDED, ...)` if applicable.
+        *   **Feedback:** Localized messages.
+
+    *   **3.4. `/party disband`:**
+        *   **Permissions:** Only party leader (`player.id == party.leader_player_id`) or as per `RuleConfig` `party:disband_permissions` (e.g., "admin_override").
+        *   **Validation:** Player is in a party and has permission.
+        *   **Logic:**
+            *   For all members in `party.player_ids_json`: set `member.current_party_id = None`.
+            *   Delete `party` record.
+        *   **Logging:** `log_event(EventType.PARTY_DISBANDED, ...)`
+        *   **Feedback:** Notify all former members.
+
+    *   **3.5. `/party invite <target_player: discord.Member>`:**
+        *   **Permissions:** Party leader or role defined in `RuleConfig` `party:invite_permissions`.
+        *   **Validation:**
+            *   Inviter is in a party and has permission.
+            *   `target_player` exists, is not inviter, not already in a party.
+            *   Party not full.
+        *   **Logic (Simple version - direct add or requires `/party join`):**
+            *   If `party:invite_policy` is "open_but_invite_notifies": Send DM to `target_player` with party name and inviter, instructing them to use `/party join`.
+            *   If `party:invite_policy` implies direct add on invite by leader (and target accepts implicitly or via DM interaction - complex): This is more involved.
+            *   **For now, assume invite is a notification, join is separate.**
+            *   (Future: Implement a temporary `PartyInvitation` model/table).
+        *   **Logging:** `log_event(EventType.PARTY_INVITE_SENT, ...)`
+        *   **Feedback:** Confirmation to inviter, notification to `target_player`.
+
+    *   **3.6. `/party kick <target_player: discord.Member>`:**
+        *   **Permissions:** Party leader or role from `RuleConfig` `party:kick_permissions`.
+        *   **Validation:**
+            *   Kicker is in party and has permission.
+            *   `target_player` is in the same party, is not the leader (leader cannot kick self, must leave/disband).
+        *   **Logic:**
+            *   Remove `target_player.id` from `party.player_ids_json`.
+            *   Set `kicked_player_obj.current_party_id = None`.
+        *   **Logging:** `log_event(EventType.PARTY_PLAYER_KICKED, ...)`
+        *   **Feedback:** Notification to kicker, kicked player, and remaining party.
+
+    *   **3.7. `/party promote <new_leader: discord.Member>`:**
+        *   **Permissions:** Current party leader.
+        *   **Validation:**
+            *   Promoter is current leader.
+            *   `new_leader` is in the same party and is not the current leader.
+        *   **Logic:**
+            *   Update `party.leader_player_id = new_leader.id`.
+        *   **Logging:** `log_event(EventType.PARTY_LEADER_CHANGED, ...)`
+        *   **Feedback:** Notifications.
+
+    *   **3.8. `/party view [party_name_or_id: Optional[str]]` (or `/party info`):**
+        *   **Permissions:** Any player.
+        *   **Logic:**
+            *   If no argument, and player is in a party, show current party info.
+            *   If argument provided, try to find party by ID then by name.
+            *   Display party name, leader, member list (names), current location.
+        *   **Feedback:** Localized party information.
+
+**4. Utility Functions (in `src/core/party_utils.py` and `src/core/player_utils.py`):**
+    *   `async get_player(session: AsyncSession, guild_id: int, player_id: int) -> Optional[Player]` (uses `player_crud`)
+    *   `async get_player_by_discord_id(session: AsyncSession, guild_id: int, discord_user_id: int) -> Optional[Player]`
+    *   `async get_party(session: AsyncSession, guild_id: int, party_id: int) -> Optional[Party]` (uses `party_crud`)
+    *   `async get_party_by_name(session: AsyncSession, guild_id: int, name: str) -> Optional[Party]`
+    *   `async get_players_in_location(session: AsyncSession, guild_id: int, location_id: int) -> List[Player]`
+    *   `async get_party_members(session: AsyncSession, party: Party) -> List[Player]`: Fetches `Player` objects for IDs in `party.player_ids_json`.
+
+**5. Event Logging & Enum Updates:**
+    *   Ensure `src/models/enums.py` has `EventType` members: `PLAYER_CREATED`, `PARTY_CREATED`, `PARTY_PLAYER_JOINED`, `PARTY_PLAYER_LEFT`, `PARTY_DISBANDED`, `PARTY_INVITE_SENT`, `PARTY_PLAYER_KICKED`, `PARTY_LEADER_CHANGED`.
+    *   All party modification commands should log to `StoryLog` using `game_events.log_event`.
+
+**6. Testing Considerations:**
+    *   **Model Tests (`tests/models/test_player.py`, `tests/models/test_party.py`):**
+        *   Instantiation, default values, relationships (mocked).
+    *   **CRUD Tests (`tests/core/crud/test_player.py`, `tests/core/crud/test_party.py`):**
+        *   All methods, especially guild-scoped queries.
+    *   **Command Tests (`tests/bot/commands/test_general_commands.py`, `tests/bot/commands/test_party_commands.py`):**
+        *   For `/start`: player already exists, new player creation, correct application of `RuleConfig` defaults.
+        *   For each `/party` subcommand:
+            *   Permission checks (leader, member).
+            *   Validation logic (party full, player already in party, etc.).
+            *   Correct DB updates (`Player.current_party_id`, `Party.player_ids_json`, `Party.leader_player_id`).
+            *   Correct event logging.
+            *   Correct localized feedback.
+            *   Interaction with `RuleConfig` for party limits, policies.
+    *   **Utility Function Tests (`tests/core/test_player_utils.py`, `tests/core/test_party_utils.py`):**
+        *   Test all utility functions with various valid and invalid inputs.
 Result: A comprehensive and rule-driven player and party management system with full command support, logging, and i18n feedback.
 
 
-🌍 1.3 Movement Logic (Player/Party, Guild-Scoped). (Tasks 4, 5, 0.3, 14, 25)
-Description: **A to Z Implementation**: Fully implement player and party movement between locations within a guild, respecting all game rules and side effects.
-    - **API**: `handle_move_action(guild_id: int, player_id: int, target_location_identifier: str)` (called by Action Processor).
-    - **Target Resolution**: Robustly resolve `target_location_identifier` (name, static_id, alias) to a `Location` ID within the guild, considering player's language.
-    - **Connection Check**: Verify valid connection (static or generated `neighbor_locations_json`) between current and target locations. Check for one-way connections, conditional connections (e.g., requires item, quest status - from `Location.properties_json` or `RuleConfig`).
-    - **Movement Permissions**:
-        - Check player status (e.g., not in combat, not busy).
-        - **Party Movement**:
-            - If player is in a party, apply `RuleConfig` for party movement (e.g., `rules:party:movement:policy` = "leader_only", "all_members_ready", "any_member").
-            - If "all_members_ready", check status of all party members.
-            - If party moves, all members' locations are updated.
-    - **Costs & Checks**: Apply movement costs (time, resources like food/stamina from `Player.stats` or `RuleConfig`) if defined. Perform skill checks (e.g., survival for difficult terrain) if required by location connection properties or `RuleConfig`, using Check Resolver (Task 6.3.2). Movement fails if checks fail critically or costs can't be met.
-    - **Transactional Update**: Player/Party location updates, resource deductions, and movement event logging must occur within a single atomic transaction for the guild.
-    - **Event Logging**: Log `EventType.MOVEMENT` to `StoryLog` with details (player/party, old/new location, path taken, duration).
-    - **Post-Movement Hook**: After successful commit, asynchronously call `on_enter_location(guild_id, entity_id, entity_type, new_location_id, old_location_id)` (Task related to 14/World Events). This hook can trigger location descriptions, new encounters, AI generation, quest updates.
-    - **Feedback**: Provide comprehensive, localized feedback to the player(s) for success, failure (no path, locked, failed check, insufficient resources), and any significant events during movement.
-    - **Error Handling**: Handle invalid inputs, non-existent locations, system errors gracefully.
+🌍 Task 1.3: Movement Logic (Player/Party, Guild-Scoped) (A-Z Implementation Plan)
+
+**Overall Goal**: Implement a comprehensive system for player and party movement between locations. This system must handle target resolution, connection validation, permission checks (including party movement rules), application of costs and skill checks, transactional updates, event logging, and provide hooks for post-movement events.
+
+**1. API Definition and Integration Point:**
+    *   **Main API Function (`src/core/movement_logic.py`):**
+        *   `async def handle_move_action(session: AsyncSession, guild_id: int, player_id: int, target_location_identifier: str) -> MovementResult:`
+            *   `MovementResult` (Pydantic model in `src/models/actions.py` or similar): Should contain `success: bool`, `message_key: str`, `message_params: Optional[Dict]`, `new_location_id: Optional[int]`, `old_location_id: Optional[int]`, `moved_entity_ids: List[int]`, `moved_entity_type: RelationshipEntityType`.
+    *   **Action Processor Integration (`src/core/action_processor.py`):**
+        *   Ensure an intent like "move" or "go" is recognized by NLU (Task 6.10).
+        *   The `ACTION_DISPATCHER` should map this intent to a wrapper function that calls `movement_logic.handle_move_action`.
+        *   The wrapper will extract `target_location_identifier` from `ParsedAction.entities`.
+
+**2. Core Movement Logic (`src/core/movement_logic.py`):**
+
+    *   **2.1. Load Initial Entities:**
+        *   Load `player = await player_crud.get_by_guild(session, id=player_id, guild_id=guild_id)`. Handle if player not found.
+        *   `current_location = await location_crud.get_by_guild(session, id=player.current_location_id, guild_id=guild_id)` if `player.current_location_id` is set. Handle if current location not found (though this should ideally not happen if player data is consistent).
+        *   If player is in a party (`player.current_party_id` is not None):
+            *   `party = await party_crud.get_by_guild(session, id=player.current_party_id, guild_id=guild_id)`. Handle if party not found.
+            *   The entity to move becomes the party. `current_location` for the party is `party.current_location_id`.
+
+    *   **2.2. Target Location Resolution (`_resolve_target_location` internal function):**
+        *   Input: `session`, `guild_id`, `identifier: str`, `player_language: str`.
+        *   Attempt to find `Location` by:
+            1.  `static_id` (if identifier matches a pattern or is numeric-like for direct ID).
+            2.  Localized name (`name_i18n`) using `player_language`.
+            3.  Localized name using fallback language (e.g., "en").
+            4.  (Optional) Check location aliases defined in `RuleConfig` or `Location.properties_json`.
+        *   Return `Optional[Location]`. If not found, `handle_move_action` returns failure.
+
+    *   **2.3. Connection Validation (`_validate_connection` internal function):**
+        *   Input: `current_loc: Location`, `target_loc: Location`.
+        *   Check `current_loc.neighbor_locations_json`:
+            *   Iterate through neighbors. If `neighbor["target_location_id"] == target_loc.id`, a connection exists.
+            *   Store `connection_details = neighbor`.
+        *   If no direct connection:
+            *   Check `target_loc.neighbor_locations_json` for a one-way connection back to `current_loc` if `is_one_way` is a concept. (Generally, connections are defined on the source).
+            *   Return `None` or raise a specific "NoPath" exception.
+        *   If connection found, check `connection_details.get("is_one_way", False)`. If `True` and the path is from target to current (meaning player is trying to go against a one-way), this is invalid unless specifically allowed. (Simpler: assume `neighbor_locations_json` defines valid egresses).
+        *   Return `connection_details: Optional[Dict]`.
+
+    *   **2.4. Permission Checks:**
+        *   **Player Status:**
+            *   Check `player.current_status`. If `IN_COMBAT`, `IN_DIALOGUE`, `PROCESSING_GUILD_TURN`, etc., movement fails. (RuleConfigurable: `movement:allowed_player_statuses`).
+        *   **Party Movement Rules (if `party` object exists):**
+            *   Load `policy = get_rule(session, guild_id, "party:movement:policy", "any_member")`.
+            *   If `policy == "leader_only"`: Check `player.id == party.leader_player_id`. If not, fail.
+            *   If `policy == "all_members_ready"`:
+                *   Fetch all members of the party (using `party_utils.get_party_members`).
+                *   For each member, check their `current_status`. If any member is in a blocking status (e.g., `IN_COMBAT`), movement fails.
+        *   **Connection Conditions (`connection_details.get("conditions_json")`):**
+            *   Iterate through conditions:
+                *   `"requires_item_static_id"`: Check player/party inventory (requires inventory access utilities).
+                *   `"requires_quest_status"`: Check `PlayerQuestProgress` (requires quest system utilities).
+                *   `"requires_world_flag"`: Check `get_rule(session, guild_id, f"worldstate:{flag_name}")`.
+                *   If any condition not met, movement fails.
+
+    *   **2.5. Costs & Skill Checks:**
+        *   **Movement Costs (from `connection_details` or `RuleConfig` `movement:costs:<location_type_from>:<location_type_to>`):**
+            *   `time_cost_minutes = connection_details.get("travel_time_minutes")` or from rules.
+            *   Resource costs (e.g., stamina, food):
+                *   Identify resources from rules/connection.
+                *   Check if player/party (sum of members or dedicated party resource pool) has enough.
+                *   If not, movement fails.
+        *   **Skill Checks (from `connection_details.get("conditions_json").get("requires_skill_check")` or `RuleConfig` `movement:checks:<loc_type_from>:<loc_type_to>`):**
+            *   If a check is defined (e.g., `{"skill": "survival", "dc": 15, "attribute": "perception"}`):
+                *   Entity performing check: Player, or if in party, could be party leader or average/best member skill based on `RuleConfig` `party:movement_skill_check_performer`.
+                *   Call `check_resolver.resolve_check(...)`.
+                *   If check fails (critically or normally based on rules `movement:fail_on_check_outcome`), movement fails.
+                *   Log check result.
+
+    *   **2.6. Transactional State Update:**
+        *   This entire `handle_move_action` function should be wrapped by `@transactional` or manage its transaction.
+        *   **Entities to Update:** `moving_entity = party if party else player`.
+        *   `old_location_id = moving_entity.current_location_id`.
+        *   Update `moving_entity.current_location_id = target_loc.id`.
+        *   If `moving_entity` is a party, iterate through `party.player_ids_json`, load each `Player` and update their `current_location_id = target_loc.id`.
+        *   Deduct resource costs from player/party members.
+        *   `moved_entity_ids = [player.id]` or `party.player_ids_json`.
+        *   `moved_entity_type = RelationshipEntityType.PLAYER` or `RelationshipEntityType.PARTY`.
+
+    *   **2.7. Event Logging:**
+        *   `log_event(session, guild_id, EventType.MOVEMENT, details_json={...})`
+            *   Details: `player_id` (initiator), `party_id` (if any), `old_location_id`, `new_location_id`, `target_identifier_used`, `connection_type_i18n` (from connection_details), `duration_minutes` (if applicable), `checks_passed_json` (if any).
+
+    *   **2.8. Post-Movement Hook Trigger:**
+        *   After successful commit of the transaction:
+        *   `asyncio.create_task(game_events.on_enter_location(guild_id, moving_entity.id, moved_entity_type, target_loc.id, old_location_id))`
+            *   `on_enter_location` (to be defined, likely in `src/core/game_events.py` or a dedicated world event module) will handle triggering location descriptions, encounters, AI generation, quest updates for the new location.
+
+    *   **2.9. Feedback Formulation:**
+        *   Based on success/failure and specific reasons (no path, locked, failed check, insufficient resources), select appropriate `message_key` and `message_params` for `MovementResult`.
+        *   Use `localization_utils.get_localized_text` to generate final messages for the user(s).
+
+**3. Pydantic Schemas (`src/schemas/location.py`, `src/schemas/player.py`, `src/schemas/party.py`):**
+    *   Ensure `LocationCreateSchema`, `LocationUpdateSchema`, `PlayerCreateSchema`, `PlayerUpdateSchema`, `PartyCreateSchema`, `PartyUpdateSchema` are defined to support CRUD operations if they involve fields relevant to movement (e.g., `current_location_id`).
+
+**4. `RuleConfig` Entries for Movement:**
+    *   `party:movement:policy`: ("leader_only", "all_members_ready", "any_member") - Default "any_member".
+    *   `party:movement_skill_check_performer`: ("leader", "highest_member_skill", "average_party_skill") - Default "leader".
+    *   `movement:allowed_player_statuses`: List of `PlayerStatus` values that permit movement. Default: `["IDLE", "EXPLORING"]`.
+    *   `movement:costs:<type_from>:<type_to>:<resource_name>`: (e.g., `movement:costs:forest:mountain:stamina: 5`).
+    *   `movement:travel_time:<type_from>:<type_to>:base_minutes`: Base travel time.
+    *   `movement:checks:<type_from>:<type_to>:<check_name>`: Defines skill checks for terrain, e.g., `{"skill": "survival", "dc": 12}`.
+    *   `movement:fail_on_check_outcome`: List of `CheckOutcomeStatus` values (e.g., `["CRITICAL_FAILURE", "FAILURE"]`) that cause movement to fail.
+
+**5. Testing Considerations:**
+    *   **Unit Tests for `movement_logic.py`:**
+        *   Test `_resolve_target_location` with various identifiers, languages, existing/non-existing locations.
+        *   Test `_validate_connection` for valid paths, one-way paths, non-existent paths, conditional paths.
+        *   Test `handle_move_action` for:
+            *   Solo player movement (success, no path, blocked by status, failed conditions, failed skill check, insufficient resources).
+            *   Party movement under different `party:movement:policy` rules.
+            *   Correct cost deduction.
+            *   Correct transactional updates to player/party locations.
+            *   Correct `EventType.MOVEMENT` logging.
+            *   Correct triggering of `on_enter_location` hook (mocked).
+            *   Correct `MovementResult` for various outcomes.
+    *   **Integration Tests:**
+        *   Simulate NLU recognizing a "move" intent.
+        *   Verify `ActionProcessor` calls `handle_move_action`.
+        *   Verify DB state changes correctly after a move.
+        *   Verify player receives appropriate feedback.
 Result: A robust, rule-driven movement system supporting individual and party travel, with integrated checks, costs, event logging, and hooks for dynamic content.
 
 
