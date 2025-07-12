@@ -584,14 +584,14 @@ async def activate_ability( # Signature updated to use ability_identifier
     # --- End of Effects Application ---
 
     outcome.success = True
-    outcome.message = f"Ability '{db_ability.static_id}' processed (MVP)."
+    outcome.message = f"Ability '{db_ability.static_id}' processed successfully."
 
     log_details = {
         "caster_id": caster.id,
         "caster_type": entity_type,
         "ability_id": db_ability.id,
         "ability_static_id": db_ability.static_id,
-        "targets": [{"id": t.id, "type": "player" if isinstance(t, Player) else "npc" } for t in targets],
+        "targets": [{"id": t.id, "type": "player" if isinstance(t, Player) else "npc"} for t in targets],
         "outcome_summary": outcome.message,
         "damage_dealt": [d.model_dump() for d in outcome.damage_dealt],
         "healing_done": [h.model_dump() for h in outcome.healing_done],
@@ -599,11 +599,6 @@ async def activate_ability( # Signature updated to use ability_identifier
         "caster_updates": [cu.model_dump() for cu in outcome.caster_updates]
     }
     outcome.log_event_details = log_details
-
-    # Ensure the final outcome message reflects success if no specific failure message was set
-    if outcome.success and outcome.message == "Ability activation failed.": # Default initial message
-        outcome.message = f"Ability '{db_ability.static_id}' processed successfully."
-
 
     event_player_id = caster.id if isinstance(caster, Player) else None
     if not event_player_id and targets and isinstance(targets[0], Player):

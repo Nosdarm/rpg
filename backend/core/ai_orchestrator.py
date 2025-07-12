@@ -193,104 +193,77 @@ async def generate_narrative(
 
 
 @transactional
-async def trigger_ai_generation_flow(
-    session: AsyncSession, # Injected by @transactional
-    bot: commands.Bot, # Added bot instance for notifications
+async def trigger_dynamic_event_generation(
+    session: AsyncSession,
     guild_id: int,
-    location_id: Optional[int] = None,
-    player_id: Optional[int] = None,
-    # Potentially other context like event_type that triggered this, etc.
-) -> Union[PendingGeneration, CustomValidationError, str]: # Changed to CustomValidationError
+    context: Dict[str, Any],
+    bot: Optional[commands.Bot] = None
+) -> Union[PendingGeneration, CustomValidationError, str, None]:
     """
-    Orchestrates the AI content generation flow:
-    1. Prepares a prompt.
-    2. Calls the AI (mocked).
-    3. Parses and validates the AI response.
-    4. Creates a PendingGeneration record.
-    5. Updates player status (if applicable).
-    6. Notifies Master (placeholder).
+    A more generic function to trigger AI generation for various events.
+    Checks rules to see if generation should even occur.
     """
-    try:
-        prompt_context = {
-            "location_id": location_id,
-            "player_id": player_id,
-            # Add more context as needed for prepare_ai_prompt
-        }
-        # prepare_ai_prompt might need a session if it directly queries DB outside of its own @transactional
-        # Assuming prepare_ai_prompt is designed to be callable here.
-        # If prepare_ai_prompt is also @transactional, nested transactions are usually fine with SQLAlchemy.
-        prompt = await prepare_ai_prompt(session, guild_id, location_id, player_id)
+    # 1. Check RuleConfig to see if this trigger type should generate content
+    trigger_type = context.get("trigger_type", "unknown")
+    rule_key = f"ai:generation:triggers:{trigger_type}"
+    should_generate_rule = await get_rule(session, guild_id, rule_key, default={"enabled": False, "chance": 0.0})
 
-        if not prompt:
-            logger.error(f"Guild {guild_id}: Failed to generate AI prompt for context {prompt_context}")
-            return "Failed to generate AI prompt."
+    # Ensure rule is a dict and has expected keys
+    if not isinstance(should_generate_rule, dict):
+        should_generate_rule = {"enabled": False, "chance": 0.0}
 
-        raw_ai_response = await _mock_openai_api_call(prompt)
+    if not should_generate_rule.get("enabled", False):
+        logger.debug(f"AI generation for trigger '{trigger_type}' is disabled by RuleConfig for guild {guild_id}.")
+        return None
 
-        # This function is async
-        parsed_or_error = await parse_and_validate_ai_response(raw_ai_response, guild_id)
+    # 2. Check chance
+    import random
+    chance = should_generate_rule.get("chance", 0.0)
+    if random.random() > chance:
+        logger.debug(f"AI generation for trigger '{trigger_type}' did not meet chance {chance} for guild {guild_id}.")
+        return None
 
-        pending_gen_data: Dict[str, Any] = {
-            "guild_id": guild_id,
-            "triggered_by_user_id": player_id,
-            "trigger_context_json": prompt_context,
-            "ai_prompt_text": prompt,
-            "raw_ai_response_text": raw_ai_response,
-        }
+    logger.info(f"Triggering AI generation for guild {guild_id} due to '{trigger_type}' event.")
 
-        new_pending_generation: Optional[PendingGeneration] = None
+    # 3. Prepare Prompt
+    # This assumes a more generic prompt builder that takes a context dict
+    prompt = f"Generate a dynamic event for a text RPG. Context: {json.dumps(context)}"
+    # In a real scenario, this would call a more sophisticated prompt builder
+    # prompt = await prepare_dynamic_event_prompt(session, guild_id, context)
 
-        if isinstance(parsed_or_error, ParsedAiData):
-            pending_gen_data["parsed_validated_data_json"] = parsed_or_error.model_dump()
-            pending_gen_data["status"] = ModerationStatus.PENDING_MODERATION
+    # 4. Call AI, Parse, and Save
+    # The rest of the logic is similar to the original trigger_ai_generation_flow
+    raw_ai_response = await _mock_openai_api_call(prompt)
+    parsed_or_error = await parse_and_validate_ai_response(raw_ai_response, guild_id, session)
 
-            new_pending_generation = await create_entity(session, PendingGeneration, pending_gen_data)
+    pending_gen_data = {
+        "guild_id": guild_id,
+        "triggered_by_user_id": context.get("player_id"),
+        "trigger_context_json": context,
+        "ai_prompt_text": prompt,
+        "raw_ai_response_text": raw_ai_response,
+    }
 
-            if player_id and new_pending_generation: # Update player only if pending_gen created
-                player_to_update = await get_entity_by_id(session, Player, player_id, guild_id=guild_id)
-                if player_to_update:
-                    await update_entity(session, player_to_update, {"current_status": PlayerStatus.AWAITING_MODERATION})
+    if isinstance(parsed_or_error, ParsedAiData):
+        pending_gen_data["parsed_validated_data_json"] = parsed_or_error.model_dump()
+        pending_gen_data["status"] = ModerationStatus.PENDING_MODERATION
+    elif isinstance(parsed_or_error, CustomValidationError):
+        pending_gen_data["validation_issues_json"] = parsed_or_error.model_dump()
+        pending_gen_data["status"] = ModerationStatus.VALIDATION_FAILED
+    else:
+        return "Unknown parsing error."
 
-        elif isinstance(parsed_or_error, CustomValidationError): # Changed to CustomValidationError
-            pending_gen_data["validation_issues_json"] = parsed_or_error.model_dump()
-            pending_gen_data["status"] = ModerationStatus.VALIDATION_FAILED
-            new_pending_generation = await create_entity(session, PendingGeneration, pending_gen_data)
-            # Return the validation error to the caller if it's critical, or just log and let Master review
-            # For now, we save it and return the PendingGeneration record
-            if new_pending_generation:
-                 logger.warning(f"Guild {guild_id}: AI response validation failed for PendingGeneration ID {new_pending_generation.id}. Issues: {parsed_or_error.message}")
-            else:
-                 logger.error(f"Guild {guild_id}: AI response validation failed AND PendingGeneration record creation failed.")
-                 return parsed_or_error # Or a generic error string
+    new_pending_generation = await create_entity(session, PendingGeneration, pending_gen_data)
 
-        else:
-            logger.error(f"Guild {guild_id}: Unknown state after AI response parsing. Type: {type(parsed_or_error)}")
-            return "Unknown error after AI response parsing."
+    if new_pending_generation and bot:
+        message = (
+            f"New AI content (ID: {new_pending_generation.id}) requires moderation."
+            if new_pending_generation.status == ModerationStatus.PENDING_MODERATION
+            else f"AI content (ID: {new_pending_generation.id}) failed validation."
+        )
+        await notify_master(bot, session, guild_id, message)
 
-        if new_pending_generation:
-            if new_pending_generation.status == ModerationStatus.PENDING_MODERATION:
-                await notify_master(
-                    bot,
-                    session, # The session from @transactional is valid here
-                    guild_id,
-                    f"New AI-generated content (Pending ID: {new_pending_generation.id}) requires moderation."
-                )
-                logger.info(f"Guild {guild_id}: New content (PendingGeneration ID: {new_pending_generation.id}) awaits moderation. Master notified.")
-            elif new_pending_generation.status == ModerationStatus.VALIDATION_FAILED:
-                 await notify_master(
-                    bot,
-                    session,
-                    guild_id,
-                    f"AI content generation attempt (Pending ID: {new_pending_generation.id}) resulted in validation errors. Please review."
-                )
-            return new_pending_generation
-        else:
-            logger.error(f"Guild {guild_id}: Failed to create PendingGeneration record.")
-            return "Failed to save pending generation record."
-
-    except Exception as e:
-        logger.error(f"Guild {guild_id}: Exception in trigger_ai_generation_flow: {e}", exc_info=True)
-        return f"Internal server error during AI generation flow: {str(e)}"
+    return new_pending_generation
 
 async def make_real_ai_call(prompt: str, api_key: Optional[str] = None) -> str:
     """

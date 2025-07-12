@@ -337,7 +337,8 @@ def _validate_overall_structure(
                 ))
                 continue
             try:
-                validated_entity = TypeAdapter(GeneratedEntity).validate_python(entity_data) # type: ignore[arg-type]
+                # Using TypeAdapter for discriminated union
+                validated_entity = TypeAdapter(GeneratedEntity).validate_python(entity_data)
                 validated_entities.append(validated_entity)
             except PydanticNativeValidationError as e:
                 potential_errors.append(CustomValidationError(
@@ -348,6 +349,7 @@ def _validate_overall_structure(
                 ))
 
         if potential_errors:
+            # For simplicity, returning the first error. Could be enhanced to return all.
             return potential_errors[0]
         return validated_entities
 
@@ -363,59 +365,66 @@ def _validate_overall_structure(
         return CustomValidationError(error_type="InternalParserError", message=f"Unexpected validation error: {str(e)}")
 
 
-def _perform_semantic_validation(
+async def _perform_semantic_validation(
+    session: "AsyncSession", # type: ignore
     validated_entities: List[GeneratedEntity],
     guild_id: int
 ) -> List[CustomValidationError]:
-    semantic_errors: List[CustomValidationError] = []
-    try:
-        required_langs_for_entity = {"en"} # Placeholder
+    from ..models import GuildConfig # Local import
+    from .crud import (
+        location_crud, npc_crud, item_crud, faction_crud, quest_crud
+    ) # Local import for CRUDs
 
-        def check_i18n_dict(i18n_dict: Optional[Dict[str, str]], field_name: str, entity_idx: int, entity_type_str: str):
-            if i18n_dict is None: return
-            present_langs = set(i18n_dict.keys())
-            missing = required_langs_for_entity - present_langs
-            if missing:
+    semantic_errors: List[CustomValidationError] = []
+
+    guild_config = await session.get(GuildConfig, guild_id)
+    if not guild_config:
+        semantic_errors.append(CustomValidationError(error_type="ContextError", message=f"GuildConfig for guild_id {guild_id} not found."))
+        return semantic_errors
+
+    required_langs = set(guild_config.supported_languages_json or ["en"])
+
+    all_static_ids_in_batch = set()
+
+    for i, entity in enumerate(validated_entities):
+        # 1. Check for duplicate static_id within the batch
+        static_id = getattr(entity, 'static_id', None)
+        if static_id:
+            if static_id in all_static_ids_in_batch:
                 semantic_errors.append(CustomValidationError(
                     error_type="SemanticValidationError",
-                    message=f"Entity {entity_idx} ('{entity_type_str}') missing required languages {missing} in '{field_name}'.",
-                    path=[entity_idx, field_name]
+                    message=f"Duplicate static_id '{static_id}' found within the same generation batch.",
+                    path=[i, "static_id"]
                 ))
+            all_static_ids_in_batch.add(static_id)
 
-        for i, entity in enumerate(validated_entities):
-            entity_type_str = getattr(entity, 'entity_type', 'unknown')
-            if isinstance(entity, (ParsedNpcData, ParsedItemData, ParsedFactionData)): # Base check for common models
-                check_i18n_dict(entity.name_i18n, "name_i18n", i, entity_type_str)
-                check_i18n_dict(entity.description_i18n, "description_i18n", i, entity_type_str)
-                if isinstance(entity, ParsedFactionData):
-                    check_i18n_dict(entity.ideology_i18n, "ideology_i18n", i, entity_type_str)
-
-            if isinstance(entity, ParsedNpcTraderData): # Specific check for ParsedNpcTraderData
-                # name_i18n and description_i18n are covered by ParsedNpcData check above
-                check_i18n_dict(entity.role_i18n, "role_i18n", i, entity_type_str)
-            elif isinstance(entity, ParsedLocationData):
-                check_i18n_dict(entity.name_i18n, "name_i18n", i, entity_type_str)
-                check_i18n_dict(entity.descriptions_i18n, "descriptions_i18n", i, entity_type_str)
-            elif isinstance(entity, ParsedQuestData):
-                check_i18n_dict(entity.title_i18n, "title_i18n", i, entity_type_str)
-                check_i18n_dict(entity.summary_i18n, "summary_i18n", i, entity_type_str)
-                if entity.steps:
-                    for step_idx, step_data in enumerate(entity.steps):
-                        check_i18n_dict(step_data.title_i18n, f"steps[{step_idx}].title_i18n", i, entity_type_str)
-                        check_i18n_dict(step_data.description_i18n, f"steps[{step_idx}].description_i18n", i, entity_type_str)
-            elif isinstance(entity, ParsedRelationshipData):
-                if not (-1000 <= entity.value <= 1000):
+            # 2. Check for static_id uniqueness in the database
+            crud_map = {
+                "location": location_crud, "npc": npc_crud, "item": item_crud,
+                "faction": faction_crud, "quest": quest_crud, "npc_trader": npc_crud
+            }
+            crud_instance = crud_map.get(entity.entity_type)
+            if crud_instance:
+                existing_entity = await crud_instance.get_by_static_id(session, guild_id=guild_id, static_id=static_id)
+                if existing_entity:
                     semantic_errors.append(CustomValidationError(
                         error_type="SemanticValidationError",
-                        message=f"Entity {i} ('relationship') has value {entity.value} outside expected range.",
-                        path=[i, "value"]
+                        message=f"static_id '{static_id}' already exists in the database for entity type '{entity.entity_type}'.",
+                        path=[i, "static_id"]
                     ))
-    except Exception as e:
-        logger.error(f"Error during semantic validation: {e}", exc_info=True)
-        semantic_errors.append(CustomValidationError(
-            error_type="InternalParserError",
-            message=f"Unexpected error during semantic validation: {str(e)}"
-        ))
+
+        # 3. Check for required languages in i18n fields
+        for field_name, field_value in entity.model_dump().items():
+            if field_name.endswith("_i18n") and isinstance(field_value, dict):
+                present_langs = set(field_value.keys())
+                missing_langs = required_langs - present_langs
+                if missing_langs:
+                    semantic_errors.append(CustomValidationError(
+                        error_type="SemanticValidationError",
+                        message=f"Entity {i} ('{entity.entity_type}') is missing required languages {missing_langs} in '{field_name}'.",
+                        path=[i, field_name]
+                    ))
+
     return semantic_errors
 
 
@@ -423,7 +432,8 @@ def _perform_semantic_validation(
 
 async def parse_and_validate_ai_response(
     raw_ai_output_text: str,
-    guild_id: int
+    guild_id: int,
+    session: "AsyncSession" # type: ignore
 ) -> Union[ParsedAiData, CustomValidationError]:
     parsed_json = _parse_json_from_text(raw_ai_output_text)
     if isinstance(parsed_json, CustomValidationError):
@@ -443,8 +453,9 @@ async def parse_and_validate_ai_response(
             message="Structural validation did not return the expected list of entities."
         )
 
-    semantic_errors = _perform_semantic_validation(validated_entities, guild_id)
+    semantic_errors = await _perform_semantic_validation(session, validated_entities, guild_id)
     if semantic_errors:
+        # For simplicity, returning the first error. Could be enhanced to return all.
         return semantic_errors[0]
 
     successful_data = ParsedAiData(

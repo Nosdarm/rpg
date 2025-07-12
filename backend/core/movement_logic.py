@@ -278,23 +278,19 @@ async def _find_location_by_identifier(
         return location
 
     # 2. Try to find by name (case-insensitive, language priority)
-    # Ensure identifier is in lowercase for case-insensitive comparison
     lower_identifier = identifier.lower()
 
     language_priority: list[str] = []
     if player_language:
         language_priority.append(player_language)
-    if guild_main_language and guild_main_language != player_language: # Avoid duplicate
+    if guild_main_language and guild_main_language != player_language:
         language_priority.append(guild_main_language)
-    if 'en' not in language_priority: # Add 'en' if not already included
+    if 'en' not in language_priority:
         language_priority.append('en')
 
     logger.debug(f"Searching for location by name '{identifier}' (normalized: '{lower_identifier}') for guild {guild_id} with language priority: {language_priority}")
 
     for lang in language_priority:
-        # Query for locations where name_i18n->>'lang' ILIKE identifier
-        # Using func.lower on the JSONB text value for case-insensitivity.
-        # The specific JSON access (->>) and functions depend on the DB backend (PostgreSQL assumed for JSONB).
         stmt = (
             select(Location)
             .where(
@@ -303,7 +299,6 @@ async def _find_location_by_identifier(
             )
         )
         results = await session.execute(stmt)
-        # Corrected: results.scalars().all() is not awaitable.
         found_locations = results.scalars().all()
 
         if found_locations:
@@ -316,10 +311,20 @@ async def _find_location_by_identifier(
                 logger.debug(f"Found location by name '{identifier}' (lang: {lang}) for guild {guild_id}: {found_locations[0].id}")
             return found_locations[0]
 
-    # TODO: Consider searching other keys in name_i18n if no match in priority languages, though this might be too broad.
-    # For now, if not found in priority languages, it's considered not found by name.
+    # Fallback: search all language keys in name_i18n if not found in priority languages
+    logger.debug(f"Location '{identifier}' not found in priority languages. Expanding search to all available languages in name_i18n.")
+    # This is a more complex query. We can iterate through all locations and check their name_i18n dict.
+    # This is less efficient but will work. A better solution might involve DB-specific JSON functions.
+    all_locations_in_guild = await location_crud.get_multi_by_guild(session, guild_id=guild_id, limit=10000) # Assuming a reasonable limit
+    for loc in all_locations_in_guild:
+        if isinstance(loc.name_i18n, dict):
+            for lang_key, name_val in loc.name_i18n.items():
+                if isinstance(name_val, str) and name_val.lower() == lower_identifier:
+                    logger.warning(f"Found location '{identifier}' by fallback search in lang '{lang_key}'. Location ID: {loc.id}. Consider adding this as a primary language name.")
+                    return loc
 
-    logger.debug(f"Location with identifier '{identifier}' not found for guild {guild_id} by static_id or prioritized names.")
+
+    logger.debug(f"Location with identifier '{identifier}' not found for guild {guild_id} by static_id or any name.")
     return None
 
 

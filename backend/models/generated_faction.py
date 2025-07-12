@@ -1,9 +1,10 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
 from .base import Base
+from ..core.database import JsonBForSQLite
 # Forward declaration for type hinting
 if TYPE_CHECKING:
 #     from .guild import GuildConfig # Not strictly needed if only using guild_id
@@ -20,16 +21,16 @@ class GeneratedFaction(Base):
 
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
-    ideology_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # e.g., {"en": "Seeks balance", "ru": "Ищет равновесие"}
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    ideology_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # e.g., {"en": "Seeks balance", "ru": "Ищет равновесие"}
 
     leader_npc_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("generated_npcs.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # leader_npc: Mapped[Optional["GeneratedNpc"]] = relationship() # Optional
 
-    resources_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    resources_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example:
     # {
     #   "wealth": 10000,
@@ -37,7 +38,7 @@ class GeneratedFaction(Base):
     #   "influence_points": 75
     # }
 
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example:
     # {
     #   "archetype": "shadowy cabal",

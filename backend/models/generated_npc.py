@@ -1,9 +1,10 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, JSON, Text
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
 from .base import Base
+from ..core.database import JsonBForSQLite
 from .enums import OwnerEntityType # Added for relationship
 from .inventory_item import InventoryItem # Ensure full import for relationship
 
@@ -26,17 +27,17 @@ class GeneratedNpc(Base):
 
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
 
     current_location_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
     )
     # current_location: Mapped[Optional["Location"]] = relationship() # Optional: if direct access to Location object needed
 
-    npc_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # e.g., {"en": "Merchant", "ru": "Торговец"}
+    npc_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # e.g., {"en": "Merchant", "ru": "Торговец"}
 
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example:
     # {
     #   "stats": {"strength": 10, "dexterity": 12, ...},
@@ -46,7 +47,7 @@ class GeneratedNpc(Base):
     #   "status": "idle"
     # }
 
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
     # Example:
     # {
     #   "prompt_used": "generate a grumpy merchant...",
