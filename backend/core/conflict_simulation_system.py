@@ -654,6 +654,7 @@ async def simulate_conflict_detection(
         logger.error(f"!!! CRITICAL ERROR in simulate_conflict_detection: {e_outer}", exc_info=True)
         return []
 
+from backend.models.location import Location
 async def check_for_conflict_on_location_entry(
     session: AsyncSession,
     guild_id: int,
