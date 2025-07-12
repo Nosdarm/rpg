@@ -61,23 +61,42 @@ async def on_enter_location(
             f"entered location '{loc_display_name}' (ID: {location_id})."
         )
 
-        # 1. Send location description (simulated by logging for now)
-        # In a real bot, this would use a messaging system to send to the relevant Discord channel/user.
-        # For example:
-        # from backend.bot.messaging import send_message_to_entity
-        # await send_message_to_entity(guild_id, entity_id, entity_type, f"**{loc_display_name}**\n{loc_description}")
-        logger.info(f"[ACTION REQUIRED] Send to {entity_type} {entity_id} (Guild: {guild_id}, Lang: {language_code}):\n**{loc_display_name}**\n{loc_description}")
+        # Messaging is handled by the bot layer, which will format and send the report.
+        # This core logic's job is to provide the necessary data.
+        # We can log the intent to send a message.
+        logger.info(f"Location description for {entity_type} {entity_id} (Guild: {guild_id}, Lang: {language_code}) prepared: {loc_display_name}")
 
-        # 2. Trigger encounters (placeholder)
-        # This would involve checking rules, location properties, entity states, etc.
-        # from .encounter_system import check_and_trigger_encounter
-        # await check_and_trigger_encounter(session, guild_id, entity_id, entity_type, location)
-        logger.info(f"Placeholder: Check for encounters in location {loc_display_name} (ID: {location_id}) for {entity_name}.")
+        # 2. Trigger encounters (integration)
+        from .conflict_simulation_system import check_for_conflict_on_location_entry
+        # This function should be designed to be called here.
+        # It will check location properties, rules, and entity states.
+        # It might return a conflict object or initiate combat directly.
+        await check_for_conflict_on_location_entry(
+            session=session,
+            guild_id=guild_id,
+            entering_entity_id=entity_id,
+            entering_entity_type=entity_type,
+            location=location
+        )
+        logger.info(f"Conflict check executed in location {loc_display_name} (ID: {location_id}) for {entity_name}.")
 
-        # 3. Trigger AI for dynamic details/events (placeholder)
-        # from .ai_orchestrator import trigger_location_event_generation
-        # await trigger_location_event_generation(session, guild_id, location_id, entity_id, entity_type)
-        logger.info(f"Placeholder: Trigger AI for dynamic details/events in {loc_display_name} (ID: {location_id}) for {entity_name}.")
+        # 3. Trigger AI for dynamic details/events (integration)
+        from .ai_orchestrator import trigger_dynamic_event_generation
+        from ..bot.core import get_bot_instance
+        # This function will check rules to see if AI should generate a dynamic event.
+        await trigger_dynamic_event_generation(
+            session=session,
+            guild_id=guild_id,
+            context={
+                "trigger_type": "location_entry",
+                "entity_id": entity_id,
+                "entity_type": entity_type,
+                "location_id": location_id,
+                "location_static_id": location.static_id
+            },
+            bot=get_bot_instance()
+        )
+        logger.info(f"Dynamic AI event generation triggered for location {loc_display_name} (ID: {location_id}) for {entity_name}.")
 
         # 4. Call quest system for 'LOCATION_ENTERED' event
         # This requires the StoryLog entry for the movement to have been committed.

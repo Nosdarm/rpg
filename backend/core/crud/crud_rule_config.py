@@ -1,6 +1,7 @@
+import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import RuleConfig # Adjusted import from ...models
@@ -35,11 +36,13 @@ class CRUDRuleConfig(CRUDBase[RuleConfig]):
         db_obj = await self.get_by_key(session, guild_id=guild_id, key=key)
         if db_obj:
             db_obj.value_json = value_json
-            # db_obj.updated_at = datetime.utcnow() # If TimestampMixin is used and needs manual update
+            db_obj.updated_at = datetime.datetime.utcnow() # Manually update timestamp
         else:
             db_obj = self.model(guild_id=guild_id, key=key, value_json=value_json)
             session.add(db_obj)
-        await session.commit()
+        # No need to commit here if using @transactional decorator on the caller
+        # await session.commit()
+        await session.flush()
         await session.refresh(db_obj)
         return db_obj
 
