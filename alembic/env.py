@@ -36,7 +36,7 @@ print(f"DEBUG: alembic/env.py: sys.path: {sys.path}")
 # --- End of added print statement ---
 
 from backend.config.settings import settings # Импортируем инстанс настроек Pydantic
-from backend.models import Base # Импортируем базовую модель из backend.models.__init__
+from backend.models.base import Base # Импортируем базовую модель из backend.models.base
 
 # --- Add this print statement ---
 print(f"DEBUG: alembic/env.py: settings.PROCESSED_DATABASE_URL from backend.config.settings: {settings.PROCESSED_DATABASE_URL}")

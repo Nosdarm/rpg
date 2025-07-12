@@ -1,7 +1,8 @@
 import logging
 import asyncio
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from backend.models.player import Player
 
 from backend.models.story_log import StoryLog
 from backend.models.location import Location
