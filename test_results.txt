@@ -1,9 +1,9 @@
 ============================= test session starts ==============================
-platform linux -- Python 3.12.11, pytest-8.4.1, pluggy-1.6.0 -- /home/jules/.pyenv/versions/3.12.11/bin/python
+platform linux -- Python 3.12.11, pytest-8.4.1, pluggy-1.6.0 -- /home/jules/.pyenv/versions/3.12.11/bin/python3.12
 cachedir: .pytest_cache
 rootdir: /app
 configfile: pytest.ini
-plugins: anyio-4.9.0, asyncio-1.0.0, mock-3.14.1
+plugins: asyncio-1.0.0, anyio-4.9.0, mock-3.14.1
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
 collecting ... collected 840 items / 5 errors
 
@@ -21,15 +21,9 @@ backend/bot/commands/party_commands.py:27: in PartyCog
 /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:687: in __init__
     self._params: Dict[str, CommandParameter] = _extract_parameters_from_callback(callback, callback.__globals__)
                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:383: in _extract_parameters_from_callback
-    param = annotation_to_parameter(resolved, parameter)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/transformers.py:835: in annotation_to_parameter
-    (inner, default, validate_default) = get_supported_annotation(annotation)
-                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/transformers.py:794: in get_supported_annotation
-    raise TypeError(f'unsupported type annotation {annotation!r}')
-E   TypeError: unsupported type annotation <class 'sqlalchemy.ext.asyncio.session.AsyncSession'>
+/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:380: in _extract_parameters_from_callback
+    raise TypeError(f'parameter {parameter.name!r} is missing a type annotation in callback {func.__qualname__!r}')
+E   TypeError: parameter 'session' is missing a type annotation in callback 'PartyCog.party_create'
 _____________ ERROR collecting tests/core/crud/test_crud_party.py ______________
 ImportError while importing test module '/app/tests/core/crud/test_crud_party.py'.
 Hint: make sure your test modules/packages have valid Python names.
@@ -87,10 +81,10 @@ E   ImportError: cannot import name 'JsonBForSQLite' from 'backend.models.custom
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
-ERROR tests/bot/commands/test_party_commands.py - TypeError: unsupported type...
+ERROR tests/bot/commands/test_party_commands.py - TypeError: parameter 'sessi...
 ERROR tests/core/crud/test_crud_party.py
 ERROR tests/core/crud/test_crud_player.py
 ERROR tests/core/test_world_generation.py
 ERROR tests/models/test_custom_types.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 5 errors during collection !!!!!!!!!!!!!!!!!!!!
-======================== 3 warnings, 5 errors in 3.79s =========================
+======================== 3 warnings, 5 errors in 8.41s =========================

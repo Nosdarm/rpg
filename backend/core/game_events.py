@@ -3,8 +3,9 @@ import asyncio
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.story_log import StoryLog # Moved out of TYPE_CHECKING
+from backend.models.story_log import StoryLog
 from backend.models.location import Location
+from .event_logger import log_event
 
 if TYPE_CHECKING:
     pass # StoryLog is now imported globally, or could remain here for explicit type hinting if preferred
