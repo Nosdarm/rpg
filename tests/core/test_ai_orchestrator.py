@@ -15,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext import commands
 
-from backend.core.ai_orchestrator import save_approved_generation
+from backend.core.ai_orchestrator import save_approved_generation, handle_dynamic_event
 from backend.models import (
     PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship
 )

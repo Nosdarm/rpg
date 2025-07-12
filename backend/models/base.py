@@ -8,6 +8,8 @@ class Base(AsyncAttrs, DeclarativeBase):
     """
     pass
 
+target_metadata = Base.metadata
+
 # Здесь можно будет добавить общие столбцы или методы для всех моделей, если потребуется.
 # Например:
 # from sqlalchemy import Column, DateTime, func
