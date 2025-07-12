@@ -38,7 +38,7 @@ from .rules import get_rule
 from .check_resolver import resolve_check, CheckError
 from .combat_cycle_manager import start_combat
 from .quest_system import handle_player_event_for_quest
-from .game_events import log_event
+from .utils import log_event
 
 logger = logging.getLogger(__name__)
 

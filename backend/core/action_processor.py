@@ -23,7 +23,7 @@ from .party_utils import get_party # Generic get by PK
 # from .quest_module import handle_quest_event_internal
 # from .interaction_module import handle_intra_location_interaction_internal
 from .interaction_handlers import handle_intra_location_action
-from .game_events import log_event
+from .utils import log_event
 from ..bot.utils import notify_master # Utility to notify master
 from .combat_cycle_manager import start_combat, process_combat_turn # Added process_combat_turn
 from .combat_engine import process_combat_action as engine_process_combat_action # Alias to avoid confusion

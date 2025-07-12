@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.crud import crud_relationship
-from backend.core.crud_base_definitions import get_entity_by_id_and_type_str
+from backend.core.utils import get_entity_by_id_and_type_str
 from backend.core.dice_roller import roll_dice
 from backend.core.rules import get_rule
 from backend.models import GeneratedNpc, Player, Relationship

@@ -1,9 +1,8 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional, Dict, Any
 
 from .base import Base
-from .custom_types import JsonBForSQLite
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -31,8 +30,8 @@ class PartyNpcMemory(Base):
 
     event_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
 
-    memory_details_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
-    memory_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    memory_details_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    memory_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
 
     timestamp: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True

@@ -1,12 +1,11 @@
 import enum
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Enum as SQLAlchemyEnum
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Enum as SQLAlchemyEnum, JSON
 # JSONB import is removed as we use custom type
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, List, Any, Union, TYPE_CHECKING # Added TYPE_CHECKING
 
 from .base import Base
-from .custom_types import JsonBForSQLite # Import custom type
 
 if TYPE_CHECKING:
     from .guild import GuildConfig # GuildConfig will be referenced by ForeignKey as string 'guild_configs.id'
@@ -50,17 +49,17 @@ class Location(Base):
     )
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
-    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Reverted to plural
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    descriptions_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Reverted to plural
 
     type: Mapped[LocationType] = mapped_column(SQLAlchemyEnum(LocationType), nullable=False, default=LocationType.GENERIC)
 
-    coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+    coordinates_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     # Updated to allow either List or Dict for older format compatibility
-    neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JsonBForSQLite, nullable=True)
-    generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+    neighbor_locations_json: Mapped[Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]] = mapped_column(JSON, nullable=True)
+    generated_details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # Hierarchical relationships
     parent_location: Mapped[Optional["Location"]] = relationship(

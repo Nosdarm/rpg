@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint, Index, DateTime
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint, Index, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy import Enum as SQLAlchemyEnum, Boolean, CheckConstraint # Added CheckConstraint
@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Optional, Dict, Any, List
 
 from .base import Base, TimestampMixin # Added TimestampMixin
 from .enums import RelationshipEntityType, QuestStatus # Assuming QuestStatus is in enums
-from .custom_types import JsonBForSQLite # Added
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
@@ -20,13 +19,13 @@ class Questline(Base, TimestampMixin): # Added TimestampMixin
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=False, index=True)
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    title_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Renamed from name_i18n
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
+    title_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Renamed from name_i18n
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
 
     starting_quest_static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_main_storyline: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     required_previous_questline_static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
 
     quests: Mapped[List["GeneratedQuest"]] = relationship(back_populates="questline")
     __table_args__ = (UniqueConstraint("guild_id", "static_id", name="uq_questline_guild_static_id"),)
@@ -38,17 +37,17 @@ class GeneratedQuest(Base, TimestampMixin): # Added TimestampMixin
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     guild_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), nullable=False, index=True)
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True) # Unique within guild
-    title_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
+    title_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
     questline_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("questlines.id", ondelete="SET NULL"), nullable=True, index=True)
     questline: Mapped[Optional["Questline"]] = relationship(back_populates="quests") # Optional
     giver_entity_type: Mapped[Optional[RelationshipEntityType]] = mapped_column(SQLAlchemyEnum(RelationshipEntityType, name="relationship_entity_type_enum", create_type=False), nullable=True)
     giver_entity_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     min_level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # Renamed from required_level
     is_repeatable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    rewards_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Added (ai_metadata_json can be part of this or separate if needed)
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    rewards_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Added (ai_metadata_json can be part of this or separate if needed)
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
     steps: Mapped[List["QuestStep"]] = relationship(back_populates="quest", order_by="QuestStep.step_order", cascade="all, delete-orphan")
     player_progress: Mapped[List["PlayerQuestProgress"]] = relationship(back_populates="quest", cascade="all, delete-orphan")
     __table_args__ = (
@@ -64,13 +63,13 @@ class QuestStep(Base, TimestampMixin): # Added TimestampMixin
     quest_id: Mapped[int] = mapped_column(Integer, ForeignKey("generated_quests.id", ondelete="CASCADE"), nullable=False, index=True)
     quest: Mapped["GeneratedQuest"] = relationship(back_populates="steps") # Optional
     step_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    title_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
-    required_mechanics_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
-    abstract_goal_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
-    consequences_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    title_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
+    required_mechanics_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
+    abstract_goal_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
+    consequences_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
     next_step_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     __table_args__ = (UniqueConstraint("quest_id", "step_order", name="uq_quest_step_order"),)
     def __repr__(self) -> str:
         return f"<QuestStep(id={self.id}, quest_id={self.quest_id}, order={self.step_order})>"
@@ -89,7 +88,7 @@ class PlayerQuestProgress(Base, TimestampMixin): # Added TimestampMixin
     current_step_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("quest_steps.id", ondelete="SET NULL"), nullable=True, index=True)
     current_step: Mapped[Optional["QuestStep"]] = relationship()
     status: Mapped[QuestStatus] = mapped_column(SQLAlchemyEnum(QuestStatus, name="quest_status_enum", create_type=False), nullable=False, default=QuestStatus.NOT_STARTED, index=True)
-    progress_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    progress_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
 
     accepted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)

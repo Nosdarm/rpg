@@ -1,13 +1,86 @@
 import logging
 import asyncio
 from typing import Optional, TYPE_CHECKING
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.story_log import StoryLog # Moved out of TYPE_CHECKING
+from backend.models.location import Location
 
 if TYPE_CHECKING:
     pass # StoryLog is now imported globally, or could remain here for explicit type hinting if preferred
 
 logger = logging.getLogger(__name__)
+
+async def check_for_conflict_on_location_entry(
+    session: AsyncSession,
+    guild_id: int,
+    entering_entity_id: int,
+    entering_entity_type: str, # "player" or "party"
+    location: "Location" # Forward ref from models
+) -> None:
+    """
+    Checks for potential conflicts when an entity enters a location.
+    This could be based on factions, hostile NPCs, or location state.
+    """
+    from .crud import npc_crud, player_crud, party_crud, relationship_crud
+    from .combat_cycle_manager import start_combat
+    from ..models import Relationship
+
+    logger.info(f"Checking for conflicts upon {entering_entity_type} ID {entering_entity_id} entering location {location.id} (Guild: {guild_id})")
+
+    # 1. Get all entities present in the location
+    # For now, we only check for hostile NPCs.
+    # In the future, this could include other players, parties, etc.
+    npcs_in_location = await npc_crud.get_multi_by_location(session, guild_id=guild_id, location_id=location.id)
+
+    # 2. Determine who the entering entities are
+    entering_players: List[Player] = []
+    if entering_entity_type == "player":
+        player = await player_crud.get(session, id=entering_entity_id)
+        if player:
+            entering_players.append(player)
+    elif entering_entity_type == "party":
+        party = await party_crud.get(session, id=entering_entity_id)
+        if party and party.player_ids_json:
+            entering_players = await player_crud.get_multi_by_ids(session, ids=party.player_ids_json)
+
+    if not entering_players:
+        logger.warning(f"Could not resolve entering players for {entering_entity_type} ID {entering_entity_id}. Aborting conflict check.")
+        return
+
+    # 3. Check for hostile relationships
+    # This is a simplified check. A more complex system might involve perception checks.
+    hostile_npcs = []
+    for npc in npcs_in_location:
+        is_hostile = False
+        # Check NPC's faction relationship with each player's faction(s)
+        # Check personal NPC-to-player relationship
+        # For simplicity, we'll assume a basic "hostile" property on the NPC for now.
+        npc_properties = npc.properties_json or {}
+        if npc_properties.get("disposition") == "hostile_on_sight":
+            is_hostile = True
+
+        if is_hostile:
+            hostile_npcs.append(npc)
+
+    # 4. If hostile NPCs are found, initiate combat
+    if hostile_npcs:
+        logger.info(f"Conflict detected! {len(entering_players)} player(s) encountered {len(hostile_npcs)} hostile NPCs in location {location.id}.")
+
+        # The combat system needs a list of all participants
+        # The combat system should be able to handle Player and GeneratedNpc objects
+        combat_participants = entering_players + hostile_npcs
+
+        # The combat system needs to know who initiated, if anyone. Can be None for ambient conflict.
+        # It also needs the location_id to create the CombatEncounter.
+        await start_combat(
+            session=session,
+            guild_id=guild_id,
+            location_id=location.id,
+            initiating_player_id=entering_players[0].id, # Designate the first player as initiator for now
+            participant_entities=combat_participants
+        )
+        logger.info(f"Combat initiated in location {location.id} for guild {guild_id}.")
 
 async def on_enter_location(
     guild_id: int,
@@ -67,10 +140,6 @@ async def on_enter_location(
         logger.info(f"Location description for {entity_type} {entity_id} (Guild: {guild_id}, Lang: {language_code}) prepared: {loc_display_name}")
 
         # 2. Trigger encounters (integration)
-        from .conflict_simulation_system import check_for_conflict_on_location_entry
-        # This function should be designed to be called here.
-        # It will check location properties, rules, and entity states.
-        # It might return a conflict object or initiate combat directly.
         await check_for_conflict_on_location_entry(
             session=session,
             guild_id=guild_id,
@@ -169,87 +238,3 @@ async def on_enter_location(
         else:
             logger.warning(f"Unknown entity_type '{entity_type}' in on_enter_location for quest system notification.")
 
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-# logger = logging.getLogger(__name__) # Logger already initialized at the top of the file
-
-# The second definition of on_enter_location was here and has been removed.
-
-async def log_event(
-    session: AsyncSession,
-    guild_id: int,
-    event_type: str, # This should be a string key of EventType enum, e.g., "PLAYER_ACTION"
-    details_json: dict,
-    player_id: Optional[int] = None, # Retained for placeholder info, not directly on StoryLog model
-    party_id: Optional[int] = None,  # Retained for placeholder info, not directly on StoryLog model
-    location_id: Optional[int] = None,
-    entity_ids_json: Optional[dict] = None,
-    dry_run: bool = False,
-) -> Optional["StoryLog"]: # Modified to return StoryLog or None
-    """
-    Logs a game event to the StoryLog and returns the created entry.
-    If dry_run is True, it simulates logging and returns a mock-like StoryLog without DB interaction.
-    The event_type should match a key in the EventType enum.
-    The caller is responsible for session management (commit/rollback).
-    """
-    logger.info(
-        f"Attempting to log event. Guild: {guild_id}, EventType: {event_type}, Player: {player_id}, Party: {party_id}, Location: {location_id}"
-    )
-
-    from backend.models.enums import EventType
-
-    try:
-        event_type_enum_member = EventType[event_type.upper()]
-    except KeyError:
-        logger.error(f"Invalid event_type string: {event_type}. Cannot log event for guild {guild_id}.")
-        return None
-
-    final_entity_ids: dict = entity_ids_json.copy() if entity_ids_json is not None else {}
-    if player_id is not None:
-        final_entity_ids.setdefault("players", []).append(player_id)
-        final_entity_ids["players"] = list(set(final_entity_ids["players"]))
-    if party_id is not None:
-        final_entity_ids.setdefault("parties", []).append(party_id)
-        final_entity_ids["parties"] = list(set(final_entity_ids["parties"]))
-
-    log_entry = StoryLog(
-        guild_id=guild_id,
-        event_type=event_type_enum_member,
-        details_json=details_json,
-        location_id=location_id,
-        entity_ids_json=final_entity_ids if final_entity_ids else None,
-    )
-
-    if dry_run:
-        logger.info(f"Dry run: StoryLog event '{event_type}' for guild {guild_id} would be created with details: {details_json}")
-        # Simulate a StoryLog object without saving to DB.
-        # Some fields like id, created_at, updated_at won't be populated as they are DB-generated.
-        # This mock StoryLog is primarily for functions that might expect a StoryLog object
-        # in a dry_run scenario, though its utility might be limited without DB state.
-        mock_log_entry = StoryLog(
-            id=0, # Placeholder ID for dry run
-            guild_id=guild_id,
-            event_type=event_type_enum_member,
-            details_json=details_json,
-            location_id=location_id,
-            entity_ids_json=final_entity_ids if final_entity_ids else None
-        )
-        # Timestamps could be faked if necessary:
-        # from datetime import datetime, timezone
-        # now = datetime.now(timezone.utc)
-        # mock_log_entry.created_at = now
-        # mock_log_entry.updated_at = now
-        return mock_log_entry
-
-    session.add(log_entry)
-    try:
-        await session.flush() # Flush to get the ID and other server-set defaults like timestamp
-        await session.refresh(log_entry) # Refresh to load all attributes
-        logger.debug(f"StoryLog entry (ID: {log_entry.id}) added and flushed for guild {guild_id}, event: {event_type}")
-        return log_entry
-    except Exception as e:
-        logger.error(f"Error flushing/refreshing StoryLog entry for guild {guild_id}, event {event_type}: {e}", exc_info=True)
-        # Depending on policy, might want to await session.rollback() here or let caller handle.
-        # For now, just return None as the entry wasn't successfully prepared.
-        return None

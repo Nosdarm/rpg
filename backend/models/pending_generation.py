@@ -1,11 +1,10 @@
 import datetime
 from typing import Optional, Dict, Any
-from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, func
+from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import Base
-from ..core.database import JsonBForSQLite
 from .enums import ModerationStatus # Assuming ModerationStatus is now in enums
 
 class PendingGeneration(Base):
@@ -19,15 +18,15 @@ class PendingGeneration(Base):
     # triggered_by_event_type: Mapped[Optional[str]] # If triggered by a system event
 
     # Context for the trigger
-    trigger_context_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
+    trigger_context_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     # AI Prompt and Response
     ai_prompt_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     raw_ai_response_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Parsed and Validated Data (if successful)
-    parsed_validated_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True)
-    validation_issues_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True) # If validation failed
+    parsed_validated_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    validation_issues_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True) # If validation failed
 
     # Moderation
     status: Mapped[ModerationStatus] = mapped_column(String, default=ModerationStatus.PENDING_MODERATION, index=True) # Using String to store enum value

@@ -7,7 +7,7 @@ from backend.core.crud.crud_player import player_crud
 from backend.core.crud.crud_location import location_crud
 from backend.core.rules import get_rule
 from backend.core.check_resolver import resolve_check, CheckResult
-from backend.core.game_events import log_event # Placeholder
+from backend.core.utils import log_event
 from backend.models import Player, Location
 from backend.models.actions import ActionEntity # For action_data structure if defined
 from backend.models.enums import EventType # Added EventType import

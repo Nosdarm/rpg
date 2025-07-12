@@ -15,7 +15,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from .base import Base
-from .custom_types import JsonBForSQLite # Added
 from .enums import StatusEffectCategory # Import the actual enum
 
 if TYPE_CHECKING:
@@ -31,13 +30,13 @@ class StatusEffect(Base):
     )
     static_id: Mapped[str] = mapped_column(Text, index=True, nullable=False)
     name_i18n: Mapped[Dict[str, str]] = mapped_column(
-        JsonBForSQLite, nullable=False, default=dict
+        JSON, nullable=False, default=dict
     )
     description_i18n: Mapped[Dict[str, str]] = mapped_column(
-        JsonBForSQLite, nullable=False, default=dict
+        JSON, nullable=False, default=dict
     )
     properties_json: Mapped[Dict[str, Any]] = mapped_column(
-        JsonBForSQLite, nullable=False, default=dict
+        JSON, nullable=False, default=dict
     )  # e.g. {"modifiers": {"strength": -1}, "duration_turns": 5, "tick_effects": ["deal_damage_1d4_fire"]}
 
     category: Mapped[StatusEffectCategory] = mapped_column(
@@ -78,7 +77,7 @@ class ActiveStatusEffect(Base):
     source_entity_id: Mapped[Optional[int]] = mapped_column(Integer, index=True, nullable=True) # ID of the entity (Player, NPC) that caused this status
     source_entity_type: Mapped[Optional[str]] = mapped_column(Text, index=True, nullable=True) # "player", "npc" - type of the source entity
     custom_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JsonBForSQLite, nullable=True
+        JSON, nullable=True
     ) # For overriding or adding properties to this specific instance
 
     # Relationships

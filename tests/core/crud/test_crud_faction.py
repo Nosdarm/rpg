@@ -15,15 +15,7 @@ from backend.models.base import Base
 from backend.models.guild import GuildConfig
 from backend.models.generated_faction import GeneratedFaction
 from backend.core.crud.crud_faction import crud_faction
-from backend.models.custom_types import JsonBForSQLite
-
-# Event listeners for SQLite compatibility for GeneratedFaction JSON fields
-@event.listens_for(GeneratedFaction.__table__, "column_reflect")
-def _generated_faction_column_reflect_crud(inspector, table, column_info):
-    json_fields = ['name_i18n', 'description_i18n', 'ideology_i18n', 'resources_json', 'ai_metadata_json']
-    if column_info['name'] in json_fields:
-        if not isinstance(column_info['type'], JsonBForSQLite):
-            column_info['type'] = JsonBForSQLite()
+from sqlalchemy import JSON
 
 
 class TestCRUDFaction(unittest.IsolatedAsyncioTestCase):

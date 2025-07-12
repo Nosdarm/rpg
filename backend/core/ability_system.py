@@ -23,7 +23,7 @@ from backend.core.crud.crud_ability import ability_crud
 from backend.core.crud.crud_status_effect import status_effect_crud
 from backend.core.crud.crud_player import player_crud
 from backend.core.crud.crud_npc import npc_crud
-from backend.core.game_events import log_event
+from backend.core.utils import log_event
 from backend.core.rules import get_rule
 from backend.core.entity_stats_utils import get_entity_hp, set_entity_hp, change_entity_hp, get_entity_stat, set_entity_stat, change_entity_stat # Added
 from sqlalchemy.sql import func # Added

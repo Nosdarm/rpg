@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, UniqueConstraint, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Удалено
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any
 from .base import Base
 from .enums import OwnerEntityType
 from .item import Item
-from .custom_types import JsonBForSQLite # Добавлено
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -48,7 +47,7 @@ class InventoryItem(Base):
     # NULL if not equipped. Application logic ensures only equippable items can have non-null status.
 
     instance_specific_properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JsonBForSQLite, nullable=True, default=lambda: {} # Заменено на JsonBForSQLite
+        JSON, nullable=True, default=lambda: {}
     )
     # Example:
     # {"durability": 95, "custom_name": "Bob's Sword of Slaying", "bound_to_player": 123}

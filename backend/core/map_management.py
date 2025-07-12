@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from backend.core.crud.crud_location import location_crud
-from backend.core.game_events import log_event
+from backend.core.utils import log_event
 from backend.core.world_generation import update_location_neighbors # Импортируем вспомогательную функцию
 from backend.models import Location
 from backend.models.enums import EventType

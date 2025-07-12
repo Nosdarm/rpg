@@ -16,7 +16,7 @@ from backend.core.crud.crud_inventory_item import inventory_item_crud
 from backend.core.crud.crud_relationship import crud_relationship # Для чтения отношений
 from .relationship_system import update_relationship # Task 36 - для изменения отношений
 from backend.core.rules import get_rule
-from backend.core.game_events import log_event
+from backend.core.utils import log_event
 from backend.core.database import transactional
 from backend.core.localization_utils import get_localized_text
 from backend.models.enums import RelationshipEntityType, EventType, OwnerEntityType # Corrected import

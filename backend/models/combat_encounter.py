@@ -5,7 +5,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import Base, TimestampMixin # Import TimestampMixin
 from .enums import CombatStatus
-from .custom_types import JsonBForSQLite # Import the custom type
+from sqlalchemy import JSON
+from .enums import CombatStatus
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
@@ -31,16 +32,16 @@ class CombatEncounter(Base, TimestampMixin): # Inherit from TimestampMixin
     current_turn_entity_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # E.g., "player", "npc", "party"
 
     # JSONB fields for flexible data storage
-    turn_order_json: Mapped[Optional[dict]] = mapped_column(JsonBForSQLite, nullable=True) # E.g., {"order": [{"id": 123, "type": "player"}, {"id": 45, "type": "npc"}], "current_index": 0}
-    rules_config_snapshot_json: Mapped[Optional[dict]] = mapped_column(JsonBForSQLite, nullable=True) # Snapshot of RuleConfig relevant to this combat
+    turn_order_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True) # E.g., {"order": [{"id": 123, "type": "player"}, {"id": 45, "type": "npc"}], "current_index": 0}
+    rules_config_snapshot_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True) # Snapshot of RuleConfig relevant to this combat
 
     # participants_json: Could store a list of participant details.
     # E.g., {"entities": [{"id": 123, "type": "player", "team": "A", "initial_hp": 100, "current_hp": 80, "status_effects": []}, ...]}
-    participants_json: Mapped[Optional[dict]] = mapped_column(JsonBForSQLite, nullable=True)
+    participants_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # combat_log_json: Could store a chronological log of actions and events specific to this combat.
     # E.g., {"entries": [{"turn": 1, "actor_id": 123, "action": "attack", "target_id": 45, "damage": 10, "timestamp": "..."}]}
-    combat_log_json: Mapped[Optional[dict]] = mapped_column(JsonBForSQLite, nullable=True)
+    combat_log_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Relationships
     guild: Mapped["GuildConfig"] = relationship(back_populates="combat_encounters")

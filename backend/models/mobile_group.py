@@ -1,11 +1,10 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, String # Added String
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
 from .base import Base, TimestampMixin # Added TimestampMixin
-from .custom_types import JsonBForSQLite # Added
 
 # Forward declaration for type hinting
 if TYPE_CHECKING:
@@ -25,9 +24,9 @@ class MobileGroup(Base, TimestampMixin): # Inherit from TimestampMixin
         BigInteger, ForeignKey("guild_configs.id", ondelete="CASCADE"), index=True
     )
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
 
-    description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True) # Added
+    description_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True) # Added
 
     current_location_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
@@ -37,13 +36,13 @@ class MobileGroup(Base, TimestampMixin): # Inherit from TimestampMixin
         Integer, ForeignKey("global_npcs.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
-    members_definition_json: Mapped[List[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: []) # Renamed members_json
+    members_definition_json: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, nullable=False, default=lambda: []) # Renamed members_json
 
-    behavior_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
-    route_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
-    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    behavior_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    route_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
+    ai_metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
 
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Added
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Added
 
     # Relationships
     guild_config: Mapped["GuildConfig"] = relationship(back_populates="mobile_groups")

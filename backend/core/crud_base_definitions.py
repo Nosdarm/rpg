@@ -396,39 +396,6 @@ async def delete_entity(session: AsyncSession, model: Type[ModelType], entity_id
 #     if retrieved_rule:
 #         await delete_entity(session, RuleConfig, entity_id=retrieved_rule.id, guild_id=12345)
 
-async def get_entity_by_id_and_type_str(
-    session: AsyncSession,
-    *,
-    entity_type_str: str,
-    entity_id: Any,
-    guild_id: Optional[int] = None
-) -> Optional[Base]: # FIX: Changed return type to Optional[Base]
-    """
-    Generic function to get an entity by its ID and string type.
-    Maps entity_type_str to a SQLAlchemy model class.
-    """
-    from ..models.player import Player # Local import to avoid circular dependencies at module level
-    from ..models.generated_npc import GeneratedNpc
-    # Add other models as they become relevant for being actors/targets in checks
-    # from ..models.location import Location
-    # from ..models.item import Item
-
-    model_map: Dict[str, Type[Base]] = { # FIX: Changed Type[ModelType] to Type[Base]
-        "PLAYER": Player,
-        "NPC": GeneratedNpc,
-        # "LOCATION": Location,
-        # "ITEM": Item,
-    }
-
-    model_class = model_map.get(entity_type_str.upper())
-
-    if not model_class:
-        logger.warning(f"Unsupported entity type string '{entity_type_str}' for get_entity_by_id_and_type_str.")
-        return None
-
-    return await get_entity_by_id(session, model_class, entity_id, guild_id=guild_id)
-
-
 logger.info("CRUDBase and generic CRUD functions (create_entity, get_entity_by_id, update_entity, delete_entity, get_entity_by_id_and_type_str) defined.")
 
 # Create src/core/__init__.py if it doesn't exist

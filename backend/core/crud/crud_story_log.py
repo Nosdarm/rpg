@@ -5,7 +5,6 @@ from sqlalchemy.sql.expression import func
 
 from backend.core.crud_base_definitions import CRUDBase
 from backend.models import StoryLog, EventType # Assuming EventType is available for filtering
-from backend.models.custom_types import JsonBForSQLite # If filtering by JSON fields
 
 # For type hinting if using specific JSON structures for entity_ids_json
 from backend.models.enums import RelationshipEntityType

@@ -64,7 +64,7 @@ class MasterSimulationToolsCog(commands.Cog, name="Master Simulation Tools"): # 
             return
 
         from backend.core.check_resolver import resolve_check, CheckError
-        from backend.core.crud_base_definitions import get_entity_by_id_and_type_str
+        from backend.core.utils import get_entity_by_id_and_type_str
         from backend.models.enums import RelationshipEntityType
         import json # For parsing json_context
 

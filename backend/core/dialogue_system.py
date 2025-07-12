@@ -14,7 +14,7 @@ from ..models import Player, GeneratedNpc # Добавлено для start_dial
 from ..models.enums import PlayerStatus, EventType # Добавлено для start_dialogue
 from .crud.crud_player import player_crud # Добавлено для start_dialogue
 from .crud.crud_npc import npc_crud # Добавлено для start_dialogue
-from .game_events import log_event # Добавлено для start_dialogue
+from .utils import log_event
 
 
 logger = logging.getLogger(__name__)

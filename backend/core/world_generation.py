@@ -6,8 +6,7 @@ import random # For quantity generation
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, \
-    _mock_openai_api_call # Используем мок для AI
+from backend.core.ai_orchestrator import save_approved_generation, _mock_openai_api_call
 from backend.core.ai_prompt_builder import (
     prepare_ai_prompt,
     prepare_faction_relationship_generation_prompt,
@@ -26,7 +25,7 @@ from backend.core.crud.crud_quest import generated_quest_crud, quest_step_crud, 
 from backend.core.crud.crud_item import item_crud # Added for Task 43
 from backend.core.crud.crud_npc import npc_crud # Added for Task 43
 from backend.core.crud.crud_inventory_item import inventory_item_crud # Added for Task 43
-from backend.core.game_events import log_event
+from backend.core.utils import log_event
 from backend.models import ( # Grouped imports
     Location, GeneratedFaction, Relationship, Item, GeneratedNpc, InventoryItem
 )

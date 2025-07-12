@@ -10,7 +10,8 @@ from sqlalchemy import func # Added for func.lower
 from .database import transactional, get_db_session
 from .crud import player_crud, party_crud, location_crud
 from ..models import Player, Party, Location
-from .game_events import on_enter_location, log_event
+from .game_events import on_enter_location
+from .utils import log_event
 from .rules import get_rule # Now used for guild_main_language as well
 
 logger = logging.getLogger(__name__)

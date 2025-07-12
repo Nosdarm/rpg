@@ -14,7 +14,6 @@ import openai # Moved to top
 from .database import transactional
 # Corrected import path for generic CRUD functions
 from .crud_base_definitions import create_entity, get_entity_by_id, update_entity
-from .ai_prompt_builder import prepare_ai_prompt
 from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedRelationshipData, ParsedNpcTraderData # Ensure ParsedNpcTraderData is here
 from discord.ext import commands # For bot instance type hint
 from ..bot.utils import notify_master # Import the new utility

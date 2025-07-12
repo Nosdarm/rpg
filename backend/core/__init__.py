@@ -20,7 +20,7 @@ from .localization_utils import (
 from .locations_utils import get_location_by_static_id # Other location utils might be more specific
 from .player_utils import get_player
 from .party_utils import get_party
-from .game_events import log_event
+from .utils import log_event
 from .report_formatter import format_turn_report
 # Removed: from .command_utils import process_json_input # General utility
 from .security import ( # Added for Task 56 (UI Auth JWT)
@@ -44,7 +44,7 @@ from .ai_prompt_builder import (
     prepare_dialogue_generation_prompt # Added for Task 50
 )
 from .ai_response_parser import parse_and_validate_ai_response, CustomValidationError, ParsedAiData
-from .ai_orchestrator import trigger_ai_generation_flow, save_approved_generation, _mock_openai_api_call, make_real_ai_call
+from .ai_orchestrator import save_approved_generation, _mock_openai_api_call, make_real_ai_call
 from .ai_analysis_system import analyze_generated_content # For Task 48 (Master Tools)
 
 # --- Game Mechanics Systems ---

@@ -1,11 +1,10 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy.schema import Index, UniqueConstraint
 from typing import Optional, Dict, Any
 
 from .base import Base
-from .custom_types import JsonBForSQLite # Added
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -23,12 +22,12 @@ class Skill(Base):
 
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {}) # Changed
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {}) # Changed
 
-    related_attribute_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    related_attribute_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
 
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
 
     __table_args__ = (
         UniqueConstraint('guild_id', 'static_id', name='uq_skill_guild_static_id'),

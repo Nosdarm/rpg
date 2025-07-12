@@ -1,10 +1,9 @@
 from typing import TYPE_CHECKING, Dict, Any, List, Optional # Added List and Optional
-from sqlalchemy import BigInteger, ForeignKey, Text, UniqueConstraint # Removed Integer
+from sqlalchemy import BigInteger, ForeignKey, Text, UniqueConstraint, JSON
 # from sqlalchemy.dialects.postgresql import JSONB # Removed direct JSONB import
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .custom_types import JsonBForSQLite # Import custom type
 
 if TYPE_CHECKING:
     from .guild import GuildConfig
@@ -22,9 +21,9 @@ class Ability(Base):
     static_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     type: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Added type field
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
-    properties_json: Mapped[Dict[str, Any]] = mapped_column(JsonBForSQLite, nullable=False, server_default='{}')
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     # Example for properties_json:
     # {
     #   "cost": {"resource": "mana", "amount": 10},

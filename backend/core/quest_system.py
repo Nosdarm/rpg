@@ -9,7 +9,7 @@ from backend.models import StoryLog
 from backend.models.quest import PlayerQuestProgress, QuestStatus, GeneratedQuest, QuestStep
 from backend.models.enums import EventType, RelationshipEntityType # Added RelationshipEntityType
 from backend.core.rules import get_rule
-from backend.core.game_events import log_event as core_log_event
+from backend.core.utils import log_event as core_log_event
 
 # For LLM call (conceptual)
 # from backend.core.ai_prompt_builder import prepare_quest_goal_evaluation_prompt

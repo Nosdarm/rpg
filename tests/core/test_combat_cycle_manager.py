@@ -15,7 +15,7 @@ from backend.models import Player, GeneratedNpc, CombatEncounter, Party
 from backend.models.enums import CombatStatus, PlayerStatus, PartyTurnStatus, EventType
 from backend.core.rules import get_rule # For mocking
 from backend.core.dice_roller import roll_dice # For mocking
-from backend.core.game_events import log_event # For mocking
+from backend.core.utils import log_event
 from backend.core.npc_combat_strategy import get_npc_combat_action
 from backend.core.combat_engine import process_combat_action as engine_process_combat_action
 from backend.models.combat_outcomes import CombatActionResult # Added import
@@ -94,7 +94,7 @@ def mock_player_entity_2() -> Player: # Another player for multi-player scenario
 @pytest.mark.asyncio
 @patch('backend.core.rules.get_rule')
 @patch('backend.core.dice_roller.roll_dice')
-@patch('backend.core.game_events.log_event')
+@patch('backend.core.utils.log_event')
 async def test_start_combat_successful_creation(
     mock_log_event: AsyncMock,
     mock_roll_dice: MagicMock,

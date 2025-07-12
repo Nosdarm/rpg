@@ -1,10 +1,9 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Numeric
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, Numeric, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.schema import Index
 from typing import Optional, Dict, Any
 
 from .base import Base
-from ..core.database import JsonBForSQLite
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
 # if TYPE_CHECKING:
@@ -21,18 +20,18 @@ class Item(Base):
 
     static_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True) # Unique within a guild
 
-    name_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
-    description_i18n: Mapped[Dict[str, str]] = mapped_column(JsonBForSQLite, nullable=False, default=lambda: {})
+    name_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
+    description_i18n: Mapped[Dict[str, str]] = mapped_column(JSON, nullable=False, default=lambda: {})
 
-    item_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    item_type_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     # e.g., {"en": "Weapon", "ru": "Оружие"}, {"en": "Potion", "ru": "Зелье"}
 
-    item_category_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    item_category_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     # e.g. {"en": "One-Handed Sword", "ru": "Одноручный меч"}, {"en": "Healing Potion", "ru": "Лечебное зелье"}
 
     base_value: Mapped[Optional[int]] = mapped_column(Integer, nullable=True) # Using Integer for simplicity, Numeric if decimals needed
 
-    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    properties_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     # Example:
     # For a weapon: {"damage": "1d6", "damage_type": "slashing", "weight": 5, "requires_strength": 12}
     # For a potion: {"effect": "heal", "amount": "2d4+2", "duration_seconds": 0}

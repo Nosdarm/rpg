@@ -1,10 +1,9 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from typing import Optional, Dict, Any
 
 from .base import Base
-from .custom_types import JsonBForSQLite # Added
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
@@ -32,8 +31,8 @@ class PlayerNpcMemory(Base):
 
     event_type: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
 
-    memory_details_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
-    memory_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {}) # Changed
+    memory_details_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
+    memory_data_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {}) # Changed
 
 
     timestamp: Mapped[DateTime] = mapped_column(

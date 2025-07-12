@@ -7,7 +7,7 @@ from ..models.relationship import Relationship # Assuming Relationship model is 
 from ..models.enums import RelationshipEntityType, EventType # Assuming enums are in src/models/enums.py
 from .crud.crud_relationship import crud_relationship # Assuming crud_relationship is in src/core/crud/
 from .rules import get_rule # Assuming get_rule is in src/core/rules.py
-from .game_events import log_event # Assuming log_event is in src/core/game_events.py
+from .utils import log_event
 from ..models import GuildConfig, Player, GeneratedNpc, GeneratedFaction # For type hinting if needed for entity_doing_id etc.
 
 logger = logging.getLogger(__name__)

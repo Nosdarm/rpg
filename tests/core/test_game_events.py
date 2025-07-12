@@ -10,7 +10,7 @@ if PROJECT_ROOT not in sys.path:
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.game_events import log_event
+from backend.core.utils import log_event
 from backend.models.enums import EventType
 from backend.models.story_log import StoryLog # To inspect the object passed to session.add
 

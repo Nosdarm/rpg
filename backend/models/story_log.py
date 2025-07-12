@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func # Removed JSON
+from sqlalchemy import BigInteger, Column, ForeignKey, Integer, Text, DateTime, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 # from sqlalchemy.dialects.postgresql import JSONB # Removed
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any
 
 from .base import Base
 from .enums import EventType # Import the Enum
-from .custom_types import JsonBForSQLite # Added
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -40,11 +39,11 @@ class StoryLog(Base):
 
     # JSONB to store references to entities involved in the event.
     # Example: {"player_ids": [1, 2], "npc_ids": [101], "item_ids": [50]}
-    entity_ids_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    entity_ids_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
 
     # JSONB for structured details of the event, useful for programmatic access or rollback scenarios.
     # Can also store i18n keys or simple non-translated details.
-    details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    details_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     # Example:
     # For COMBAT_ACTION: {"attacker_id": 1, "target_id": 101, "ability_used": "fireball", "damage_dealt": 25}
     # For ITEM_ACQUIRED: {"item_id": 50, "quantity": 1, "source": "chest"}
@@ -52,7 +51,7 @@ class StoryLog(Base):
     # JSONB for human-readable, potentially AI-generated narrative text describing the event.
     # This would store different language versions.
     # Renamed from ai_narrative_i18n to narrative_i18n to be more general
-    narrative_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JsonBForSQLite, nullable=True, default=lambda: {})
+    narrative_i18n: Mapped[Optional[Dict[str, str]]] = mapped_column(JSON, nullable=True, default=lambda: {})
     # Example: {"en": "The goblin shrieks as the fireball engulfs it!", "ru": "Гоблин визжит, охваченный огненным шаром!"}
 
     turn_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="The game turn number when this event occurred, if applicable.")

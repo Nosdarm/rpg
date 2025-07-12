@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any
 
 from .base import Base
 from .enums import RelationshipEntityType # Import the Enum
-from .custom_types import JsonBForSQLite # Import custom type
 
 # Forward declaration for type hinting
 # from typing import TYPE_CHECKING
