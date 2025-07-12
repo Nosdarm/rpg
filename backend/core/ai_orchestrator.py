@@ -18,6 +18,7 @@ from .ai_prompt_builder import prepare_ai_prompt
 from .ai_response_parser import parse_and_validate_ai_response, ParsedAiData, CustomValidationError, ParsedNpcData, ParsedQuestData, ParsedItemData, ParsedRelationshipData, ParsedNpcTraderData # Ensure ParsedNpcTraderData is here
 from discord.ext import commands # For bot instance type hint
 from ..bot.utils import notify_master # Import the new utility
+from .rules import get_rule
 
 # CRUD imports moved to module level for easier patching in tests
 from .crud.crud_faction import crud_faction

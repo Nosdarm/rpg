@@ -3,6 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db_session, transactional
 import re
