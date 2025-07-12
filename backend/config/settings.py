@@ -1,8 +1,7 @@
 import os
 import logging
 from typing import Optional, List, Any
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator, model_validator, Field
+from pydantic import BaseSettings, SettingsConfigDict, field_validator, model_validator, Field
 from urllib.parse import urlparse, parse_qs, urlunparse
 
 logger = logging.getLogger(__name__)
