@@ -1,67 +1,362 @@
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_quest_master_commands.py] — 26 issue(s):
-  Line 123  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 124  [ERROR] Parameter "quest_id" is already assigned
-  Line 141  [ERROR] Operator "in" not supported for types "str" and "str | None"
-┬а┬аOperator "in" not supported for types "str" and "None"
-  Line 155  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 155  [ERROR] Parameter "quest_id" is already assigned
-  Line 174  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 174  [ERROR] Parameter "quest_id" is already assigned
-  Line 199  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 200  [ERROR] Parameter "quest_id" is already assigned
-  Line 225  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 226  [ERROR] Parameter "quest_id" is already assigned
-  Line 244  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 245  [ERROR] Parameter "quest_id" is already assigned
-  Line 261  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 262  [ERROR] Parameter "quest_id" is already assigned
-  Line 279  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 280  [ERROR] Parameter "quest_id" is already assigned
-  Line 312  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 313  [ERROR] Parameter "quest_id" is already assigned
-  Line 330  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 331  [ERROR] Parameter "quest_id" is already assigned
-  Line 357  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 358  [ERROR] Parameter "quest_id" is already assigned
-  Line 393  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
-┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
-  Line 394  [ERROR] Parameter "quest_id" is already assigned
-  Line 407  [ERROR] Operator "in" not supported for types "str" and "str | None"
-┬а┬аOperator "in" not supported for types "str" and "None"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\test_party_commands.py] — 29 issue(s):
+  Line 91   [ERROR] Argument of type "Literal['Cool Adventurers']" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "Literal['Cool Adventurers']" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"Literal['Cool Adventurers']" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"Literal['Cool Adventurers']" is not assignable to "None"
+  Line 91   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "party_name" of type "str"
+┬а┬а"MockInteraction" is not assignable to "str"
+  Line 91   [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 91   [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 102  [ERROR] Argument of type "Literal['New Party']" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "Literal['New Party']" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"Literal['New Party']" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"Literal['New Party']" is not assignable to "None"
+  Line 102  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "party_name" of type "str"
+┬а┬а"MockInteraction" is not assignable to "str"
+  Line 102  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 102  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 120  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "MockInteraction" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "None"
+  Line 120  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 120  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 134  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "MockInteraction" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "None"
+  Line 134  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 134  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 146  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "MockInteraction" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"MockInteraction" is not assignable to "None"
+  Line 146  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 146  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 162  [ERROR] Argument of type "Literal['Open Party']" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "Literal['Open Party']" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"Literal['Open Party']" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"Literal['Open Party']" is not assignable to "None"
+  Line 162  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "party_identifier" of type "str"
+┬а┬а"MockInteraction" is not assignable to "str"
+  Line 162  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 162  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 174  [ERROR] Argument of type "Literal['Full Party']" cannot be assigned to parameter "session" of type "AsyncSession | None"
+┬а┬аType "Literal['Full Party']" is not assignable to type "AsyncSession | None"
+┬а┬а┬а┬а"Literal['Full Party']" is not assignable to "AsyncSession"
+┬а┬а┬а┬а"Literal['Full Party']" is not assignable to "None"
+  Line 174  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter "party_identifier" of type "str"
+┬а┬а"MockInteraction" is not assignable to "str"
+  Line 174  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 174  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"PartyCog" is not assignable to "Interaction[Any]"
+  Line 193  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 193  [ERROR] Parameter "target_player" is already assigned
+  Line 205  [ERROR] Argument of type "MockInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockInteraction" is not assignable to "Interaction[Any]"
+  Line 205  [ERROR] Parameter "target_player" is already assigned
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 10 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_quest_master_commands.py] — 20 issue(s):
+  Line 134  [ERROR] Parameter "quest_id" is already assigned
+  Line 171  [ERROR] Parameter "quest_id" is already assigned
+  Line 199  [ERROR] Parameter "quest_id" is already assigned
+  Line 232  [ERROR] Parameter "quest_id" is already assigned
+  Line 264  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 265  [ERROR] Parameter "quest_id" is already assigned
+  Line 290  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 291  [ERROR] Parameter "quest_id" is already assigned
+  Line 314  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 315  [ERROR] Parameter "quest_id" is already assigned
+  Line 339  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 340  [ERROR] Parameter "quest_id" is already assigned
+  Line 379  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 380  [ERROR] Parameter "quest_id" is already assigned
+  Line 404  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 405  [ERROR] Parameter "quest_id" is already assigned
+  Line 438  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 439  [ERROR] Parameter "quest_id" is already assigned
+  Line 481  [ERROR] Argument of type "MockDiscordInteraction" cannot be assigned to parameter of type "Interaction[Any]"
+┬а┬а"MockDiscordInteraction" is not assignable to "Interaction[Any]"
+  Line 482  [ERROR] Parameter "quest_id" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\party_commands.py] — 17 issue(s):
+  Line 29   [ERROR] Argument missing for parameter "func"
+  Line 61   [ERROR] Cannot access attribute "create_with_leader" for class "CRUDParty"
+┬а┬аAttribute "create_with_leader" is unknown
+  Line 81   [ERROR] Argument missing for parameter "func"
+  Line 126  [ERROR] Argument of type "List[int] | None" cannot be assigned to parameter "obj" of type "Sized" in function "len"
+┬а┬аType "List[int] | None" is not assignable to type "Sized"
+┬а┬а┬а┬а"None" is incompatible with protocol "Sized"
+┬а┬а┬а┬а┬а┬а"__len__" is not present
+  Line 141  [ERROR] Argument missing for parameter "func"
+  Line 168  [ERROR] Argument of type "List[int] | None" cannot be assigned to parameter "iterable" of type "Iterable[_T@list]" in function "__init__"
+┬а┬аType "List[int] | None" is not assignable to type "Iterable[int]"
+┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[int]"
+┬а┬а┬а┬а┬а┬а"__iter__" is not present
+  Line 188  [ERROR] Argument missing for parameter "func"
+  Line 207  [ERROR] Cannot access attribute "get_by_id_or_name" for class "CRUDParty"
+┬а┬аAttribute "get_by_id_or_name" is unknown
+  Line 234  [ERROR] Argument missing for parameter "func"
+  Line 268  [ERROR] Argument missing for parameter "func"
+  Line 300  [ERROR] Argument missing for parameter "func"
+  Line 300  [ERROR] No parameter named "read_only"
+  Line 311  [ERROR] Cannot access attribute "get_by_id_or_name" for class "CRUDParty"
+┬а┬аAttribute "get_by_id_or_name" is unknown
+  Line 323  [ERROR] Cannot access attribute "get_multi_by_ids" for class "CRUDPlayer"
+┬а┬аAttribute "get_multi_by_ids" is unknown
+  Line 330  [ERROR] Argument missing for parameter "func"
+  Line 330  [ERROR] No parameter named "read_only"
+  Line 356  [ERROR] Argument of type "PartyCog" cannot be assigned to parameter "command" of type "Command[Any, ..., Any] | ContextMenu | Group" in function "add_command"
+┬а┬аType "PartyCog" is not assignable to type "Command[Any, ..., Any] | ContextMenu | Group"
+┬а┬а┬а┬а"PartyCog" is not assignable to "Command[Any, ..., Any]"
+┬а┬а┬а┬а"PartyCog" is not assignable to "ContextMenu"
+┬а┬а┬а┬а"PartyCog" is not assignable to "Group"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\ability_system.py] — 14 issue(s):
+  Line 128  [ERROR] Cannot access attribute "x" for class "Location"
+┬а┬аAttribute "x" is unknown
+  Line 128  [ERROR] Cannot access attribute "x" for class "Location"
+┬а┬аAttribute "x" is unknown
+  Line 128  [ERROR] Cannot access attribute "y" for class "Location"
+┬а┬аAttribute "y" is unknown
+  Line 128  [ERROR] Cannot access attribute "y" for class "Location"
+┬а┬аAttribute "y" is unknown
+  Line 134  [ERROR] Cannot access attribute "z" for class "Location"
+┬а┬аAttribute "z" is unknown
+  Line 134  [ERROR] Cannot access attribute "z" for class "Location"
+┬а┬аAttribute "z" is unknown
+  Line 135  [ERROR] Cannot access attribute "z" for class "Location"
+┬а┬аAttribute "z" is unknown
+  Line 135  [ERROR] Cannot access attribute "z" for class "Location"
+┬а┬аAttribute "z" is unknown
+  Line 137  [ERROR] Cannot access attribute "x" for class "Location"
+┬а┬аAttribute "x" is unknown
+  Line 137  [ERROR] Cannot access attribute "x" for class "Location"
+┬а┬аAttribute "x" is unknown
+  Line 137  [ERROR] Cannot access attribute "y" for class "Location"
+┬а┬аAttribute "y" is unknown
+  Line 137  [ERROR] Cannot access attribute "y" for class "Location"
+┬а┬аAttribute "y" is unknown
+  Line 186  [ERROR] Cannot access attribute "x" for class "Location"
+┬а┬аAttribute "x" is unknown
+  Line 747  [ERROR] Object of type "None" is not subscriptable
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\game_events.py] — 13 issue(s):
+  Line 85   [ERROR] "get_bot_instance" is unknown import symbol
+  Line 142  [ERROR] Arguments missing for parameters "session", "event_log_entry"
+  Line 143  [ERROR] No parameter named "session_factory"
+  Line 145  [ERROR] Cannot access attribute "LOCATION_ENTERED" for class "type[EventType]"
+┬а┬аAttribute "LOCATION_ENTERED" is unknown
+  Line 145  [ERROR] No parameter named "event_type"
+  Line 146  [ERROR] No parameter named "details_json"
+  Line 148  [ERROR] No parameter named "source_log_id"
+  Line 154  [ERROR] Arguments missing for parameters "session", "event_log_entry"
+  Line 155  [ERROR] No parameter named "session_factory"
+  Line 157  [ERROR] Cannot access attribute "LOCATION_ENTERED" for class "type[EventType]"
+┬а┬аAttribute "LOCATION_ENTERED" is unknown
+  Line 157  [ERROR] No parameter named "event_type"
+  Line 158  [ERROR] No parameter named "details_json"
+  Line 160  [ERROR] No parameter named "source_log_id"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\api\routers\auth.py] — 12 issue(s):
+  Line 29   [ERROR] "DISCORD_CLIENT_ID" is not a known attribute of module "backend.config.settings"
+  Line 29   [ERROR] "DISCORD_REDIRECT_URI" is not a known attribute of module "backend.config.settings"
+  Line 36   [ERROR] "DISCORD_CLIENT_ID" is not a known attribute of module "backend.config.settings"
+  Line 37   [ERROR] "DISCORD_REDIRECT_URI" is not a known attribute of module "backend.config.settings"
+  Line 53   [ERROR] "DISCORD_CLIENT_ID" is not a known attribute of module "backend.config.settings"
+  Line 53   [ERROR] "DISCORD_CLIENT_SECRET" is not a known attribute of module "backend.config.settings"
+  Line 53   [ERROR] "DISCORD_REDIRECT_URI" is not a known attribute of module "backend.config.settings"
+  Line 61   [ERROR] "DISCORD_CLIENT_ID" is not a known attribute of module "backend.config.settings"
+  Line 62   [ERROR] "DISCORD_CLIENT_SECRET" is not a known attribute of module "backend.config.settings"
+  Line 65   [ERROR] "DISCORD_REDIRECT_URI" is not a known attribute of module "backend.config.settings"
+  Line 196  [ERROR] "UI_APP_REDIRECT_URL_AFTER_LOGIN" is not a known attribute of module "backend.config.settings"
+  Line 206  [ERROR] "UI_APP_REDIRECT_URL_AFTER_LOGIN" is not a known attribute of module "backend.config.settings"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_orchestrator.py] — 11 issue(s):
+  Line 18   [ERROR] "trigger_ai_generation_flow" is unknown import symbol
   Line 94   [ERROR] Argument missing for parameter "entity_type"
   Line 211  [ERROR] Argument missing for parameter "entity_type"
   Line 288  [ERROR] Argument missing for parameter "entity_type"
   Line 290  [ERROR] Argument missing for parameter "entity_type"
-  Line 359  [ERROR] Argument missing for parameter "entity_type"
-  Line 361  [ERROR] Argument missing for parameter "entity_type"
-  Line 505  [ERROR] Argument missing for parameter "entity_type"
-  Line 833  [ERROR] Argument missing for parameter "entity_type"
-  Line 834  [ERROR] Argument missing for parameter "entity_type"
-  Line 835  [ERROR] Argument missing for parameter "entity_type"
+  Line 362  [ERROR] Argument missing for parameter "entity_type"
+  Line 364  [ERROR] Argument missing for parameter "entity_type"
+  Line 508  [ERROR] Argument missing for parameter "entity_type"
+  Line 836  [ERROR] Argument missing for parameter "entity_type"
+  Line 837  [ERROR] Argument missing for parameter "entity_type"
+  Line 838  [ERROR] Argument missing for parameter "entity_type"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 8 issue(s):
-  Line 78   [ERROR] Expected 1 more positional argument
-  Line 78   [ERROR] No parameter named "interaction"
-  Line 109  [ERROR] Expected 1 more positional argument
-  Line 109  [ERROR] No parameter named "interaction"
-  Line 137  [ERROR] Expected 1 more positional argument
-  Line 137  [ERROR] No parameter named "interaction"
-  Line 193  [ERROR] Expected 1 more positional argument
-  Line 193  [ERROR] No parameter named "interaction"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ai_response_parser.py] — 11 issue(s):
+  Line 292  [ERROR] Argument missing for parameter "session"
+  Line 308  [ERROR] Argument missing for parameter "session"
+  Line 315  [ERROR] Argument missing for parameter "session"
+  Line 336  [ERROR] Argument missing for parameter "session"
+  Line 358  [ERROR] Argument missing for parameter "session"
+  Line 378  [ERROR] Argument missing for parameter "session"
+  Line 391  [ERROR] Argument missing for parameter "session"
+  Line 488  [ERROR] Argument missing for parameter "session"
+  Line 509  [ERROR] Argument missing for parameter "session"
+  Line 530  [ERROR] Argument missing for parameter "session"
+  Line 544  [ERROR] Argument missing for parameter "session"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_dialogue_system.py] — 10 issue(s):
+  Line 72   [ERROR] Object of type "None" is not subscriptable
+  Line 152  [ERROR] Object of type "None" is not subscriptable
+  Line 185  [ERROR] Argument of type "Dict[str, Any] | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "Dict[str, Any] | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 186  [ERROR] Argument of type "str | None" cannot be assigned to parameter "key" of type "str" in function "get"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 186  [ERROR] No overloads for "get" match the provided arguments
+  Line 186  [ERROR] Object of type "None" is not subscriptable
+  Line 187  [ERROR] Argument of type "Dict[str, Any] | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
+┬а┬аType "Dict[str, Any] | None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬аType "None" is not assignable to type "Iterable[Any] | Container[Any]"
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Iterable[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__iter__" is not present
+┬а┬а┬а┬а┬а┬а"None" is incompatible with protocol "Container[Any]"
+┬а┬а┬а┬а┬а┬а┬а┬а"__contains__" is not present
+  Line 188  [ERROR] Object of type "None" is not subscriptable
+  Line 221  [ERROR] Object of type "None" is not subscriptable
+  Line 286  [ERROR] Object of type "None" is not subscriptable
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\interaction_handlers.py] — 9 issue(s):
+  Line 407  [ERROR] Argument missing for parameter "event_type"
+  Line 407  [ERROR] Cannot access attribute "PLAYER_MOVED" for class "type[EventType]"
+┬а┬аAttribute "PLAYER_MOVED" is unknown
+  Line 407  [ERROR] Parameter "guild_id" is already assigned
+  Line 444  [ERROR] Argument missing for parameter "event_type"
+  Line 447  [ERROR] Parameter "guild_id" is already assigned
+  Line 457  [ERROR] Argument missing for parameter "event_type"
+  Line 460  [ERROR] Parameter "guild_id" is already assigned
+  Line 483  [ERROR] Argument missing for parameter "event_type"
+  Line 486  [ERROR] Parameter "guild_id" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\movement_logic.py] — 9 issue(s):
+  Line 54   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 55   [ERROR] Cannot assign to attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 56   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 57   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 60   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 61   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 62   [ERROR] Cannot access attribute "properties_json" for class "Player"
+┬а┬аAttribute "properties_json" is unknown
+  Line 318  [ERROR] Cannot access attribute "get_multi_by_guild" for class "CRUDLocation"
+┬а┬аAttribute "get_multi_by_guild" is unknown
+  Line 331  [ERROR] Code is too complex to analyze; reduce complexity by refactoring into subroutines or reducing conditional code paths
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 8 issue(s):
+  Line 259  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 443  [ERROR] Cannot access attribute "assert_called_once" for class "MethodType"
+┬а┬аAttribute "assert_called_once" is unknown
+  Line 444  [ERROR] Cannot access attribute "call_args" for class "MethodType"
+┬а┬аAttribute "call_args" is unknown
+  Line 450  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 481  [ERROR] "get" is not a known attribute of "None"
+  Line 489  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 522  [ERROR] "get" is not a known attribute of "None"
+  Line 530  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_interaction_handlers.py] — 8 issue(s):
+  Line 884  [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+┬а┬аAttribute "assert_any_call" is unknown
+  Line 886  [ERROR] Cannot access attribute "assert_called" for class "MethodType"
+┬а┬аAttribute "assert_called" is unknown
+  Line 919  [ERROR] Object of type "None" is not subscriptable
+  Line 963  [ERROR] Cannot access attribute "assert_called" for class "MethodType"
+┬а┬аAttribute "assert_called" is unknown
+  Line 1025 [ERROR] Cannot access attribute "assert_any_call" for class "MethodType"
+┬а┬аAttribute "assert_any_call" is unknown
+  Line 1026 [ERROR] Cannot access attribute "assert_called" for class "MethodType"
+┬а┬аAttribute "assert_called" is unknown
+  Line 1057 [ERROR] Cannot access attribute "PLAYER_MOVED" for class "type[EventType]"
+┬а┬аAttribute "PLAYER_MOVED" is unknown
+  Line 1078 [ERROR] Cannot access attribute "PLAYER_MOVED" for class "type[EventType]"
+┬а┬аAttribute "PLAYER_MOVED" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_command_info.py] — 8 issue(s):
+  Line 19   [ERROR] Argument missing for parameter "choices"
+  Line 31   [ERROR] Argument missing for parameter "choices"
+  Line 43   [ERROR] Argument missing for parameter "choices"
+  Line 44   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 55   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 61   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 62   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 78   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\security.py] — 7 issue(s):
+  Line 4    [WARNING] Import "jose" could not be resolved from source
+  Line 4    [WARNING] Import "jose.jwt" could not be resolved from source
+  Line 5    [WARNING] Import "passlib.context" could not be resolved from source
+  Line 29   [ERROR] "SECRET_KEY" is not a known attribute of module "backend.config.settings"
+  Line 41   [ERROR] "SECRET_KEY" is not a known attribute of module "backend.config.settings"
+  Line 49   [ERROR] "SECRET_KEY" is not a known attribute of module "backend.config.settings"
+  Line 54   [ERROR] "SECRET_KEY" is not a known attribute of module "backend.config.settings"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\api\test_commands_api.py] — 7 issue(s):
+  Line 65   [ERROR] "BOT_LANGUAGE" is not a known attribute of module "backend.config.settings"
+  Line 67   [ERROR] "BOT_LANGUAGE" is not a known attribute of module "backend.config.settings"
+  Line 71   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 72   [ERROR] Arguments missing for parameters "guild_only", "nsfw", "dm_permission"
+  Line 100  [ERROR] "BOT_LANGUAGE" is not a known attribute of module "backend.config.settings"
+  Line 101  [ERROR] "BOT_LANGUAGE" is not a known attribute of module "backend.config.settings"
+  Line 112  [ERROR] "BOT_LANGUAGE" is not a known attribute of module "backend.config.settings"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\dialogue_system.py] — 6 issue(s):
+  Line 157  [ERROR] Argument of type "str | None" cannot be assigned to parameter "key" of type "str" in function "get"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 157  [ERROR] No overloads for "get" match the provided arguments
+  Line 178  [ERROR] Argument of type "str | None" cannot be assigned to parameter "key" of type "str" in function "get"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 178  [ERROR] No overloads for "get" match the provided arguments
+  Line 184  [ERROR] Argument of type "str | None" cannot be assigned to parameter "key" of type "str" in function "get"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
+  Line 184  [ERROR] No overloads for "get" match the provided arguments
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\world_generation.py] — 6 issue(s):
+  Line 9    [ERROR] "trigger_ai_generation_flow" is unknown import symbol
+  Line 74   [ERROR] Argument missing for parameter "session"
+  Line 231  [ERROR] Argument missing for parameter "session"
+  Line 324  [ERROR] Argument missing for parameter "session"
+  Line 376  [ERROR] Argument missing for parameter "session"
+  Line 406  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
+┬а┬аType "str | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\crud\test_crud_party_npc_memory.py] — 6 issue(s):
   Line 30   [ERROR] No overloads for "__init__" match the provided arguments
@@ -81,6 +376,20 @@
   Line 59   [ERROR] "None" is not awaitable
 ┬а┬а"None" is incompatible with protocol "Awaitable[_T_co@Awaitable]"
 ┬а┬а┬а┬а"__await__" is not present
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_combat_cycle_manager.py] — 6 issue(s):
+  Line 772  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 790  [ERROR] Cannot access attribute "assert_called_with" for class "MethodType"
+┬а┬аAttribute "assert_called_with" is unknown
+  Line 832  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 866  [ERROR] Cannot access attribute "assert_called_with" for class "MethodType"
+┬а┬аAttribute "assert_called_with" is unknown
+  Line 909  [ERROR] Cannot assign to attribute "return_value" for class "MethodType"
+┬а┬аAttribute "return_value" is unknown
+  Line 923  [ERROR] Cannot access attribute "assert_called_with" for class "MethodType"
+┬а┬аAttribute "assert_called_with" is unknown
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\models\test_party_npc_memory.py] — 6 issue(s):
   Line 29   [ERROR] No overloads for "__init__" match the provided arguments
@@ -110,13 +419,21 @@
   Line 322  [ERROR] "__getitem__" method not defined on type "Player"
   Line 337  [ERROR] Object of type "None" cannot be used as iterable value
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_dialogue_system.py] — 4 issue(s):
-  Line 72   [ERROR] Object of type "None" is not subscriptable
-  Line 152  [ERROR] Object of type "None" is not subscriptable
-  Line 178  [ERROR] Object of type "None" is not subscriptable
-  Line 243  [ERROR] Object of type "None" is not subscriptable
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\conflict_simulation_system.py] — 4 issue(s):
+  Line 669  [ERROR] "relationship_crud" is unknown import symbol
+  Line 678  [ERROR] Cannot access attribute "get_multi_by_location" for class "CRUDNpc"
+┬а┬аAttribute "get_multi_by_location" is unknown
+  Line 689  [ERROR] Cannot access attribute "get_multi_by_ids" for class "CRUDPlayer"
+┬а┬аAttribute "get_multi_by_ids" is unknown
+  Line 724  [ERROR] No parameter named "initiating_player_id"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\ai_prompt_builder.py] — 3 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\bot\commands\master_commands\test_master_simulation_tools_cog.py] — 4 issue(s):
+  Line 104  [ERROR] Parameter "check_type" is already assigned
+  Line 141  [ERROR] Parameter "check_type" is already assigned
+  Line 175  [ERROR] Parameter "check_type" is already assigned
+  Line 236  [ERROR] Parameter "combat_encounter_id" is already assigned
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\ai_prompt_builder.py] — 3 issue(s):
   Line 554  [ERROR] Argument of type "list[Any | None]" cannot be assigned to parameter "iterable" of type "Iterable[str]" in function "join"
 ┬а┬а"list[Any | None]" is not assignable to "Iterable[str]"
 ┬а┬а┬а┬аType parameter "_T_co@Iterable" is covariant, but "Any | None" is not a subtype of "str"
@@ -125,50 +442,89 @@
   Line 554  [ERROR] No overloads for "join" match the provided arguments
   Line 560  [ERROR] Expected 1 positional argument
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\security.py] — 3 issue(s):
-  Line 4    [WARNING] Import "jose" could not be resolved from source
-  Line 4    [WARNING] Import "jose.jwt" could not be resolved from source
-  Line 5    [WARNING] Import "passlib.context" could not be resolved from source
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\master_simulation_tools_cog.py] — 2 issue(s):
-  Line 350  [ERROR] "get" is not a known attribute of "None"
-  Line 350  [ERROR] "get" is not a known attribute of "None"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\dialogue_system.py] — 2 issue(s):
-  Line 157  [ERROR] Argument of type "str | None" cannot be assigned to parameter "key" of type "str" in function "get"
-┬а┬аType "str | None" is not assignable to type "str"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\general_commands.py] — 2 issue(s):
+  Line 161  [ERROR] Argument of type "Any | str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
+┬а┬аType "Any | str | None" is not assignable to type "str"
 ┬а┬а┬а┬а"None" is not assignable to "str"
-  Line 157  [ERROR] No overloads for "get" match the provided arguments
+  Line 166  [ERROR] Type "str | Any | None" is not assignable to declared type "str"
+┬а┬аType "str | Any | None" is not assignable to type "str"
+┬а┬а┬а┬а"None" is not assignable to "str"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\monitoring_master_commands.py] — 1 issue(s):
-  Line 760  [ERROR] "get" is not a known attribute of "None"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\master_commands\master_simulation_tools_cog.py] — 2 issue(s):
+  Line 350  [ERROR] "get" is not a known attribute of "None"
+  Line 350  [ERROR] "get" is not a known attribute of "None"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\pending_generation_master_commands.py] — 1 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\master_commands\pending_generation_master_commands.py] — 2 issue(s):
+  Line 16   [ERROR] "trigger_ai_generation_flow" is unknown import symbol
   Line 218  [ERROR] Argument of type "ModerationStatus" cannot be assigned to parameter "value" of type "int | None" in function "__setitem__"
 ┬а┬аType "ModerationStatus" is not assignable to type "int | None"
 ┬а┬а┬а┬а"ModerationStatus" is not assignable to "int"
 ┬а┬а┬а┬а"ModerationStatus" is not assignable to "None"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\bot\commands\master_commands\player_master_commands.py] — 1 issue(s):
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\ai_response_parser.py] — 2 issue(s):
+  Line 375  [ERROR] "faction_crud" is unknown import symbol
+  Line 375  [ERROR] "quest_crud" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\command_utils.py] — 2 issue(s):
+  Line 127  [ERROR] Object of type "bool" is not callable
+┬а┬аAttribute "__call__" is unknown
+  Line 128  [ERROR] Cannot access attribute "dm_permission" for class "Command[Unknown, ..., Unknown]"
+┬а┬аAttribute "dm_permission" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\global_entity_manager.py] — 2 issue(s):
+  Line 471  [ERROR] Cannot access attribute "member_npc_ids_json" for class "MobileGroup"
+┬а┬аAttribute "member_npc_ids_json" is unknown
+  Line 472  [ERROR] Cannot access attribute "member_npc_ids_json" for class "MobileGroup"
+┬а┬аAttribute "member_npc_ids_json" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_global_entity_manager.py] — 2 issue(s):
+  Line 424  [ERROR] Cannot assign to attribute "member_npc_ids_json" for class "MobileGroup"
+┬а┬аAttribute "member_npc_ids_json" is unknown
+  Line 478  [ERROR] Cannot assign to attribute "member_npc_ids_json" for class "MobileGroup"
+┬а┬аAttribute "member_npc_ids_json" is unknown
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\master_commands\monitoring_master_commands.py] — 1 issue(s):
+  Line 761  [ERROR] "get" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\bot\commands\master_commands\player_master_commands.py] — 1 issue(s):
   Line 594  [ERROR] Argument of type "None" cannot be assigned to parameter "value" of type "list[int]" in function "__setitem__"
 ┬а┬а"None" is not assignable to "list[int]"
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\action_processor.py] — 1 issue(s):
-  Line 536  [ERROR] "get" is not a known attribute of "None"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\config\settings.py] — 1 issue(s):
+  Line 4    [ERROR] Import "pydantic_settings" could not be resolved
 
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\src\core\world_generation.py] — 1 issue(s):
-  Line 813  [ERROR] Argument of type "str | None" cannot be assigned to parameter "static_id" of type "str" in function "get_by_static_id"
-┬а┬аType "str | None" is not assignable to type "str"
-┬а┬а┬а┬а"None" is not assignable to "str"
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\__init__.py] — 1 issue(s):
+  Line 47   [ERROR] "trigger_ai_generation_flow" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\action_processor.py] — 1 issue(s):
+  Line 572  [ERROR] "get" is not a known attribute of "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\ai_analysis_system.py] — 1 issue(s):
+  Line 312  [ERROR] Argument missing for parameter "session"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\core\combat_cycle_manager.py] — 1 issue(s):
+  Line 578  [ERROR] Operator "<=" not supported for "None"
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\generated_faction.py] — 1 issue(s):
+  Line 7    [ERROR] "JsonBForSQLite" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\generated_npc.py] — 1 issue(s):
+  Line 7    [ERROR] "JsonBForSQLite" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\global_event.py] — 1 issue(s):
+  Line 8    [ERROR] "JsonBForSQLite" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\global_npc.py] — 1 issue(s):
+  Line 7    [ERROR] "JsonBForSQLite" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\item.py] — 1 issue(s):
+  Line 7    [ERROR] "JsonBForSQLite" is unknown import symbol
+
+[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\backend\models\pending_generation.py] — 1 issue(s):
+  Line 8    [ERROR] "JsonBForSQLite" is unknown import symbol
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\api\routers\test_auth.py] — 1 issue(s):
-  Line 43   [ERROR] Expression of type "Literal['DEFAULT_GUILDS_PLACEHOLDER']" cannot be assigned to parameter of type "List[Dict[str, str]] | None"
-┬а┬аType "Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to type "List[Dict[str, str]] | None"
-┬а┬а┬а┬а"Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to "List[Dict[str, str]]"
-┬а┬а┬а┬а"Literal['DEFAULT_GUILDS_PLACEHOLDER']" is not assignable to "None"
-
-[c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_ability_system.py] — 1 issue(s):
-  Line 231  [ERROR] Expected class but received "(obj: object, /) -> TypeIs[(...) -> object]"
+  Line 65   [ERROR] "SECRET_KEY" is not a known attribute of module "backend.config.settings"
 
 [c:\Users\╨а╤Г╤Б╨╗╨░╨╜ ╨Ъ╤Г╨╖╨╜╨╡╤Ж╨╛╨▓\bot\tests\core\test_world_generation.py] — 1 issue(s):
   Line 721  [ERROR] Argument of type "str | None" cannot be assigned to parameter "container" of type "Iterable[Any] | Container[Any]" in function "assertIn"
