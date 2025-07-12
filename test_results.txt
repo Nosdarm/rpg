@@ -334,7 +334,7 @@ Traceback:
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/bot/commands/test_party_commands.py:15: in <module>
     from backend.bot.commands.party_commands import PartyCog
-backend/bot/commands/party_commands.py:9: in <module>
+backend/bot/commands/party_commands.py:10: in <module>
     from backend.core.crud.crud_player import player_crud
 backend/core/__init__.py:15: in <module>
     from .check_resolver import resolve_check, CheckOutcome, CheckResult, ModifierDetail # CheckError is an exception
@@ -1674,4 +1674,4 @@ ERROR tests/models/test_quest.py
 ERROR tests/models/test_status_effect.py
 ERROR tests/test_main.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 61 errors during collection !!!!!!!!!!!!!!!!!!!
-======================== 1 warning, 61 errors in 5.75s =========================
+======================== 1 warning, 61 errors in 5.63s =========================
