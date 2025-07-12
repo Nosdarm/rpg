@@ -36,7 +36,7 @@ print(f"DEBUG: alembic/env.py: sys.path: {sys.path}")
 # --- End of added print statement ---
 
 from backend.config.settings import settings # Импортируем инстанс настроек Pydantic
-from backend.models.base import Base # Импортируем базовую модель из backend.models.base
+from backend.models.base import target_metadata
 
 # --- Add this print statement ---
 print(f"DEBUG: alembic/env.py: settings.PROCESSED_DATABASE_URL from backend.config.settings: {settings.PROCESSED_DATABASE_URL}")
@@ -78,7 +78,6 @@ except Exception as e:
     print(f"DEBUG: alembic/env.py: Other error inspecting GeneratedNpc: {e}")
 # --- END DIAGNOSTIC IMPORT ---
 
-target_metadata = Base.metadata
 # --- Конец изменений ---
 
 # other values from the config, defined by the needs of env.py,
