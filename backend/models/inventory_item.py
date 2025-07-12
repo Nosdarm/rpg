@@ -8,13 +8,10 @@ from .base import Base
 from .enums import OwnerEntityType
 from .item import Item
 
-# Forward declaration for type hinting
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from .guild import GuildConfig
-#     from .item import Item
-#     # Depending on OwnerEntityType, you might need Player, GeneratedNpc etc. for relationships
-#     # For simplicity, direct relationships to owners are not defined here, owner_entity_id is generic.
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .player import Player
 
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
@@ -39,6 +36,11 @@ class InventoryItem(Base):
         Integer, ForeignKey("items.id", ondelete="CASCADE"), index=True
     )
     item: Mapped["Item"] = relationship()
+    player_owner: Mapped["Player"] = relationship(
+        back_populates="inventory_items",
+        primaryjoin="foreign(InventoryItem.owner_entity_id) == Player.id",
+        overlaps="inventory_items",
+    )
 
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

@@ -5,15 +5,17 @@ from .base import Base
 
 
 if TYPE_CHECKING:
-    from .pending_conflict import PendingConflict # type: ignore
-    from .story_log import StoryLog # Added for StoryLog relationship
-    from .ability import Ability # Added for Ability relationship
-    from .status_effect import StatusEffect, ActiveStatusEffect # Added for StatusEffect relationship
-    from .combat_encounter import CombatEncounter # Added for CombatEncounter relationship
-    from .global_npc import GlobalNpc # Added for GlobalNpc relationship
-    from .mobile_group import MobileGroup # Added for MobileGroup relationship
-    from .global_event import GlobalEvent # Added for GlobalEvent relationship
-    from .location import Location # For locations relationship
+    from .pending_conflict import PendingConflict
+    from .story_log import StoryLog
+    from .ability import Ability
+    from .status_effect import StatusEffect, ActiveStatusEffect
+    from .combat_encounter import CombatEncounter
+    from .global_npc import GlobalNpc
+    from .mobile_group import MobileGroup
+    from .global_event import GlobalEvent
+    from .location import Location
+    from .player import Player
+    from .party import Party
 
 
 class GuildConfig(Base):
@@ -51,6 +53,8 @@ class GuildConfig(Base):
     mobile_groups: Mapped[List["MobileGroup"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
     global_events: Mapped[List["GlobalEvent"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
     locations: Mapped[List["Location"]] = relationship(back_populates="guild", cascade="all, delete-orphan")
+    players: Mapped[List["Player"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
+    parties: Mapped[List["Party"]] = relationship(back_populates="guild_config", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<GuildConfig(id={self.id}, main_language='{self.main_language}')>"

@@ -40,6 +40,7 @@ from backend.models import Base # Импортируем базовую моде
 
 # --- Add this print statement ---
 print(f"DEBUG: alembic/env.py: settings.PROCESSED_DATABASE_URL from backend.config.settings: {settings.PROCESSED_DATABASE_URL}")
+print(f"DEBUG: alembic/env.py: target_metadata: {target_metadata}")
 # --- End of added print statement ---
 
 # Устанавливаем URL базы данных из настроек проекта
