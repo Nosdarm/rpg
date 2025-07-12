@@ -15,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
 from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext import commands
 
-from backend.core.ai_orchestrator import trigger_ai_generation_flow, save_approved_generation
+from backend.core.ai_orchestrator import save_approved_generation
 from backend.models import (
     PendingGeneration, Player, GuildConfig, GeneratedNpc, GeneratedQuest, Item, Relationship
 )
@@ -108,12 +108,16 @@ async def test_trigger_ai_generation_flow_success(
         mock_guild_config_with_notification_channel
     ]
 
-    result = await trigger_ai_generation_flow( # type: ignore
+    result = await trigger_dynamic_event_generation(
         session=mock_session,
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
-        location_id=DEFAULT_LOCATION_ID,
-        player_id=DEFAULT_PLAYER_ID_PK
+        context={
+            "trigger_type": "location_entry",
+            "entity_id": DEFAULT_PLAYER_ID_PK,
+            "entity_type": "player",
+            "location_id": DEFAULT_LOCATION_ID,
+        }
     )
 
     assert isinstance(result, PendingGeneration)
@@ -170,12 +174,14 @@ async def test_trigger_ai_generation_validation_failed(
     mock_create_entity.side_effect = mock_create_entity_side_effect_val_fail
 
     with patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock, return_value=mock_guild_config_with_notification_channel):
-        result = await trigger_ai_generation_flow( # type: ignore[reportMissingParameter, reportCallIssue]
+        result = await trigger_dynamic_event_generation(
             session=mock_session,
             bot=mock_bot,
             guild_id=DEFAULT_GUILD_ID,
-            location_id=DEFAULT_LOCATION_ID,
-            player_id=None
+            context={
+                "trigger_type": "location_entry",
+                "location_id": DEFAULT_LOCATION_ID,
+            }
         )
 
     assert isinstance(result, PendingGeneration)
@@ -225,11 +231,10 @@ async def test_save_approved_generation_success(
         return instance
     mock_create_entity.side_effect = mock_create_entity_save_success
 
-    success = await save_approved_generation( # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(
         session=mock_session,
         pending_generation_id=PENDING_GEN_ID,
         guild_id=DEFAULT_GUILD_ID
-        # approver_user_id=999 # Removed, not in SUT signature
     )
 
     assert success is True
@@ -307,19 +312,17 @@ async def test_save_approved_generation_npc_rel_to_existing_faction(
     mock_crud_relationship_get_between.return_value = None # No existing relationship
     mock_crud_relationship_create.return_value = MagicMock(spec=Relationship)
 
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction") # type: ignore[reportCallIssue]
-    mock_crud_relationship_create.assert_called_once() # type: ignore[reportCallIssue]
-    # Call is crud_relationship.create(session, obj_in=rel_obj_in)
-    # So, rel_obj_in is in kwargs
-    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in'] # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
-    assert created_rel_obj_in["entity1_id"] == created_npc_db.id # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
-    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
-    assert created_rel_obj_in["entity2_id"] == existing_faction_db.id # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
-    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_FACTION # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
-    assert created_rel_obj_in["relationship_type"] == "secret_loyalty_to_faction" # type: ignore[reportCallIssue] # Pyright struggles with mock call_args types
+    mock_crud_faction_get_static.assert_called_once_with(mock_session, guild_id=DEFAULT_GUILD_ID, static_id="kingsguard_faction")
+    mock_crud_relationship_create.assert_called_once()
+    created_rel_obj_in = mock_crud_relationship_create.call_args.kwargs['obj_in']
+    assert created_rel_obj_in["entity1_id"] == created_npc_db.id
+    assert created_rel_obj_in["entity1_type"] == RelationshipEntityType.GENERATED_NPC
+    assert created_rel_obj_in["entity2_id"] == existing_faction_db.id
+    assert created_rel_obj_in["entity2_type"] == RelationshipEntityType.GENERATED_FACTION
+    assert created_rel_obj_in["relationship_type"] == "secret_loyalty_to_faction"
 
 
 @pytest.mark.asyncio
@@ -385,29 +388,17 @@ async def test_save_approved_generation_updates_existing_relationship(
         relationship_type="friendship_level", value=70 # Old value
     )
     mock_crud_relationship_get_between.return_value = existing_rel_db
-    # mock_crud_relationship_update.return_value = existing_rel_db # Update returns the updated object
-
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is True
 
-    mock_crud_relationship_create.assert_not_called() # Line 358: Should update, not create
+    mock_crud_relationship_create.assert_not_called()
 
-    # Check that existing_rel_db was updated in the session
-    # The logic in save_approved_generation directly modifies existing_rel.value and existing_rel.relationship_type
-    # and then adds it to session. SQLAlchemy handles the UPDATE.
-    # We can check the properties of existing_rel_db *after* the call if it was passed by reference and modified.
-    # Or, more robustly, check the call to session.add() or a mock for crud_relationship.update if it were used.
-    # Since the code directly modifies fields and calls session.add(existing_rel):
-
-    # Verify that session.add was called with the modified existing_rel object
-    # This requires session.add to be a MagicMock that records calls.
-    # The current mock_session.add is a MagicMock.
-    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)] # type: ignore # Pyright struggles with mock call_args types
+    add_calls = [call_args[0][0] for call_args in mock_session.add.call_args_list if isinstance(call_args[0][0], Relationship)]
     found_updated_rel_in_session_add = False
     for added_obj in add_calls:
-        if added_obj.id == existing_rel_db.id: # Check if it's the same relationship object by ID
-            assert added_obj.value == 95 # New value
-            assert added_obj.relationship_type == "friendship_level" # Type could also be updated
+        if added_obj.id == existing_rel_db.id:
+            assert added_obj.value == 95
+            assert added_obj.relationship_type == "friendship_level"
             found_updated_rel_in_session_add = True
             break
     assert found_updated_rel_in_session_add, "Existing relationship was not added to session with updated values."
@@ -435,7 +426,7 @@ async def test_save_approved_generation_pending_gen_not_found(
         return wrapper
     mock_transactional_deco.side_effect = passthrough
     mock_get_entity_by_id.return_value = None
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is False
 
 @pytest.mark.asyncio
@@ -455,7 +446,7 @@ async def test_save_approved_generation_not_approved_status(
     mock_pending_gen = PendingGeneration(id=PENDING_GEN_ID, guild_id=DEFAULT_GUILD_ID, status=ModerationStatus.PENDING_MODERATION)
     mock_get_entity_by_id.return_value = mock_pending_gen
 
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
     assert success is False
     mock_update_entity.assert_not_called()
 
@@ -480,7 +471,7 @@ async def test_save_approved_generation_no_parsed_data(
     )
     mock_get_entity_by_id.return_value = mock_pending_gen
 
-    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID) # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(mock_session, PENDING_GEN_ID, DEFAULT_GUILD_ID)
 
     assert success is False
     update_call_args = mock_update_entity.call_args.args
@@ -515,11 +506,10 @@ async def test_save_approved_generation_entity_creation_fails(
     mock_get_entity_by_id.return_value = mock_pending_gen
     mock_create_entity.side_effect = Exception("DB save error")
 
-    success = await save_approved_generation( # type: ignore[reportMissingParameter, reportCallIssue]
+    success = await save_approved_generation(
         session=mock_session,
         pending_generation_id=PENDING_GEN_ID,
         guild_id=DEFAULT_GUILD_ID
-        # approver_user_id=999 # Removed, not in SUT signature
     )
 
     assert success is False
@@ -581,10 +571,8 @@ async def test_generate_narrative_success_player_language(
     # but our passthrough needs it explicitly.
     # The mock_transactional_deco setup above handles injecting the session.
     # So, we call it as if the decorator is working normally.
-    # The passthrough above will receive session as args[0] from the decorator,
-    # then call the original func with session as its first arg.
-    narrative = await generate_narrative( # type: ignore[reportMissingParameter, reportCallIssue]
-        session=mock_session, # This will be the first arg to the wrapper
+    narrative = await generate_narrative(
+        session=mock_session,
         guild_id=DEFAULT_GUILD_ID,
         context=context
     )

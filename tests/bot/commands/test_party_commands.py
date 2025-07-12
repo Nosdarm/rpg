@@ -88,7 +88,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         created_party = Party(id=100, name="Cool Adventurers")
         self.mock_party_crud.create_with_leader.return_value = created_party
 
-        await self.cog.party_create.callback(self.cog, self.interaction, "Cool Adventurers")
+        await self.cog.party_create.callback(self.cog, self.interaction, party_name="Cool Adventurers")
 
         self.mock_party_crud.create_with_leader.assert_called_once()
         self.assertEqual(self.player.current_party_id, created_party.id)
@@ -99,7 +99,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.player.current_party_id = 101
         self.mock_party_crud.get.return_value = Party(name="Old Crew")
 
-        await self.cog.party_create.callback(self.cog, self.interaction, "New Party")
+        await self.cog.party_create.callback(self.cog, self.interaction, party_name="New Party")
 
         self.interaction.response.send_message.assert_called_once_with(
             "Вы уже состоите в группе 'Old Crew'. Сначала покиньте ее.",
@@ -159,7 +159,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
             return party
         self.mock_party_crud.add_player_to_party_json.side_effect = mock_add_player
 
-        await self.cog.party_join.callback(self.cog, self.interaction, "Open Party")
+        await self.cog.party_join.callback(self.cog, self.interaction, party_identifier="Open Party")
 
         self.mock_party_crud.add_player_to_party_json.assert_called_once()
         self.assertEqual(self.player.current_party_id, target_party.id)
@@ -171,7 +171,7 @@ class TestPartyCommands(unittest.IsolatedAsyncioTestCase):
         self.mock_party_crud.get_by_id_or_name.return_value = target_party
         self.mock_get_rule.return_value = 5 # max_size
 
-        await self.cog.party_join.callback(self.cog, self.interaction, "Full Party")
+        await self.cog.party_join.callback(self.cog, self.interaction, party_identifier="Full Party")
 
         self.mock_party_crud.add_player_to_party_json.assert_not_called()
         self.interaction.response.send_message.assert_called_once_with("Группа 'Full Party' уже заполнена.", ephemeral=True)

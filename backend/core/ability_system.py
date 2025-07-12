@@ -125,16 +125,24 @@ async def _get_entity_location(session: AsyncSession, entity: Union[Player, Gene
 
 def _calculate_distance(loc1: Location, loc2: Location) -> float:
     """Calculates Euclidean distance between two locations if they have x, y, z coordinates."""
-    if loc1.x is None or loc1.y is None or loc2.x is None or loc2.y is None:
+    if not loc1.properties_json or not loc2.properties_json:
+        return float('inf')
+
+    x1 = loc1.properties_json.get("x")
+    y1 = loc1.properties_json.get("y")
+    x2 = loc2.properties_json.get("x")
+    y2 = loc2.properties_json.get("y")
+
+    if x1 is None or y1 is None or x2 is None or y2 is None:
         # Consider locations without coordinates to be infinitely far for targeting,
         # unless they are the same location_id (handled by range 0 check)
         return float('inf')
 
     # Use z=0 if not present for 2D distance
-    z1 = loc1.z if loc1.z is not None else 0
-    z2 = loc2.z if loc2.z is not None else 0
+    z1 = loc1.properties_json.get("z", 0)
+    z2 = loc2.properties_json.get("z", 0)
 
-    return math.sqrt((loc1.x - loc2.x)**2 + (loc1.y - loc2.y)**2 + (z1 - z2)**2)
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2 + (z1 - z2)**2)
 
 
 async def _validate_targets(

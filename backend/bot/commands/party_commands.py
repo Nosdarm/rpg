@@ -27,8 +27,8 @@ class PartyCog(commands.GroupCog, name="party"):
     @app_commands.command(name="create", description="Создать новую группу.")
     @app_commands.describe(party_name="Название для вашей новой группы.")
     @transactional()
-    async def party_create(self, interaction: discord.Interaction, party_name: str, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_create(self, interaction: discord.Interaction, party_name: str, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Эта команда может быть использована только на сервере.", ephemeral=True)
             return
 
@@ -42,7 +42,7 @@ class PartyCog(commands.GroupCog, name="party"):
                 return
 
             if player.current_party_id:
-                existing_party = await party_crud.get(session, id=player.current_party_id, guild_id=guild_id)
+                existing_party = await party_crud.get(session, id=player.current_party_id)
                 await interaction.response.send_message(f"Вы уже состоите в группе '{existing_party.name if existing_party else 'Неизвестная группа'}'. Сначала покиньте ее.", ephemeral=True)
                 return
 
@@ -58,12 +58,15 @@ class PartyCog(commands.GroupCog, name="party"):
                 await interaction.response.send_message(f"Группа с названием '{party_name}' уже существует.", ephemeral=True)
                 return
 
-            new_party = await party_crud.create_with_leader(
+            new_party = await party_crud.create(
                 session,
-                name=party_name,
-                guild_id=guild_id,
-                leader_player_id=player.id,
-                current_location_id=player.current_location_id
+                obj_in={
+                    "name": party_name,
+                    "guild_id": guild_id,
+                    "leader_player_id": player.id,
+                    "current_location_id": player.current_location_id,
+                    "player_ids_json": [player.id],
+                }
             )
 
             player.current_party_id = new_party.id
@@ -79,8 +82,8 @@ class PartyCog(commands.GroupCog, name="party"):
 
     @app_commands.command(name="leave", description="Покинуть текущую группу.")
     @transactional()
-    async def party_leave(self, interaction: discord.Interaction, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_leave(self, interaction: discord.Interaction, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Эта команда может быть использована только на сервере.", ephemeral=True)
             return
 
@@ -93,7 +96,7 @@ class PartyCog(commands.GroupCog, name="party"):
                 await interaction.response.send_message("Вы не состоите в группе.", ephemeral=True)
                 return
 
-            party = await party_crud.get(session, id=player.current_party_id, guild_id=guild_id)
+            party = await party_crud.get(session, id=player.current_party_id)
             if not party:
                 player.current_party_id = None
                 session.add(player)
@@ -123,11 +126,11 @@ class PartyCog(commands.GroupCog, name="party"):
 
             if not disband_party:
                 threshold = await get_rule(session, guild_id, "party:auto_disband_threshold", 1)
-                if len(party.player_ids_json) < threshold:
+                if party.player_ids_json and len(party.player_ids_json) < threshold:
                     disband_party = True
 
             if disband_party:
-                await party_crud.delete(session, id=party.id, guild_id=guild_id)
+                await party_crud.delete(session, id=party.id)
                 await interaction.response.send_message(f"Вы покинули группу '{party_name}'. Группа была распущена.")
             else:
                 await interaction.response.send_message(f"Вы покинули группу '{party_name}'.")
@@ -139,8 +142,8 @@ class PartyCog(commands.GroupCog, name="party"):
 
     @app_commands.command(name="disband", description="Распустить вашу группу (только для лидера).")
     @transactional()
-    async def party_disband(self, interaction: discord.Interaction, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_disband(self, interaction: discord.Interaction, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Эта команда может быть использована только на сервере.", ephemeral=True)
             return
 
@@ -153,7 +156,7 @@ class PartyCog(commands.GroupCog, name="party"):
                 await interaction.response.send_message("Вы не состоите в группе.", ephemeral=True)
                 return
 
-            party = await party_crud.get(session, id=player.current_party_id, guild_id=guild_id)
+            party = await party_crud.get(session, id=player.current_party_id)
             if not party:
                 player.current_party_id = None
                 session.add(player)
@@ -165,12 +168,12 @@ class PartyCog(commands.GroupCog, name="party"):
                 return
 
             party_name = party.name
-            member_ids = list(party.player_ids_json)
+            member_ids = list(party.player_ids_json) if party.player_ids_json else []
 
-            await party_crud.delete(session, id=party.id, guild_id=guild_id)
+            await party_crud.delete(session, id=party.id)
 
             for member_id in member_ids:
-                member = await player_crud.get(session, id=member_id, guild_id=guild_id)
+                member = await player_crud.get(session, id=member_id)
                 if member:
                     member.current_party_id = None
                     session.add(member)
@@ -186,8 +189,8 @@ class PartyCog(commands.GroupCog, name="party"):
     @app_commands.command(name="join", description="Присоединиться к существующей группе.")
     @app_commands.describe(party_identifier="Название или ID группы.")
     @transactional()
-    async def party_join(self, interaction: discord.Interaction, party_identifier: str, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_join(self, interaction: discord.Interaction, party_identifier: str, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Эта команда может быть использована только на сервере.", ephemeral=True)
             return
 
@@ -204,13 +207,13 @@ class PartyCog(commands.GroupCog, name="party"):
                 await interaction.response.send_message("Вы уже состоите в группе.", ephemeral=True)
                 return
 
-            target_party = await party_crud.get_by_id_or_name(session, guild_id=guild_id, identifier=party_identifier)
+            target_party = await party_crud.get_by_name(session, name=party_identifier, guild_id=guild_id)
             if not target_party:
                 await interaction.response.send_message(f"Группа '{party_identifier}' не найдена.", ephemeral=True)
                 return
 
             max_size = await get_rule(session, guild_id, "party:max_size", 5)
-            if len(target_party.player_ids_json) >= max_size:
+            if target_party.player_ids_json and len(target_party.player_ids_json) >= max_size:
                 await interaction.response.send_message(f"Группа '{target_party.name}' уже заполнена.", ephemeral=True)
                 return
 
@@ -232,8 +235,8 @@ class PartyCog(commands.GroupCog, name="party"):
     @app_commands.command(name="kick", description="Исключить игрока из вашей группы (только для лидера).")
     @app_commands.describe(target_player="Игрок, которого нужно исключить.")
     @transactional()
-    async def party_kick(self, interaction: discord.Interaction, target_player: discord.Member, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_kick(self, interaction: discord.Interaction, target_player: discord.Member, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Команда только для сервера.", ephemeral=True)
             return
 
@@ -243,7 +246,7 @@ class PartyCog(commands.GroupCog, name="party"):
             await interaction.response.send_message("Вы не в группе.", ephemeral=True)
             return
 
-        party = await party_crud.get(session, id=kicker_player.current_party_id, guild_id=guild_id)
+        party = await party_crud.get(session, id=kicker_player.current_party_id)
         if not party or party.leader_player_id != kicker_player.id:
             await interaction.response.send_message("Только лидер может исключать игроков.", ephemeral=True)
             return
@@ -266,8 +269,8 @@ class PartyCog(commands.GroupCog, name="party"):
     @app_commands.command(name="promote", description="Назначить нового лидера группы (только для лидера).")
     @app_commands.describe(new_leader="Участник, который станет новым лидером.")
     @transactional()
-    async def party_promote(self, interaction: discord.Interaction, new_leader: discord.Member, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_promote(self, interaction: discord.Interaction, new_leader: discord.Member, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Команда только для сервера.", ephemeral=True)
             return
 
@@ -277,7 +280,7 @@ class PartyCog(commands.GroupCog, name="party"):
             await interaction.response.send_message("Вы не в группе.", ephemeral=True)
             return
 
-        party = await party_crud.get(session, id=promoter_player.current_party_id, guild_id=guild_id)
+        party = await party_crud.get(session, id=promoter_player.current_party_id)
         if not party or party.leader_player_id != promoter_player.id:
             await interaction.response.send_message("Только лидер может назначать нового лидера.", ephemeral=True)
             return
@@ -287,7 +290,7 @@ class PartyCog(commands.GroupCog, name="party"):
             return
 
         new_leader_db = await player_crud.get_by_discord_id(session, guild_id=guild_id, discord_id=new_leader.id)
-        if not new_leader_db or new_leader_db.current_party_id != party.id:
+        if not new_leader_db or not new_leader_db.current_party_id != party.id:
             await interaction.response.send_message(f"{new_leader.mention} не в вашей группе.", ephemeral=True)
             return
 
@@ -308,7 +311,11 @@ class PartyCog(commands.GroupCog, name="party"):
             await interaction.response.send_message("Сначала начните игру.", ephemeral=True)
             return
 
-        party_to_view = await party_crud.get_by_id_or_name(session, guild_id=interaction.guild.id, identifier=party_identifier) if party_identifier else await party_crud.get(session, id=requester_player.current_party_id)
+        party_to_view = None
+        if party_identifier:
+            party_to_view = await party_crud.get_by_name(session, name=party_identifier, guild_id=interaction.guild.id)
+        elif requester_player.current_party_id:
+            party_to_view = await party_crud.get(session, id=requester_player.current_party_id)
 
         if not party_to_view:
             msg = f"Группа '{party_identifier}' не найдена." if party_identifier else "Вы не состоите в группе."
@@ -320,7 +327,13 @@ class PartyCog(commands.GroupCog, name="party"):
         leader = await player_crud.get(session, id=party_to_view.leader_player_id)
         embed.add_field(name="Лидер", value=leader.name if leader else "Неизвестен", inline=True)
 
-        member_names = [p.name for p in await player_crud.get_multi_by_ids(session, ids=party_to_view.player_ids_json)]
+        member_names = []
+        if party_to_view.player_ids_json:
+            for player_id in party_to_view.player_ids_json:
+                p = await player_crud.get(session, id=player_id)
+                if p:
+                    member_names.append(p.name)
+
         embed.add_field(name=f"Участники ({len(member_names)})", value=", ".join(member_names) if member_names else "Нет", inline=False)
 
         await interaction.response.send_message(embed=embed)
@@ -328,8 +341,8 @@ class PartyCog(commands.GroupCog, name="party"):
     @app_commands.command(name="invite", description="Пригласить игрока в вашу группу.")
     @app_commands.describe(target_player="Игрок, которого вы хотите пригласить.")
     @transactional(read_only=True)
-    async def party_invite(self, interaction: discord.Interaction, target_player: discord.Member, session: Optional[AsyncSession] = None):
-        if not interaction.guild or not session:
+    async def party_invite(self, interaction: discord.Interaction, target_player: discord.Member, session: AsyncSession):
+        if not interaction.guild:
             await interaction.response.send_message("Команда только для сервера.", ephemeral=True)
             return
 
@@ -353,5 +366,5 @@ class PartyCog(commands.GroupCog, name="party"):
             await interaction.response.send_message(f"Не удалось отправить ЛС {target_player.mention}.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
-    bot.tree.add_command(PartyCog(bot))
+    await bot.add_cog(PartyCog(bot))
     logger.info("PartyCog (slash) успешно загружен и добавлен в дерево команд.")

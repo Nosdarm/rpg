@@ -128,7 +128,7 @@ async def test_progress_create_success_player(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_core_party_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -165,7 +165,7 @@ async def test_progress_create_error_no_owner(
     expected_error_message = "Either player_id or party_id must be provided."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -193,7 +193,7 @@ async def test_progress_create_error_quest_not_found(
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message_template)
     mock_gq_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=999,
@@ -226,7 +226,7 @@ async def test_progress_create_error_step_not_found(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_qs_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -259,7 +259,7 @@ async def test_progress_create_error_already_exists(
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
     mock_pqp_crud.get_by_player_and_quest = AsyncMock(return_value=PlayerQuestProgress(id=1))
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -285,7 +285,7 @@ async def test_progress_create_guild_only_command(
 
     interaction_no_guild = MockDiscordInteraction(guild_id=None)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         interaction_no_guild,
         quest_id=1,
@@ -309,7 +309,7 @@ async def test_progress_create_error_both_player_and_party_ids(
     expected_error_message = "Provide either player_id or party_id, not both."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -334,7 +334,7 @@ async def test_progress_create_invalid_status_string(
     # This mock will return the template, the SUT will format it
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message_template)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -374,7 +374,7 @@ async def test_progress_create_invalid_progress_data_json(
     mock_gq_crud.get = AsyncMock(return_value=GeneratedQuest(id=1, guild_id=123, static_id="q1", title_i18n={"en":"Test Quest"}))
     mock_core_player_crud.get = AsyncMock(return_value=Player(id=1, guild_id=123, discord_id="user1", name="Player1"))
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -399,7 +399,7 @@ async def test_progress_create_invalid_accepted_at_iso_format(
     expected_error_message = "Invalid ISO 8601 format for accepted_at_iso."
     mock_get_loc_msg.side_effect = mock_get_localized_message_template_side_effect_factory(expected_error_message)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -433,7 +433,7 @@ async def test_progress_create_db_error_on_create(
     mock_pqp_crud.get_by_player_and_quest = AsyncMock(return_value=None)
     mock_pqp_crud.create = AsyncMock(side_effect=Exception("DB error"))
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,
@@ -476,7 +476,7 @@ async def test_progress_create_success_party(
     mock_parse_json.return_value = {}
     mock_core_player_crud.get = AsyncMock(return_value=None)
 
-    await master_quest_cog.progress_create.callback( # type: ignore[reportCallIssue]
+    await master_quest_cog.progress_create.callback(
         master_quest_cog,
         mock_interaction,
         quest_id=1,

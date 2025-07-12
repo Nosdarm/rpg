@@ -82,7 +82,6 @@ async def on_enter_location(
 
         # 3. Trigger AI for dynamic details/events (integration)
         from .ai_orchestrator import trigger_dynamic_event_generation
-        from ..bot.core import get_bot_instance
         # This function will check rules to see if AI should generate a dynamic event.
         await trigger_dynamic_event_generation(
             session=session,
@@ -93,8 +92,7 @@ async def on_enter_location(
                 "entity_type": entity_type,
                 "location_id": location_id,
                 "location_static_id": location.static_id
-            },
-            bot=get_bot_instance()
+            }
         )
         logger.info(f"Dynamic AI event generation triggered for location {loc_display_name} (ID: {location_id}) for {entity_name}.")
 
@@ -139,25 +137,31 @@ async def on_enter_location(
         # For now, let's call it, and the quest system will have to be robust.
 
         if entity_type == "player":
-            asyncio.create_task(handle_player_event_for_quest(
-                session_factory=get_db_session, # Pass the session factory
+            log_entry = StoryLog(
                 guild_id=guild_id,
                 event_type=GameEventType.LOCATION_ENTERED,
                 details_json=event_details_for_quest,
-                player_id=entity_id,
-                source_log_id=None # Placeholder, see warning above
+                location_id=location_id,
+                entity_ids_json={"players": [entity_id]},
+            )
+            asyncio.create_task(handle_player_event_for_quest(
+                session,
+                log_entry
             ))
             logger.info(f"Quest system notified: Player {entity_id} entered location {location_id}.")
         elif entity_type == "party": # Assuming party is not None if entity_type is "party"
             party_obj = await party_crud.get(session, id=entity_id) # Re-fetch party to get member list if needed by quest system
             if party_obj:
-                asyncio.create_task(handle_player_event_for_quest(
-                    session_factory=get_db_session,
+                log_entry = StoryLog(
                     guild_id=guild_id,
                     event_type=GameEventType.LOCATION_ENTERED,
                     details_json=event_details_for_quest,
-                    party_id=entity_id,
-                    source_log_id=None # Placeholder
+                    location_id=location_id,
+                    entity_ids_json={"parties": [entity_id]},
+                )
+                asyncio.create_task(handle_player_event_for_quest(
+                    session,
+                    log_entry
                 ))
                 logger.info(f"Quest system notified: Party {entity_id} entered location {location_id}.")
             else:
