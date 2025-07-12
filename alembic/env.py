@@ -31,6 +31,10 @@ import sys
 # а импорты должны быть относительно src.
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
+# --- Add this print statement ---
+print(f"DEBUG: alembic/env.py: sys.path: {sys.path}")
+# --- End of added print statement ---
+
 from backend.config.settings import settings # Импортируем инстанс настроек Pydantic
 from backend.models import Base # Импортируем базовую модель из backend.models.__init__
 
