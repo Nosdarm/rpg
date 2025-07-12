@@ -8,7 +8,7 @@ from backend.models import Player, GeneratedNpc, CombatEncounter, Party # Added 
 from backend.models.enums import CombatStatus, PlayerStatus, PartyTurnStatus, EventType
 
 # Core module imports
-from backend.core import dice_roller, rules, check_resolver, npc_combat_strategy, combat_engine
+from backend.core import dice_roller, rules, check_resolver, npc_combat_strategy, combat_engine, game_events
 from backend.core.crud import crud_player, crud_party, crud_npc, crud_combat_encounter # May need specific cruds
 from backend.core.database import transactional # For atomic operations
 from backend.core.event_logger import log_event

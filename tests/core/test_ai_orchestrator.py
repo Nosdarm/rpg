@@ -108,7 +108,7 @@ async def test_trigger_ai_generation_flow_success(
         mock_guild_config_with_notification_channel
     ]
 
-    result = await trigger_dynamic_event_generation(
+    result = await handle_dynamic_event(
         session=mock_session,
         bot=mock_bot,
         guild_id=DEFAULT_GUILD_ID,
@@ -174,7 +174,7 @@ async def test_trigger_ai_generation_validation_failed(
     mock_create_entity.side_effect = mock_create_entity_side_effect_val_fail
 
     with patch("backend.core.ai_orchestrator.get_entity_by_id", new_callable=AsyncMock, return_value=mock_guild_config_with_notification_channel):
-        result = await trigger_dynamic_event_generation(
+        result = await handle_dynamic_event(
             session=mock_session,
             bot=mock_bot,
             guild_id=DEFAULT_GUILD_ID,
