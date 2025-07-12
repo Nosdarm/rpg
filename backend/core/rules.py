@@ -24,10 +24,7 @@ async def load_rules_config_for_guild(session: AsyncSession, guild_id: int) -> D
     """
     logger.debug(f"Loading rules from DB for guild_id: {guild_id}")
     statement = select(RuleConfig).where(RuleConfig.guild_id == guild_id)
-    result = await session.execute(statement) # Execute the statement
-    # For SQLAlchemy 2.x with async, result.scalars() is typically synchronous
-    # and returns an object with a synchronous .all() method.
-    rules_from_db = result.scalars().all()
+    rules_from_db = (await session.execute(statement)).scalars().all()
 
     guild_rules: Dict[str, Any] = {}
     for rule_model_instance in rules_from_db: # Renamed to avoid confusion if rule is a var name

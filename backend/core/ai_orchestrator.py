@@ -193,7 +193,7 @@ async def generate_narrative(
 
 
 @transactional
-async def trigger_dynamic_event_generation(
+async def handle_dynamic_event(
     session: AsyncSession,
     guild_id: int,
     context: Dict[str, Any],
@@ -262,6 +262,12 @@ async def trigger_dynamic_event_generation(
             else f"AI content (ID: {new_pending_generation.id}) failed validation."
         )
         await notify_master(bot, session, guild_id, message)
+
+    if new_pending_generation.triggered_by_user_id:
+        player = await get_entity_by_id(session, Player, entity_id=new_pending_generation.triggered_by_user_id, guild_id=guild_id)
+        if player:
+            await update_entity(session, player, {"current_status": PlayerStatus.AWAITING_MODERATION})
+
 
     return new_pending_generation
 

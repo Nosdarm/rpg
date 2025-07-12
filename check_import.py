@@ -1,14 +1,21 @@
 import sys
-print("--- Attempting import from check_import.py ---")
-print(f"Current sys.path: {sys.path}")
-print(f"Current working directory: {__import__('os').getcwd()}")
+import pydantic
+import pydantic_settings
+
+print("Python Executable:", sys.executable)
+print("Python Version:", sys.version)
+print("Pydantic Version:", pydantic.__version__)
+print("Pydantic-Settings Loaded from:", pydantic_settings.__file__)
 
 try:
-    import backend.core.global_entity_manager
-    print("SUCCESS: import src.core.global_entity_manager worked!")
+    from pydantic_settings import BaseSettings
+    print("BaseSettings successfully imported from pydantic_settings")
 except ImportError as e:
-    print(f"FAIL (ImportError): {e}")
-except Exception as e:
-    print(f"FAIL (Other Exception): {e}")
+    print(f"Error importing BaseSettings from pydantic_settings: {e}")
 
-print("--- Finished import attempt from check_import.py ---")
+try:
+    from backend.config.settings import settings
+    print("Backend settings loaded successfully.")
+    print(settings)
+except Exception as e:
+    print(f"Error loading backend settings: {e}")
