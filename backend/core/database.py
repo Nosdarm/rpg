@@ -78,78 +78,25 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]: # Corrected ty
         # finally:
             # await session.close() # session is closed by the outer 'async with AsyncSessionLocal() as session:'
 
-# Декоратор для управления транзакциями
-def transactional(func):
-    """
-    Декоратор для выполнения функции внутри транзакции базы данных.
-    Автоматически получает сессию из get_db_session(), которая управляет commit/rollback.
-    Предполагается, что декорируемая функция является async и первым аргументом
-    ожидает сессию БД (db: AsyncSession).
-    """
-    import functools
-    import inspect # Ensure inspect is imported for the decorator
-    from unittest.mock import Mock # For isinstance check
+import contextvars
+import functools
 
+db_session = contextvars.ContextVar('db_session')
+
+def transactional(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        guild_id_for_log = kwargs.get('guild_id', 'N/A')
-
-        passed_session = None
-        processed_args = args
-
-        # Check if session is passed as a keyword argument
-        if "session" in kwargs and (isinstance(kwargs["session"], AsyncSession) or isinstance(kwargs["session"], Mock)):
-            passed_session = kwargs["session"]
-        # Else, check if session is passed as the first positional argument
-        elif args and (isinstance(args[0], AsyncSession) or isinstance(args[0], Mock)):
-            # Ensure the function signature's first parameter is indeed 'session'
-            # to avoid consuming 'self' or other parameters.
-            sig = inspect.signature(func)
-            params = list(sig.parameters.keys())
-            if params and params[0] == "session":
-                passed_session = args[0]
-                processed_args = args[1:] # Session consumed from args
-
-        if passed_session:
-            # A session was provided by the caller, use it directly.
-            # The decorated function `func` will receive this session.
-            # If it was from args[0] (and matched 'session' param), it's now in provided_session and removed from processed_args.
-            # If it was from kwargs, it's still in kwargs.
-            # The goal is for `func` to receive the session correctly as per its definition.
-            # If func is `def func(session, arg1, ...)`:
-            #   - called as wrapper(s, a1), provided_session=s, processed_args=(a1,), kwargs={} -> func(s, a1, **{})
-            #   - called as wrapper(a1, session=s), provided_session=s, processed_args=(a1,), kwargs={'session':s} -> func(a1, session=s) -> This might be an issue if func expects session first.
-            # For `process_guild_turn_if_ready(session, guild_id)`:
-            # Call: `wrapper(mock_session, guild_id)`
-            #   `passed_session` becomes `mock_session`. `processed_args` becomes `(guild_id,)`.
-            #   It should call `func(mock_session, guild_id)`.
-
-            # This simplified call assumes func correctly receives provided_session either positionally or via kwargs
-            # based on how it was originally passed to wrapper and how func is defined.
-            # The crucial point is NOT to create a new session if one is validly provided.
-
-            # If the session was originally positional and func expects it positionally first:
-            if processed_args is not args: # Means session was args[0] and consumed
-                 return await func(passed_session, *processed_args, **kwargs)
-            else: # Session was from kwargs or func handles it through kwargs
-                 return await func(*processed_args, **kwargs) # kwargs contains 'session' if it was passed that way
-
-        else:
-            # No usable session provided by the caller, create a new one.
-            async with get_db_session() as new_created_session:
-                try:
-                    # Pass the new_created_session as a keyword argument 'session'.
-                    # original_args here are the args passed to the wrapper.
-                    # This was the problematic line: func(new_created_session, *args, **kwargs)
-                    # if *args still contained a mock_session that wasn't detected.
-                    # Now, *processed_args* should be clean of any previously passed session.
-                    # Ensure kwargs doesn't already have 'session' if func doesn't expect it to be overwritten.
-                    # However, given this branch means no session was passed, it's safe to inject.
-                    result = await func(*processed_args, session=new_created_session, **kwargs)
-                    return result
-                except Exception as e:
-                    logger.error(f"Ошибка в транзакционной функции {func.__name__} (guild_id: {guild_id_for_log}): {e}", exc_info=True)
-                    raise
+        async with AsyncSessionLocal() as session:
+            token = db_session.set(session)
+            try:
+                result = await func(*args, **kwargs)
+                await session.commit()
+                return result
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                db_session.reset(token)
     return wrapper
 
 async def init_db():

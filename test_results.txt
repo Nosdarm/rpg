@@ -3,88 +3,726 @@ platform linux -- Python 3.12.11, pytest-8.4.1, pluggy-1.6.0 -- /home/jules/.pye
 cachedir: .pytest_cache
 rootdir: /app
 configfile: pytest.ini
-plugins: asyncio-1.0.0, anyio-4.9.0, mock-3.14.1
+plugins: mock-3.14.1, anyio-4.9.0, asyncio-1.0.0
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
-collecting ... collected 840 items / 5 errors
+collecting ... collected 85 items / 51 errors
 
 ==================================== ERRORS ====================================
+_______________ ERROR collecting tests/api/routers/test_auth.py ________________
+tests/api/routers/test_auth.py:11: in <module>
+    from backend.main import app
+backend/main.py:18: in <module>
+    from backend.core.database import init_db
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+------------------------------- Captured stdout --------------------------------
+WARNING: Environment variable DISCORD_TOKEN is not set.
+WARNING: Environment variable OPENAI_API_KEY is not set.
+WARNING: Environment variable SECRET_KEY is not set. This is critical for JWT security.
+WARNING: Environment variable DISCORD_CLIENT_ID is not set (required for OAuth2).
+WARNING: Environment variable DISCORD_CLIENT_SECRET is not set (required for OAuth2).
+WARNING: Environment variable DISCORD_REDIRECT_URI is not set (required for OAuth2).
+_____________ ERROR collecting tests/bot/api/test_commands_api.py ______________
+tests/bot/api/test_commands_api.py:23: in <module>
+    from backend.main import app # Импортируем FastAPI app из backend.main
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/main.py:19: in <module>
+    from backend.bot.api.commands_api import router as commands_api_router
+backend/bot/api/commands_api.py:7: in <module>
+    from backend.core.command_utils import get_bot_commands
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_ ERROR collecting tests/bot/commands/master_commands/test_master_conflict_commands.py _
+tests/bot/commands/master_commands/test_master_conflict_commands.py:21: in <module>
+    from backend.bot.commands.master_commands.conflict_master_commands import MasterConflictCog
+backend/bot/commands/master_commands/conflict_master_commands.py:12: in <module>
+    from backend.core.crud.crud_pending_conflict import pending_conflict_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_ ERROR collecting tests/bot/commands/master_commands/test_master_player_commands.py _
+tests/bot/commands/master_commands/test_master_player_commands.py:22: in <module>
+    from backend.bot.commands.master_commands.player_master_commands import MasterPlayerCog as PlayerMasterCommandsCog
+backend/bot/commands/master_commands/player_master_commands.py:10: in <module>
+    from backend.core.crud.crud_player import player_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_ ERROR collecting tests/bot/commands/master_commands/test_master_simulation_tools_cog.py _
+tests/bot/commands/master_commands/test_master_simulation_tools_cog.py:9: in <module>
+    from backend.bot.commands.master_commands.master_simulation_tools_cog import MasterSimulationToolsCog
+backend/bot/commands/master_commands/master_simulation_tools_cog.py:9: in <module>
+    from backend.core.localization_utils import get_localized_master_message # Removed get_localized_message_template as get_localized_master_message is preferred for master commands
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_ ERROR collecting tests/bot/commands/master_commands/test_monitoring_master_commands.py _
+tests/bot/commands/master_commands/test_monitoring_master_commands.py:13: in <module>
+    from backend.bot.commands.master_commands.monitoring_master_commands import MasterMonitoringCog
+backend/bot/commands/master_commands/monitoring_master_commands.py:9: in <module>
+    from backend.core.crud.crud_story_log import story_log_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_ ERROR collecting tests/bot/commands/master_commands/test_quest_master_commands.py _
+tests/bot/commands/master_commands/test_quest_master_commands.py:13: in <module>
+    from backend.bot.commands.master_commands.quest_master_commands import MasterQuestCog
+backend/bot/commands/master_commands/quest_master_commands.py:11: in <module>
+    from backend.core.crud.crud_quest import questline_crud, generated_quest_crud, quest_step_crud, player_quest_progress_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+________ ERROR collecting tests/bot/commands/test_character_commands.py ________
+tests/bot/commands/test_character_commands.py:15: in <module>
+    from backend.bot.commands.character_commands import CharacterCog #, logger
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/bot/commands/character_commands.py:8: in <module>
+    from backend.core.crud.crud_player import player_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_________ ERROR collecting tests/bot/commands/test_general_commands.py _________
+tests/bot/commands/test_general_commands.py:16: in <module>
+    from backend.bot.commands.general_commands import GeneralCog
+backend/bot/commands/general_commands.py:10: in <module>
+    from backend.core.crud.crud_player import player_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+___________ ERROR collecting tests/bot/commands/test_map_commands.py ___________
+tests/bot/commands/test_map_commands.py:15: in <module>
+    from backend.bot.commands.map_commands import MapMasterCog
+backend/bot/commands/map_commands.py:12: in <module>
+    from backend.core.map_management import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
 __________ ERROR collecting tests/bot/commands/test_party_commands.py __________
 tests/bot/commands/test_party_commands.py:15: in <module>
     from backend.bot.commands.party_commands import PartyCog
-backend/bot/commands/party_commands.py:22: in <module>
-    class PartyCog(commands.GroupCog, name="party"):
-backend/bot/commands/party_commands.py:27: in PartyCog
-    @app_commands.command(name="create", description="Создать новую группу.")
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:2060: in decorator
-    return Command(
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:687: in __init__
-    self._params: Dict[str, CommandParameter] = _extract_parameters_from_callback(callback, callback.__globals__)
-                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/app_commands/commands.py:380: in _extract_parameters_from_callback
-    raise TypeError(f'parameter {parameter.name!r} is missing a type annotation in callback {func.__qualname__!r}')
-E   TypeError: parameter 'session' is missing a type annotation in callback 'PartyCog.party_create'
+backend/bot/commands/party_commands.py:10: in <module>
+    from backend.core.crud.crud_player import player_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+__________________ ERROR collecting tests/bot/test_events.py ___________________
+tests/bot/test_events.py:17: in <module>
+    import backend.bot.events # Changed import style
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/bot/events.py:8: in <module>
+    from ..core.crud.crud_guild import guild_crud # Assuming guild_crud exists
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/crud/test_crud_faction.py _____________
+tests/core/crud/test_crud_faction.py:17: in <module>
+    from backend.core.crud.crud_faction import crud_faction
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_________ ERROR collecting tests/core/crud/test_crud_inventory_item.py _________
+tests/core/crud/test_crud_inventory_item.py:13: in <module>
+    from backend.core.crud.crud_inventory_item import inventory_item_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/crud/test_crud_item.py ______________
+tests/core/crud/test_crud_item.py:11: in <module>
+    from backend.core.crud.crud_item import item_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
 _____________ ERROR collecting tests/core/crud/test_crud_party.py ______________
-ImportError while importing test module '/app/tests/core/crud/test_crud_party.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/core/crud/test_crud_party.py:24: in <module>
-    from backend.models.custom_types import JsonBForSQLite
-E   ImportError: cannot import name 'JsonBForSQLite' from 'backend.models.custom_types' (/app/backend/models/custom_types.py)
+tests/core/crud/test_crud_party.py:21: in <module>
+    from backend.core.crud.crud_party import party_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+________ ERROR collecting tests/core/crud/test_crud_party_npc_memory.py ________
+tests/core/crud/test_crud_party_npc_memory.py:11: in <module>
+    from backend.core.crud.crud_party_npc_memory import crud_party_npc_memory, CRUDPartyNpcMemory
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
 _____________ ERROR collecting tests/core/crud/test_crud_player.py _____________
-ImportError while importing test module '/app/tests/core/crud/test_crud_player.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/core/crud/test_crud_player.py:29: in <module>
-    from backend.models.custom_types import JsonBForSQLite # This is the one we need
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   ImportError: cannot import name 'JsonBForSQLite' from 'backend.models.custom_types' (/app/backend/models/custom_types.py)
+tests/core/crud/test_crud_player.py:23: in <module>
+    from backend.core.crud.crud_player import player_crud
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/crud/test_crud_quest.py ______________
+tests/core/crud/test_crud_quest.py:10: in <module>
+    from backend.core.crud.crud_quest import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_ability_system.py ______________
+tests/core/test_ability_system.py:16: in <module>
+    from backend.core.ability_system import activate_ability, apply_status, remove_status
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_action_processor.py _____________
+tests/core/test_action_processor.py:21: in <module>
+    from backend.core.action_processor import process_actions_for_guild
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_ai_analysis_system.py ____________
+tests/core/test_ai_analysis_system.py:16: in <module>
+    from backend.core.ai_analysis_system import analyze_generated_content, AIAnalysisResult, EntityAnalysisReport
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_ai_orchestrator.py ______________
+tests/core/test_ai_orchestrator.py:18: in <module>
+    from backend.core.ai_orchestrator import save_approved_generation
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_ai_prompt_builder.py _____________
+tests/core/test_ai_prompt_builder.py:16: in <module>
+    from backend.core.ai_prompt_builder import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_ai_response_parser.py ____________
+tests/core/test_ai_response_parser.py:15: in <module>
+    from backend.core.ai_response_parser import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_check_resolver.py ______________
+tests/core/test_check_resolver.py:14: in <module>
+    from backend.core.check_resolver import resolve_check, CheckError
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+___________ ERROR collecting tests/core/test_combat_cycle_manager.py ___________
+tests/core/test_combat_cycle_manager.py:13: in <module>
+    from backend.core.combat_cycle_manager import start_combat, process_combat_turn #, _handle_combat_end_consequences (private)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_combat_engine.py _______________
+tests/core/test_combat_engine.py:13: in <module>
+    from backend.core.combat_engine import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_command_utils.py _______________
+tests/core/test_command_utils.py:15: in <module>
+    from backend.core.command_utils import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+________ ERROR collecting tests/core/test_conflict_simulation_system.py ________
+tests/core/test_conflict_simulation_system.py:16: in <module>
+    from backend.core.conflict_simulation_system import simulate_conflict_detection, _extract_primary_target_signature, SimulatedActionActor
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_dialogue_system.py ______________
+tests/core/test_dialogue_system.py:7: in <module>
+    from backend.core.dialogue_system import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_______________ ERROR collecting tests/core/test_dice_roller.py ________________
+tests/core/test_dice_roller.py:14: in <module>
+    from backend.core.dice_roller import roll_dice
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_experience_system.py _____________
+tests/core/test_experience_system.py:14: in <module>
+    from backend.core.experience_system import award_xp, _check_for_level_up
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_______________ ERROR collecting tests/core/test_game_events.py ________________
+tests/core/test_game_events.py:13: in <module>
+    from backend.core.utils import log_event
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+__________ ERROR collecting tests/core/test_global_entity_manager.py ___________
+tests/core/test_global_entity_manager.py:47: in <module>
+    import backend.core.global_entity_manager # Import the module path directly
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+___________ ERROR collecting tests/core/test_interaction_handlers.py ___________
+tests/core/test_interaction_handlers.py:14: in <module>
+    from backend.core.interaction_handlers import handle_intra_location_action
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_localization_utils.py ____________
+tests/core/test_localization_utils.py:14: in <module>
+    from backend.core.localization_utils import get_localized_text, get_localized_entity_name, get_batch_localized_entity_names # Added import
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_locations_utils.py ______________
+tests/core/test_locations_utils.py:19: in <module>
+    from backend.core.locations_utils import get_localized_text, get_location, get_location_by_static_id
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_map_management.py ______________
+tests/core/test_map_management.py:14: in <module>
+    from backend.core.map_management import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+______________ ERROR collecting tests/core/test_movement_logic.py ______________
+tests/core/test_movement_logic.py:14: in <module>
+    from backend.core.movement_logic import handle_move_action, MovementError
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_______________ ERROR collecting tests/core/test_nlu_service.py ________________
+tests/core/test_nlu_service.py:10: in <module>
+    from backend.core.nlu_service import parse_player_input
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+___________ ERROR collecting tests/core/test_npc_combat_strategy.py ____________
+tests/core/test_npc_combat_strategy.py:14: in <module>
+    from backend.core.npc_combat_strategy import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+____________ ERROR collecting tests/core/test_npc_memory_system.py _____________
+tests/core/test_npc_memory_system.py:6: in <module>
+    from backend.core.npc_memory_system import add_to_npc_memory, get_npc_memory
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_______________ ERROR collecting tests/core/test_quest_system.py _______________
+tests/core/test_quest_system.py:7: in <module>
+    from backend.core.quest_system import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+___________ ERROR collecting tests/core/test_relationship_system.py ____________
+tests/core/test_relationship_system.py:6: in <module>
+    from backend.core.relationship_system import _get_canonical_entity_pair, update_relationship
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_report_formatter.py _____________
+tests/core/test_report_formatter.py:14: in <module>
+    from backend.core.report_formatter import format_turn_report, _format_log_entry_with_names_cache, _collect_entity_refs_from_log_entry
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+__________________ ERROR collecting tests/core/test_rules.py ___________________
+tests/core/test_rules.py:18: in <module>
+    from backend.core.rules import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_______________ ERROR collecting tests/core/test_trade_system.py _______________
+tests/core/test_trade_system.py:8: in <module>
+    from backend.core.trade_system import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________ ERROR collecting tests/core/test_turn_controller.py ______________
+tests/core/test_turn_controller.py:18: in <module>
+    from backend.core.turn_controller import (
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
 _____________ ERROR collecting tests/core/test_world_generation.py _____________
-ImportError while importing test module '/app/tests/core/test_world_generation.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/core/test_world_generation.py:23: in <module>
-    from backend.models.custom_types import JsonBForSQLite # Added
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   ImportError: cannot import name 'JsonBForSQLite' from 'backend.models.custom_types' (/app/backend/models/custom_types.py)
-______________ ERROR collecting tests/models/test_custom_types.py ______________
-ImportError while importing test module '/app/tests/models/test_custom_types.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/home/jules/.pyenv/versions/3.12.11/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/models/test_custom_types.py:20: in <module>
-    from backend.models.custom_types import JsonBForSQLite
-E   ImportError: cannot import name 'JsonBForSQLite' from 'backend.models.custom_types' (/app/backend/models/custom_types.py)
+tests/core/test_world_generation.py:25: in <module>
+    from backend.core.crud.crud_location import location_crud # Added
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
+_____________________ ERROR collecting tests/test_main.py ______________________
+tests/test_main.py:17: in <module>
+    from backend import main as main_module
+backend/main.py:19: in <module>
+    from backend.bot.api.commands_api import router as commands_api_router
+backend/bot/api/commands_api.py:7: in <module>
+    from backend.core.command_utils import get_bot_commands
+backend/core/__init__.py:13: in <module>
+    from .rules import get_rule, update_rule_config, load_rules_config_for_guild, get_all_rules_for_guild
+backend/core/rules.py:59: in <module>
+    @transactional
+     ^^^^^^^^^^^^^
+backend/core/database.py:86: in transactional
+    @functools.wraps(func)
+     ^^^^^^^^^
+E   NameError: name 'functools' is not defined. Did you forget to import 'functools'
 =============================== warnings summary ===============================
 ../home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/player.py:29
   /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/discord/player.py:29: DeprecationWarning: 'audioop' is deprecated and slated for removal in Python 3.13
     import audioop
 
-../home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/pydantic/_internal/_config.py:323
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/pydantic/_internal/_config.py:323: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
-    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
-
-../home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/passlib/utils/__init__.py:854
-  /home/jules/.pyenv/versions/3.12.11/lib/python3.12/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
-    from crypt import crypt as _crypt
-
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
-ERROR tests/bot/commands/test_party_commands.py - TypeError: parameter 'sessi...
-ERROR tests/core/crud/test_crud_party.py
-ERROR tests/core/crud/test_crud_player.py
-ERROR tests/core/test_world_generation.py
-ERROR tests/models/test_custom_types.py
-!!!!!!!!!!!!!!!!!!! Interrupted: 5 errors during collection !!!!!!!!!!!!!!!!!!!!
-======================== 3 warnings, 5 errors in 8.41s =========================
+ERROR tests/api/routers/test_auth.py - NameError: name 'functools' is not def...
+ERROR tests/bot/api/test_commands_api.py - NameError: name 'functools' is not...
+ERROR tests/bot/commands/master_commands/test_master_conflict_commands.py - N...
+ERROR tests/bot/commands/master_commands/test_master_player_commands.py - Nam...
+ERROR tests/bot/commands/master_commands/test_master_simulation_tools_cog.py
+ERROR tests/bot/commands/master_commands/test_monitoring_master_commands.py
+ERROR tests/bot/commands/master_commands/test_quest_master_commands.py - Name...
+ERROR tests/bot/commands/test_character_commands.py - NameError: name 'functo...
+ERROR tests/bot/commands/test_general_commands.py - NameError: name 'functool...
+ERROR tests/bot/commands/test_map_commands.py - NameError: name 'functools' i...
+ERROR tests/bot/commands/test_party_commands.py - NameError: name 'functools'...
+ERROR tests/bot/test_events.py - NameError: name 'functools' is not defined. ...
+ERROR tests/core/crud/test_crud_faction.py - NameError: name 'functools' is n...
+ERROR tests/core/crud/test_crud_inventory_item.py - NameError: name 'functool...
+ERROR tests/core/crud/test_crud_item.py - NameError: name 'functools' is not ...
+ERROR tests/core/crud/test_crud_party.py - NameError: name 'functools' is not...
+ERROR tests/core/crud/test_crud_party_npc_memory.py - NameError: name 'functo...
+ERROR tests/core/crud/test_crud_player.py - NameError: name 'functools' is no...
+ERROR tests/core/crud/test_crud_quest.py - NameError: name 'functools' is not...
+ERROR tests/core/test_ability_system.py - NameError: name 'functools' is not ...
+ERROR tests/core/test_action_processor.py - NameError: name 'functools' is no...
+ERROR tests/core/test_ai_analysis_system.py - NameError: name 'functools' is ...
+ERROR tests/core/test_ai_orchestrator.py - NameError: name 'functools' is not...
+ERROR tests/core/test_ai_prompt_builder.py - NameError: name 'functools' is n...
+ERROR tests/core/test_ai_response_parser.py - NameError: name 'functools' is ...
+ERROR tests/core/test_check_resolver.py - NameError: name 'functools' is not ...
+ERROR tests/core/test_combat_cycle_manager.py - NameError: name 'functools' i...
+ERROR tests/core/test_combat_engine.py - NameError: name 'functools' is not d...
+ERROR tests/core/test_command_utils.py - NameError: name 'functools' is not d...
+ERROR tests/core/test_conflict_simulation_system.py - NameError: name 'functo...
+ERROR tests/core/test_dialogue_system.py - NameError: name 'functools' is not...
+ERROR tests/core/test_dice_roller.py - NameError: name 'functools' is not def...
+ERROR tests/core/test_experience_system.py - NameError: name 'functools' is n...
+ERROR tests/core/test_game_events.py - NameError: name 'functools' is not def...
+ERROR tests/core/test_global_entity_manager.py - NameError: name 'functools' ...
+ERROR tests/core/test_interaction_handlers.py - NameError: name 'functools' i...
+ERROR tests/core/test_localization_utils.py - NameError: name 'functools' is ...
+ERROR tests/core/test_locations_utils.py - NameError: name 'functools' is not...
+ERROR tests/core/test_map_management.py - NameError: name 'functools' is not ...
+ERROR tests/core/test_movement_logic.py - NameError: name 'functools' is not ...
+ERROR tests/core/test_nlu_service.py - NameError: name 'functools' is not def...
+ERROR tests/core/test_npc_combat_strategy.py - NameError: name 'functools' is...
+ERROR tests/core/test_npc_memory_system.py - NameError: name 'functools' is n...
+ERROR tests/core/test_quest_system.py - NameError: name 'functools' is not de...
+ERROR tests/core/test_relationship_system.py - NameError: name 'functools' is...
+ERROR tests/core/test_report_formatter.py - NameError: name 'functools' is no...
+ERROR tests/core/test_rules.py - NameError: name 'functools' is not defined. ...
+ERROR tests/core/test_trade_system.py - NameError: name 'functools' is not de...
+ERROR tests/core/test_turn_controller.py - NameError: name 'functools' is not...
+ERROR tests/core/test_world_generation.py - NameError: name 'functools' is no...
+ERROR tests/test_main.py - NameError: name 'functools' is not defined. Did yo...
+!!!!!!!!!!!!!!!!!!! Interrupted: 51 errors during collection !!!!!!!!!!!!!!!!!!!
+======================== 1 warning, 51 errors in 2.86s =========================
